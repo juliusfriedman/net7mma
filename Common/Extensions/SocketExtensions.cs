@@ -62,13 +62,6 @@ namespace Media.Common.Extensions.Socket
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public static int FindOpenPort(System.Net.Sockets.ProtocolType type, int start = 30000, bool even = true, System.Net.IPAddress localIp = null)
         {
-
-#if __IOS__ || __WATCHOS__ || __TVOS__ || __ANDROID__ || __ANDROID_11__
-
-            //Since apparently the IPGlobalProperties implementation on those platforms doesn't work with the logic below.
-            return ProbeForOpenPort(type, start, even, localIp);
-
-#else
             //As IP would imply either or Only Tcp or Udp please.
             if (type != System.Net.Sockets.ProtocolType.Udp && type != System.Net.Sockets.ProtocolType.Tcp) return -1;
 
@@ -82,37 +75,40 @@ namespace Media.Common.Extensions.Socket
             if (ipGlobalProperties == null) return port = -1;
 
             //We need endpoints to ensure the ports we want are not in use
-            System.Collections.Generic.IEnumerable<System.Net.IPEndPoint> listeners = System.Linq.Enumerable.Empty<System.Net.IPEndPoint>();
+            System.Collections.Generic.IEnumerable<System.Net.IPEndPoint> listeners;// = System.Linq.Enumerable.Empty<System.Net.IPEndPoint>();
 
-            //Determine if Udp or Tcp listeners are being checked.
-            switch (type)
+            //Try to get the active listeners of the type of protocol specified.
+            try
             {
-                case System.Net.Sockets.ProtocolType.Udp: 
-                    listeners = ipGlobalProperties.GetActiveUdpListeners();
-                    break;
-                case System.Net.Sockets.ProtocolType.Tcp:
-                    listeners = ipGlobalProperties.GetActiveTcpListeners();
-                    break;
-                default: throw new System.NotSupportedException("The given ProtocolType is not supported");
+                //Determine if Udp or Tcp listeners are being checked.
+                switch (type)
+                {
+                    case System.Net.Sockets.ProtocolType.Udp:
+                        listeners = ipGlobalProperties.GetActiveUdpListeners();
+                        break;
+                    case System.Net.Sockets.ProtocolType.Tcp:
+                        listeners = ipGlobalProperties.GetActiveTcpListeners();
+                        break;
+                    default: throw new System.NotSupportedException("The given ProtocolType is not supported");
+                }
+            }
+            catch (System.NotImplementedException)
+            {
+                //When the method is not implemented then use ProbeForOpenPorts.
+                return ProbeForOpenPort(type, start, even, localIp);
             }
 
-            //Enumerate the ones that are = or > then port and increase port along the way
+            //Enumerate the listeners that are == then port and increase port along the way
             foreach (System.Net.IPEndPoint ep in listeners)
             {
                 //If the port is less than the port in question continue.
                 if (ep.Port < port) continue;
 
                 //Ensure correctly filtering to the given IP
-                if (ep.Address != System.Net.IPAddress.Any && localIp != null && ep.Address != localIp) continue;
+                if (localIp != null && ep.Address != localIp) continue;
 
                 if (port == ep.Port) port++; //Increment the port
                 else if (ep.Port == port + 1) port += 2; //Increment by 2, probably not needed. Trying to find a port pair is beyond the scope of this function.
-                else if (localIp != null && localIp == ep.Address && ep.Port > port)//If the address is the same and ep.Port is > then port
-                {
-                    //Our port is less than ep.Port
-                    port = ep.Port - 1;
-                    break;
-                }
 
                 //Only look until the max port is reached.
                 if (port > ushort.MaxValue) return -1;
@@ -124,20 +120,6 @@ namespace Media.Common.Extensions.Socket
             //We found an even and we wanted odd or vice versa
             //Only increase the port if not ushort.MaxValue
             return port == ushort.MaxValue ? port : ++port;
-#endif
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="type"></param>
-        /// <param name="start"></param>
-        /// <param name="even"></param>
-        /// <returns>Returns 0 if any error occurs, otherwise the open port.</returns>
-        public static int TryFindOpenPort(System.Net.Sockets.ProtocolType type, int start = 30000, bool even = true)
-        {
-            try { int port = FindOpenPort(type, start, even); return port == -1 ? 0 : port; }
-            catch { return 0; }
         }
 
         /// <summary>

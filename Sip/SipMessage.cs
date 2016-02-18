@@ -118,6 +118,5 @@ namespace Media.Sip
         //MinimumStatusLineSize = 8...
 
         //Override ParseStatusLine or have instance variable.
-
     }
 }

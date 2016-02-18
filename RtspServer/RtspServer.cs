@@ -460,6 +460,8 @@ namespace Media.Rtsp
 
             //Must be admin...
 
+            //Todo, use HttpClient / HttpServer
+
             if (m_HttpListner == null)
             {
                 try
