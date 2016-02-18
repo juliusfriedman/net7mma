@@ -62,6 +62,8 @@ namespace Media.UnitTests
             TestClock,
             TestTimer,
             //Common
+            TestPlatformExtensions,
+            TestOperatingSystemExtensions,
             TestEncodingExtensions, 
             TestUtility, 
             TestBinary, 
@@ -129,6 +131,28 @@ namespace Media.UnitTests
         #region Not Yet Redone
 
         //The following tests need to be properly seperated
+
+        public static void TestPlatformExtensions()
+        {
+            if (Common.Extensions.RuntimeExtensions.IsMono) System.Console.WriteLine("IsMono");
+
+            if (Common.Extensions.RuntimeExtensions.IsAndroid) System.Console.WriteLine("IsAndroid");
+
+            if (Common.Extensions.RuntimeExtensions.IsiOS) System.Console.WriteLine("IsiOS");
+
+            
+        }
+
+        public static void TestOperatingSystemExtensions()
+        {
+            if (Common.Extensions.OperatingSystemExtensions.IsLinux) System.Console.WriteLine("IsLinux");
+
+            if (Common.Extensions.OperatingSystemExtensions.IsMac) System.Console.WriteLine("IsMac");
+
+            if (Common.Extensions.OperatingSystemExtensions.IsTVOS) System.Console.WriteLine("IsTVOS");
+
+            if (Common.Extensions.OperatingSystemExtensions.IsWatchOS) System.Console.WriteLine("IsWatchOS");            
+        }
 
         public static void TestUtility()
         {
@@ -492,7 +516,7 @@ namespace Media.UnitTests
                             consoleWriter.WriteLine("\t -----------------------");
                             consoleWriter.WriteLine("\t Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
 
-                        }
+                        }                        
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "\t *** Sent RtpFrame, Sending Reports and Goodbye ***");
 
