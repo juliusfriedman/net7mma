@@ -1762,7 +1762,6 @@ namespace Media.Rtsp
                         }
                         else //There was a session found by the given Id
                         {
-
                             //Indicate the last request of this session was as given
                             session.LastRequest = request;
 

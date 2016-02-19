@@ -342,7 +342,7 @@ namespace Media.UnitTests
                 //Permute every possible value in the Padding field.
                 for (byte PaddingCounter = byte.MinValue; PaddingCounter <= Media.Common.Binary.FiveBitMaxValue; ++PaddingCounter)
                 {
-                    //Enumerate every possible reason length
+                    //Enumerate every possible reason length within reason.
                     for (byte ReasonLength = byte.MinValue; ReasonLength <= Media.Common.Binary.FiveBitMaxValue; ++ReasonLength)
                     {
                         //Create the RandomId and ReasonForLeaving

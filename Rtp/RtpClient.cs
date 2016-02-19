@@ -3738,10 +3738,12 @@ namespace Media.Rtp
 
                 #region Unused Feature [Early Rtcp]
 
-                //Send the initial senders report
+                //Should allow to be overridden by option or otherwise, should not be required.
+
+                //Send the initial senders report, needs to check the SessionDescription to determine if sending is supported..
                 //SendSendersReports();
                 
-                //Send the initial receivers report
+                //Send the initial receivers report, needs to check the SessionDescription to see if recieve is supported...
                 //SendReceiversReports();
 
                 #endregion

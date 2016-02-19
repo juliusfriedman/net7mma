@@ -1934,6 +1934,26 @@ namespace Media.UnitTests
             //Create the file every time the test starts
             using (var fs = new System.IO.FileStream(outputFileName, System.IO.FileMode.Create, System.IO.FileAccess.ReadWrite))
             {
+                /* NOTE, Apparently it's not clear that when using the RtpClient you would already have access to a RtpFrame via the FrameChanged Event...
+                 * 
+                 * 
+                 * 
+                 void Client_RtpFrameChanged(object sender, Media.Rtp.RtpFrame frame, Media.Rtp.RtpClient.TransportContext tc = null, bool final = false){
+                 
+                 if (frame.IsDisposed || false == frame.IsComplete && false == final) return;
+
+                var context = tc ?? ((Media.Rtp.RtpClient)sender).GetContextByPayloadType(frame.PayloadTypeByte);
+
+                if (context == null || context.MediaDescription.MediaType != Media.Sdp.MediaType.video) return;
+
+                 using (Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame hframe = new Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame(frame))
+                 {
+                    hframe.Depacketize();
+                 * //The rest of the example applies exactly the same.
+                 }
+                }
+                 */
+
                 //Create a RFC6184Frame
                 using (Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame profileFrame = new Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame(97))
                 {
