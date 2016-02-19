@@ -227,22 +227,27 @@ namespace Media.Common.Extensions.Socket
         public static System.Net.IPAddress GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily addressFamily)
         {
             //Check for a supported AddressFamily
-            if (addressFamily != System.Net.Sockets.AddressFamily.InterNetwork &&
-                addressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) throw new System.NotSupportedException("Only InterNetwork or InterNetworkV6 is supported.");
-
-            //If there is no network available use the Loopback adapter.
-            if (false == System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable()) return addressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? System.Net.IPAddress.Loopback : System.Net.IPAddress.IPv6Loopback;
-
-            //Iterate for each Network Interface available.
-            foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+            switch (addressFamily)
             {
-                System.Net.IPAddress result = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetFirstUnicastIPAddress(networkInterface, addressFamily);
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    {
+                        //If there is no network available use the Loopback adapter.
+                        if (false == System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable()) return addressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? System.Net.IPAddress.Loopback : System.Net.IPAddress.IPv6Loopback;
 
-                if (result != null) return result;
+                        //Iterate for each Network Interface available.
+                        foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                        {
+                            System.Net.IPAddress result = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetFirstUnicastIPAddress(networkInterface, addressFamily);
+
+                            if (result != null) return result;
+                        }
+
+                        //Could not find an IP.
+                        return System.Net.IPAddress.None;
+                    }
+                default: throw new System.NotSupportedException("Only InterNetwork or InterNetworkV6 is supported.");
             }
-
-            //Could not find an IP.
-            return System.Net.IPAddress.None;
         }
 
         //Should also have a TrySetSocketOption

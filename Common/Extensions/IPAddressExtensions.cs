@@ -78,11 +78,15 @@ namespace Media.Common.Extensions.IPAddress
         private static System.Net.IPAddress intranetMask3v4 = System.Net.IPAddress.Parse("172.31.255.255");
         private static System.Net.IPAddress intranetMask4v4 = System.Net.IPAddress.Parse("192.168.255.255");
 
-        private static System.Net.IPAddress emptyIpv6 = emptyIpv4.MapToIPv6();
-        private static System.Net.IPAddress intranetMask1v6 = intranetMask1v4.MapToIPv6();
-        private static System.Net.IPAddress intranetMask2v6 = intranetMask2v4.MapToIPv6();
-        private static System.Net.IPAddress intranetMask3v6 = intranetMask3v4.MapToIPv6();
-        private static System.Net.IPAddress intranetMask4v6 = intranetMask4v4.MapToIPv6();
+        //Should check if ipV6 is even supported before defining them.
+        //Shoul be null and then in Static constructor should check =>
+        //System.Net.Sockets.Socket.OSSupportsIPv6 or try GetIPv6Properties().Index > -999 from the networkInterface...
+
+        private static System.Net.IPAddress emptyIpv6 = System.Net.IPAddress.IPv6Any;
+        private static System.Net.IPAddress intranetMask1v6 = System.Net.IPAddress.Parse("::ffff:10.255.255.255");
+        private static System.Net.IPAddress intranetMask2v6 = System.Net.IPAddress.Parse("::ffff:172.16.0.0");
+        private static System.Net.IPAddress intranetMask3v6 = System.Net.IPAddress.Parse("::ffff:172.31.255.255");
+        private static System.Net.IPAddress intranetMask4v6 = System.Net.IPAddress.Parse("::ffff:192.168.255.255");
 
         /// <summary>
         /// Retuns true if the ip address is one of the following
@@ -94,67 +98,82 @@ namespace Media.Common.Extensions.IPAddress
         /// </summary>
         /// <returns></returns>
         public static bool IsOnIntranet(this System.Net.IPAddress ipAddress) //Nat
-        {
-            if (emptyIpv4.Equals(ipAddress))
-            {
-                return false;
-            }
-
+        {            
             bool onIntranet = System.Net.IPAddress.IsLoopback(ipAddress);
 
             if (false == onIntranet)
             {
-                //Handle IPv6 by getting the IPv4 Mapped Address. 
-                if (ipAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+                switch (ipAddress.AddressFamily)
                 {
+                    case System.Net.Sockets.AddressFamily.InterNetwork:
+                        {
+                            if (emptyIpv4.Equals(ipAddress))
+                            {
+                                return false;
+                            }
 
-                    onIntranet = System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask1v6)); //10.255.255.255
-                    onIntranet = onIntranet || System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask4v6)); ////192.168.255.255
+                            onIntranet = System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask1v4)); //10.255.255.255
+                            onIntranet = onIntranet || System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask4v4)); ////192.168.255.255
 
-                    onIntranet = onIntranet || (intranetMask2v4.Equals(ipAddress.And(intranetMask2v6))
-                      && System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask3v6)));
+                            return onIntranet = onIntranet || (intranetMask2v4.Equals(ipAddress.And(intranetMask2v4))
+                              && System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask3v4)));
+                        }
+                    case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                        {
+                            if (emptyIpv6.Equals(ipAddress))
+                            {
+                                return false;
+                            }
+
+                            onIntranet = System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask1v6)); //10.255.255.255
+                            onIntranet = onIntranet || System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask4v6)); ////192.168.255.255
+
+                            return onIntranet = onIntranet || (intranetMask2v6.Equals(ipAddress.And(intranetMask2v6))
+                              && System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask3v6)));
+                        }
+                    default: throw new System.NotSupportedException("Only InterNetwork and InterNetworkV6 Address Families are supported.");
                 }
-                else if (ipAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                {
-                    onIntranet = System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask1v4)); //10.255.255.255
-                    onIntranet = onIntranet || System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask4v4)); ////192.168.255.255
-
-                    onIntranet = onIntranet || (intranetMask2v4.Equals(ipAddress.And(intranetMask2v4))
-                      && System.Net.IPAddress.Equals(ipAddress, ipAddress.And(intranetMask3v4)));
-                }
-                else throw new System.NotSupportedException("Only InterNetwork and InterNetworkV6 Address Families are supported.");
             }
 
             return onIntranet;
         }
 
-        public static bool IsMulticast(this System.Net.IPAddress ip)
+        public static bool IsMulticast(this System.Net.IPAddress ipAddress)
         {
-            //Check for a ipv6 multicast address
-            if (ip.IsIPv6Multicast) return true;
+            if (ipAddress == null) return false;
 
-            //Check if mapped to v6 from v4 and unmap
-            if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
-
-            byte highIP = ip.GetAddressBytes()[0];
-
-            if (highIP < 224 || highIP > 239)
+            switch (ipAddress.AddressFamily)
             {
-                return false;
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                    {
+                        byte highIP = ipAddress.GetAddressBytes()[0];
+
+                        if (highIP < 224 || highIP > 239)
+                        {
+                            return false;
+                        }
+
+                        //Is a multicast address
+                        return true;
+                    }
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    {
+                        //Check for a ipv6 multicast address
+                        if (ipAddress.IsIPv6Multicast) return true;
+
+                        //Check if mapped to v6 from v4 and unmap
+                        if (ipAddress.IsIPv4MappedToIPv6)
+                        {
+                            ipAddress = ipAddress.MapToIPv4();
+
+                            //handle as v4
+                            goto case System.Net.Sockets.AddressFamily.InterNetwork;
+                        }
+
+                        return false;
+                    }
+                default: return false;
             }
-
-            //Is a multicast address
-            return true;
         }
-
-#if __IOS__ || __WATCHOS__ || __TVOS__ || __ANDROID__ || __ANDROID_11__
-        public static System.Net.IPAddress MapToIPv6(this System.Net.IPAddress addr)
-        {
-            if (addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) System.Console.WriteLine("Must pass an IPv4 address to MapToIPv6");
-            
-            return System.Net.IPAddress.Parse("::ffff:" + addr.ToString());
-        }
-#endif
-
     }
 }

@@ -181,11 +181,11 @@ namespace Media.Common.Extensions.NetworkInterface
                 System.Net.IPAddress address = unicastIpInfo.Address;
 
                 //Don't use Any and don't use Broadcast.
-                if (address == System.Net.IPAddress.Broadcast
+                if (address.Equals(System.Net.IPAddress.Broadcast)
                     ||
-                    address == System.Net.IPAddress.IPv6Any
+                    address.Equals(System.Net.IPAddress.IPv6Any)
                     ||
-                    address == System.Net.IPAddress.Any) continue;
+                    address.Equals(System.Net.IPAddress.Any)) continue;
 
                 //If the IP AddresFamily is the same as required then return it.
                 if (address.AddressFamily == addressFamily) return address;
