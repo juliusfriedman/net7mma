@@ -1949,7 +1949,7 @@ namespace Media.UnitTests
                  using (Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame hframe = new Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame(frame))
                  {
                     hframe.Depacketize();
-                 * //The rest of the example applies exactly the same.
+                 * //The rest of the example applies exactly the same, except you would want to skip writing the sps and pps after the very first time.
                  }
                 }
                  */
@@ -1971,8 +1971,8 @@ namespace Media.UnitTests
                     if (profileFrame.Buffer == null) return;
 
                     //If there is not a sps or pps in band and this is the first frame given to a decoder then it needs to contain a SPS and PPS
-                    //This is typically retrieved from the SessionDescription or CodecPrivateData
-                    if (false == profileFrame.ContainsSequenceParameterSet || false == profileFrame.ContainsPictureParameterSet)
+                    //This is typically retrieved from the SessionDescription or CodecPrivateData but only the very first time.
+                    if (/*false == m_InitializedStream && */false == profileFrame.ContainsSequenceParameterSet || false == profileFrame.ContainsPictureParameterSet)
                     {
                         //From the MediaDescription.FmtpLine from the SessionDescription which describes the media.
                         Media.Sdp.SessionDescriptionLine fmtp = new Sdp.SessionDescriptionLine("a=fmtp:97 packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==");
@@ -2018,6 +2018,9 @@ namespace Media.UnitTests
                             //Write the PPS
                             fs.Write(pps, 0, pps.Length);
                         }
+
+                        //Don't do this again...
+                        //m_InitializedStream = true;
                     }
                     
                     //Write the data in the frame.
