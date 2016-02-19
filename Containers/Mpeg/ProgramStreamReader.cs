@@ -40,12 +40,16 @@ using System.Linq;
 namespace Media.Containers.Mpeg
 {
     /// <summary>
+    /// <see href="https://en.wikipedia.org/wiki/MPEG_program_stream">MPEG Program stream</see>
     /// Represents the logic necessary to read Mpeg Program Streams. (.VOB, .EVO, .ps, .psm .m2ts etc.)
     /// Program stream (PS or MPEG-PS) is a container format for multiplexing digital audio, video and more. The PS format is specified in MPEG-1 Part 1 (ISO/IEC 11172-1) and MPEG-2 Part 1, Systems (ISO/IEC standard 13818-1[6]/ITU-T H.222.0[4][5]). The MPEG-2 Program Stream is analogous and similar to ISO/IEC 11172 Systems layer and it is forward compatible.[7][8]
     /// ProgramStreams are created by combining one or more Packetized Elementary Streams (PES), which have a common time base, into a single stream.
     /// </summary>
     public class ProgramStreamReader : PacketizedElementaryStreamReader
     {
+
+        //Header classes...
+
         public ProgramStreamReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
 
         public ProgramStreamReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
@@ -60,6 +64,13 @@ namespace Media.Containers.Mpeg
             return PacketizedElementaryStreamReader.ToTextualConvention(identifier);
         }
 
+        /// <summary>
+        /// <see cref="Mpeg.StartCodes"/> for names.
+        /// </summary>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <param name="names"></param>
+        /// <returns></returns>
         public IEnumerable<Container.Node> FindNodes(long offset, long count, params byte[] names)
         {
             long position = Position;
@@ -82,6 +93,13 @@ namespace Media.Containers.Mpeg
             Position = position;
         }
 
+        /// <summary>
+        /// <see cref="Mpeg.StartCodes"/> for names.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
         public Container.Node FindNode(byte name, long offset, long count)
         {
             long position = Position;
@@ -91,7 +109,7 @@ namespace Media.Containers.Mpeg
             Position = position;
 
             return result;
-        }
+        }      
 
         /// <summary>
         /// 
@@ -110,7 +128,7 @@ namespace Media.Containers.Mpeg
             //Determine which type of node we are dealing with
             switch (identifier[3])
             {
-                case Mpeg.StreamTypes.PackHeader: //Also Mpeg.StreamTypes.PackHeader
+                case Mpeg.StreamTypes.PackHeader:
                     {
                         //No bytes are related to the length yet
                         lengthSize = 0;
@@ -121,7 +139,6 @@ namespace Media.Containers.Mpeg
 
                         //We are at the 5th byte. (IdentifierSize + 1)
                         int offset = 5;
-
 
                         //Determine which version of the Pack Header this is
                         switch (next >> 6)
@@ -222,9 +239,10 @@ namespace Media.Containers.Mpeg
             {
                 long position = Position;
 
+                //Should just be read from position....
                 Container.Node result = FindNode(Mpeg.StreamTypes.PackHeader, 0, Length);
 
-                Position = position;
+                if(CanSeek) Position = position;
 
                 return result;
             }
@@ -245,7 +263,7 @@ namespace Media.Containers.Mpeg
         {
             get
             {
-                if (!m_SystemClockRate.HasValue)
+                if (false == m_SystemClockRate.HasValue)
                 {
                     double result;
                     ParsePackHeader(Root, out result);
@@ -295,6 +313,8 @@ namespace Media.Containers.Mpeg
                 case 0: //MPEG 1
                     {
                         //Decode the SCR
+
+                        //Todo, use ReadBigEndianInteger or BitStream
                         high = (double)((node.Identifier[5] >> 3) & 0x01);
 
                         low = ((uint)((node.Identifier[5] >> 1) & 0x03) << 30) |
@@ -308,6 +328,8 @@ namespace Media.Containers.Mpeg
                 default: //MPEG 2
                     {
                         //Decode the SCR
+
+                        //Todo, use ReadBigEndianInteger or BitStream
                         high = (double)((node.Identifier[5] & 0x20) >> 5);
 
                         low = ((uint)((node.Identifier[5] & 0x18) >> 3) << 30) |
@@ -418,10 +440,7 @@ namespace Media.Containers.Mpeg
                  defines a value that is greater than or equal to the maximum P-STD buffer size for all packets of the designated stream in the entire program stream.
                  */
                 //3 bits masked out (0x1FFF = 8191 = 0001111111111111)
-                ushort stdBufferSizeBound = (ushort)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & 0x1FFF);
-
-                //Move the offset
-                offset += 2;
+                ushort stdBufferSizeBound = (ushort)(Common.Binary.ReadU16(node.Data, ref offset, BitConverter.IsLittleEndian) & 0x1FFF);
 
                 //Create the the StreamBound Entry
                 var entry = new Tuple<bool, ushort, Container.Node>(bufferBoundScale, stdBufferSizeBound, node);

@@ -40,6 +40,7 @@ using System.Linq;
 namespace Media.Containers.Mpeg
 {
     /// <summary>
+    /// <see href="https://en.wikipedia.org/wiki/Packetized_elementary_stream">Wikipedia Packetized elementary stream</see>
     /// Represents the logic necessary to read a Packetized Elementary Stream.
     /// Packetized Elementary Stream (PES) is a specification in the MPEG-2 Part 1 (Systems) (ISO/IEC 13818-1) and ITU-T H.222.0[1][2] that defines carrying of elementary streams (usually the output of an audio or video encoder) in packets within MPEG program stream and MPEG transport stream.
     /// The elementary stream is packetized by encapsulating sequential data bytes from the elementary stream inside PES packet headers
@@ -63,6 +64,8 @@ namespace Media.Containers.Mpeg
         public PacketizedElementaryStreamReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
         public PacketizedElementaryStreamReader(Uri uri, System.IO.Stream source, int bufferSize = 8192) : base(uri, source, null, bufferSize, true) { } 
+
+        //Methods for reading the PES OptionalHeader and StuffingLength...
 
         /// <summary>
         /// Reads 4 bytes from the given stream
@@ -204,6 +207,7 @@ namespace Media.Containers.Mpeg
 
         public override Container.Node Root
         {
+            //Should be ReadNext()
             get { throw new NotImplementedException(); }
         }
 
