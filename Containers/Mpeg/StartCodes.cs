@@ -28,6 +28,11 @@ namespace Media.Containers.Mpeg
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static bool IsSystemStartCode(byte b) { return b >= 0xBA && b <= byte.MaxValue; }
 
         //0 - 31
@@ -65,11 +70,10 @@ namespace Media.Containers.Mpeg
 
         //VideoObjectLayerEnd is a Mpeg 4 Extension to Mpeg 2 = 0xB7
 
-        public const byte UserMetaData = 0xB2;
-
         //Of Picture, Video Object Plane, etc.
         public const byte Group = 0xB8;
 
+        /// StreamTypes.ProgramEnd...
         public const byte EndCode = 0xB9;
     }
 }

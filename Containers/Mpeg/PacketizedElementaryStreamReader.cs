@@ -156,11 +156,16 @@ namespace Media.Containers.Mpeg
             }
         }
 
+        //Entry {esId, { esType, esData } }
         protected System.Collections.Concurrent.ConcurrentDictionary<byte, Tuple<byte, byte[]>> m_ProgramStreams = new System.Collections.Concurrent.ConcurrentDictionary<byte, Tuple<byte, byte[]>>();
 
         protected virtual void ParseProgramStreamMap(Container.Node node)
         {
             if (node.Identifier[3] != Mpeg.StreamTypes.ProgramStreamMap) return;
+
+            int dataLength = node.Data.Length;
+
+            if (dataLength < 4) return;
 
             byte mapId = node.Data[0];
 
@@ -172,7 +177,10 @@ namespace Media.Containers.Mpeg
 
             int offset = 4 + infoLength + 2;
 
-            while (mapLength > 4)
+            int crcOffset = dataLength - 4;
+
+            //While data remains in the map
+            while (offset < crcOffset)
             {
                 //Find out the type of item it is
                 byte esType = node.Data[offset++];
@@ -188,6 +196,8 @@ namespace Media.Containers.Mpeg
 
                 //Create the entry
                 var entry = new Tuple<byte, byte[]>(esType, esData);
+
+                //should keep entries until crc is updated if present and then insert.
 
                 //Add it to the ProgramStreams
                 m_ProgramStreams.AddOrUpdate(esId, entry, (id, old) => entry);

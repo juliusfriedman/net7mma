@@ -2,7 +2,13 @@
 using System.Collections.Generic;
 
 namespace Media.Containers.Mpeg
-{   
+{
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <notes>
+    /// Needs BitWriter to ensure writing is effecient on all architectures.
+    /// </notes>
     class TransportStreamWriter
     {
 
@@ -52,23 +58,25 @@ namespace Media.Containers.Mpeg
             // indicates the intended fixed bitrate of the variable rate Transport Stream.
             byte[] packet = new byte[PacketLength];
 
+            //Should not reverse on BigEndian CPU when writing BigEndian... See notes
+
             //Pid
-            Common.Binary.WriteBinaryInteger(packet, 0, 13, 16, pid);
+            Common.Binary.WriteBigEndianBinaryInteger(packet, 0, 13, 16, pid);
 
             //Scrambling
-            Common.Binary.WriteBinaryInteger(packet, 0, 29, 2, 0);
+            Common.Binary.WriteBigEndianBinaryInteger(packet, 0, 29, 2, 0);
 
             //AdaptationFieldControl
-            Common.Binary.WriteBinaryInteger(packet, 0, 31, 2, 3);
+            Common.Binary.WriteBigEndianBinaryInteger(packet, 0, 31, 2, 3);
 
             //AdaptationField.FieldLength
-            Common.Binary.WriteBinaryInteger(packet, 5, 0, 8, PacketLength - HeaderLength);
+            Common.Binary.WriteBigEndianBinaryInteger(packet, 5, 0, 8, PacketLength - HeaderLength);
 
             //packet.AdaptationField.PCRFlag = true;
-            Common.Binary.WriteBinaryInteger(packet, 6, 1, 1, 1);
+            Common.Binary.WriteBigEndianBinaryInteger(packet, 6, 1, 1, 1);
 
             //packet.AdaptationField.ProgramClockReferenceBase = (ulong)(ProgramClockReferenceBase + m_systemTimeClock * TimestampResolution);
-            Common.Binary.WriteBinaryInteger(packet, 6, 5, 33, (ulong)(ProgramClockReferenceBase + m_systemTimeClock * TimestampResolution));
+            Common.Binary.WriteBigEndianBinaryInteger(packet, 6, 5, 33, (ulong)(ProgramClockReferenceBase + m_systemTimeClock * TimestampResolution));
             
             // Note: The PCR represent the system clock, and thus must be equal to or greater than the value in the previous packet.
 
@@ -83,7 +91,7 @@ namespace Media.Containers.Mpeg
                 // Note: both ArrivalTimeStamp and the PCR represent the system clock, and thus must be equal to or
                 // greater than the value in the previous packet.
                 // 27 MHz = 300 * 90 KHz
-                Common.Binary.WriteBinaryInteger(packet, 0, 0, 32, (uint)(ProgramClockReferenceBase + 300 * m_systemTimeClock * TimestampResolution));
+                Common.Binary.WriteBigEndianBinaryInteger(packet, 0, 0, 32, (uint)(ProgramClockReferenceBase + 300 * m_systemTimeClock * TimestampResolution));
             }
 
             ushort pid = (ushort)TransportStreamReader.GetPacketIdentifier(null, packet);
@@ -123,7 +131,7 @@ namespace Media.Containers.Mpeg
                 //nullPacket.Header.PID = Mpeg2TransportStream.NullPacketPID;
 
                 //Pid
-                Common.Binary.WriteBinaryInteger(nullPacket, 0, 13, 16, (long)TransportStreamUnit.PacketIdentifier.NullPacket);
+                Common.Binary.WriteBigEndianBinaryInteger(nullPacket, 0, 13, 16, (long)TransportStreamUnit.PacketIdentifier.NullPacket);
                 
                 WritePacketAndIncrementClock(nullPacket, false);
             }

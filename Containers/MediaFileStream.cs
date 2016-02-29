@@ -292,6 +292,7 @@ namespace Media.Container
             ////};
             
             //Wait for the end of the transaction or the root to be valid
+            //Buffering && Root == null
             while (result.IsTransactionDone == false && Root == null) result.AsyncWaitHandle.WaitOne(0);
         }
 
@@ -308,7 +309,7 @@ namespace Media.Container
 
             //E.g. for a large file make N readers with offset positions, of N * size, download each part and then write to the result stream when its required
             
-            //Statis copy to path func
+            //Static copy to path func
             AfterClose = () =>
             {
                 using (var fs = new System.IO.FileStream(path, mode, System.IO.FileAccess.ReadWrite))

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Media.Common//.Binary
+﻿namespace Media.Common//.Binary
 {
     /// <summary>
     /// Allows for writing bits from a <see cref="System.IO.Stream"/> with a variable sized buffer
@@ -13,33 +7,40 @@ namespace Media.Common//.Binary
     {
         #region Fields
 
-        MemorySegment m_Cache = new MemorySegment(32);
+        internal readonly MemorySegment m_ByteCache;
 
-        System.IO.Stream m_Source;
+        internal readonly System.IO.Stream m_BaseStream;
 
-        int m_ByteIndex = 0, m_BitIndex = 0; long m_StreamPosition, m_StreamLength;
+        //Depreciate
+        internal readonly Binary.ByteOrder m_ByteOrder = Binary.SystemByteOrder;
 
-        Binary.ByteOrder m_ByteOrder = Binary.SystemByteOrder;
-
-        bool m_LeaveOpen;
+        int m_ByteIndex = 0, m_BitIndex = 0; 
+        
+        internal bool m_LeaveOpen;
 
         #endregion
 
         #region Properties
+        
+        /// <summary>
+        /// Gets or sets a value which indicates if the <see cref="BaseStream"/> should be closed on <see cref="Dispose"/>
+        /// </summary>
+        public bool LeaveOpen { get { return m_LeaveOpen; } set { m_LeaveOpen = value; } }
 
-        public bool HasMoreData { get { return m_StreamPosition < m_StreamLength; } }
+        /// <summary>
+        /// Gets a value which indicates the amount of bytes which are available to write flushing to the <see cref="BaseStream"/>
+        /// </summary>
+        public int BytesRemaining { get { return m_ByteCache.Count - m_ByteIndex; } }
 
-        public long Position
-        {
-            get { return m_StreamPosition; }
-            set
-            {
-                if (m_Source == null || !m_Source.CanSeek) return;
-                m_StreamPosition = m_Source.Position = value;
-            }
-        }
+        /// <summary>
+        /// Gets a value which indicates the amount of bits which remain in the current Byte.
+        /// </summary>
+        public int BitsRemaining { get { return Common.Binary.BitsPerByte - m_BitIndex; } }
 
-        public long Length { get { return m_StreamLength; } }
+        /// <summary>
+        /// Gets the <see cref="System.IO.Stream"/> from which the data is written.
+        /// </summary>
+        public System.IO.Stream BaseStream { get { return m_BaseStream; } }
 
         #endregion
 
@@ -48,17 +49,13 @@ namespace Media.Common//.Binary
         public BitWriter(System.IO.Stream source, int cacheSize = 32, bool leaveOpen = false)
             : base()
         {
-            if (source == null) throw new ArgumentNullException("source");
+            if (source == null) throw new System.ArgumentNullException("source");
 
-            m_Source = source;
-
-            m_StreamPosition = m_Source.Position;
-
-            m_StreamLength = m_Source.Length;
+            m_BaseStream = source;
 
             m_LeaveOpen = leaveOpen;
 
-            m_Cache = new MemorySegment(cacheSize);
+            m_ByteCache = new MemorySegment(cacheSize);
         }
 
         ~BitWriter() { Dispose(); }
@@ -66,92 +63,92 @@ namespace Media.Common//.Binary
         #endregion
 
         #region Methods
-
-        public long Seek(long offset, System.IO.SeekOrigin origin)
-        {
-            if (IsDisposed || m_Source == null || false == m_Source.CanSeek) return -1;
-            return m_StreamPosition = m_Source.Seek(offset, origin);
-        }
-
         public void Flush()
         {
-            if (m_BitIndex > 0)
-            {
-                //Handle by writing NBit Common.BitSize - m_BitIndex;
-            }
+            int toWrite = m_ByteCache.Count - m_ByteIndex;
 
-            int toWrite = m_Cache.Count - m_ByteIndex;
+            if (m_BitIndex > 0) ++toWrite;
 
             if (toWrite <= 0) return;
 
-            m_Source.Write(m_Cache.Array, m_Cache.Offset + m_ByteIndex, toWrite);
+            m_BaseStream.Write(m_ByteCache.Array, m_ByteCache.Offset + m_ByteIndex, toWrite);
 
-            m_StreamPosition += toWrite;
-
-            m_BitIndex = m_BitIndex = 0;
+            m_ByteIndex = m_BitIndex = 0;
         }
 
         public void WriteBit(bool value)
         {
-
             if (m_BitIndex >= Common.Binary.BitsPerByte)
             {
                 m_BitIndex = 0;
 
                 ++m_ByteIndex;
             }
-
-            Binary.SetBit(m_Cache.Array, m_BitIndex, value);
-
-            //Move the bit index
-            ++m_BitIndex;
+         
+            //Set the bit and move the bit index
+            Binary.SetBit(ref m_ByteCache.Array[m_ByteIndex], m_BitIndex++, value);
         }
 
-        //Write8
+        //Write8(reverse)
 
-        //Write16
+        //Write16(reverse)
 
-        //Write24
+        //Write24(reverse)
 
-        //Write32
+        //Write32(reverse)
 
-        //Write64
+        //Write64(reverse)
 
-        //WriteNBit
+        //WriteNBit(reverse)
+
+        //WriteBigEndian16
+
+        //WriteBigEndian32
+
+        //WriteBigEndian64
 
         //Should check against m_ByteOrder
 
         //Should not call ConvertFromBigEndian
 
+        //Depreciate
+
         public void WriteEndian(byte[] data, Common.Binary.ByteOrder byteOrder)
         {
-            m_Source.Write(Common.Binary.ConvertFromBigEndian(data, byteOrder), 0, data.Length);
+            m_BaseStream.Write(Common.Binary.ConvertFromBigEndian(data, byteOrder), 0, data.Length);
         }
+
         public void WriteEndian(int data, Common.Binary.ByteOrder byteOrder)
         {
-            byte[] intBytes = BitConverter.GetBytes(data);
+            byte[] intBytes = System.BitConverter.GetBytes(data);
 
             if (m_ByteOrder == Binary.ByteOrder.Little)
             {
-                Array.Reverse(intBytes);
+                System.Array.Reverse(intBytes);
             }
 
-            m_Source.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.BytesPerInteger);
+            m_BaseStream.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.BytesPerInteger);
         }
-        public void WriteEndian(Int64 source, Common.Binary.ByteOrder byteOrder)
+        
+        public void WriteEndian(System.Int64 source, Common.Binary.ByteOrder byteOrder)
         {
-            byte[] intBytes = BitConverter.GetBytes(source);
+            byte[] intBytes = System.BitConverter.GetBytes(source);
 
             if (m_ByteOrder == Binary.ByteOrder.Little)
             {
-                Array.Reverse(intBytes);
+                System.Array.Reverse(intBytes);
             }
 
-            m_Source.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.BytesPerLong);
+            m_BaseStream.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.BytesPerLong);
         }
-        public void WriteEndian(string source, Common.Binary.ByteOrder byteOrder)
+        
+        public void WriteEndian(string source, System.Text.Encoding encoding, Common.Binary.ByteOrder byteOrder)
         {
-            m_Source.Write(Common.Binary.ConvertFromBigEndian(Encoding.UTF8.GetBytes(source), byteOrder), 0, source.Length);
+            if (source == null) throw new System.ArgumentNullException("source");
+
+            if (encoding == null) throw new System.ArgumentNullException("encoding");
+
+            m_BaseStream.Write(Common.Binary.ConvertFromBigEndian(encoding.GetBytes(source), byteOrder), 0, source.Length);
         }
 
         #endregion
@@ -167,15 +164,11 @@ namespace Media.Common//.Binary
 
             base.Dispose();
 
-            m_StreamLength = m_StreamPosition = -1;
-
-            m_Cache.Dispose();
-            m_Cache = null;
+            m_ByteCache.Dispose();
 
             if (m_LeaveOpen) return;
 
-            m_Source.Dispose();
-            m_Source = null;
+            m_BaseStream.Dispose();
         }
 
         #endregion
