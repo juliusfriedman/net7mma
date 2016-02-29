@@ -336,6 +336,7 @@ namespace Media.Common.Extensions.Stream
             }
 
             #endregion
+            
             //Credential
             public static DownloadAdapter HttpWebRequestDownload(System.Uri location, System.Net.WebProxy proxy = null, System.Net.NetworkCredential credentials = null, System.Collections.Specialized.NameValueCollection headers = null, System.Net.CookieCollection cookies = null)
             {

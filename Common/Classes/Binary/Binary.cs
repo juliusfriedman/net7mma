@@ -1563,7 +1563,7 @@ namespace Media.Common
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool GetBit(byte[] self, int index, bool value)
+        public static bool GetBit(byte[] self, int index)
         {
             int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
 
@@ -1571,7 +1571,7 @@ namespace Media.Common
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static byte[] ClearBit(byte[] self, int index, bool value)
+        public static byte[] ClearBit(byte[] self, int index)
         {
             int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
 
@@ -2067,7 +2067,6 @@ namespace Media.Common
 
         #region CopyBits
 
-
         public static byte[] CopyBits(byte[] data)
         {
             if (data == null) throw new ArgumentNullException("data");
@@ -2237,6 +2236,40 @@ namespace Media.Common
                 }
 
                 return result;
+            }
+        }
+
+        #endregion
+
+        #region CopyBitsTo
+
+        //Same as CopyBits but performs inplace.
+
+        public static void CopyBitsTo(byte[] srcBits, int srcByteOffset, int srcBitOffset, byte[] destBits, int destByteOffset, int destBitOffset, int count)
+        {
+            if (count <= Binary.Nihil) return;
+
+            unchecked
+            {
+                //While there is a bit needed decrement for the bit consumed
+                while (count-- > Binary.Nihil)
+                {
+                    //Check for the end of bits
+                    if (srcBitOffset >= Binary.BitsPerByte)
+                    {
+                        //reset
+                        srcBitOffset = Binary.Nihil;
+
+                        //move the index of the byte being read
+                        ++srcByteOffset;
+                    }
+
+                    //Get a bit from the byte at our offset and Set the bit in the result
+                    SetBit(ref destBits[srcByteOffset], srcBitOffset, GetBit(ref srcBits[srcByteOffset], srcBitOffset));
+
+                    //Increment for the bit consumed
+                    ++srcBitOffset;
+                }
             }
         }
 
@@ -2499,6 +2532,23 @@ namespace Media.Common
 
         #region Writing
 
+        public static void WriteBinaryInteger(byte[] data, ref int byteOffset, int count, ref int bitOffset, long value, ByteOrder byteOrder = ByteOrder.Unknown)
+        {
+            WriteBinaryInteger(data, ref byteOffset, count, ref bitOffset, (ulong)value, byteOrder);
+        }
+
+        [CLSCompliant(false)]
+        public static void WriteBinaryInteger(byte[] data, ref int byteOffset, int count, ref int bitOffset, ulong value, ByteOrder byteOrder = ByteOrder.Unknown)
+        {
+            if (data == null) throw new ArgumentNullException("data");
+
+            if (byteOrder == Binary.SystemByteOrder) WriteBinaryInteger(data, ref byteOffset, ref bitOffset, count, value);
+            else if (byteOrder == ByteOrder.Big) Common.Binary.WriteBigEndianBinaryInteger(data, ref byteOffset, ref bitOffset, count, value);
+
+            //Todo
+            throw new NotImplementedException("Must Implement Writing for ByteOrder");
+        }
+
         public static void WriteBinaryInteger(byte[] data, int byteOffset, int bitOffset, int bitCount, long value)
         {
             WriteBinaryInteger(data, ref byteOffset, ref bitOffset, bitCount, (ulong)value);
@@ -2606,6 +2656,54 @@ namespace Media.Common
 
                     //Increment for the bit consumed
                     bitOffset++;
+                }
+
+                //Return
+                return;
+            }
+        }
+
+        public static void WriteBigEndianBinaryInteger(byte[] data, int byteOffset, int bitOffset, int bitCount, long value)
+        {
+            WriteBigEndianBinaryInteger(data, ref byteOffset, ref bitOffset, bitCount, (ulong)value);
+        }
+
+        [CLSCompliant(false)]
+        public static void WriteBigEndianBinaryInteger(byte[] data, int byteOffset, int bitOffset, int bitCount, ulong value)
+        {
+            WriteBigEndianBinaryInteger(data, ref byteOffset, ref bitOffset, bitCount, value);
+        }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static void WriteBigEndianBinaryInteger(byte[] data, ref int byteOffset, ref int bitOffset, int bitCount, ulong value)
+        {
+            if (data == null || bitCount <= 0) return;
+
+            //The reading offsets
+            int reverseByteOffset = byteOffset + Binary.BitsToBytes(bitCount, Common.Binary.BitsPerByte) - 1,
+                bitIndex = 0;
+
+            unchecked
+            {
+                //While there is a bit needed decrement for the bit consumed
+                while (--bitCount >= Binary.Nihil)
+                {
+                    //Check for the end of bits
+                    if (bitOffset >= Common.Binary.BitsPerByte)
+                    {
+                        //Reset the offset of the bit being written
+                        bitOffset = Binary.Nihil;
+
+                        //Move the index which corresponds to the byte being read
+                        --reverseByteOffset;
+
+                        //Advance the offset which corresponds to the byte being written
+                        ++byteOffset;
+                    }
+
+                    //Set the bit in data at the byteOffset depending on if the value shifted right to count is still at least 1
+                    SetBit(ref data[reverseByteOffset], bitOffset++, ((value >> bitIndex++) & Binary.Ūnus) > 0);
                 }
 
                 //Return
@@ -3186,13 +3284,18 @@ namespace Media.UnitTests
                     //Compare Octets with SystemBits.
                     if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBinaryInteger Does not Work");
 
-                    //Write the same value in reverse
+                    //Test writing the same value bit by bit in reverse
+                    Common.Binary.WriteBigEndianBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerShort, (reverse ? v : reversed));
+
+                    //Compare Octets with SystemBits.
+                    if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBigEndianBinaryInteger Does not Work");
+
+                    //Write the same value in reverse bit order
                     Common.Binary.WriteReverseBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerShort, (reverse ? reversed : v));
 
-                    //Read the same value in reverse
-                    if(Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerShort, true) != (reverse ? reversed : v))
-                        throw new Exception("WriteReverseBinaryInteger Does not Work");
-
+                    //Read the same value in reverse bit orderB
+                    if (Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerShort, true) != (reverse ? reversed : v)) throw new Exception("WriteReverseBinaryInteger Does not Work");
+                        
                     //Print the bytes tested
                     //Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
 
@@ -3284,12 +3387,17 @@ namespace Media.UnitTests
                     //Compare Octets with SystemBits.
                     if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBinaryInteger Does not Work");
 
-                    //Write the same value in reverse
+                    //Test writing the same value bit by bit in reverse
+                    Common.Binary.WriteBigEndianBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerInteger, (reverse ? v : reversed));
+
+                    //Compare Octets with SystemBits.
+                    if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBigEndianBinaryInteger Does not Work");
+
+                    //Write the same value in reverse bit order
                     Common.Binary.WriteReverseBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerInteger, (reverse ? reversed : v));
 
-                    //Read the same value in reverse
-                    if (Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerInteger, true) != (reverse ? reversed : v))
-                        throw new Exception("WriteReverseBinaryInteger Does not Work");
+                    //Read the same value in reverse bit order
+                    if (Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerInteger, true) != (reverse ? reversed : v)) throw new Exception("WriteReverseBinaryInteger Does not Work");
 
                     //Print the bytes tested
                     //Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
@@ -3351,12 +3459,17 @@ namespace Media.UnitTests
                     //Compare Octets with SystemBits.
                     if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBinaryInteger Does not Work");
 
-                    //Write the same value in reverse
+                    //Test writing the same value bit by bit in reverse
+                    Common.Binary.WriteBigEndianBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerLong, (reverse ? v : reversed));
+
+                    //Compare Octets with SystemBits.
+                    if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBigEndianBinaryInteger Does not Work");
+
+                    //Write the same value in reverse bit order
                     Common.Binary.WriteReverseBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerLong, (reverse ? reversed : v));
 
-                    //Read the same value in reverse
-                    if ((ulong)Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerLong, true) != (reverse ? reversed : v))
-                        throw new Exception("WriteReverseBinaryInteger Does not Work");
+                    //Read the same value in reverse bit order
+                    if ((ulong)Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerLong, true) != (reverse ? reversed : v)) throw new Exception("WriteReverseBinaryInteger Does not Work");
 
                     //Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
 
