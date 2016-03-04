@@ -138,11 +138,8 @@ namespace Media.Rtp
                         //Scope the packet
                         p = m_Packets[i];
 
-                        //obtain the sequence number
-                        int pSeq = p.SequenceNumber;
-
-                        //The packet is missing
-                        if (pSeq != nextSeq) return true;
+                        //obtain the sequence number to check if the packet is missing
+                        if (p.SequenceNumber != nextSeq) return true;
 
                         //Determine the next sequence number
                         nextSeq = nextSeq == ushort.MaxValue ? 0 : ++nextSeq;
@@ -283,19 +280,21 @@ namespace Media.Rtp
                 if (count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
             }
 
+            //Todo, determine if duplicate packets will ever be allowed in a RtpFrame.
+
             //Should check if the packet is contained to prevent duplicates..
             //if (Contains(seq)) throw new InvalidOperationException("Duplicate Packet");
 
+            //Check for existing marker packet
             bool hasMarker = HasMarker;
 
             //If the last packet has the marker bit then no more packets can be added unless they are from a lower sequence number
             //This would result in a marker packet followed by a non marker packet in the same frame.
-            if (false == allowPacketsAfterMarker && m_LowestSequenceNumber != m_HighestSequenceNumber && hasMarker) throw new InvalidOperationException("Complete frames cannot have additional packets added");
-
-            //Dont use a SortedDictionary just to ensure only a single key in the hash, (Use List or Lookup and Distinct)
-            //Add the packet to the SortedList which WILL throw any exception if the RtpPacket added already contains a value.    
-
+            if (false == allowPacketsAfterMarker && hasMarker) throw new InvalidOperationException("Complete frames cannot have additional packets added");
+            
             //When wrapping occurs the packet 0 is no longer added at the beginning...
+
+            //Could use a (ushort) rather than int but the list may have more than 65535 items which would negate any benefit
 
             int diff = m_HighestSequenceNumber - seq;
 
@@ -559,7 +558,13 @@ namespace Media.UnitTests
                 frame.Add(new Media.Rtp.RtpPacket(2, false, false, Media.Common.MemorySegment.EmptyBytes)
                 {
                     SequenceNumber = ushort.MaxValue
-                });
+                }, true);
+
+                //Add a lower order packet which MAY belong to the frame, 65534
+                frame.Add(new Media.Rtp.RtpPacket(2, false, false, Media.Common.MemorySegment.EmptyBytes)
+                {
+                    SequenceNumber = ushort.MaxValue - 1
+                }, true);
 
                 //Add a higher order packet which does not belong to the frame because the marker packet was set on packet 0, the timestamp should also be different.
                 try
@@ -578,7 +583,7 @@ namespace Media.UnitTests
 
                 if (frame.HighestSequenceNumber != ushort.MinValue) throw new Exception("Unexpected HighestSequenceNumber");
 
-                if (frame.LowestSequenceNumber != ushort.MaxValue) throw new Exception("Unexpected HighestSequenceNumber");
+                if (frame.LowestSequenceNumber != ushort.MaxValue - 1) throw new Exception("Unexpected LowestSequenceNumber");
 
                 //Remove a non existing packet
                 using (Media.Rtp.RtpPacket packet = frame.Remove(1))
@@ -586,13 +591,18 @@ namespace Media.UnitTests
                     if (packet != null) throw new Exception("Packet is not null");
                 }
 
-                //Remove two existing packets
+                //Remove three existing packets
                 using (Media.Rtp.RtpPacket packet = frame.Remove(ushort.MaxValue))
                 {
                     if(packet == null) throw new Exception("Packet is null");
                 }
 
                 using (Media.Rtp.RtpPacket packet = frame.Remove(ushort.MinValue))
+                {
+                    if (packet == null) throw new Exception("Packet is null");
+                }
+
+                using (Media.Rtp.RtpPacket packet = frame.Remove(ushort.MaxValue - 1))
                 {
                     if (packet == null) throw new Exception("Packet is null");
                 }
