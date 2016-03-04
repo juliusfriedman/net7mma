@@ -238,9 +238,11 @@ namespace Media.Common.Extensions.Socket
                         //Iterate for each Network Interface available.
                         foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
                         {
+                            //Get the first GetFirstUnicastIPAddress bound to the networkInterface
                             System.Net.IPAddress result = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetFirstUnicastIPAddress(networkInterface, addressFamily);
 
-                            if (result != null) return result;
+                            //If the result is not null and the result is not System.Net.IPAddress.None
+                            if (result != null && false == Equals(result, System.Net.IPAddress.None)) return result;
                         }
 
                         //Could not find an IP.

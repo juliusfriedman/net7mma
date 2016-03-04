@@ -53,6 +53,9 @@ namespace Media.Containers.Mpeg
         /// <param name="systemTimeClock">in units of 90 KHz</param>
         public void WritePCRPacket(ushort pid)
         {
+
+            throw new NotImplementedException();
+
             // In a packet that contains a PCR, the PCR will be a few ticks later than the arrival_time_stamp.
             // The exact difference between the arrival_time_stamp and the PCR (and the number of bits between them)
             // indicates the intended fixed bitrate of the variable rate Transport Stream.
@@ -61,27 +64,20 @@ namespace Media.Containers.Mpeg
             //Should not reverse on BigEndian CPU when writing BigEndian... See notes
 
             //Pid
-            Common.Binary.WriteBigEndianBinaryInteger(packet, 0, 13, 16, pid);
 
             //Scrambling
-            Common.Binary.WriteBigEndianBinaryInteger(packet, 0, 29, 2, 0);
 
             //AdaptationFieldControl
-            Common.Binary.WriteBigEndianBinaryInteger(packet, 0, 31, 2, 3);
 
             //AdaptationField.FieldLength
-            Common.Binary.WriteBigEndianBinaryInteger(packet, 5, 0, 8, PacketLength - HeaderLength);
 
             //packet.AdaptationField.PCRFlag = true;
-            Common.Binary.WriteBigEndianBinaryInteger(packet, 6, 1, 1, 1);
 
             //packet.AdaptationField.ProgramClockReferenceBase = (ulong)(ProgramClockReferenceBase + m_systemTimeClock * TimestampResolution);
-            Common.Binary.WriteBigEndianBinaryInteger(packet, 6, 5, 33, (ulong)(ProgramClockReferenceBase + m_systemTimeClock * TimestampResolution));
             
             // Note: The PCR represent the system clock, and thus must be equal to or greater than the value in the previous packet.
 
             // [ISO/IEC 13818-1] The continuity_counter shall not be incremented when the adaptation_field_control of the packet equals '00' or '10'.
-            WritePacketAndIncrementClock(packet, false);
         }
 
         private void WritePacketAndIncrementClock(byte[] packet, bool incrementContinuityCountr)
@@ -91,7 +87,7 @@ namespace Media.Containers.Mpeg
                 // Note: both ArrivalTimeStamp and the PCR represent the system clock, and thus must be equal to or
                 // greater than the value in the previous packet.
                 // 27 MHz = 300 * 90 KHz
-                Common.Binary.WriteBigEndianBinaryInteger(packet, 0, 0, 32, (uint)(ProgramClockReferenceBase + 300 * m_systemTimeClock * TimestampResolution));
+                throw new NotImplementedException();
             }
 
             ushort pid = (ushort)TransportStreamReader.GetPacketIdentifier(null, packet);
@@ -131,7 +127,7 @@ namespace Media.Containers.Mpeg
                 //nullPacket.Header.PID = Mpeg2TransportStream.NullPacketPID;
 
                 //Pid
-                Common.Binary.WriteBigEndianBinaryInteger(nullPacket, 0, 13, 16, (long)TransportStreamUnit.PacketIdentifier.NullPacket);
+                throw new NotImplementedException();
                 
                 WritePacketAndIncrementClock(nullPacket, false);
             }

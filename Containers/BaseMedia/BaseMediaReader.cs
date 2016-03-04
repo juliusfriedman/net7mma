@@ -182,8 +182,8 @@ namespace Media.Containers.BaseMedia
                 Array.Copy(IsoUUIDTemplate, IdentifierSize, uuidBytes, IdentifierSize, TemplateSize);
             }
 
-            //Return the result of parsing a Guid from the uuid bytes.
-            return new Guid(uuidBytes);
+            //Return the result of parsing a Guid from the uuid bytes. The UUID should be in big endian format...
+            return Common.Binary.ReadGuid(uuidBytes, 0, BitConverter.IsLittleEndian);  //new Guid(uuidBytes);
         }
 
         public BaseMediaReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }

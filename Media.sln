@@ -123,9 +123,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Codecs.Image.Gif", "C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Codecs.Audio.Mp3", "Codecs\Audio\Mp3\Media.Codecs.Audio.Mp3.csproj", "{4305DDF6-3C8B-4FE6-8DE9-3E81C5D9126A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Codec.Mpeg", "Codecs\Mpeg\Media.Codec.Mpeg.csproj", "{14425008-0142-4BF2-ACA9-80C8A3223D19}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 55
+		SccNumberOfProjects = 56
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs04
 		SccLocalPath0 = .
@@ -291,6 +293,9 @@ Global
 		SccProjectUniqueName54 = Codecs\\Audio\\Mp3\\Media.Codecs.Audio.Mp3.csproj
 		SccProjectName54 = Codecs/Audio/Mp3
 		SccLocalPath54 = Codecs\\Audio\\Mp3
+		SccProjectUniqueName55 = Codecs\\Mpeg\\Media.Codec.Mpeg.csproj
+		SccProjectName55 = Codecs/Mpeg
+		SccLocalPath55 = Codecs\\Mpeg
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1054,6 +1059,18 @@ Global
 		{4305DDF6-3C8B-4FE6-8DE9-3E81C5D9126A}.Release|x64.ActiveCfg = Release|Any CPU
 		{4305DDF6-3C8B-4FE6-8DE9-3E81C5D9126A}.Release|x64.Build.0 = Release|Any CPU
 		{4305DDF6-3C8B-4FE6-8DE9-3E81C5D9126A}.Release|x86.ActiveCfg = Release|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Release|Any CPU.Build.0 = Release|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Release|x64.ActiveCfg = Release|Any CPU
+		{14425008-0142-4BF2-ACA9-80C8A3223D19}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

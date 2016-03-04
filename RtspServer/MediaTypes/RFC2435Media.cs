@@ -1290,10 +1290,12 @@ namespace Media.Rtsp.Server.MediaTypes
             {
                 get
                 {
+                    //First use the existing IsComplete logic.
                     if (false == base.IsComplete) return false;
 
                     var packet = m_Packets.First();
 
+                    //The FragmentOffset must be 0 at the start of a new frame.
                     return Common.Binary.ReadU24(packet.Payload, packet.HeaderOctets + 1, BitConverter.IsLittleEndian) == 0;
                 }
             }
