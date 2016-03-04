@@ -165,6 +165,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <summary>
             /// /// <summary>
             /// Todo, break down logic, ParseHeaders, ParseAuxiliaryData, ParseAccessUnits(header)
+            /// Todo, Test in BigEndian, ensure that BitReader is not needed or at least the BitOrder overload which can detect the BitOrder the system is before reading the value in reverse of the way they should be.
             /// </summary>
             /// <param name="parsedAccessUnits"></param>
             /// <param name="remainsInAu"></param>
@@ -381,8 +382,11 @@ namespace Media.Rtsp.Server.MediaTypes
                         indexLengthBytes = Media.Common.Binary.BitsToBytes(indexLength),
                         indexDeltaLengthBytes = Media.Common.Binary.BitsToBytes(indexDeltaLength);
 
-                    //Move for the 2 bytes consumed (the Au Headers Length Section)
+                    //Move the offset for the 2 bytes consumed (the Au Headers Length Section)
                     offset += 2;
+
+                    //Move the bitOffset
+                    bitOffset += 16;
                    
                     //If there are any auHeaders indicated
                     if (auHeaderLengthBits > 0)
@@ -439,7 +443,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         //Note that when used in a BigEndian system that the Media.Common.Binary.ReadBigEndianInteger should be used.
                         
                         //Read the size in bits of that section
-                        uint auxDataSizeBits = (uint)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, auxDataSizeLength, ref bitOffset, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte);
+                        int auxDataSizeBits = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, auxDataSizeLength);
 
                         if (auxDataSizeBits > 0)
                         {
@@ -450,8 +454,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             if (max - offset < auxLengthBytes) throw new InvalidOperationException("Invalid Au Aux Data?");
 
                             //Skip the bits indicated
-                            //Todo, adjust the offset. Don't waste cycles calculating just to skip bits.
-                            Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, (int)auxDataSizeBits, false == BitConverter.IsLittleEndian);
+                            bitOffset += auxDataSizeBits;
                         }
                      
                         // as per 3) skip padding
@@ -504,19 +507,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                 continue;
                             }
 
-                            //Read the bits for the size and the index
-                            //auSize = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, sizeLength + indexLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexLength;
-
-                            //bitOffset -= indexLength;
-
-                            //if (bitOffset < 0)
-                            //{
-                            //    bitOffset = 0;
-                            //    --offset;
-                            //}
-
-                            //Read one byte and peek into the next byte for the auSize
-                            auSize = (rtp.Payload.Array[offset++] << Media.Common.Binary.BitsPerByte >> indexLength) + (rtp.Payload.Array[offset] >> indexLength);
+                            //Read the bits for the size and the index to align the read.
+                            auSize = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, sizeLength);
 
                             //auSize can never be greater than max.
                             if (auSize + offset >= max) throw new InvalidOperationException("auSize is larger than expected.");
@@ -526,7 +518,12 @@ namespace Media.Rtsp.Server.MediaTypes
                         #endregion
 
                         //Check for auSize == 0 because there is nothing to consume
-                        if (auSize == 0) continue;
+                        if (auSize == 0)
+                        {
+                            //Todo, offset didn't move for the bits just read...
+
+                            continue;
+                        }
 
                         #region AU-Index / AU-Index-delta
 
@@ -558,7 +555,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             }
 
                             //Notes that this should be read out of the Au Headers Section for the Au being parsed
-                            auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexLength, ref bitOffset, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexLength;
+                            auIndex = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, indexLength);
                         }
                         else if (indexDeltaLength > 0)
                         {
@@ -572,7 +569,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             }
 
                             //Notes that this should be read out of the Au Headers Section for the Au being parsed
-                            auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexDeltaLength, ref bitOffset, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexDeltaLength;
+                            auIndex = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, indexDeltaLength);
                         }
 
                         #endregion
@@ -590,10 +587,10 @@ namespace Media.Rtsp.Server.MediaTypes
                         //               be larger than zero."
                         if (0 != CTSDeltaLength)
                         {
-                            bool CTSFlag = Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, 1, BitConverter.IsLittleEndian) > 0;
+                            bool CTSFlag = Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, 1) > 0;
                             if (CTSFlag)
                             {
-                                int CTSDelta = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, CTSDeltaLength, BitConverter.IsLittleEndian); ;
+                                int CTSDelta = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, CTSDeltaLength);
                             }
                         }
 
@@ -603,10 +600,10 @@ namespace Media.Rtsp.Server.MediaTypes
 
                         if (0 != DTSDeltaLength)
                         {
-                            bool DTSFlag = Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, 1, BitConverter.IsLittleEndian) > 0;
+                            bool DTSFlag = Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, 1) > 0;
                             if (DTSFlag)
                             {
-                                int DTSDelta = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, DTSDeltaLength, BitConverter.IsLittleEndian);
+                                int DTSDelta = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, DTSDeltaLength);
                             }
                         }
 
@@ -616,7 +613,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                         if (randomAccessIndication)
                         {
-                            bool RAPFlag = Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, 1, BitConverter.IsLittleEndian) > 0;
+                            bool RAPFlag = Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, 1) > 0;
                         }
 
                         #endregion
@@ -628,11 +625,11 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (0 != streamStateIndication)
                         {
                             //number of bits for Stream-State
-                            int streamState = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, streamStateIndication, BitConverter.IsLittleEndian);
+                            int streamState = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, streamStateIndication);
 
-                            //Read that many bits
-                            Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, streamState, BitConverter.IsLittleEndian);
-
+                            //Read that many more bits
+                            //Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, streamState, BitConverter.IsLittleEndian);
+                            bitOffset += streamState;
                         }
 
                         #endregion

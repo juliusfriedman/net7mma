@@ -41,6 +41,7 @@ namespace Media.Common.Extensions.Math
     public static class MathExtensions
     {
         [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long GreatestCommonDivisor(ref long a, ref long b)
         {
             //Until a approaches 0
@@ -64,6 +65,7 @@ namespace Media.Common.Extensions.Math
         public static int GreatestCommonDivisor(int a, int b) { return (int)GreatestCommonDivisor((long)a, (long)b); }
 
         [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long LeastCommonMultiple(ref long a, ref long b)
         {
             return a * b / GreatestCommonDivisor(a, b);
@@ -74,6 +76,7 @@ namespace Media.Common.Extensions.Math
         public static int LeastCommonMultiple(int a, int b) { return (int)LeastCommonMultiple((long)a, (long)b); }
 
         [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long GreatestCommonMultiple(ref long a, ref long b)
         {
             //store any remainder

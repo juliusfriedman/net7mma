@@ -22,6 +22,8 @@
 
         #region Properties
         
+        //IsAligned
+
         /// <summary>
         /// Gets or sets a value which indicates if the <see cref="BaseStream"/> should be closed on <see cref="Dispose"/>
         /// </summary>
@@ -63,6 +65,9 @@
         #endregion
 
         #region Methods
+
+        //Align()
+
         public void Flush()
         {
             int toWrite = m_ByteCache.Count - m_ByteIndex;
@@ -108,48 +113,6 @@
         //WriteBigEndian64
 
         //Should check against m_ByteOrder
-
-        //Should not call ConvertFromBigEndian
-
-        //Depreciate
-
-        public void WriteEndian(byte[] data, Common.Binary.ByteOrder byteOrder)
-        {
-            m_BaseStream.Write(Common.Binary.ConvertFromBigEndian(data, byteOrder), 0, data.Length);
-        }
-
-        public void WriteEndian(int data, Common.Binary.ByteOrder byteOrder)
-        {
-            byte[] intBytes = System.BitConverter.GetBytes(data);
-
-            if (m_ByteOrder == Binary.ByteOrder.Little)
-            {
-                System.Array.Reverse(intBytes);
-            }
-
-            m_BaseStream.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.BytesPerInteger);
-        }
-        
-        public void WriteEndian(System.Int64 source, Common.Binary.ByteOrder byteOrder)
-        {
-            byte[] intBytes = System.BitConverter.GetBytes(source);
-
-            if (m_ByteOrder == Binary.ByteOrder.Little)
-            {
-                System.Array.Reverse(intBytes);
-            }
-
-            m_BaseStream.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.BytesPerLong);
-        }
-        
-        public void WriteEndian(string source, System.Text.Encoding encoding, Common.Binary.ByteOrder byteOrder)
-        {
-            if (source == null) throw new System.ArgumentNullException("source");
-
-            if (encoding == null) throw new System.ArgumentNullException("encoding");
-
-            m_BaseStream.Write(Common.Binary.ConvertFromBigEndian(encoding.GetBytes(source), byteOrder), 0, source.Length);
-        }
 
         #endregion
 

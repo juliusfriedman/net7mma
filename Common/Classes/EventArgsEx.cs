@@ -11,6 +11,8 @@ namespace Media.Common
 
     #endregion
 
+    //Ugly
+
     #region EventArgsEx
 
     public class EventArgsEx : EventArgs
@@ -46,4 +48,8 @@ namespace Media.Common
     }
 
     #endregion
+
+    //IEvent...
+
+        //Enabled, Event, Raise(bool force, object sender = null(this))
 }

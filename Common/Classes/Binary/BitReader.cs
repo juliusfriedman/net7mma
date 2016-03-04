@@ -34,6 +34,8 @@
         /// </summary>
         public int BitsRemaining { get { return Common.Binary.BitsPerByte - m_BitIndex; } }
 
+        //IsAligned
+
         /// <summary>
         /// Gets the <see cref="System.IO.Stream"/> from which the data is read.
         /// </summary>
@@ -60,6 +62,8 @@
         #endregion
 
         #region Methods
+
+        //Align()
 
         public bool Find(byte[] bitPattern, int offset, int length)
         {
@@ -102,6 +106,15 @@
         /// </summary>
         internal void Recycle()
         {
+
+            //Could probably just array copy and keep the m_BitIndex, but up to 7 bits may be wasted.
+
+            //System.Array.Copy(m_ByteCache.Array, m_ByteIndex, m_ByteCache.Array, 0, m_ByteIndex);
+
+            //m_ByteIndex = 0;
+
+            //return;
+
             Common.Binary.CopyBitsTo(m_ByteCache.Array, m_ByteIndex, m_BitIndex, m_ByteCache.Array, 0, 0, Common.Binary.BytesToBits(m_ByteCache.Count - m_ByteIndex) + m_BitIndex);
 
             m_ByteIndex = m_BitIndex = 0;
@@ -114,44 +127,48 @@
 
         public byte Peek8(bool reverse = false)
         {
-            int bitIndex = m_BitIndex, byteIndex = m_ByteIndex;
+            int bits = Media.Common.Binary.BytesToBits(ref m_ByteIndex) + m_BitIndex;
 
-            return (byte)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref byteIndex, ref bitIndex, 8, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref byteIndex, ref bitIndex, 8, Binary.Ūnus, Binary.BitsPerByte));
+            return (byte)(reverse ? Common.Binary.ReadBitsMSB(m_ByteCache.Array, bits, Common.Binary.BitsPerByte) : Common.Binary.ReadBitsLSB(m_ByteCache.Array, bits, Common.Binary.BitsPerByte));
         }
 
         public short Peek16(bool reverse = false)
         {
-            int bitIndex = m_BitIndex, byteIndex = m_ByteIndex;
+            int bits = Media.Common.Binary.BytesToBits(ref m_ByteIndex) + m_BitIndex;
 
-            return (short)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref byteIndex, ref bitIndex, 16, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref byteIndex, ref bitIndex, 16, Binary.Ūnus, Binary.BitsPerByte));
+            return (short)(reverse ? Common.Binary.ReadBitsMSB(m_ByteCache.Array, bits, Common.Binary.BitsPerShort) : Common.Binary.ReadBitsLSB(m_ByteCache.Array, bits, Common.Binary.BitsPerShort));
         }
 
         public int Peek24(bool reverse = false)
         {
-            int bitIndex = m_BitIndex, byteIndex = m_ByteIndex;
+            int bits = Media.Common.Binary.BytesToBits(ref m_ByteIndex) + m_BitIndex;
 
-            return (int)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref byteIndex, ref bitIndex, 24, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref byteIndex, ref bitIndex, 24, Binary.Ūnus, Binary.BitsPerByte));
+            return (int)(reverse ? Common.Binary.ReadBitsMSB(m_ByteCache.Array, bits, Common.Binary.TripleBitSize) : Common.Binary.ReadBitsLSB(m_ByteCache.Array, bits, Common.Binary.TripleBitSize));
         }
 
         public int Peek32(bool reverse = false)
         {
-            int bitIndex = m_BitIndex, byteIndex = m_ByteIndex;
+            int bits = Media.Common.Binary.BytesToBits(ref m_ByteIndex) + m_BitIndex;
 
-            return (int)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref byteIndex, ref bitIndex, 32, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref byteIndex, ref bitIndex, 32, Binary.Ūnus, Binary.BitsPerByte));
+            return (int)(reverse ? Common.Binary.ReadBitsMSB(m_ByteCache.Array, bits, Common.Binary.BitsPerInteger) : Common.Binary.ReadBitsLSB(m_ByteCache.Array, bits, Common.Binary.BitsPerInteger));
         }
 
         public long Peek64(bool reverse = false)
         {
-            int bitIndex = m_BitIndex, byteIndex = m_ByteIndex;
+            int bits = Media.Common.Binary.BytesToBits(ref m_ByteIndex) + m_BitIndex;
 
-            return (int)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref byteIndex, ref bitIndex, 64, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref byteIndex, ref bitIndex, 64, Binary.Ūnus, Binary.BitsPerByte));
+            return (int)(reverse ? Common.Binary.ReadBitsMSB(m_ByteCache.Array, bits, Common.Binary.BitsPerLong) : Common.Binary.ReadBitsLSB(m_ByteCache.Array, bits, Common.Binary.BitsPerLong));
         }
         
         [System.CLSCompliant(false)]
         public ulong PeekBits(int count, bool reverse = false)
         {
-            return (ulong)Common.Binary.ReadBinaryInteger(m_ByteCache.Array, 0, count, reverse);
+            int bits = Media.Common.Binary.BytesToBits(ref m_ByteIndex) + m_BitIndex;
+
+            return (reverse ? Common.Binary.ReadBitsMSB(m_ByteCache.Array, bits, count) : Common.Binary.ReadBitsLSB(m_ByteCache.Array, bits, count));
         }
+
+        //Reading methods need to keep track of current index, as well as where data in the cache ends.
 
         public bool ReadBit()
         {
@@ -166,37 +183,37 @@
         }
 
         public byte Read8(bool reverse = false)
-        {
-            return (byte)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, 8, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, 8, Binary.Ūnus, Binary.BitsPerByte));
+        {            
+            return Peek8(reverse);
         }
 
         public short Read16(bool reverse = false)
         {
-            return (short)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, 16, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, 16, Binary.Ūnus, Binary.BitsPerByte));
+            return Peek16(reverse);
         }
 
         public int Read24(bool reverse = false)
         {
-            return (int)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, 24, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, 24, Binary.Ūnus, Binary.BitsPerByte));
+            return Peek24(reverse);
         }
 
         public int Read32(bool reverse = false)
         {
-            return (int)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, 32, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, 32, Binary.Ūnus, Binary.BitsPerByte));
+            return Peek32(reverse);
         }
 
         public long Read64(bool reverse = false)
         {
-            return (long)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, 64, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, 64, Binary.Ūnus, Binary.BitsPerByte));
+            return Peek64(reverse);
         }
 
         [System.CLSCompliant(false)]
         public ulong ReadBits(int count, bool reverse = false)
         {
-            return (ulong)(reverse ? Common.Binary.ReadReverseBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, count, Binary.Ūnus, Binary.BitsPerByte) : Common.Binary.ReadBinaryInteger(m_ByteCache.Array, ref m_ByteIndex, ref m_BitIndex, count, Binary.Ūnus, Binary.BitsPerByte));
+            return PeekBits(count, reverse);
         }
 
-        public void ReadBits(int count, byte[] dest, int destByteOffset, int destBitOffset)
+        public void CopyBits(int count, byte[] dest, int destByteOffset, int destBitOffset)
         {
             //Should accept dest and offsets for direct reads?
             //Would pass m_ByteIndex and m_BitIndex for normal cases.

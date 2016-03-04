@@ -248,7 +248,7 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static long Abs(ref long value)
         {
-            long mask = value >> sizeof(int) * BitsPerByte - 1;
+            long mask = value >> BytesPerInteger * Binary.Septem;
 
             return (value + mask) ^ mask;
         }
@@ -289,6 +289,7 @@ namespace Media.Common
             return Min(ref min, ref max);
         }
 
+        [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static uint Min(ref uint min, ref uint max)
         {
@@ -528,6 +529,8 @@ namespace Media.Common
 
         #endregion
 
+        #region Conversions
+
         #region BitsToBytes
 
         public static int BitsToBytes(int bitCount, int bitsPerByte = Binary.BitsPerByte) { return (int)BitsToBytes((uint)bitCount, (uint) bitsPerByte); }
@@ -536,6 +539,7 @@ namespace Media.Common
         public static uint BitsToBytes(uint bitCount, uint bitsPerByte = Binary.BitsPerByte) { return BitsToBytes(ref bitCount, bitsPerByte); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static uint BitsToBytes(ref uint bitCount, uint bitsPerByte = Binary.BitsPerByte)
         {
             if(bitCount == Binary.Nihil) return Binary.Nihil;
@@ -543,6 +547,13 @@ namespace Media.Common
             long bits, bytes = Math.DivRem(bitCount, bitsPerByte, out bits);
 
             return (uint)(bits > Binary.Nihil ? ++bytes : bytes);
+        }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int BitsToBytes(ref int bitCount)
+        {
+            int remainder = bitCount & Binary.Septem; return (bitCount >> Binary.Tres) + (remainder & Binary.Ūnus);
         }
 
         #endregion
@@ -561,7 +572,12 @@ namespace Media.Common
         /// <param name="bitSize"></param>
         /// <returns></returns>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static uint BytesToBits(ref uint byteCount, uint bitSize = Binary.BitsPerByte) { return byteCount * bitSize; }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int BytesToBits(ref int byteCount){ return byteCount << Binary.Tres;}
 
         #endregion
 
@@ -573,6 +589,7 @@ namespace Media.Common
         public static uint BytesToMachineWords(uint byteCount, uint bytesPerMachineWord = Binary.BytesPerInteger) { return BytesToMachineWords(ref byteCount, bytesPerMachineWord); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static uint BytesToMachineWords(ref uint byteCount, uint bytesPerMachineWord = Binary.BytesPerInteger)
         {
             if (byteCount == Binary.Nihil) return Binary.Nihil;
@@ -580,6 +597,13 @@ namespace Media.Common
             long remainder, bytes = Math.DivRem(byteCount, bytesPerMachineWord, out remainder);
 
             return (uint)(remainder > Binary.Nihil ? ++bytes : bytes);
+        }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int BytesToMachineWords(ref int byteCount)
+        {
+            int remainder = byteCount & Binary.Tres; return (byteCount >> Binary.Quinque) + (remainder & Binary.Ūnus);
         }
 
         #endregion
@@ -593,10 +617,17 @@ namespace Media.Common
 
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static uint MachineWordsToBytes(ref uint machineWords, uint bytesPerMachineWord = Binary.BytesPerInteger)
         {
             return machineWords * bytesPerMachineWord;
         }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int MachineWordsToBytes(ref int machineWords) { return machineWords << Binary.Quinque; }
+
+        #endregion
 
         #endregion
 
@@ -605,9 +636,10 @@ namespace Media.Common
         public static int Sign(int value) { return Sign(ref value); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int Sign(ref int value)
         {
-            return((value > 0) ? 1 : 0) - ((value < 0) ? 1 : 0);
+            return ((value > Binary.Nihil) ? Binary.Ūnus : Binary.Nihil) - ((value < Binary.Nihil) ? Binary.Ūnus : Binary.Nihil);
 
             //Same as Math.Sign
             //return value > 0 ? 1 : value < 0 ? -1 : 0;
@@ -616,9 +648,10 @@ namespace Media.Common
         public static int Sign(long value) { return Sign(ref value); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int Sign(ref long value)
         {
-            return ((value > 0) ? 1 : 0) - ((value < 0) ? 1 : 0);
+            return ((value > Binary.Nihil) ? Binary.Ūnus : Binary.Nihil) - ((value < Binary.Nihil) ? Binary.Ūnus : Binary.Nihil);
 
             //Same as Math.Sign
             //return value > 0 ? 1 : value < 0 ? -1 : 0;
@@ -1010,6 +1043,11 @@ namespace Media.Common
         public const byte TwoBitMaxValue = Binary.Tres;
 
         /// <summary>
+        /// (00000)111 in Binary, Decimal 7
+        /// </summary>
+        public const byte ThreeBitMaxValue = Binary.Septem;
+
+        /// <summary>
         /// (0000)1111 in Binary, Decimal 15
         /// </summary>
         public const byte FourBitMaxValue = Binary.Quīndecim;
@@ -1133,7 +1171,7 @@ namespace Media.Common
         public const int BytesPerDouble = sizeof(double);
 
         /// <summary>
-        /// The size in bytes of values of the type <see cref="long"/>
+        /// The size in bytes of values of the type <see cref="decimal"/>
         /// </summary>
         public const int BytesPerDecimal = sizeof(decimal);
 
@@ -1195,6 +1233,7 @@ namespace Media.Common
         /// <param name="value"></param>
         /// <returns></returns>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int CountTrailingZeros(ref ulong value)
         {
             switch (value)
@@ -1262,6 +1301,7 @@ namespace Media.Common
         public static int CountLeadingZeros(uint value) { return CountLeadingZeros(ref value); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int CountLeadingZeros(ref long value)
         {
             switch (value)
@@ -1672,398 +1712,228 @@ namespace Media.Common
 
         #endregion
 
-        #region ReadBinaryInteger
+        #region ReadBits
 
-        //See BitOrder, reverse is typically obtained with knowing if data is the same format
-        //e.g. someBitOrder != SystemBitOrder
+        //Todo, overload for byteOffset and ref byteOffset
 
-        //Should be named ReadLeastSignificantBinaryInteger? and then ReadBigEndian could be ReadMostSignificant(Bits/BinaryInteger)
-
-        public static long ReadBinaryInteger(byte[] data, bool reverse = false, int sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
+        public static long ReadBits(byte[] bytes, int bitOffset, int bitCount, bool reverse)
         {
-            if (data == null) throw new ArgumentNullException("data");
-
-            int byteOffset = 0, bitOffset = 0;
-
-            return (reverse ? ReadReverseBinaryInteger(data, ref byteOffset, ref bitOffset, Binary.BitsPerByte * data.Length, sign, bitsPerByte) : ReadBinaryInteger(data, ref byteOffset, ref bitOffset, bitsPerByte * data.Length, sign, bitsPerByte));
+            return ReadBits(bytes, bitOffset, bitCount,
+                (Binary.SystemBitOrder == BitOrder.MostSignificant ? //Determine what to do based first on the Binary.SystemBitOrder
+                //MostSignificant -> Determine reverse or not
+                (reverse ? BitOrder.LeastSignificant : BitOrder.MostSignificant)
+                : //LeastSignificant -> Determine reverse or not
+                (reverse ? BitOrder.MostSignificant : BitOrder.LeastSignificant)));
         }
 
-        public static long ReadBinaryInteger(byte[] data, int byteOffset, bool reverse = false, int sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
+        //ByteOrder overloads?
+
+        public static long ReadBits(byte[] bytes, int bitOffset, int bitCount, Binary.BitOrder order)
         {
-            if (data == null) throw new ArgumentNullException("data");
-
-            int bitOffset = Binary.Nihil;
-
-            return (reverse ? ReadReverseBinaryInteger(data, ref byteOffset, ref bitOffset, bitsPerByte * (data.Length - byteOffset), sign, bitsPerByte) 
-                :
-                ReadBinaryInteger(data, ref byteOffset, ref bitOffset, bitsPerByte * (data.Length - byteOffset), sign, bitsPerByte));
+            switch (order)
+            {
+                case BitOrder.LeastSignificant: return (long)ReadBitsLSB(bytes, bitOffset, bitCount);
+                case BitOrder.MostSignificant: return (long)ReadBitsMSB(bytes, bitOffset, bitCount);
+                default: throw new NotImplementedException("A definite BitOrder must be supplied.");
+            }
         }
 
-        public static long ReadBinaryInteger(byte[] data, int byteOffset, int count, bool reverse = false, int sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
-        {
-            if (data == null) throw new ArgumentNullException("data");
-
-            int bitOffset = Binary.Nihil;
-
-            return (reverse ? ReadReverseBinaryInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte) : ReadBinaryInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte));
-        }
-
-        public static long ReadBinaryInteger(byte[] data, int byteOffset, int count, int bitOffset, bool reverse = false, int sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
-        {
-            if (data == null) throw new ArgumentNullException("data");
-
-            return (reverse ? ReadReverseBinaryInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte) : ReadBinaryInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte));
-        }
-
-        /// <summary>
-        /// Calculates the result of reading a integer value from the data using the specified options.
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="byteOffset"></param>
-        /// <param name="bitOffset"></param>
-        /// <param name="count"></param>
-        /// <param name="reverse">Indicates if the <see cref="BitOrder"/> should be reversed in the result</param>
-        /// <param name="sign"></param>
-        /// <returns></returns>
-        [CLSCompliant(false)]        
-        public static long ReadBinaryInteger(byte[] data, ref int byteOffset, ref int bitOffset, int count, bool reverse = false, int sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
-        {
-            if (data == null) throw new ArgumentNullException("data");
-
-            return (reverse ? ReadReverseBinaryInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte) : ReadBinaryInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte));
-        }
-
-        /// <summary>
-        /// Calculates the result of reading a integer value from the data in <see href="http://en.wikipedia.org/wiki/Bit_numbering">LeastSignificant</see> bit order using the specified options.
-        /// </summary>
-        /// <param name="data">The data to read</param>
-        /// <param name="byteOffset">The offset in <paramref name="data"/> to read from</param>
-        /// <param name="bitOffset">The bit offset to start reading from</param>
-        /// <param name="count">The amount of bits to read</param>
-        /// <param name="sign">The starting value to use to create the decimal representation</param>
-        /// <param name="bitsPerByte">The amount of bits in each byte and the shift used to accumulate the result</param>
-        /// <returns>The value calulated</returns>
         [CLSCompliant(false)]
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static long ReadBinaryInteger(byte[] data, ref int byteOffset, ref int bitOffset, int count, long sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
+        public static long ReadBits(byte[] bytes, ref int bitOffset, int bitCount, Binary.BitOrder order)
         {
-            if (count <= Binary.Nihil || sign == Binary.Nihil) return Binary.Nihil;
-
-            unchecked
+            switch (order)
             {
-                //The resulting value
-                long value = Binary.Nihil;
-
-                //While there is a bit needed decrement for the bit consumed
-                while (count-- > Binary.Nihil)
-                {
-                    //Check for the end of bits
-                    if (bitOffset >= bitsPerByte)
-                    {
-                        //reset
-                        bitOffset = Binary.Nihil;
-
-                        //move the index of the byte
-                        ++byteOffset;
-
-                        //Move the value left to 
-                        sign <<= bitsPerByte;
-                    }
-
-                    //Get a bit from the byte at our offset, if the bit is set the value needs to be incremented
-                    if (GetBit(ref data[byteOffset], bitOffset))
-                    {
-                        //Create the binary representation of the decimal number
-                        //Combine the bits of the the represented number into the value
-                        value |= (long)((Binary.Ūnus << bitOffset) * sign);
-                         
-                        //Using the addition operator
-                        //value += (long)(Binary.Unum << bitOffset);
-                    }
-
-                    //Increment for the bit consumed
-                    ++bitOffset;
-                }
-
-                //Return the value
-                return value;
+                case BitOrder.LeastSignificant: return (long)ReadBitsLSB(bytes, ref bitOffset, bitCount);
+                case BitOrder.MostSignificant: return (long)ReadBitsMSB(bytes, ref bitOffset, bitCount);
+                default: throw new NotImplementedException("A definite BitOrder must be supplied.");
             }
         }
 
-        /// <summary>
-        /// Calculates the result of reading a integer value from the data in <see href="http://en.wikipedia.org/wiki/Bit_numbering">MostSignificant</see> bit order using the specified options.
-        /// </summary>
-        /// <param name="data">The data to read</param>
-        /// <param name="byteOffset">The offset in <paramref name="data"/> to read from</param>
-        /// <param name="bitOffset">The bit offset to start reading from</param>
-        /// <param name="count">The amount of bits to read</param>
-        /// <param name="sign">The starting value to use to create the decimal representation</param>
-        /// <param name="bitsPerByte">The amount of bits in each byte and the shift used to accumulate the result</param>
-        /// <returns>The value calulated</returns>
         [CLSCompliant(false)]
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static long ReadReverseBinaryInteger(byte[] data, ref int byteOffset, ref int bitOffset, int count, long sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
+        public static ulong ReadBitsMSB(byte[] bytes, int bitOffset, int bitCount)
         {
-            if (count <= 0 || sign == Binary.Nihil) return Binary.Nihil;
-            
-            //The reading offsets
-            int reverseByteOffset = byteOffset + Binary.BitsToBytes(count, bitsPerByte) - 1, 
-                reverseBitOffset = Binary.Septem - bitOffset;
+            if (bytes == null || bitCount <= 0) return Binary.Nihil;
 
-            unchecked
+            ulong result = 0;
+
+            int byteOffset, bitIndex, position, bitCountMinusOne = bitCount - 1;
+
+            //optimize
+
+            for (int index = bitOffset, end = bitOffset + bitCount; index < end; ++index)
             {
-                //The value and the placeHolder
-                long value = Binary.Nihil;
+                //Only increases after bitIndex has been exhausted (bitIndex == 0)
+                byteOffset = index >> Binary.Tres;
 
-                //While there is a bit needed decrement for the bit consumed
-                while (count-- > Binary.Nihil)
-                {
-                    //Check for the end of bits
-                    if (bitOffset >= bitsPerByte)
-                    {
-                        //Reset the offset of the bit being read
-                        reverseBitOffset = Binary.Septem;
+                //(source index) Always <= 7, then decreases for each iteration
+                bitIndex = Binary.Septem - (index & Binary.Septem);
 
-                        //Reset the offset of the bit being written
-                        bitOffset = Binary.Nihil;
+                //(destination index) decreases
+                position = bitCountMinusOne - (index - bitOffset);
 
-                        //Move the index which corresponds to the byte being read
-                        --reverseByteOffset;
-
-                        //Advance the offset which corresponds to the byte being written
-                        ++byteOffset;
-
-                        //Create the next value
-                        sign <<= bitsPerByte;
-                    }
-
-                    //Get a bit from the byte at our offset to determine if the value needs to be incremented
-                    if (GetBit(ref data[reverseByteOffset], reverseBitOffset--))
-                    {
-                        //Combine the bits of the represented number into the value
-                        value |= (long)((Binary.Ūnus << bitOffset) * sign);
-
-                        //Using the addition operator
-                        //value += (long)(Binary.Unum << bitOffset);
-                    }
-
-                    //Increment for the bit consumed
-                    ++bitOffset;
-                }
-
-                //Return the value
-                return value;
+                //Set the bit in result by reading the bit from the source and moving it to the destination
+                result |= ((ulong)((bytes[byteOffset] >> bitIndex) & Binary.Ūnus) << position);
             }
+
+            return result;
         }
 
-        /// <summary>
-        /// Calculates the result of reading a integer value from the data with the specified options
-        /// </summary>
-        /// <param name="data">The data to read</param>
-        /// <param name="byteOffset">The offset in data to read from</param>
-        /// <param name="bitOffset">The bit offset to start reading from in byteOffset</param>
-        ///// <param name="reverse">Indicates if the <see cref="BitOrder"/> should be reversed in the result</param>
-        /// <param name="count">The amount of bits to read</param>
-        /// <param name="sign">The starting value to use to create the decimal representation</param>
-        /// <param name="bitsPerByte">The amount of bits in each byte and the shift used to accumulate the result</param>
-        /// <returns>The value calulated</returns>
-        public static long ReadBinaryInteger(byte[] data, ref int byteOffset, int count, ref int bitOffset, int sign = Binary.Ūnus, ByteOrder byteOrder = ByteOrder.Unknown, int bitsPerByte = Binary.BitsPerByte)
-        {
-            if (data == null) throw new ArgumentNullException("data");
-
-            //Pass reverse or remove it as a parameter because its confusing.
-            if (byteOrder == Binary.SystemByteOrder) return ReadBinaryInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte);
-            else if (byteOrder == ByteOrder.Big) return ReadBigEndianInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte);
-
-            //Todo
-            throw new NotImplementedException("Must Implement ConvertToBigEndian");
-
-            //This may be useful but it copies bytes to do the conversion
-            //return (byteOrder == Binary.SystemByteOrder ?
-            //    ReadBinaryInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte)
-            //    :
-            //    ReadBigEndianInteger(ConvertFromBigEndian(data, byteOrder), ref byteOffset, ref bitOffset, count, sign, bitsPerByte));
-        }
-
-        #endregion
-
-        #region ReadBigEndianInteger
-
-        public static long ReadBigEndianInteger(byte[] data, long sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
-        {
-            if (data == null) throw new ArgumentNullException("data");
-
-            return ReadBigEndianInteger(data, data.Length * bitsPerByte, sign, bitsPerByte);
-        }
-
-        public static long ReadBigEndianInteger(byte[] data, int count, long sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
-        {
-            if (data == null) throw new ArgumentNullException("data");
-
-             int byteOffset = 0, bitOffset = 0;
-
-             return ReadBigEndianInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte);
-        }
-
-        public static long ReadBigEndianInteger(byte[] data, int byteOffset, int count, long sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
-        {
-            if (data == null) throw new ArgumentNullException("data");
-
-            int bitOffset = 0;
-
-            return ReadBigEndianInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte);
-        }
-
-        public static long ReadBigEndianInteger(byte[] data, int byteOffset, int bitOffset, int count, long sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
-        {
-            if (data == null) throw new ArgumentNullException("data");
-
-            return ReadBigEndianInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte);
-        }
-
-        /// <summary>
-        /// Calculates the result of reading a big endian integer value from the binary representation using the specified options.
-        /// </summary>
-        /// <param name="data">The data to read</param>
-        /// <param name="byteOffset">The offset in <paramref name="data"/> to read from</param>
-        /// <param name="bitOffset">The bit offset to start reading from</param>
-        /// <param name="count">The amount of bits to read</param>
-        /// <param name="sign">The starting value to use to create the decimal representation</param>
-        /// <returns>The big endian value calulated</returns>
         [CLSCompliant(false)]
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static long ReadBigEndianInteger(byte[] data, ref int byteOffset, ref int bitOffset, int count, long sign = Binary.Ūnus, int bitsPerByte = Binary.BitsPerByte)
+        public static ulong ReadBitsMSB(byte[] bytes, ref int bitOffset, int bitCount)
         {
-            if (count <= 0) return Binary.Nihil;
+            ulong result = ReadBitsMSB(bytes, bitOffset, bitCount);
+            bitOffset += bitCount;
+            return result;
+        }
 
-            //If already at the next byte then advance the offset
-            if (bitOffset >= bitsPerByte)
+        [CLSCompliant(false)]
+        public static ulong ReadBitsLSB(byte[] bytes, int bitOffset, int bitCount)
+        {
+            if (bytes == null || bitCount <= 0) return Binary.Nihil;
+
+            ulong result = 0;
+
+            int byteOffset, bitIndex, position;
+
+            //optimize
+
+            for (int index = bitOffset, end = bitOffset + bitCount; index < end; ++index)
             {
-                ++byteOffset;
+                //Divide by 8
+                //Only increases after bitIndex has been exhausted (bitIndex == 7)
+                byteOffset = index >> Binary.Tres;
+                
+                //Modulo 8
+                //(source index) Always <= 7, then increases for each iteration
+                bitIndex = index & Binary.Septem;
 
-                bitOffset = 0;
+                //(destination index) increases
+                position = index - bitOffset;
+
+                //Set the bit in result by reading the bit from the source and moving it to the destination
+                result |= ((ulong)((bytes[byteOffset] >> bitIndex) & Binary.Ūnus) << position);
             }
 
-            //The reading offsets
-            int reverseByteOffset = byteOffset + Binary.BitsToBytes(count, bitsPerByte) - 1,
-                reverseBitOffset = Binary.Septem;
+            return result;
+        }
 
-            unchecked
-            {
-                //The value and the placeHolder
-                long value = Binary.Nihil;
-
-                //While there is a bit needed decrement for the bit consumed
-                while (count-- > Binary.Nihil)
-                {
-                    //Check for the end of bits
-                    if (bitOffset >= bitsPerByte)
-                    {
-                        //Reset the offset of the bit being read
-                        reverseBitOffset = Binary.Septem;
-
-                        //Reset the offset of the bit being written
-                        bitOffset = Binary.Nihil;
-
-                        //Move the index which corresponds to the byte being read
-                        --reverseByteOffset;
-
-                        //Advance the offset which corresponds to the byte being written
-                        ++byteOffset;
-
-                        //Create the next value
-                        sign <<= bitsPerByte;
-                    }
-
-                    //Get a bit from the byte at our offset to determine if the value needs to be incremented
-                    if (GetBit(ref data[reverseByteOffset], reverseBitOffset--))
-                    {
-                        //Combine the bits of the represented number into the value
-                        value |= (long)((Binary.SedecimBitSize >> bitOffset) * sign);
-                    }
-
-                    //Increment for the bit consumed
-                    ++bitOffset;
-                }
-
-                //Return the value
-                return value;
-            }
+        [CLSCompliant(false)]
+        public static ulong ReadBitsLSB(byte[] bytes, ref int bitOffset, int bitCount)
+        {
+            ulong result = ReadBitsLSB(bytes, bitOffset, bitCount);
+            bitOffset += bitCount;
+            return result;
         }
 
         #endregion
 
-        #endregion
+        #region WriteBits
 
-        #region BitEnumerator
-
-        /// <summary>
-        /// Iterates the bits in data according to the host <see cref="BitOrder"/>
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="byteOffset"></param>
-        /// <param name="bitOffset"></param>
-        /// <param name="count"></param>
-        /// <returns></returns>
-        public static IEnumerable<bool> GetEnumerator(byte[] data, int byteOffset, int bitOffset, int count)
+        public static void WriteBits(byte[] bytes, int bitOffset, int bitCount, long value, bool reverse)
         {
-            if (count <= 0) yield break;
+            WriteBits(bytes, bitOffset, bitCount, value,
+                (Binary.SystemBitOrder == BitOrder.MostSignificant ? //Determine what to do based first on the Binary.SystemBitOrder
+                  //MostSignificant -> Determine reverse or not
+                (reverse ? BitOrder.LeastSignificant : BitOrder.MostSignificant)
+                : //LeastSignificant -> Determine reverse or not
+                (reverse ? BitOrder.MostSignificant : BitOrder.LeastSignificant)));
+        }
 
-            unchecked
+        public static void WriteBits(byte[] bytes, int bitOffset, int bitCount, long value, Binary.BitOrder order)
+        {
+            switch (order)
             {
-                //While there is a bit needed decrement for the bit consumed
-                while (count-- > Binary.Nihil)
+                case BitOrder.LeastSignificant: WriteBitsLSB(bytes, bitOffset, (ulong)value, bitCount); return;
+                case BitOrder.MostSignificant: WriteBitsMSB(bytes, bitOffset, (ulong)value, bitCount); return;
+                default: throw new NotImplementedException("A definite BitOrder must be supplied.");
+            }
+        }
+        
+        //ByteOrder overloads?
+
+        [CLSCompliant(false)]
+        public static void WriteBitsLSB(byte[] bytes, int bitOffset, ulong value, int bitCount)
+        {
+            if (bytes == null || bitCount <= 0) return;
+
+            int position, byteOffset, bitIndex;
+
+            bool bitValue;
+
+            //optimize
+
+            for (int index = bitOffset, end = bitOffset + bitCount; index < end; ++index)
+            {
+                position = index - bitOffset;
+                
+                bitValue = ((value >> position) & Binary.Ūnus) > 0;
+                
+                byteOffset = index >> Binary.Tres;
+                
+                bitIndex = index & Binary.Septem;
+
+                if (bitValue)
                 {
-                    //Check for the end of bits
-                    if (bitOffset >= Binary.BitsPerByte)
-                    {
-                        //Reset the bit offset
-                        bitOffset = Binary.Nihil;
-
-                        //Advance the index of the byte
-                        ++byteOffset;
-                    }
-
-                    //Yeild the result of reading the bit at the bitOffset, increasing the bitOffset
-                    yield return GetBit(ref data[byteOffset], bitOffset++);
+                    bytes[byteOffset] |= (byte)(Binary.Ūnus << bitIndex);
+                }
+                else
+                {
+                    bytes[byteOffset] &= (byte)~(Binary.Ūnus << bitIndex);
                 }
             }
         }
 
-        /// <summary>
-        /// Interates the bits in data in reverse of the host <see cref="BitOrder"/>
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="byteOffset"></param>
-        /// <param name="bitOffset"></param>
-        /// <param name="count"></param>
-        /// <returns></returns>
-        public static IEnumerable<bool> GetReverseEnumerator(byte[] data, int byteOffset, int bitOffset, int count)
+        [CLSCompliant(false)]
+        public static void WriteBitsLSB(byte[] bytes, ref int bitOffset, ulong value, int bitCount)
         {
-            if (count <= 0) yield break;
+            WriteBitsLSB(bytes, bitOffset, value, bitCount);
+            bitOffset += bitCount;
+        }
 
-            unchecked
+        [CLSCompliant(false)]
+        public static void WriteBitsMSB(byte[] bytes, int bitOffset, ulong value, int bitCount)
+        {
+            if (bytes == null || bitCount <= 0) return;
+
+            int position, byteOffset, bitIndex, bitCountMinusOne = (bitCount - Binary.Ūnus);
+
+            bool bitValue;
+
+            //optimize
+
+            for (int index = bitOffset, end = bitOffset + bitCount; index < end; ++index)
             {
-                //While there is a bit needed decrement for the bit consumed
-                while (count-- > Binary.Nihil)
+                position = bitCountMinusOne - (index - bitOffset);
+                
+                bitValue = ((value >> position) & Binary.Ūnus) > 0;
+
+                byteOffset = index >> Binary.Tres;
+
+                bitIndex = Binary.Septem - (index & Binary.Septem);
+                
+                if (bitValue)
                 {
-                    //Check for the end of bits
-                    if (bitOffset >= Binary.BitsPerByte)
-                    {
-                        //reset the bit offset
-                        bitOffset = Binary.Nihil;
-
-                        //Advance the index of the byte being read
-                        ++byteOffset;
-                    }
-
-                    //Yeild the result of reading the reverse bit at the bitOffset, increasing the bitOffset
-                    yield return GetBitReverse(ref data[byteOffset], bitOffset++);
+                    bytes[byteOffset] |= (byte)(Binary.Ūnus << bitIndex);
+                }
+                else
+                {
+                    bytes[byteOffset] &= (byte)~(Binary.Ūnus << bitIndex);
                 }
             }
         }
 
+        [CLSCompliant(false)]
+        public static void WriteBitsMSB(byte[] bytes, ref int bitOffset, ulong value, int bitCount)
+        {
+            WriteBitsMSB(bytes, bitOffset, value, bitCount);
+            bitOffset += bitCount;
+        }
+
         #endregion
+
+        //Todo, CopyBits should allow destination to be specified...
+
+        //Not used anywhere besides UnitTests...
 
         #region CopyBits
 
@@ -2201,7 +2071,7 @@ namespace Media.Common
 
             //The resulting data, take 1 away because 0 is the lower bound.
             byte[] result = new byte[reverseByteOffset--];
-            
+
             unchecked
             {
                 //While there is a bit needed decrement for the bit consumed
@@ -2219,7 +2089,7 @@ namespace Media.Common
 
                         //Advance the index which corresponds to the byte being read
                         ++byteOffset;
-                        
+
                         //Move the index which corresponds to the byte beging written
                         --reverseByteOffset;
                     }
@@ -2275,7 +2145,28 @@ namespace Media.Common
 
         #endregion
 
+        #endregion
+
         #region Reading
+
+        public static Guid ReadGuid(IEnumerable<byte> octets, int offset, bool reverse)
+        {
+            byte[] buffer = octets.Skip(offset).Take(Binary.Sēdecim).ToArray();
+
+            //Already expected in little endian format...
+            return new Guid(
+                Read32(buffer, 0, reverse),
+                Read16(buffer, 4, reverse),
+                Read16(buffer, 6, reverse),
+                buffer[8],
+                buffer[9],
+                buffer[10],
+                buffer[11],
+                buffer[12],
+                buffer[13],
+                buffer[14],
+                buffer[15]);
+        }              
 
         /// <summary>
         /// Calculates a 64 bit value from the given parameters.
@@ -2503,10 +2394,29 @@ namespace Media.Common
             return value;
         }
 
+        //double, decimal
+
         #endregion
 
         #region GetBytes
 
+        //ref..
+
+        static byte[] GetBytes(Guid value, bool reverse = false)
+        {
+            byte[] result = value.ToByteArray();
+
+            if (reverse)
+            {
+                Array.Reverse(result, 0, 4);
+
+                Array.Reverse(result, 4, 2);
+
+                Array.Reverse(result, 6, 2);
+            }
+
+            return result;
+        }
         public static byte[] GetBytes(short i, bool reverse = false)
         {
             byte[] result = new byte[Binary.BytesPerShort];
@@ -2531,187 +2441,11 @@ namespace Media.Common
         #endregion
 
         #region Writing
-
-        public static void WriteBinaryInteger(byte[] data, ref int byteOffset, int count, ref int bitOffset, long value, ByteOrder byteOrder = ByteOrder.Unknown)
+        
+        static void WriteGuid(byte[] data, int offset, Guid value, bool reverse)
         {
-            WriteBinaryInteger(data, ref byteOffset, count, ref bitOffset, (ulong)value, byteOrder);
+            GetBytes(value, reverse).CopyTo(data, offset);
         }
-
-        [CLSCompliant(false)]
-        public static void WriteBinaryInteger(byte[] data, ref int byteOffset, int count, ref int bitOffset, ulong value, ByteOrder byteOrder = ByteOrder.Unknown)
-        {
-            if (data == null) throw new ArgumentNullException("data");
-
-            if (byteOrder == Binary.SystemByteOrder) WriteBinaryInteger(data, ref byteOffset, ref bitOffset, count, value);
-            else if (byteOrder == ByteOrder.Big) Common.Binary.WriteBigEndianBinaryInteger(data, ref byteOffset, ref bitOffset, count, value);
-
-            //Todo
-            throw new NotImplementedException("Must Implement Writing for ByteOrder");
-        }
-
-        public static void WriteBinaryInteger(byte[] data, int byteOffset, int bitOffset, int bitCount, long value)
-        {
-            WriteBinaryInteger(data, ref byteOffset, ref bitOffset, bitCount, (ulong)value);
-        }
-
-        [CLSCompliant(false)]
-        public static void WriteBinaryInteger(byte[] data, int byteOffset, int bitOffset, int bitCount, ulong value)
-        {
-            WriteBinaryInteger(data, ref byteOffset, ref bitOffset, bitCount, value);
-        }
-
-        /// <summary>
-        /// Writes the specified amount of bits of the given value to data.
-        /// </summary>
-        /// <param name="data">The array where the bits should be stored</param>
-        /// <param name="byteOffset">The offset in the array</param>
-        /// <param name="bitOffset">The offset to the bit in the <paramref name="byteOffset"/></param>
-        /// <param name="bitCount">The total amount of bits to write</param>
-        /// <param name="value">The value containing the bits</param>
-        [CLSCompliant(false)]
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void WriteBinaryInteger(byte[] data, ref int byteOffset, ref int bitOffset, int bitCount, ulong value)
-        {
-            if (data == null || bitCount == Binary.Nihil) return;
-
-            int bitIndex = 0;
-
-            unchecked
-            {
-                //While there is a bit needed decrement for the bit consumed
-                while (--bitCount >= Binary.Nihil)
-                {
-                    //Check for the end of bits
-                    if (bitOffset >= Binary.BitsPerByte)
-                    {
-                        //reset
-                        bitOffset = Binary.Nihil;
-
-                        //move the index of the byte
-                        ++byteOffset;
-                    }
-
-                    //Set the bit in data at the byteOffset depending on if the value shifted right to bitIndex is still at least 1
-                    SetBit(ref data[byteOffset], bitOffset++, ((value >> bitIndex++) & Binary.Ūnus) > 0);
-                }
-
-                //Return the value
-                return;
-            }
-        }
-
-        public static void WriteReverseBinaryInteger(byte[] data, int byteOffset, int bitOffset, int bitCount, long value)
-        {
-            WriteReverseBinaryInteger(data, ref byteOffset, ref bitOffset, bitCount, (ulong)value);
-        }
-
-        [CLSCompliant(false)]
-        public static void WriteReverseBinaryInteger(byte[] data, int byteOffset, int bitOffset, int bitCount, ulong value)
-        {
-            WriteReverseBinaryInteger(data, ref byteOffset, ref bitOffset, bitCount, value);
-        }
-
-        /// <summary>
-        /// Writes the specified amount of bits of the given value to data in the reverse order in which they occur.
-        /// </summary>
-        /// <param name="data">The array where the bits should be stored</param>
-        /// <param name="byteOffset">The offset in the array</param>
-        /// <param name="bitOffset">The offset to the bit in the <paramref name="byteOffset"/></param>
-        /// <param name="bitCount">The total amount of bits to write</param>
-        /// <param name="value">The value containing the bits</param>
-        [CLSCompliant(false)]
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void WriteReverseBinaryInteger(byte[] data, ref int byteOffset, ref int bitOffset, int bitCount, ulong value)
-        {
-            if (data == null || bitCount <= 0) return;
-
-            //The reading offsets
-            int reverseByteOffset = byteOffset + Binary.BitsToBytes(bitCount, Common.Binary.BitsPerByte) - 1,
-                reverseBitOffset = Binary.Septem - bitOffset,
-                bitIndex = 0;
-
-            unchecked
-            {
-                //While there is a bit needed decrement for the bit consumed
-                while (--bitCount >= Binary.Nihil)
-                {
-                    //Check for the end of bits
-                    if (bitOffset >= Common.Binary.BitsPerByte)
-                    {
-                        //Reset the offset of the bit being read
-                        reverseBitOffset = Binary.Septem;
-
-                        //Reset the offset of the bit being written
-                        bitOffset = Binary.Nihil;
-
-                        //Move the index which corresponds to the byte being read
-                        --reverseByteOffset;
-
-                        //Advance the offset which corresponds to the byte being written
-                        ++byteOffset;
-                    }
-
-                    //Set the bit in data at the byteOffset depending on if the value shifted right to count is still at least 1
-                    SetBit(ref data[reverseByteOffset], reverseBitOffset--, ((value >> bitIndex++) & Binary.Ūnus) > 0);
-
-                    //Increment for the bit consumed
-                    bitOffset++;
-                }
-
-                //Return
-                return;
-            }
-        }
-
-        public static void WriteBigEndianBinaryInteger(byte[] data, int byteOffset, int bitOffset, int bitCount, long value)
-        {
-            WriteBigEndianBinaryInteger(data, ref byteOffset, ref bitOffset, bitCount, (ulong)value);
-        }
-
-        [CLSCompliant(false)]
-        public static void WriteBigEndianBinaryInteger(byte[] data, int byteOffset, int bitOffset, int bitCount, ulong value)
-        {
-            WriteBigEndianBinaryInteger(data, ref byteOffset, ref bitOffset, bitCount, value);
-        }
-
-        [CLSCompliant(false)]
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void WriteBigEndianBinaryInteger(byte[] data, ref int byteOffset, ref int bitOffset, int bitCount, ulong value)
-        {
-            if (data == null || bitCount <= 0) return;
-
-            //The reading offsets
-            int reverseByteOffset = byteOffset + Binary.BitsToBytes(bitCount, Common.Binary.BitsPerByte) - 1,
-                bitIndex = 0;
-
-            unchecked
-            {
-                //While there is a bit needed decrement for the bit consumed
-                while (--bitCount >= Binary.Nihil)
-                {
-                    //Check for the end of bits
-                    if (bitOffset >= Common.Binary.BitsPerByte)
-                    {
-                        //Reset the offset of the bit being written
-                        bitOffset = Binary.Nihil;
-
-                        //Move the index which corresponds to the byte being read
-                        --reverseByteOffset;
-
-                        //Advance the offset which corresponds to the byte being written
-                        ++byteOffset;
-                    }
-
-                    //Set the bit in data at the byteOffset depending on if the value shifted right to count is still at least 1
-                    SetBit(ref data[reverseByteOffset], bitOffset++, ((value >> bitIndex++) & Binary.Ūnus) > 0);
-                }
-
-                //Return
-                return;
-            }
-        }
-
-        //Todo Expand upon reading and writing a number in different lengths than normally found, shift could be calulcated for such cases with value / count
 
         [CLSCompliant(false)]
         public static void WriteInteger(byte[] buffer, int index, int count, ulong value, bool reverse)
@@ -2847,56 +2581,11 @@ namespace Media.Common
             WriteInteger(buffer, index, Binary.BytesPerLong, value, reverse);
         }
 
-        #endregion
-
-        //Should be or have ConvertEndian(data, SourceOrder, DestOrder)
-
-        //Todo, test logic, should enforce that if the SystemOrder is already BigEndian to just return...
-
-        #region ConvertFromBigEndian
-
-        /// <summary>
-        /// Re-orders the data in place based on the required byte order
-        /// </summary>
-        /// <param name="source"></param>
-        /// <param name="byteOrder"></param>
-        /// <returns></returns>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static byte[] ConvertFromBigEndian(byte[] source, ByteOrder byteOrder) //int offset, int count
-        {
-            //Determine what byte order the data is going to
-            switch (byteOrder)
-            {
-                case ByteOrder.Little:
-                    Array.Reverse(source);
-
-                    break;
-
-                case ByteOrder.MiddleBig:
-                    int halfSize = source.Length / 2;
-
-                    Array.Reverse(source, halfSize, halfSize);
-
-                    break;
-
-                case ByteOrder.MiddleLittle:
-
-                    Array.Reverse(source, 0, source.Length / 2);
-
-                    break;
-
-            }
-
-            //Return the data
-            return source;
-        }
+        //double, decimal
 
         #endregion
 
-        #region ConvertToBigEndian
-
-
-        #endregion
+        //Should have ConvertEndian(data, SourceOrder, DestOrder)
 
         #region Reversal
 
@@ -3066,7 +2755,7 @@ namespace Media.Common
     #endregion
 }
 
-
+//Move to seperate assembly
 namespace Media.UnitTests
 {
     /// <summary>
@@ -3209,13 +2898,6 @@ namespace Media.UnitTests
 
                     //Console.WriteLine("Bits Not Set:" + bitsNotSet);
 
-                    //Read the result in binary (host bit order)
-                    if (Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerByte, false) != testBits) throw new Exception("GetBit Does not Work");
-
-                    //Read the result in binary (reverse bit order)
-                    if (Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerByte, true) != Media.Common.Binary.ReverseU8(ref testBits))
-                        throw new Exception("ReadBinaryInteger Does not Work");
-
                     //Copy the bits and verify the result
                     if (Media.Common.Binary.CopyBits(Octets, Media.Common.Binary.BitsPerByte)[0] != Octets[0])
                         throw new Exception("CopyBits Does not Work");
@@ -3223,14 +2905,6 @@ namespace Media.UnitTests
                     //Copy the bits in reverse and verify the result
                     if (Media.Common.Binary.CopyBitsReverse(Octets, Media.Common.Binary.BitsPerByte)[0] != Media.Common.Binary.ReverseU8(ref Octets[0]))
                         throw new Exception("CopyBitsReverse Does not Work");
-
-                    Common.Binary.WriteBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerByte, testBits);
-
-                    if (Octets[0] != testBits) throw new Exception("WriteBinaryInteger Does not Work");
-
-                    Common.Binary.WriteReverseBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerByte, testBits);
-
-                    if (Octets[0] != Media.Common.Binary.ReverseU8(ref testBits)) throw new Exception("WriteReverseBinaryInteger Does not Work");
 
                     //Console.WriteLine("Bits:" + Convert.ToString((long)testBits, 2));
 
@@ -3242,15 +2916,12 @@ namespace Media.UnitTests
 
                 //65535 iterations uses 16 bits of a 32 bit integer
                 for (ushort v = ushort.MinValue; v < ushort.MaxValue; ++v)
-                {
+                {                    
                     //Write the 16 bit value
                     Media.Common.Binary.Write16(Octets, 0, reverse, v);
 
                     //Determine what the reverse byte order would look like
-                    ushort reversed = (ushort)System.Net.IPAddress.HostToNetworkOrder((short)v);
-
-                    //Test the explicit reverse function
-                    if (reversed != Media.Common.Binary.ReverseUnsignedShort(ref v)) throw new Exception("ReverseUnsignedShort Does not Work");
+                    ushort reversed = Media.Common.Binary.ReverseUnsignedShort(ref v);
 
                     //Use the system to get the binary representation of the number
                     byte[] SystemBits = BitConverter.GetBytes(reverse ? reversed : v);
@@ -3258,44 +2929,22 @@ namespace Media.UnitTests
                     //Ensure the bytes are equal to what the system would create
                     if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteInteger->Write16 Does not work");
 
+                    Common.Binary.WriteBitsMSB(Octets, 0, (reverse ? v : reversed), Media.Common.Binary.BitsPerShort);
+
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteBitsMSB Does not work");
+
+                    Common.Binary.WriteBitsLSB(Octets, 0, (reverse ? reversed : v), Media.Common.Binary.BitsPerShort);
+
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteBitsLSB Does not work");
+
+                    //Ensure the value read is equal to what the system would read
+                    if (Media.Common.Binary.ReadBitsLSB(Octets, 0, Media.Common.Binary.BitsPerShort) != (reverse ? reversed : v)) throw new Exception("ReadBitsLSB Does not work.");
+
+                    if (Media.Common.Binary.ReadBitsMSB(Octets, 0, Media.Common.Binary.BitsPerShort) != (reverse ? v : reversed)) throw new Exception("ReadBitsMSB Does not work.");
+
                     //Ensure the value read is equal to what the system would read
                     if (Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.BytesPerShort, reverse) != v) throw new Exception("ReadInteger Does not work.");
 
-                    //Read the 16 bits which were set and ensure the value is equal to the input
-                    if ((result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerShort)) != (reverse ? reversed : v))
-                        throw new Exception("ReadBinaryInteger Does not Work");
-
-                    //Read the 16 bits which were set and ensure the value is equal to the input
-                    if ((result = Media.Common.Binary.ReadBigEndianInteger(Octets, Media.Common.Binary.BitsPerShort)) != (reverse ? v : reversed))
-                        throw new Exception("ReadBigEndianInteger Does not Work");
-
-                    //Copy the bits in the same order they were set and ensure the result is equal to what the system would also create
-                    if (false == SystemBits.SequenceEqual(Media.Common.Binary.CopyBits(Octets, Media.Common.Binary.BitsPerShort)))
-                        throw new Exception("CopyBits Does not Work");
-
-                    //Read the 16 bits in reverse bit order of which they were set and ensure that value is equal to what the system would also create
-                    if ((result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerShort, true)) != BitConverter.ToUInt16(Media.Common.Binary.CopyBitsReverse(Octets, Media.Common.Binary.BitsPerShort), 0))
-                        throw new Exception("CopyBitsReverse Does not Work");
-
-
-                    //Test writing the same value bit by bit
-                    Common.Binary.WriteBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerShort, (reverse ? reversed : v));
-
-                    //Compare Octets with SystemBits.
-                    if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBinaryInteger Does not Work");
-
-                    //Test writing the same value bit by bit in reverse
-                    Common.Binary.WriteBigEndianBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerShort, (reverse ? v : reversed));
-
-                    //Compare Octets with SystemBits.
-                    if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBigEndianBinaryInteger Does not Work");
-
-                    //Write the same value in reverse bit order
-                    Common.Binary.WriteReverseBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerShort, (reverse ? reversed : v));
-
-                    //Read the same value in reverse bit orderB
-                    if (Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerShort, true) != (reverse ? reversed : v)) throw new Exception("WriteReverseBinaryInteger Does not Work");
-                        
                     //Print the bytes tested
                     //Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
 
@@ -3351,10 +3000,7 @@ namespace Media.UnitTests
                     Media.Common.Binary.Write32(Octets, 0, reverse, v);
 
                     //Determine what the reverse byte order would look like
-                    uint reversed = (uint)System.Net.IPAddress.HostToNetworkOrder((int)v);
-
-                    //Test the explicit reverse function
-                    if (reversed != Media.Common.Binary.ReverseUnsignedInt(ref v)) throw new Exception("ReverseUnsignedInt Does not Work");
+                    uint reversed = Media.Common.Binary.ReverseUnsignedInt(ref v);
 
                     //Use the system to get the binary representation of the number
                     byte[] SystemBits = BitConverter.GetBytes(reverse ? reversed : v);
@@ -3362,42 +3008,22 @@ namespace Media.UnitTests
                     //Ensure the bytes are equal to what the system would create
                     if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteInteger->Write32 Does not work");
 
+                    Common.Binary.WriteBitsMSB(Octets, 0, (reverse ? v : reversed), Media.Common.Binary.BitsPerInteger);
+
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteBitsMSB Does not work");
+
+                    Common.Binary.WriteBitsLSB(Octets, 0, (reverse ? reversed : v), Media.Common.Binary.BitsPerInteger);
+
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteBitsLSB Does not work");
+
+                    //Ensure the value read is equal to what the system would read
+                    if (Media.Common.Binary.ReadBitsLSB(Octets, 0, Media.Common.Binary.BitsPerInteger) != (reverse ? reversed : v)) throw new Exception("ReadBitsLSB Does not work.");
+
+                    //Ensure the value read is equal to what the system would read
+                    if (Media.Common.Binary.ReadBitsMSB(Octets, 0, Media.Common.Binary.BitsPerInteger) != (reverse ? v : reversed)) throw new Exception("ReadBitsMSB Does not work.");
+
                     //Ensure the value read is equal to what the system would read
                     if (Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.BytesPerInteger, reverse) != v) throw new Exception("ReadInteger Does not work.");
-
-                    //Read the 32 bits which were set and ensure the value is equal to the input
-                    if ((result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerInteger)) != (reverse ? reversed : v))
-                        throw new Exception("ReadBinaryInteger Does not Work");
-
-                    //Read the 32 bits which were set and ensure the value is equal to the input
-                    if ((result = Media.Common.Binary.ReadBigEndianInteger(Octets, Media.Common.Binary.BitsPerInteger)) != (reverse ? v : reversed))
-                        throw new Exception("ReadBigEndianInteger Does not Work");
-
-                    //Copy the bits in the same order they were set and ensure the result is equal to what the system would also create
-                    if (false == SystemBits.SequenceEqual(Media.Common.Binary.CopyBits(Octets, Media.Common.Binary.BitsPerInteger)))
-                        throw new Exception("CopyBits Does not Work");
-
-                    //Read the 32 bits in reverse bit order of which they were set and ensure that value is equal to what the system would also create
-                    if ((result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerInteger, true)) != BitConverter.ToUInt32(Media.Common.Binary.CopyBitsReverse(Octets, Media.Common.Binary.BitsPerInteger), 0))
-                        throw new Exception("CopyBitsReverse Does not Work");
-
-                    //Test writing the same value bit by bit
-                    Common.Binary.WriteBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerInteger, (reverse ? reversed : v));
-
-                    //Compare Octets with SystemBits.
-                    if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBinaryInteger Does not Work");
-
-                    //Test writing the same value bit by bit in reverse
-                    Common.Binary.WriteBigEndianBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerInteger, (reverse ? v : reversed));
-
-                    //Compare Octets with SystemBits.
-                    if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBigEndianBinaryInteger Does not Work");
-
-                    //Write the same value in reverse bit order
-                    Common.Binary.WriteReverseBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerInteger, (reverse ? reversed : v));
-
-                    //Read the same value in reverse bit order
-                    if (Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerInteger, true) != (reverse ? reversed : v)) throw new Exception("WriteReverseBinaryInteger Does not Work");
 
                     //Print the bytes tested
                     //Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
@@ -3423,10 +3049,7 @@ namespace Media.UnitTests
                     Media.Common.Binary.Write64(Octets, 0, reverse, v);
 
                     //Determine what the reverse byte order would look like
-                    ulong reversed = (ulong)System.Net.IPAddress.HostToNetworkOrder((long)v);
-
-                    //Test the explicit reverse function
-                    if (reversed != Media.Common.Binary.ReverseUnsignedLong(ref v)) throw new Exception("ReverseUnsignedLong Does not Work");
+                    ulong reversed = Media.Common.Binary.ReverseUnsignedLong(ref v);
 
                     //Use the system to get the binary representation of the number
                     byte[] SystemBits = BitConverter.GetBytes(reverse ? reversed : v);
@@ -3434,42 +3057,22 @@ namespace Media.UnitTests
                     //Ensure the bytes are equal to what the system would create
                     if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteInteger->Write64 Does not work");
 
+                    Common.Binary.WriteBitsMSB(Octets, 0, (reverse ? v : reversed), Media.Common.Binary.BitsPerLong);
+
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteBitsMSB Does not work");
+
+                    Common.Binary.WriteBitsLSB(Octets, 0, (reverse ? reversed : v), Media.Common.Binary.BitsPerLong);
+
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteBitsLSB Does not work");
+
+                    //Ensure the value read is equal to what the system would read
+                    if (Media.Common.Binary.ReadBitsLSB(Octets, 0, Media.Common.Binary.BitsPerLong) != (reverse ? reversed : v)) throw new Exception("ReadBitsLSB Does not work.");
+
+                    //Ensure the value read is equal to what the system would read
+                    if (Media.Common.Binary.ReadBitsMSB(Octets, 0, Media.Common.Binary.BitsPerLong) != (reverse ? v : reversed)) throw new Exception("ReadBitsMSB Does not work.");
+
                     //Ensure the value read is equal to what the system would read
                     if ((ulong)Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.BytesPerLong, reverse) != v) throw new Exception("ReadInteger Does not work.");
-
-                    //Read the 64 bits which were set and ensure the value is equal to the input
-                    if ((ulong)(result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerLong)) != (reverse ? reversed : v))
-                        throw new Exception("ReadBinaryInteger Does not Work");
-
-                    //Read the 64 bits which were set and ensure the value is equal to the input
-                    if ((ulong)(result = Media.Common.Binary.ReadBigEndianInteger(Octets, Media.Common.Binary.BitsPerLong)) != (reverse ? v : reversed))
-                        throw new Exception("ReadBigEndianInteger Does not Work");
-
-                    //Copy the bits in the same order they were set and ensure the result is equal to what the system would also create
-                    if (false == SystemBits.SequenceEqual(Media.Common.Binary.CopyBits(Octets, Media.Common.Binary.BitsPerLong)))
-                        throw new Exception("CopyBits Does not Work");
-
-                    //Read the 64 bits in reverse bit order of which they were set and ensure that value is equal to what the system would also create
-                    if ((ulong)(result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerLong, true)) != BitConverter.ToUInt64(Media.Common.Binary.CopyBitsReverse(Octets, Media.Common.Binary.BitsPerLong), 0))
-                        throw new Exception("CopyBitsReverse Does not Work");
-
-                    //Test writing the same value bit by bit
-                    Common.Binary.WriteBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerLong, (reverse ? reversed : v));
-
-                    //Compare Octets with SystemBits.
-                    if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBinaryInteger Does not Work");
-
-                    //Test writing the same value bit by bit in reverse
-                    Common.Binary.WriteBigEndianBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerLong, (reverse ? v : reversed));
-
-                    //Compare Octets with SystemBits.
-                    if (false == Octets.Take(SystemBits.Length).SequenceEqual(SystemBits)) throw new Exception("WriteBigEndianBinaryInteger Does not Work");
-
-                    //Write the same value in reverse bit order
-                    Common.Binary.WriteReverseBinaryInteger(Octets, 0, 0, Media.Common.Binary.BitsPerLong, (reverse ? reversed : v));
-
-                    //Read the same value in reverse bit order
-                    if ((ulong)Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerLong, true) != (reverse ? reversed : v)) throw new Exception("WriteReverseBinaryInteger Does not Work");
 
                     //Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
 
