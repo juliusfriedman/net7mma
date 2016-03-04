@@ -248,7 +248,7 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static long Abs(ref long value)
         {
-            long mask = value >> BytesPerInteger * Binary.Septem;
+            long mask = value >> BytesPerInteger * Binary.Septem;//28;
 
             return (value + mask) ^ mask;
         }

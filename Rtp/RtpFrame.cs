@@ -132,31 +132,23 @@ namespace Media.Rtp
                     case 0: return true;
                     //Single packet, only missing if there is no marker
                     case 1: return false == HasMarker;
-                    //2 or more packets, cache the HighestSequenceNumber and check all packets to be sequential
-                    default: return false == m_Packets.All((a) =>
+                    //2 or more packets, cache the m_LowestSequenceNumber and check all packets to be sequential
+                    default: RtpPacket p; int nextSeq = m_LowestSequenceNumber; for (int i = 0, e = Count; i < e; ++i)
                     {
-                        //   RtpPacket p = a;
+                        //Scope the packet
+                        p = m_Packets[i];
 
-                        int pSeq = a.SequenceNumber;
+                        //obtain the sequence number
+                        int pSeq = p.SequenceNumber;
 
-                        //If the packet sequence number is equal to highest sequence number, the result could depend on the marker.
-                        if (pSeq == m_HighestSequenceNumber) return true; // a.Marker;
+                        //The packet is missing
+                        if (pSeq != nextSeq) return true;
 
-                        //Handle roll over
-                        switch (pSeq)
-                        {
-                            //When 65535 == the packet sequence number rollover occurs, the next packet is 0
-                            case ushort.MaxValue: return 0 == m_HighestSequenceNumber ? true : Contains(0);
-                            default:
-                                {
-                                    //INCREMENT,  If the NEXT packet sequence number is equal to highest sequence number we know the packet is contained, return true. (the result could depend on the marker.)
-                                    if (++pSeq == m_HighestSequenceNumber) return true;
-
-                                    //Check for the NEXT packet sequence number
-                                    return Contains(pSeq);
-                                }
-                        }
-                    });                       
+                        //Determine the next sequence number
+                        nextSeq = nextSeq == ushort.MaxValue ? 0 : ++nextSeq;
+                    }
+                        //Not missing any packets.
+                        return false;
                 }
             }
         }
@@ -294,9 +286,11 @@ namespace Media.Rtp
             //Should check if the packet is contained to prevent duplicates..
             //if (Contains(seq)) throw new InvalidOperationException("Duplicate Packet");
 
+            bool hasMarker = HasMarker;
+
             //If the last packet has the marker bit then no more packets can be added unless they are from a lower sequence number
             //This would result in a marker packet followed by a non marker packet in the same frame.
-            if (false == allowPacketsAfterMarker && m_LowestSequenceNumber != m_HighestSequenceNumber && HasMarker) throw new InvalidOperationException("Complete frames cannot have additional packets added");
+            if (false == allowPacketsAfterMarker && m_LowestSequenceNumber != m_HighestSequenceNumber && hasMarker) throw new InvalidOperationException("Complete frames cannot have additional packets added");
 
             //Dont use a SortedDictionary just to ensure only a single key in the hash, (Use List or Lookup and Distinct)
             //Add the packet to the SortedList which WILL throw any exception if the RtpPacket added already contains a value.    
@@ -308,8 +302,8 @@ namespace Media.Rtp
             //Check for later packets or wrap around sequence number
             if (diff > count || seq > m_HighestSequenceNumber)
             {
-                //When m_LowestSequenceNumber == 0 the packet must be earlier in time
-                if (m_LowestSequenceNumber == 0)
+                //When the marker is present the packet cannot come after the marker packet, so it must be from ealier
+                if (hasMarker)
                 {
                     m_Packets.Insert(0, packet);
 
