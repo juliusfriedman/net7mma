@@ -66,8 +66,8 @@
     <Compile Include="IImageCodec.cs" />
     <Compile Include="Image.cs" />
     <Compile Include="ImageCodec.cs" />
-    <Compile Include="ImageTransformation.cs" />
     <Compile Include="ImageFormat.cs" />
+    <Compile Include="ImageTransformation.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Transformations\RGB.cs" />
     <Compile Include="Transformations\YUV.cs" />

@@ -4549,7 +4549,7 @@ namespace Media.Rtp
             {
                 using (var subMemory = new Common.MemorySegment(memory.Array, offset + index, mRemaining))
                 {
-                    using (RtpPacket rtp = new RtpPacket(subMemory))
+                    using (RtpPacket rtp = new RtpPacket(new RtpHeader(memory), new Common.MemorySegment(memory.Array, subMemory.Offset + RtpHeader.Length, mRemaining - RtpHeader.Length)))
                     {
                         //Raise the event
                         HandleIncomingRtpPacket(this, rtp);
