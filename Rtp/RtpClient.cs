@@ -106,6 +106,7 @@ namespace Media.Rtp
         //e.g Port mapping request http://tools.ietf.org/html/rfc6284#section-4.2 
         static byte[] WakeUpBytes = new byte[] { 0x70, 0x70, 0x70, 0x70 };
 
+        //Choose better name,,, 
         internal const byte BigEndianFrameControl = 36;//, // ASCII => $,  Hex => 24  Binary => 100100
         //LittleEndianFrameControl = 9;                   //                                     001001
 
@@ -2577,6 +2578,8 @@ namespace Media.Rtp
 
                 //Set the time the first packet was sent.
                 if (transportContext.m_FirstPacketSent == DateTime.MinValue) transportContext.m_FirstPacketSent = sent;
+
+                //Todo, should not update receive sequence number for sent packets...
 
                 //If the packet was in sequence
                 if (transportContext.UpdateSequenceNumber(packet.SequenceNumber))
