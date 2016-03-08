@@ -346,6 +346,13 @@ namespace Media.Rtp
             }
         }
 
+        public RtpHeader(Common.MemorySegment memory)
+        {
+            First16Bits = new Media.RFC3550.CommonHeaderBits(memory);
+
+            PointerToLast10Bytes = new Common.MemorySegment(memory.Array, memory.Offset + RFC3550.CommonHeaderBits.Size, Binary.Clamp(memory.Count - RFC3550.CommonHeaderBits.Size, 0, 10));
+        }
+
         public RtpHeader(int version, bool padding, bool extension)
         {
             First16Bits = new Media.RFC3550.CommonHeaderBits(version, padding, extension);

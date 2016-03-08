@@ -335,14 +335,6 @@ namespace Media.Rtp
         
         public RtpPacket(byte[] buffer, int offset) : this(buffer, offset, buffer.Length - offset) { }
             
-
-        /// <summary>
-        /// Creates a RtpPacket instance from the given segment of memory.
-        /// The instance will depend on the memory in the given buffer.
-        /// </summary>
-        /// <param name="buffer">The segment containing the binary data to decode.</param>
-        public RtpPacket(MemorySegment buffer) : this(buffer.Array, buffer.Offset, buffer.Count) { }
-
         #endregion
 
         #region Properties

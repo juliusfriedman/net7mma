@@ -810,7 +810,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 if (bytesPerPacket < protocolOverhead) throw new InvalidOperationException("Each RtpPacket in the RtpFrame must contain a RtpHeader (12 octets) as well as the RtpJpeg Header (8 octets).");
 
                 //Set the id of all subsequent packets.
-                SynchronizationSourceIdentifier = ssrc ?? 0;
+                SynchronizationSourceIdentifier = ssrc ?? -1;
 
                 byte RtpJpegTypeSpecific = 0,  //Type-specific - http://tools.ietf.org/search/rfc2435#section-3.1.1
                     RtpJpegType = 0, //Type - http://tools.ietf.org/search/rfc2435#section-3.1.3
