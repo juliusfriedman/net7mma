@@ -317,9 +317,10 @@ namespace Media.Rtp
             //Determine where to insert
             int insert = 0, tempSeq = 0;
 
-            //Search for insert point
+            //Search for insert point while the index < count
             while (insert < count && (short)(seq - (tempSeq = m_Packets[insert].SequenceNumber)) >= 0)
             {
+                //move the index
                 ++insert;
             }
 
@@ -660,7 +661,7 @@ namespace Media.UnitTests
                 if (false == frame.HasMarker) throw new Exception("Frame must have marker");
 
                 //Write out
-                Console.WriteLine(string.Join(",", frame.Select(p => p.SequenceNumber).ToArray()));
+                //Console.WriteLine(string.Join(",", frame.Select(p => p.SequenceNumber).ToArray()));
 
                 //Verify the order
                 for (int i = 0; i < 10; ++i)

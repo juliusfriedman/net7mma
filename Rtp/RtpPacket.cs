@@ -571,6 +571,8 @@ namespace Media.Rtp
         {
             try
             {
+                //when all are null the header is the same... could use own header...
+
                 return Prepare(new RtpHeader(Version, Padding, Extension, marker ?? Marker, payloadType ?? PayloadType, ContributingSourceCount, ssrc ?? SynchronizationSourceIdentifier, sequenceNumber ?? SequenceNumber, timestamp ?? Timestamp));
             }
             catch
