@@ -398,7 +398,7 @@ namespace Media.Rtp
             }
 
             /// <summary>
-            /// Creates a <see cref="SendersReport"/> from the given context.
+            /// Creates a <see cref="SendersReport"/> from the given context and updates the RtpExpectedPrior and RtpReceivedPrior accordingly.
             /// Note, If empty is false and no previous <see cref="SendersReport"/> was sent then the report will be empty anyway.
             /// </summary>
             /// <param name="context"></param>
@@ -411,13 +411,12 @@ namespace Media.Rtp
                 SendersReport result = new SendersReport(context.Version, 0, context.SynchronizationSourceIdentifier);
 
                 //Use the values from the TransportChannel (Use .NtpTimestamp = 0 to Disable NTP)[Should allow for this to be disabled]
-                result.NtpTimestamp = context.NtpTimestamp + context.NtpOffset;
-
+                result.NtpTimestamp = context.SenderNtpTimestamp + context.SenderNtpOffset;
 
                 if (result.NtpTimestamp == 0) result.NtpTime = DateTime.UtcNow;
 
                 //Note that in most cases this timestamp will not be equal to the RTP timestamp in any adjacent data packet.  Rather, it MUST be  calculated from the corresponding NTP timestamp using the relationship between the RTP timestamp counter and real time as maintained by periodically checking the wallclock time at a sampling instant.
-                result.RtpTimestamp = context.RtpTimestamp;
+                result.RtpTimestamp = context.SenderRtpTimestamp;
 
                 if (result.RtpTimestamp == 0) result.RtpTimestamp = (int)Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp32(result.NtpTime);
 
@@ -430,44 +429,58 @@ namespace Media.Rtp
                 if (false == empty && context.RemoteSynchronizationSourceIdentifier != null && context.RemoteSynchronizationSourceIdentifier.Value != 0 && context.TotalPacketsSent > 0)
                 {
 
-                    #region Delay and Fraction
+                    ////#region Delay and Fraction
 
-                    //Should be a single function and when backoff reached 0 RtcpDisabled should be true....
+                    //////Should be a single function and when backoff reached 0 RtcpDisabled should be true....
 
-                    //Currently if rtcp becomes `disabled` then Goodbye will not be handled and the source will eat cpu will timing out...
+                    //////Currently if rtcp becomes `disabled` then Goodbye will not be handled and the source will eat cpu will timing out...
 
-                    //Should be performed in the Conference level, these values here will only 
-                    //should allow a backoff to occur in reporting and possibly eventually to be turned off.
+                    //////Should be performed in the Conference level, these values here will only 
+                    //////should allow a backoff to occur in reporting and possibly eventually to be turned off.
 
-                    //// RFC 3550 A.3 Determining Number of Packets Expected and Lost.
-                    int fraction = 0;
-                    uint extended_max = (uint)(context.RtpSeqCycles + context.RtpMaxSeq);
-                    int expected = (int)(extended_max - context.RtpBaseSeq + 1);
-                    int lost = (int)(expected - context.RtpPacketsReceived);
-                    int expected_interval = (int)(expected - context.RtpExpectedPrior);
-                    context.RtpExpectedPrior = (uint)expected;
-                    int received_interval = (int)(context.RtpPacketsReceived - context.RtpReceivedPrior);
-                    context.RtpReceivedPrior = (uint)context.RtpPacketsReceived;
-                    int lost_interval = expected_interval - received_interval;
-                    if (expected_interval == 0 || lost_interval <= 0)
-                    {
-                        fraction = 0;
-                    }
-                    else
-                    {
-                        fraction = (lost_interval << 8) / expected_interval;
-                    }
+                    //////// RFC 3550 A.3 Determining Number of Packets Expected and Lost.
 
-                    #endregion
+                    ////int fraction = 0;
+                    
+                    ////uint extended_max = (uint)(context.RtpSeqCycles + context.RtpMaxSeq);
+                    
+                    ////int expected = (int)(extended_max - context.RtpBaseSeq + 1);
+                    
+                    ////int lost = (int)(expected - context.ValidRtpPacketsReceived);
+
+                    ////int expected_interval = (int)(expected - context.RtpExpectedPrior);
+
+                    ////context.RtpExpectedPrior = (uint)expected;
+                    
+                    ////int received_interval = (int)(context.ValidRtpPacketsReceived - context.RtpReceivedPrior);
+                    
+                    ////context.RtpReceivedPrior = (uint)context.ValidRtpPacketsReceived;
+                    
+                    ////int lost_interval = expected_interval - received_interval;
+                    
+                    ////if (expected_interval == 0 || lost_interval <= 0)
+                    ////{
+                    ////    fraction = 0;
+                    ////}
+                    ////else
+                    ////{
+                    ////    fraction = (lost_interval << 8) / expected_interval;
+                    ////}
+
+                    ////#endregion
+
+                    uint fraction, lost;
+
+                    RFC3550.CalculateFractionAndLoss(ref context.RtpBaseSeq, ref context.RtpMaxSeq, ref context.RtpSeqCycles, ref context.ValidRtpPacketsReceived, ref context.RtpReceivedPrior, ref context.RtpExpectedPrior, out fraction, out lost);
 
                     //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
                     result.Add(new ReportBlock((int)context.RemoteSynchronizationSourceIdentifier,
                         (byte)fraction,
-                        lost,
-                        (int)context.SequenceNumber,
-                        (int)context.RtpJitter,
+                        (int)lost,
+                        context.SendSequenceNumber,
+                        (int)context.SenderJitter,
                         //The middle 32 bits out of 64 in the NTP timestamp (as explained in Section 4) received as part of the most recent RTCP sender report (SR) packet from source SSRC_n. If no SR has been received yet, the field is set to zero.
-                        (int)((context.NtpTimestamp >> 16) << 32),
+                        (int)((context.SenderNtpTimestamp >> 16) << 32),
                         //The delay, expressed in units of 1/65536 seconds, between receiving the last SR packet from source SSRC_n and sending this reception report block. If no SR packet has been received yet from SSRC_n, the DLSR field is set to zero.
                         context.LastRtcpReportSent > TimeSpan.MinValue ? (int)context.LastRtcpReportSent.TotalSeconds / ushort.MaxValue : 0));
                 }
@@ -476,7 +489,7 @@ namespace Media.Rtp
             }
 
             /// <summary>
-            /// Creates a <see cref="ReceiversReport"/> from the given context.
+            /// Creates a <see cref="ReceiversReport"/> from the given context and updates the RtpExpectedPrior and RtpReceivedPrior accordingly.
             /// </summary>
             /// <param name="context">The context</param>
             /// <param name="empty">Indicates if the report should be empty</param>
@@ -488,36 +501,49 @@ namespace Media.Rtp
                 if (false == empty && context.RemoteSynchronizationSourceIdentifier != null && context.RemoteSynchronizationSourceIdentifier.Value != 0 && context.TotalRtpPacketsReceieved > 0)
                 {
 
-                    #region Delay and Fraction
+                    //#region Delay and Fraction
 
-                    //Should be performed in the Conference level, these values here will only 
-                    //should allow a backoff to occur in reporting and possibly eventually to be turned off.
-                    int fraction = 0;
-                    uint extended_max = (uint)(context.RtpSeqCycles + context.RtpMaxSeq);
-                    int expected = (int)(extended_max - context.RtpBaseSeq + 1);
-                    int lost = (int)(expected - context.RtpPacketsReceived);
-                    int expected_interval = (int)(expected - context.RtpExpectedPrior);
-                    context.RtpExpectedPrior = (uint)expected;
-                    int received_interval = (int)(context.RtpPacketsReceived - context.RtpReceivedPrior);
-                    context.RtpReceivedPrior = (uint)context.RtpPacketsReceived;
-                    int lost_interval = expected_interval - received_interval;
-                    if (expected_interval == 0 || lost_interval <= 0)
-                    {
-                        fraction = 0;
-                    }
-                    else
-                    {
-                        fraction = (lost_interval << 8) / expected_interval;
-                    }
+                    ////Should be performed in the Conference level, these values here will only 
+                    ////should allow a backoff to occur in reporting and possibly eventually to be turned off.
+                    //int fraction = 0;
+                    
+                    //uint extended_max = (uint)(context.RtpSeqCycles + context.RtpMaxSeq);
+                    
+                    //int expected = (int)(extended_max - context.RtpBaseSeq + 1);
+                    
+                    //int lost = (int)(expected - context.ValidRtpPacketsReceived);
+                    
+                    //int expected_interval = (int)(expected - context.RtpExpectedPrior);
+                    
+                    //context.RtpExpectedPrior = (uint)expected;
+                    
+                    //int received_interval = (int)(context.ValidRtpPacketsReceived - context.RtpReceivedPrior);
+                    
+                    //context.RtpReceivedPrior = (uint)context.ValidRtpPacketsReceived;
+                    
+                    //int lost_interval = expected_interval - received_interval;
+                    
+                    //if (expected_interval == 0 || lost_interval <= 0)
+                    //{
+                    //    fraction = 0;
+                    //}
+                    //else
+                    //{
+                    //    fraction = (lost_interval << 8) / expected_interval;
+                    //}
 
-                    #endregion
+                    //#endregion
+
+                    uint fraction, lost;
+
+                    RFC3550.CalculateFractionAndLoss(ref context.RtpBaseSeq, ref context.RtpMaxSeq, ref context.RtpSeqCycles, ref context.ValidRtpPacketsReceived, ref context.RtpReceivedPrior, ref context.RtpExpectedPrior, out fraction, out lost);
 
                     //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
 
                     result.Add(new ReportBlock((int)context.RemoteSynchronizationSourceIdentifier,
                            (byte)fraction,
-                        lost,
-                        (int)context.SequenceNumber,
+                        (int)lost,
+                        context.RecieveSequenceNumber,
                         (int)context.RtpJitter >> 4,
                         (int)(context.SendersReport != null ? Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp32(context.SendersReport.NtpTime) : 0),
                         (context.SendersReport != null ? ((DateTime.UtcNow - context.SendersReport.Created).Seconds / ushort.MaxValue) * 1000 : 0)
@@ -540,7 +566,7 @@ namespace Media.Rtp
                 //Todo, params context overload? overload with other Items
                 return new SourceDescriptionReport(context.Version) 
                 { 
-                    new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk((int)context.SynchronizationSourceIdentifier, cName ?? Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.CName),
+                    new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk((int)context.SynchronizationSourceIdentifier, Common.Extensions.Linq.LinqExtensions.Yield((cName ?? Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.CName)).Concat(items ?? System.Linq.Enumerable.Empty<Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem>())),
                     //items.SelectMany(i=> new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk((int)context.SynchronizationSourceIdentifier, i))
                 };
             }
@@ -558,6 +584,10 @@ namespace Media.Rtp
             /// The amount of <see cref="RtpPacket"/>'s which must be received before IsValid is true.
             /// </summary>
             public readonly int MinimumSequentialValidRtpPackets = DefaultMinimumSequentalRtpPackets;
+
+            public readonly int MaxMisorder = DefaultMaxMisorder;
+
+            public readonly int MaxDropout = DefaultMaxDropout;
 
             /// <summary>
             /// The channels which identity the TransportContext.
@@ -584,10 +614,11 @@ namespace Media.Rtp
                          RtpPacketsSent, RtcpPacketsSent,
                          RtpPacketsReceived, RtcpPacketsReceived;
 
-            internal ushort m_SequenceNumber, RtpMaxSeq;//The highest Sequence recieved by the RtpClient
+            //The current, highest received and highest sent Sequence numbers recieved by the RtpClient
+            internal ushort m_SequenceNumber, m_LastSentSequenceNumber, RtpMaxSeq;
 
             //Used for Rtp and Rtcp Transport Calculations (Should be moved into State Structure)
-            internal uint RtpTransit,
+            internal uint RtpTransit, SenderTransit,
                 //Count of bytes recieved prior to the reception of a report
                 RtpReceivedPrior,
                 //Count of bytes expected prior to the recpetion of a report
@@ -601,7 +632,9 @@ namespace Media.Rtp
                 //The amount of bad RTP Sequences encountered
                 RtpBadSeq,
                 //Jitter value
-                RtpJitter;
+                RtpJitter, SenderJitter,
+                //Valid amount of rtp packets recieved 
+                ValidRtpPacketsReceived;
 
             internal TimeSpan m_SendInterval = DefaultReportInterval, m_ReceiveInterval = DefaultReportInterval, m_InactiveTime = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan,m_StartTime = TimeSpan.Zero, m_EndTime = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
 
@@ -964,7 +997,7 @@ namespace Media.Rtp
             /// <summary>
             /// Determines if the source has recieved at least <see cref="MinimumSequentialValidRtpPackets"/> RtpPackets
             /// </summary>
-            public virtual bool IsValid { get { return RtpPacketsReceived >= MinimumSequentialValidRtpPackets; } }
+            public virtual bool IsValid { get { return ValidRtpPacketsReceived >= MinimumSequentialValidRtpPackets; } }
 
             /// <summary>
             /// Indicates if the Rtcp is enabled and the LocalRtp is equal to the LocalRtcp
@@ -1083,12 +1116,31 @@ namespace Media.Rtp
             public long TotalRtcpBytesReceieved { get { return IsDisposed ? 0 : RtcpBytesRecieved; } }
 
             /// <summary>            
-            /// The sequence number of the last RtpPacket sent or recieved on this channel, if set to 0 the value 1 will be used instead.
+            /// Gets the sequence number of the last RtpPacket recieved on this channel
             /// </summary>
-            /// <remarks>
-            /// The value 0 is used only during the inital transmission in this implementation.
-            /// </remarks>
-            public int SequenceNumber { get { return (short)m_SequenceNumber; } internal set { if (value == 0) value = 1; m_SequenceNumber = (ushort)value; } }
+            public int RecieveSequenceNumber
+            {
+                get { return (short)m_SequenceNumber; }
+                internal set
+                {
+                    //Check for bad values rather than cast and ignore
+                    if (value < 0 || value > ushort.MaxValue) throw Common.Binary.CreateOverflowException("value", value, short.MinValue.ToString(), short.MaxValue.ToString());
+
+                    m_SequenceNumber = (ushort)value;
+                }
+            }
+
+            public int SendSequenceNumber
+            {
+                get { return (short)m_SequenceNumber; }
+                internal set
+                {
+                    //Check for bad values rather than cast and ignore
+                    if (value < 0 || value > ushort.MaxValue) throw Common.Binary.CreateOverflowException("value", value, short.MinValue.ToString(), short.MaxValue.ToString());
+
+                    m_LastSentSequenceNumber = (ushort)value;
+                }
+            }
 
             /// <summary>
             /// The RtpTimestamp from the last SendersReport recieved or created;
@@ -1096,14 +1148,20 @@ namespace Media.Rtp
             /// TODO Back with logic to increase by frequency?
             public int RtpTimestamp { get; internal set; }
 
+            public int SenderRtpTimestamp { get; internal set; }
+
             /// <summary>
             /// The NtpTimestamp from the last SendersReport recieved or created
             /// </summary>
             public long NtpTimestamp { get; internal set; }
 
+            public long SenderNtpTimestamp { get; internal set; }
+
             //Allows for time difference between the source and the client when issuing reports, will be added to any NtpTimestamp created.
 
             public long NtpOffset { get; set; }
+
+            public long SenderNtpOffset { get; set; }
 
             #endregion
 
@@ -1186,18 +1244,36 @@ namespace Media.Rtp
             /// <param name="packet">RTP packet.</param>
             public void UpdateJitterAndTimestamp(RtpPacket packet)
             {
+                //Determine to update sent or received values
+                bool sentPacket = packet.Transferred.HasValue;
+
                 // RFC 3550 A.8.
                 //Determine the time the last packet was sent or received
-                TimeSpan arrivalDifference = (packet.Transferred.HasValue ? LastRtpPacketSent : LastRtpPacketReceived);
+                TimeSpan arrivalDifference = (sentPacket ? LastRtpPacketSent : LastRtpPacketReceived);
 
-                //Calulcate the RtpJitter using the interarrival difference and set the RtpTransit
-                RtpJitter += ((RtpTransit = (uint)arrivalDifference.TotalMilliseconds) - ((RtpJitter + 8) >> 4));
+                if (sentPacket)
+                {
+                    RFC3550.CalulcateJitter(ref arrivalDifference, ref SenderJitter, ref SenderTransit);
+                    //SenderJitter += ((SenderTransit = (uint)arrivalDifference.TotalMilliseconds) - ((SenderJitter + 8) >> 4));
 
-                //Update the RtpTimestamp on the Context
-                RtpTimestamp = packet.Timestamp;
+                    //Update the Sender RtpTimestamp on the Context
+                    SenderRtpTimestamp = packet.Timestamp;
 
-                //Update the NtpTimestamp on the Context.
-                NtpTimestamp = (long)Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(packet.Transferred ?? packet.Created);
+                    //Update the Sender NtpTimestamp on the Context.
+                    SenderNtpTimestamp = (long)Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(packet.Transferred ?? packet.Created);
+                }
+                else
+                {
+
+                    RFC3550.CalulcateJitter(ref arrivalDifference, ref RtpJitter, ref RtpTransit);
+                    //RtpJitter += ((RtpTransit = (uint)arrivalDifference.TotalMilliseconds) - ((RtpJitter + 8) >> 4));
+
+                    //Update the RtpTimestamp on the Context
+                    RtpTimestamp = packet.Timestamp;
+
+                    //Update the NtpTimestamp on the Context.
+                    NtpTimestamp = (long)Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(sentPacket ? packet.Transferred.Value : packet.Created);
+                }
 
                 //Context is not inactive.
                 m_InactiveTime = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
@@ -1209,9 +1285,13 @@ namespace Media.Rtp
             /// <param name="sequenceNumber">The sequence number to reset to.</param>
             public void ResetRtpValidationCounters(int sequenceNumber)
             {
-                RtpBaseSeq = RtpMaxSeq = (ushort)sequenceNumber;
-                RtpBadSeq = RTP_SEQ_MOD + 1;   /* so seq == bad_seq is false */
-                RtpSeqCycles = RtpReceivedPrior = (uint)(RtpPacketsReceived = 0);
+                //RtpBaseSeq = RtpMaxSeq = (ushort)sequenceNumber;
+                //RtpBadSeq = RTP_SEQ_MOD + 1;   /* so seq == bad_seq is false */
+                //RtpSeqCycles = RtpReceivedPrior = ValidRtpPacketsReceived = 0;
+
+                ushort val = (ushort)sequenceNumber;
+
+                RFC3550.ResetRtpValidationCounters(ref val, ref RtpBaseSeq, ref RtpMaxSeq, ref RtpBadSeq, ref RtpSeqCycles, ref RtpReceivedPrior, ref ValidRtpPacketsReceived);
             }
 
             /// <summary>
@@ -1248,13 +1328,17 @@ namespace Media.Rtp
 
                 //o  The payload type must be known, and in particular it must not be equal to SR or RR.
 
-                if (packet.PayloadType == SendersReport.PayloadType || packet.PayloadType == ReceiversReport.PayloadType) return false;
+                int check = packet.PayloadType;
+
+                if (check == SendersReport.PayloadType || check == ReceiversReport.PayloadType) return false;
 
                 //o  If the P bit is set, Padding must be less than the total packet length minus the header size.
                 if (packet.Padding && payloadLength > 0 && packet.PaddingOctets > payloadLength) return false;
 
+                check = packet.ContributingSourceCount;
+
                 ///  o  The length of the packet must be consistent with CC and payload type (if payloads have a known length this is checked with the IsComplete property).
-                if (packet.ContributingSourceCount > 0 && payloadLength < packet.ContributingSourceCount * 4) return false;
+                if (check > 0 && payloadLength < check * Common.Binary.BytesPerInteger) return false;
 
                 //Only performed to ensure validity
                 if (packet.Extension)
@@ -1264,7 +1348,15 @@ namespace Media.Rtp
                     //   Otherwise, the extension
                     //   length field must be less than the total packet size minus the
                     //   fixed header length and padding.
-                    if (packet.ExtensionOctets > payloadLength) return false;
+
+                    //Read the amount of paddingOctets
+                    check = packet.PaddingOctets;
+
+                    //Ensure the padding is valid first
+                    if (check >= payloadLength) return false;
+
+                    //Ensure the above is also true.
+                    if (packet.ExtensionOctets > payloadLength - check) return false;
                 }
 
                 #region Notes on RFC3550 Implementation
@@ -1307,24 +1399,20 @@ namespace Media.Rtp
                 #endregion
 
             CheckSequenceNumber:
+
+                int pSeq = packet.SequenceNumber;
+
                 //Return the result of processing the verification of the sequence number according the RFC3550 A.1
-                if (UpdateSequenceNumber(packet.SequenceNumber))
+                if (UpdateSequenceNumber(pSeq))
                 {
-                    SequenceNumber = packet.SequenceNumber;
+                    //Update the SequenceNumber
+                    RecieveSequenceNumber = pSeq;
+
                     return true;
                 }
 
                 return false;
             }
-
-            //public bool InSequence(int sequenceNumber)
-            //{
-            //    switch (SequenceNumber)
-            //    {
-            //        case ushort.MaxValue: return sequenceNumber < ushort.MaxValue;
-            //        default: return sequenceNumber >= SequenceNumber;
-            //    }
-            //}
 
             /// <summary>
             /// Performs checks in accorance with RFC3550 A.1 and returns a value indicating if the given sequence number is in state.
@@ -1333,88 +1421,93 @@ namespace Media.Rtp
             /// <returns>True if in state, otherwise false.</returns>
             public bool UpdateSequenceNumber(int sequenceNumber) //,bool probe = false
             {
+
+                ushort val = (ushort)sequenceNumber;
+
+                return RFC3550.UpdateSequenceNumber(ref val, ref RtpBaseSeq, ref RtpMaxSeq, ref RtpBadSeq, ref RtpSeqCycles, ref RtpReceivedPrior, ref RtpProbation, ref ValidRtpPacketsReceived, MinimumSequentialValidRtpPackets, MaxMisorder, MaxDropout);
+
+
                 // RFC 3550 A.1.
+                //ushort udelta = (ushort)(sequenceNumber - RtpMaxSeq);
 
-                ushort udelta = (ushort)(sequenceNumber - RtpMaxSeq);
+                ///*
+                //* Source is not valid until MIN_SEQUENTIAL packets with
+                //* sequential sequence numbers have been received.
+                //*/
+                //if (RtpProbation > 0)
+                //{
+                //    /* packet is in sequence */
+                //    if (sequenceNumber == RtpMaxSeq + 1)
+                //    {
+                //        RtpProbation--;
+                //        RtpMaxSeq = (ushort)sequenceNumber;
+                //        //If no more probation is required then reset the coutners and indicate the packet is in state
+                //        if (RtpProbation == 0)
+                //        {
+                //            ResetRtpValidationCounters(sequenceNumber);
+                //            return true;
+                //        }
+                //    }
+                //    //The sequence number is not as expected
 
-                /*
-                * Source is not valid until MIN_SEQUENTIAL packets with
-                * sequential sequence numbers have been received.
-                */
-                if (RtpProbation > 0)
-                {
-                    /* packet is in sequence */
-                    if (sequenceNumber == RtpMaxSeq + 1)
-                    {
-                        RtpProbation--;
-                        RtpMaxSeq = (ushort)sequenceNumber;
-                        //If no more probation is required then reset the coutners and indicate the packet is in state
-                        if (RtpProbation == 0)
-                        {
-                            ResetRtpValidationCounters(sequenceNumber);
-                            return true;
-                        }
-                    }
-                    //The sequence number is not as expected
+                //    //Reset probation
+                //    RtpProbation = (uint)(MinimumSequentialValidRtpPackets - 1);
 
-                    //Reset probation
-                    RtpProbation = (uint)(MinimumSequentialValidRtpPackets - 1);
+                //    //Reset the sequence number
+                //    RtpMaxSeq = (ushort)sequenceNumber;
 
-                    //Reset the sequence number
-                    RtpMaxSeq = (ushort)sequenceNumber;
+                //    //The packet is not in state
+                //    return false;
+                //}
+                //else if (udelta < DefaultMaxDropout)
+                //{
+                //    /* in order, with permissible gap */
+                //    if (sequenceNumber < RtpMaxSeq)
+                //    {
+                //        /*
+                //        * Sequence number wrapped - count another 64K cycle.
+                //        */
+                //        RtpSeqCycles += RTP_SEQ_MOD;
+                //    }
 
-                    //The packet is not in state
-                    return false;
-                }
-                else if (udelta < DefaultMaxDropout)
-                {
-                    /* in order, with permissible gap */
-                    if (sequenceNumber < RtpMaxSeq)
-                    {
-                        /*
-                        * Sequence number wrapped - count another 64K cycle.
-                        */
-                        RtpSeqCycles += RTP_SEQ_MOD;
-                    }
+                //    //Set the maximum sequence number
+                //    RtpMaxSeq = (ushort)sequenceNumber;
+                //}
+                //else if (udelta <= RTP_SEQ_MOD - DefaultMaxMisorder)
+                //{
+                //    /* the sequence number made a very large jump */
+                //    if (sequenceNumber == RtpBadSeq)
+                //    {
+                //        /*
+                //         * Two sequential packets -- assume that the other side
+                //         * restarted without telling us so just re-sync
+                //         * (i.e., pretend this was the first packet).
+                //        */
+                //        ResetRtpValidationCounters(sequenceNumber);
+                //    }
+                //    else
+                //    {
+                //        //Set the bad sequence to the packets sequence + 1 masking off the bits which correspond to the bits of the sequenceNumber which may have wrapped since SequenceNumber is 16 bits.
+                //        RtpBadSeq = (uint)((sequenceNumber + 1) & (RTP_SEQ_MOD - 1));
+                //        return false;
+                //    }
+                //}
+                //else
+                //{
+                //    /* duplicate or reordered packet */
+                //    return false;
+                //}
 
-                    //Set the maximum sequence number
-                    RtpMaxSeq = (ushort)sequenceNumber;
-                }
-                else if (udelta <= RTP_SEQ_MOD - DefaultMaxMisorder)
-                {
-                    /* the sequence number made a very large jump */
-                    if (sequenceNumber == RtpBadSeq)
-                    {
-                        /*
-                         * Two sequential packets -- assume that the other side
-                         * restarted without telling us so just re-sync
-                         * (i.e., pretend this was the first packet).
-                        */
-                        ResetRtpValidationCounters(sequenceNumber);
-                    }
-                    else
-                    {
-                        //Set the bad sequence to the packets sequence + 1 masking off the bits which correspond to the bits of the sequenceNumber which may have wrapped since SequenceNumber is 16 bits.
-                        RtpBadSeq = (uint)((sequenceNumber + 1) & (RTP_SEQ_MOD - 1));
-                        return false;
-                    }
-                }
-                else
-                {
-                    /* duplicate or reordered packet */
-                    return false;
-                }
+                ////Events count packet reception
 
-                //Events count packet reception
-
-                //The RtpPacket is in state
-                return true;
+                ////The RtpPacket is in state
+                //return true;
             }
 
             /// <summary>
             /// Randomizes the SequenceNumber
             /// </summary>
-            public void RandomizeSequenceNumber() { SequenceNumber = Utility.Random.Next(); }
+            public void RandomizeSequenceNumber() { RecieveSequenceNumber = Utility.Random.Next(); }
 
             #region Initialize
 
@@ -1799,37 +1892,25 @@ namespace Media.Rtp
                 //m_FirstPacketSent = DateTime.MinValue;
             }
 
+            //Usually called when a ssrc collision occurs 
+
             /// <summary>
-            /// Removes references to any reports receieved and resets the validation counters to 0.
+            /// Resets the RemoteSynchronizationSourceIdentifier and packet counters values.
             /// </summary>
             internal void ResetState()
             {
-
                 if (RemoteSynchronizationSourceIdentifier.HasValue) RemoteSynchronizationSourceIdentifier = null;// default(int);
 
-                RfcRtpBytesSent = RtpPacketsSent = RtpBytesSent = RtcpPacketsSent = RtcpBytesSent = RtpPacketsReceived = RtpBytesRecieved = RtcpBytesRecieved = RtcpPacketsReceived = m_FailedRtcpTransmissions = m_FailedRtpTransmissions = 0;
+                //Set all to 0
+                RfcRtpBytesSent = RtpPacketsSent = RtpBytesSent = RtcpPacketsSent = 
+                    RtcpBytesSent = RtpPacketsReceived = RtpBytesRecieved = RtcpBytesRecieved = 
+                        RtcpPacketsReceived = m_FailedRtcpTransmissions = m_FailedRtpTransmissions = 0;
+                
+                //?? forgotten
+                //m_FailedRtcpReceptions = m_FailedRtpReceptions = 0;
 
-                //Interlocked.Exchange(ref RtpPacketsSent, 0);
-
-                //Interlocked.Exchange(ref RtpBytesSent, 0);
-
-                //Interlocked.Exchange(ref RtcpPacketsSent, 0);
-
-                //Interlocked.Exchange(ref RtcpBytesSent, 0);
-
-                //////////////////////
-
-                //Interlocked.Exchange(ref RtpPacketsReceived, 0);
-
-                //Interlocked.Exchange(ref RtpBytesRecieved, 0);
-
-                //Interlocked.Exchange(ref RtcpBytesRecieved, 0);
-
-                //Interlocked.Exchange(ref RtcpPacketsReceieved, 0);
-
-                //Interlocked.Exchange(ref m_FailedRtcpTransmissions, 0);
-
-                //Interlocked.Exchange(ref m_FailedRtpTransmissions, 0);
+                //Should also be called
+                //ResetRtpValidationCounters(SequenceNumber);
             }
 
             /// <summary>
@@ -1850,7 +1931,7 @@ namespace Media.Rtp
                     //Remove references to the context memory and the application context
                     ContextMemory = null;
 
-                    ApplicationContext = null;
+                    ApplicationContext = null;                    
                 }
             }
 
@@ -1962,6 +2043,8 @@ namespace Media.Rtp
             {
                 OnRtcpPacketReceieved(packet, transportContext);
 
+                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtcpPacket Compressed Packet");
+
                 return;
             }
 
@@ -1972,7 +2055,7 @@ namespace Media.Rtp
             //See if there is a context for the remote party. (Allows 0)
             transportContext = GetContextBySourceId(partyId);
 
-            //Raise an event for the rtcp packet received
+            //Raise an event for the rtcp packet received, should clone the packet?
             OnRtcpPacketReceieved(packet, transportContext);
 
             //If the version doesn't match.
@@ -2108,7 +2191,7 @@ namespace Media.Rtp
                             }
                         }
                     }
-                }
+                }                
             }
 
             //Handle Goodbyes with a positive blockcount but no  sourcelist...?
@@ -2153,7 +2236,7 @@ namespace Media.Rtp
             if (transportContext.SynchronizationSourceIdentifier == partyId)
             {
                 //Handle it.
-                HandleCollision(transportContext);
+                HandleIdentityCollision(transportContext);
             }
 
             //Make a reference of the packet now and only refer to this reference
@@ -2216,7 +2299,7 @@ namespace Media.Rtp
             //OnRtcpPacketProcessed(this, packet, transportContext);
         }
 
-        protected internal virtual void HandleCollision(TransportContext transportContext)
+        protected internal virtual void HandleIdentityCollision(TransportContext transportContext)
         {
 
             if (transportContext == null) throw new ArgumentNullException("transportContext");
@@ -2238,6 +2321,8 @@ namespace Media.Rtp
 
             //Reset counters from this point forward
             transportContext.ResetState();
+
+            //reset counters?
         }
 
         protected internal virtual void HandleFrameChange(object /*RtpClient*/ sender, RtpFrame frame = null, TransportContext tc = null)
@@ -2262,30 +2347,13 @@ namespace Media.Rtp
             //This is because this implementation allows for the value 0 to be used as a discovery mechanism.
             TransportContext transportContext = GetContextForPacket(packet);
 
-            //Fire an event now to let subscribers know a packet has arrived, use a clone of the packet to ensure all subscribers get a packet which is not disposed in the event
-            //Good candidate for waitable events so the finalizer doesn't need to be called
-
-            //if (FrameChangedEventsEnabled) OnRtpPacketReceieved(packet, transportContext);
-            //else
-            //{
-            //    RtpPacketHandler disposer = null;
-
-            //    disposer = (a, b, c) => { b.Dispose(); RtpPacketReceieved -= disposer; };
-
-            //    //Add a handler to dispose the packet
-            //    RtpPacketReceieved += disposer;
-
-            //    //Raise the event with a clone of this packet
-            //    OnRtpPacketReceieved(packet.Clone(true, true, true, true, true), transportContext);
-            //}
-
-
+            //Check for premature finalizer problem and if fixed by memory copy then this is not required.
             OnRtpPacketReceieved(FrameChangedEventsEnabled ? packet : packet.Clone(true, true, true, true, true), transportContext);
 
             //OnRtpPacketReceieved(packet, transportContext);
 
             //Not supported at the moment
-            if (packet.Header.IsCompressed)
+            if (packet.IsCompressed)
             {
                 Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Compressed Packet");
 
@@ -2333,7 +2401,7 @@ namespace Media.Rtp
             if (partyId == transportContext.SynchronizationSourceIdentifier)
             {
                 //Handle it
-                HandleCollision(transportContext);
+                HandleIdentityCollision(transportContext);
             }
 
             #region Unused [Handles TransportContext.InDiscovery When TransportContext.IsValid is false]
@@ -2347,7 +2415,7 @@ namespace Media.Rtp
 
             #endregion
 
-            //If the packet was not addressed to the context but the context is valid AND the context is NOT in discovery mode.
+            //If the packet was not addressed to the context AND the context is valid
             if (partyId != transportContext.RemoteSynchronizationSourceIdentifier
                 &&
                 transportContext.IsValid)
@@ -2372,17 +2440,15 @@ namespace Media.Rtp
             {
                 int packetLength = packet.Length;
 
-                //If the packet is not valid then
-                if (false == transportContext.ValidatePacketAndUpdateSequenceNumber(packet) ||
-                    packetLength > transportContext.MaximumPacketSize ||
-                    packetLength < transportContext.MinimumPacketSize)
+                //If the packet sequence number is not valid
+                if (false == transportContext.ValidatePacketAndUpdateSequenceNumber(packet))
                 {
                     //Increment for a failed reception 
                     ++transportContext.m_FailedRtpReceptions;
 
                     Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Failed Reception " +
                              "(= " + transportContext.m_FailedRtpReceptions + ") @" + transportContext.SynchronizationSourceIdentifier +
-                             " Context seq=" + transportContext.SequenceNumber +
+                             " Context seq=" + transportContext.RecieveSequenceNumber +
                              " Packet pt=" + packet.PayloadType +
                             " seq=" + packet.SequenceNumber + 
                             " len= " + packet.Length);
@@ -2390,6 +2456,7 @@ namespace Media.Rtp
                     //Only proceeed further in the context is valid
                     //if(false == transportContext.IsValid) return;
                 }
+                else ++transportContext.ValidRtpPacketsReceived; //Increase the amount of valid rtp packets recieved when ValidatePacketAndUpdateSequenceNumber is true
 
                 //Increment RtpPacketsReceived for the context relating to the packet.
                 ++transportContext.RtpPacketsReceived;
@@ -2579,14 +2646,15 @@ namespace Media.Rtp
                 //Set the time the first packet was sent.
                 if (transportContext.m_FirstPacketSent == DateTime.MinValue) transportContext.m_FirstPacketSent = sent;
 
-                //Todo, should not update receive sequence number for sent packets...
+                //Just update the sequence number for the packet being sent
+                transportContext.m_LastSentSequenceNumber = (ushort)packet.SequenceNumber;
 
-                //If the packet was in sequence
-                if (transportContext.UpdateSequenceNumber(packet.SequenceNumber))
-                {
+                //If the packet was in sequence (does not really have to be checked, the jitter and timestamp should be updated anyway...
+                //if (transportContext.UpdateSequenceNumber(packet.SequenceNumber))
+                //{
                     //Calculate inter-arrival and mark the context as active
                     transportContext.UpdateJitterAndTimestamp(packet);
-                }
+                //}
 
                 //Store the time the last RtpPacket was sent.
                 transportContext.m_LastRtpOut = sent;
@@ -2846,6 +2914,16 @@ namespace Media.Rtp
         public bool HandleFrameChanges { get; set; }
 
         /// <summary>
+        /// Gets or sets the value will be used as the CName when creating RtcpReports
+        /// </summary>
+        public string ClientName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the list of additional items which will be sent with the SourceDescriptionReport if AverageRtcpBandwidthExceeded is not exceeded.
+        /// </summary>
+        public readonly List<SourceDescriptionReport.SourceDescriptionItem> AdditionalSourceDescriptionItems = new List<SourceDescriptionReport.SourceDescriptionItem>();
+
+        /// <summary>
         /// Gets a value indicating if the RtpClient is not disposed and the WorkerThread is alive.
         /// </summary>
         public virtual bool IsActive
@@ -2892,7 +2970,6 @@ namespace Media.Rtp
                 if (totalRtcp == 0) return false;   
 
                 return totalRtcp >= totalReceived / AverageMaximumRtcpBandwidthPercentage;
-                
             }
         }
 
@@ -3171,12 +3248,14 @@ namespace Media.Rtp
             {
                 //Include the SourceDescription
                 if (storeReports)
-                    compound = Enumerable.Concat(compound, Media.Common.Extensions.Linq.LinqExtensions.Yield((context.SourceDescription = TransportContext.CreateSourceDescription(context))));
+                    compound = Enumerable.Concat(compound, Media.Common.Extensions.Linq.LinqExtensions.Yield((context.SourceDescription = TransportContext.CreateSourceDescription(context, (string.IsNullOrWhiteSpace(ClientName) ? null : new SourceDescriptionReport.SourceDescriptionItem(SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName, System.Text.Encoding.UTF8.GetBytes(ClientName))), AdditionalSourceDescriptionItems))));
                 else
-                    compound = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(TransportContext.CreateSourceDescription(context)), compound);
+                    compound = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(TransportContext.CreateSourceDescription(context, (string.IsNullOrWhiteSpace(ClientName) ? null : new SourceDescriptionReport.SourceDescriptionItem(SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName, System.Text.Encoding.UTF8.GetBytes(ClientName))), AdditionalSourceDescriptionItems)), compound);
             }
 
             //Could also put a Goodbye for inactivity ... :) Currently handled by SendGoodbye
+
+            //Todo, possibly send additional items only when AverageRtcpBandwidth is not exceeded...
 
             return compound;
         }
@@ -3798,7 +3877,7 @@ namespace Media.Rtp
         /// <param name="raisedEvent">Indicates if an event was raised</param>
         /// <param name="buffer">The optional buffer to use.</param>
         /// <returns>The amount of bytes the frame data SHOULD have</returns>
-        int ReadApplicationLayerFraming(int received, out byte frameChannel, out RtpClient.TransportContext context, ref int offset, out bool raisedEvent, byte[] buffer = null)
+        int ReadApplicationLayerFraming(int received, out byte frameChannel, out RtpClient.TransportContext context, int offset, out bool raisedEvent, byte[] buffer = null)
         {
 
             //There is no relevant TransportContext assoicated yet.
@@ -3809,16 +3888,19 @@ namespace Media.Rtp
 
             raisedEvent = false;
 
-            if (received <= 0) return -1;
-
-            received = Common.Binary.Min(received, buffer.Length - offset);
-
             buffer = buffer ?? m_Buffer.Array;
 
             int bufferLength = buffer.Length, bufferOffset = offset;
 
-            //Assume given enough
-            //if (bufferOffset + InterleavedOverhead > bufferLength) return -1;
+            received = Common.Binary.Min(received, bufferLength - bufferOffset);
+
+            //Assume given enough for sessionRequired
+
+            //Todo Determine from Context to use control channel and length. (Check MediaDescription)
+            //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....            
+            int sessionRequired = InterleavedOverhead;
+
+            if (received <= 0 || received < sessionRequired) return -1;
 
             //Look for the frame control octet
             int startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, bufferOffset, received);
@@ -3854,10 +3936,7 @@ namespace Media.Rtp
             }
 
             //If there is not enough data for a frame header return
-            if (bufferOffset + InterleavedOverhead > bufferLength) return -1;
-
-            //Todo Determine from Context to use control channel and length. (Check MediaDescription)
-            //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....            
+            if (bufferOffset + sessionRequired > bufferLength) return -1;
 
             //The amount of data needed for the frame comes from TryReadFrameHeader
             frameLength = TryReadFrameHeader(buffer, bufferOffset, out frameChannel, BigEndianFrameControl, true);
@@ -3869,7 +3948,7 @@ namespace Media.Rtp
                 context = GetContextByChannels(frameChannel);
 
                 //Increase the result by the size of the header
-                frameLength += InterleavedOverhead;
+                frameLength += sessionRequired;
             }
 
             //Return the amount of bytes or -1 if any error occured.
@@ -4083,7 +4162,7 @@ namespace Media.Rtp
                 recievedTotal = remainingInBuffer;
 
             //Determine if Rtp or Rtcp is coming in or some other type (could be combined with expectRtcp and expectRtp == false)
-            bool expectRtp = false, expectRtcp = false, incompatible = true, raisedEvent = false;
+            bool expectRtp = false, expectRtcp = false, incompatible = true, unrelatedData = false, needsHeaderData = false;
 
             //If anything remains on the socket the value will be calulcated.
             int remainingOnSocket = 0;
@@ -4104,16 +4183,17 @@ namespace Media.Rtp
                 offset >= m_Buffer.Offset) //count..
             {
                 //Assume not rtp or rtcp and that the data is compatible with the session
-                expectRtp = expectRtcp = incompatible = false;
+                expectRtp = expectRtcp = incompatible = needsHeaderData = false;
 
                 //If a header can be read
                 if (remainingInBuffer >= sessionRequired)
                 {
                     //Determine if an event was raised each time there was at least the required amount of data.
-                    raisedEvent = false;
+                    unrelatedData = false;
 
-                    //Parse the frameLength from the given buffer, take changes to the offset through the function.
-                    frameLength = ReadApplicationLayerFraming(remainingInBuffer, out frameChannel, out relevent, ref offset, out raisedEvent, buffer);
+                    //Parse the frameLength from the given buffer, when raisedEvent is true that many bytes should be skipped because they are not related to Rtp.
+                    //The logic below will proceed to CheckRemainingData because incompatible is false.
+                    frameLength = ReadApplicationLayerFraming(remainingInBuffer, out frameChannel, out relevent, offset, out unrelatedData, buffer);
 
                     //If a frame was found (Including the null packet)
                     if (frameLength >= 0)
@@ -4147,6 +4227,11 @@ namespace Media.Rtp
                                 //Remove the context
                                 relevent = null;
 
+                                //Set needs header data
+                                needsHeaderData = true;
+
+                                Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@ProcessFrameData - Needs data for packet fields inspection Packet of " + frameLength + " for Channel " + frameChannel + " remainingInBuffer=" + remainingInBuffer);
+
                                 goto CheckRemainingData;
 
                                 ////Only receive this many more bytes for now.
@@ -4179,7 +4264,7 @@ namespace Media.Rtp
                                     relevent = null;
 
                                     //Mark as incompatible
-                                    incompatible = true;
+                                    needsHeaderData = true;
 
                                     goto EndUsingHeader;
 
@@ -4204,7 +4289,9 @@ namespace Media.Rtp
                                             //Remove the context
                                             relevent = null;
 
-                                            goto CheckRemainingData;
+                                            needsHeaderData = true;
+
+                                            goto EndUsingHeader;
                                         }
 
                                         //Store any rtcp length so we can verify its not 0 and then additionally ensure its value is not larger then the frameLength
@@ -4253,7 +4340,9 @@ namespace Media.Rtp
                                             //Remove the context
                                             relevent = null;
 
-                                            goto CheckRemainingData;
+                                            needsHeaderData = true;
+
+                                            goto EndUsingHeader;
                                         }
 
                                         //the context by payload type is null is not discovering the identity check the SSRC.
@@ -4285,6 +4374,8 @@ namespace Media.Rtp
 
                             #endregion
                         }
+
+                        if (needsHeaderData) goto CheckRemainingData;
 
                         //Log state.
                     //if (relevent == null) Media.Common.ILoggingExtensions.Log(Logger, InternalId + "-ProcessFrameData - No Context for Channel " + frameChannel + " frameLength=" + frameLength + " remainingInBuffer=" + remainingInBuffer);
@@ -4336,7 +4427,7 @@ namespace Media.Rtp
                         //TODO It may be possible to let the event reiever known how much is available here.
 
                         //Indicate what was received if not already done
-                        if (false == raisedEvent) OnInterleavedData(buffer, offset, toMove);
+                        if (false == unrelatedData) OnInterleavedData(buffer, offset, toMove);
 
                         //Move the offset
                         offset += toMove;
@@ -4421,24 +4512,25 @@ namespace Media.Rtp
 
                     //Move back to where the frame started
                     offset -= remainingInBuffer;
+
+                    //if incompatible was marked then continue.
+                    if (needsHeaderData) continue;
                 }
 
-                //If there was data unrelated to a frame
-                if (raisedEvent)
+                //If the event was already raised the frameLength indicates how much to move the offset since offset is not moved by reference.
+                if (unrelatedData)
                 {
-                    if (relevent == null)
-                    {
-                        offset += frameLength;
+                    offset += frameLength;
 
-                        remainingInBuffer -= frameLength;
-                    }
+                    remainingInBuffer -= frameLength;
 
                     continue;
                 }
                 else if(false == IsDisposed && frameLength > 0)
                 {
-                    //Parse the data in the buffer
-                    using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, frameLength - InterleavedOverhead)) ParseAndCompleteData(memory, expectRtcp, expectRtp, memory.Count);
+                    //Parse the data in the buffer using only the data related to the packet and not the framing.
+                    using (var memory = new Common.MemorySegment(buffer, offset + sessionRequired, frameLength - sessionRequired)) 
+                        ParseAndCompleteData(memory, expectRtcp, expectRtp, memory.Count);
 
                     //Decrease remaining in buffer
                     remainingInBuffer -= frameLength;
@@ -4475,7 +4567,7 @@ namespace Media.Rtp
             }
 
             //Handle any data which remains if not already
-            if (false == raisedEvent && remainingInBuffer > 0)
+            if (false == unrelatedData && remainingInBuffer > 0)
             {
                 OnInterleavedData(buffer, offset, remainingInBuffer);
             }
@@ -4550,9 +4642,11 @@ namespace Media.Rtp
             //If rtp is parsed
             if (parseRtp && mRemaining >= RtpHeader.Length)
             {
+                //Create sub memory to maintain the offsets
                 using (var subMemory = new Common.MemorySegment(memory.Array, offset + index, mRemaining))
                 {
-                    using (RtpPacket rtp = new RtpPacket(new RtpHeader(memory), new Common.MemorySegment(memory.Array, subMemory.Offset + RtpHeader.Length, mRemaining - RtpHeader.Length)))
+                    //Create the packet from the sub memory
+                    using (RtpPacket rtp = new RtpPacket(new RtpHeader(subMemory), new Common.MemorySegment(subMemory.Array, subMemory.Offset + RtpHeader.Length, Common.Binary.Max(0, mRemaining - RtpHeader.Length))))
                     {
                         //Raise the event
                         HandleIncomingRtpPacket(this, rtp);
@@ -4911,6 +5005,10 @@ namespace Media.Rtp
             m_OutgoingRtcpPackets.Clear();
 
             m_OutgoingRtcpPackets = null;
+
+            AdditionalSourceDescriptionItems.Clear();
+
+            ClientName = null;
 
             //Remove the buffer
             m_Buffer.Dispose();

@@ -96,7 +96,7 @@ namespace Media.Concepts.Classes
                         
                         Producer.RemoveLast();
 
-                        Tick(ref sample);
+                         Tick(ref sample);
                     }
 
                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;

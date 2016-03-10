@@ -130,6 +130,10 @@ namespace Media.RtpTools
             //-------
       /*22*/"SR",
             "RR",
+            "SDES",
+            "APP",
+            "BYE",
+            //pt = 0xPT for unknown RTCP types
             //ssrc
             "count",//=<number of sources>
             "ntp",//=<NTP timestamp>
@@ -142,7 +146,7 @@ namespace Media.RtpTools
                  "jit",//=<jitter>
                  "lsr",//=<last SR received>
                  "dlsr",//=<delay since last SR>
-           /*34*/")",// Ends a previous expression (may not be a token)
+           /*37*/")",// Ends a previous expression (may not be a token)
                 "from",//Not really part of the format
                  "\n", //Not really part of the format
         };
@@ -450,11 +454,15 @@ namespace Media.RtpTools
             foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk chunk in sdes)
             {
                 //A SDES packet description requires an item sub description in `QuotedFormat`
-                StringBuilder itemStringBuilder = new StringBuilder();                
+                StringBuilder itemStringBuilder = new StringBuilder();
+
+                int countMinus1 = -1;
 
                 //For each item in the chunk build up the item string
                 foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk)
                 {
+                    //Add Whitespace delimiter
+                    if (++countMinus1 > 0) itemStringBuilder.Append((char)Common.ASCII.Space);
 
                     string typedName = Enum.GetName(typeof(Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType), item.ItemType);
 
@@ -465,7 +473,6 @@ namespace Media.RtpTools
                         typedName,
                         //1
                         Encoding.ASCII.GetString(item.ItemData.ToArray()));
-
                 }
 
                 blockStringBuilder.Append((char)Common.ASCII.LineFeed);
@@ -837,8 +844,6 @@ namespace Media.RtpTools
                     //Any hex data will need a length, and we start at offset 0.
                     int dataLen = 0, tokenOffset = 0;
 
-
-
                     //If nothing was tokenized then return the unexpected data.
                     if (tokens.Length == 0)
                     {
@@ -866,9 +871,11 @@ namespace Media.RtpTools
                         }
 
                         //Increment for a token parsed within the entry so far
-                        ++tokensParsed;
+                        ++tokensParsed; 
 
-                        //Switch out logic based on token
+                        //Not increased for each token?
+
+                        //Switch out logic based on token, could also just handle based on token and save useless lookup.
                         switch (tokenIndex)
                         {
                             //RTP
@@ -897,7 +904,7 @@ namespace Media.RtpTools
 
                                     continue;
                                 }
-                            case 35: //from
+                            case 38: //from
                                 {
 
                                     string[] parts = tokens[++tokenOffset].Split((char)Common.ASCII.Colon);
@@ -965,6 +972,8 @@ namespace Media.RtpTools
                                     int payloadType = int.Parse(tokens[++tokenOffset]);
 
                                     System.Diagnostics.Debug.WriteLine(payloadType);
+
+                                    //Will not occur in Rtcp types or at least should not.
 
                                     if (rtp) rtpP.Header.PayloadType = payloadType;
                                     else rtcP.Header.PayloadType = payloadType;
@@ -1096,7 +1105,8 @@ namespace Media.RtpTools
 
                                     continue;
                                 }
-                            default:
+                            //APP, BYE, RR, SR, SDES                            
+                            default: //-1 and others
                                 {
                                     //If the format was unknown
                                     if (formatUnknown)

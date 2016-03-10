@@ -72,7 +72,7 @@ namespace Media.UnitTests
             // Frame Level
             TestRtpFrame, 
             // JPEG
-            TestRFC2435Frame, 
+            TestRFC2435JpegFrame, 
             // MPEG
             TestRFC3640AudioFrame, 
             //H264
@@ -379,6 +379,8 @@ namespace Media.UnitTests
 
             //Should re-write to use FromSessionDescription methods for cleaner test.
 
+            //Should randomize values and verify sent and received data.
+
             //No tcp test right now.
             if (tcp) tcp = false;
 
@@ -403,7 +405,7 @@ namespace Media.UnitTests
 
                     sender.RtcpPacketSent += (s, p, t) => TryPrintClientPacket(s, false, p);
                     sender.RtcpPacketReceieved += (s, p, t) => TryPrintClientPacket(s, true, p);
-                    sender.RtpPacketSent += (s, p, t) => TryPrintClientPacket(s, false, p);
+                    sender.RtpPacketSent += (s, p, t) => TryPrintClientPacket(s, false, p);                                        
 
                     //Using a receiver
                     using (var receiver = new Media.Rtp.RtpClient())
@@ -435,6 +437,16 @@ namespace Media.UnitTests
                         receiver.TryAddContext(receiversContext);
 
                         sender.TryAddContext(sendersContext);
+
+                        //Custom Cname if desired
+                        sender.ClientName = "Sender@" + sendersId;
+
+                        //Additional items if desired
+                        sender.AdditionalSourceDescriptionItems.Add(new Rtcp.SourceDescriptionReport.SourceDescriptionItem(Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.Email, System.Text.Encoding.UTF8.GetBytes("sender-" + sendersId + "@localhost")));
+
+                        receiver.ClientName = "Reciever@" + receiversId;
+
+                        receiver.AdditionalSourceDescriptionItems.Add(new Rtcp.SourceDescriptionReport.SourceDescriptionItem(Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.Email, System.Text.Encoding.UTF8.GetBytes("receiver-" + receiversId + "@localhost")));
 
                         //For Tcp a higher level protocol such as RTSP / SIP usually sets things up.
                         //Stand alone is also possible a socket just has to be created to facilitate accepts
@@ -539,6 +551,9 @@ namespace Media.UnitTests
                                 consoleWriter.WriteLine("\t CumulativePacketsLost : " + reportBlock.CumulativePacketsLost);
                             }
                         }
+
+                        //Print SourceDescription...
+
                     }//Disposes the receiver
                 }//Disposes the sender
                 consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Exit");
@@ -2774,7 +2789,7 @@ a=rtpmap:99 h263-1998/90000");
         /// <summary>
         /// 
         /// </summary>
-        static void TestRFC2435Frame()
+        static void TestRFC2435JpegFrame()
         {
             //Perform the tests
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RFC2435UnitTest), typeOfVoid);

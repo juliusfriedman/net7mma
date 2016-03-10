@@ -4349,7 +4349,7 @@ namespace Media.Rtsp
                                             {
                                                 context.RemoteSynchronizationSourceIdentifier = ssrc.Value;
 
-                                                if (seq.HasValue) context.SequenceNumber = seq.Value;
+                                                if (seq.HasValue) context.RecieveSequenceNumber = seq.Value;
 
                                                 if (rtpTime.HasValue) context.RtpTimestamp = rtpTime.Value;
 
@@ -4374,7 +4374,7 @@ namespace Media.Rtsp
                                             {
                                                 if (ssrc.HasValue) context.RemoteSynchronizationSourceIdentifier = ssrc.Value;
 
-                                                if (seq.HasValue) context.SequenceNumber = seq.Value;
+                                                if (seq.HasValue) context.RecieveSequenceNumber = seq.Value;
 
                                                 if (rtpTime.HasValue) context.RtpTimestamp = rtpTime.Value;
 

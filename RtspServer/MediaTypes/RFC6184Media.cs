@@ -298,8 +298,11 @@ namespace Media.Rtsp.Server.MediaTypes
                 foreach (Rtp.RtpPacket packet in m_Packets)
                     ProcessPacket(packet);
 
-                //Order by DON?
-                this.Buffer.Position = 0;
+                //Todo, 
+                    //Order by DON if contains MTAP etc
+
+                //Bring the buffer back the start.
+                this.Buffer.Seek(0, SeekOrigin.Begin);
             }
 
             /// <summary>
@@ -331,7 +334,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);                
 
-                //TODO
+                //TODO, needs state for if the F bit was encountered. (FragmentEnd, FragmentStart, FragmentReceiver => FragmentFlags)
 
                 //o  The F bit MUST be cleared if all F bits of the aggregated NAL units are zero; otherwise, it MUST be set.
                 //if (forbiddenZeroBit && nalUnitType <= 23 && nalUnitType > 29) throw new InvalidOperationException("Forbidden Zero Bit is Set.");
@@ -366,8 +369,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             while (offset < count)
                             {
                                 //Determine the nal unit size which does not include the nal header
-                                int tmp_nal_size = Common.Binary.Read16(packetData, offset, BitConverter.IsLittleEndian);
-                                offset += 2;
+                                int tmp_nal_size = Common.Binary.Read16(packetData, ref offset, BitConverter.IsLittleEndian);
 
                                 //If the nal had data then write it
                                 if (tmp_nal_size > 0)
