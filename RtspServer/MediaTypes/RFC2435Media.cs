@@ -77,6 +77,116 @@ namespace Media.Rtsp.Server.MediaTypes
             internal static System.Drawing.Imaging.ImageCodecInfo JpegCodecInfo = System.Drawing.Imaging.ImageCodecInfo.GetImageDecoders().First(d => d.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
 
             /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="frame"></param>
+            /// <param name="tables"></param>
+            /// <param name="precision"></param>
+            /// <returns></returns>
+            public static bool GetQuantizationTables(RFC2435Frame frame, out IEnumerable<byte> tables, out byte precision)
+            {
+                if (frame == null || frame.IsEmpty || false == frame.IsComplete)
+                {
+                    precision = 0;
+
+                    //No tables present.
+                    tables = Common.MemorySegment.Empty;
+
+                    //indicate failure
+                    return false;
+                }
+
+                //Get the first packet.
+                var packet = frame.m_Packets.First();
+
+                //Skip Type-specific
+                int offset = packet.HeaderOctets + 1, end = packet.Payload.Count - packet.PaddingOctets;
+
+                //The FragmentOffset must be 0 at the start of a new frame.
+                if (end - offset < 8 || Common.Binary.ReadU24(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian) != 0)
+                {
+                    precision = 0;
+
+                    //No tables present.
+                    tables = Common.MemorySegment.Empty;
+
+                    //indicate failure
+                    return false;
+                }
+
+                uint Type = packet.Payload.Array[offset++];
+
+                uint Quality = packet.Payload.Array[offset++];
+
+                //Q = 0 is reserved.
+                if (Quality == 0)
+                {
+                    precision = 0;
+
+                    //no tables are present
+                    tables = Common.MemorySegment.Empty;
+
+                    //indicate failure
+                    return false;
+
+                }
+                else if (Quality <= 99) //Only present for values >= 128 (RFC2035 values >= 100, 0 was reserved and values 100 - 127 were not specified)
+                {
+                    precision = 0;
+
+                    //use the default tables
+                    tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, 0, true));
+
+                    //indicate failure
+                    return false;
+                }
+
+                //Skip Width and Height, .... could possibly be 0....
+                offset += 2;
+
+                //Skip DataRestartInterval data
+                if (Type > 63 && Type < 128) offset += 4;
+
+                //Must be zero is not 0, this means there is an alignment issue and we should NOT attempt to read the rest of the Quantization table header.
+                if (end - offset < 4 ||  (packet.Payload.Array[offset++]) != 0)
+                {
+                    precision = 0;
+
+                    //no tables are present
+                    tables = Common.MemorySegment.Empty;
+
+                    //indicate failure
+                    return false;
+                }
+
+                //read the precision byte
+                precision = packet.Payload.Array[offset++];
+
+                //Length of all tables
+                ushort Length = Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
+
+                //If there is Table Data Read it from the payload, Length should never be larger than 128 * tableCount
+                if (Length == 0 && Quality == byte.MaxValue/* && false == allowQualityLengthException*/) throw new InvalidOperationException("RtpPackets MUST NOT contain Q = 255 and Length = 0.");
+                else if (Length == 0 || Length > end - offset)
+                {
+                    //If the indicated length is greater than that of the packet taking into account the offset and padding
+                    //Or
+                    //The length is 0
+
+                    //Use default tables
+                    tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, precision, true));
+
+                    return false;
+                }
+
+                //assign the tables present
+                tables = new Common.MemorySegment(packet.Payload.Array, offset, (int)Length);
+
+                //indicate success
+                return true;
+            }
+
+            /// <summary>
             /// Creates RST header for JPEG/RTP packet.
             /// </summary>
             /// <param name="dri">dri Restart interval - number of MCUs between restart markers</param>
@@ -446,7 +556,15 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <returns>64 luma bytes and 64 chroma</returns>
             internal static byte[] CreateQuantizationTables(uint type, uint Q, byte precision, bool useRfcQuantizer)
             {
-                if (Q >= 100) throw new InvalidOperationException("For Q >= 100, a dynamically defined quantization table is used, which might be specified by a session setup protocol.");
+                //Ensure not the reserved value.
+                if (Q == 0) throw new InvalidOperationException("Q == 0 is reserved.");
+
+                //RFC2035 did not specify a quantization table header and uses the values 0 - 127 to define this.
+                //RFC2035 also does not specify what to do with Quality values 100 - 127
+                //RFC2435 Other values [between 1 and 99 inclusive but] less than 128 are reserved
+   
+                //As per RFC2435 4.2.
+                if (Q >= 100) throw new InvalidOperationException("Q >= 100, a dynamically defined quantization table is used, which might be specified by a session setup protocol.");
 
                 byte[] quantizer = useRfcQuantizer ? rfcQuantizers :  defaultQuantizers;
 
@@ -458,31 +576,42 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //Create 2 quantization tables from Seed quality value using the RFC quantizers
                 int tableSize = quantizer.Length / 2;
+                
                 byte[] resultTables = new byte[tableSize * 2];
+
+                //bool luma16 = Common.Binary.GetBit(precision, 0), chroma16 = Common.Binary.GetBit(precision, 1);
+
+                //Iterate for each element in the tableSize
                 for (int lumaIndex = 0, chromaIndex = tableSize; lumaIndex < tableSize; ++lumaIndex, ++chromaIndex)
                 {
-                    //8 Bit tables
+                    //Check the bit in the precision table for the value which indicates if the tables are 16 bit or 32 bit?
+                    //Normally, it would be read from the precision Byte when decoding but because of how this function is called 
+                    //the value for precision as given is probably applicable for both tables because having a mixed set of 8 and 16 bit tables is not very likley
+                    //Would need to refactor to write luma and then write chroma incase one is 16 bit and the other is not..... not very likely
+
+                    //8 Bit tables       
                     if (precision == 0)
                     {
                         //Clamp with Min, Max (Should be left in tact but endian is unknown on receiving side)
                         //Luma
-                        resultTables[lumaIndex] = (byte)Math.Min(Math.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue);
+                        resultTables[lumaIndex] = (byte)Common.Binary.Min(Common.Binary.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue);
+
                         //Chroma
-                        resultTables[chromaIndex] = (byte)Math.Min(Math.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue);
+                        resultTables[chromaIndex] = (byte)Common.Binary.Min(Common.Binary.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue);
                     }
                     else //16 bit tables
                     {
                         //Luma
                         if (BitConverter.IsLittleEndian)
-                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Math.Min(Math.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, lumaIndex++);
+                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, lumaIndex++);
                         else
-                            BitConverter.GetBytes((ushort)Math.Min(Math.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, lumaIndex++);
+                            BitConverter.GetBytes((ushort)Common.Binary.Min(Math.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, lumaIndex++);
 
                         //Chroma
                         if (BitConverter.IsLittleEndian)
-                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Math.Min(Math.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, chromaIndex++);
+                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, chromaIndex++);
                         else
-                            BitConverter.GetBytes((ushort)Math.Min(Math.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, chromaIndex++);
+                            BitConverter.GetBytes((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, chromaIndex++);
                     }
                 }
 
@@ -802,12 +931,12 @@ namespace Media.Rtsp.Server.MediaTypes
                 if (qualityFactor.HasValue && (qualityFactor > byte.MaxValue || qualityFactor == 0))
                     throw Common.Binary.CreateOverflowException("qualityFactor", qualityFactor, 1.ToString(), byte.MaxValue.ToString());
 
-                //Store the constant size which contains the RtpHeader (12) and Jpeg Profile header (8).
+                //Store the constant size of the RtpHeader (12) and sourceList
                 int protocolOverhead = Rtp.RtpHeader.Length + (sourceList != null ? 4 * sourceList.Count : 0),
                     precisionTableIndex = 0; //The index of the precision table.
 
                 //Ensure some data will fit
-                if (bytesPerPacket < protocolOverhead) throw new InvalidOperationException("Each RtpPacket in the RtpFrame must contain a RtpHeader (12 octets) as well as the RtpJpeg Header (8 octets).");
+                if (bytesPerPacket < protocolOverhead) throw new InvalidOperationException("Each RtpPacket in the RtpFrame must contain at least RtpHeader (12 octets) + sourceList as well as the RtpJpeg Header (8 octets + possibly more).");
 
                 //Set the id of all subsequent packets.
                 SynchronizationSourceIdentifier = ssrc ?? -1;
@@ -1152,10 +1281,11 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                     //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
                                     //If Quality >= 100 then the QuantizationTableHeader + QuantizationTables also reside here (after any RtpRestartMarker if present).
+                                    //Note RFC2034 allows 100 Max where as RFC2425 allows 127 Max
                                     byte[] RtpJpegHeader = CreateRtpJpegHeader(RtpJpegTypeSpecific, 0, RtpJpegType, Quality, Width, Height, RtpJpegRestartInterval, RtpJpegPrecisionTable, QuantizationTables);
 
                                     //Copy the first header
-                                    RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset + currentPacketOffset);
+                                    RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacketOffset);
 
                                     //Advance the offset the size of the profile header.
                                     currentPacketOffset += RtpJpegHeader.Length;
@@ -1191,7 +1321,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                     while (streamRemains > 0)
                                     {
                                         //Read what we can into the packet
-                                        remainingPayloadOctets -= jpegStream.Read(currentPacket.Payload.Array, (int)(currentPacket.Payload.Offset + currentPacketOffset), (int)remainingPayloadOctets);
+                                        remainingPayloadOctets -= jpegStream.Read(currentPacket.Payload.Array, (int)(currentPacketOffset), (int)remainingPayloadOctets);
 
                                         //Update how much remains in the stream
                                         streamRemains = endOffset - streamOffset;
@@ -1296,9 +1426,9 @@ namespace Media.Rtsp.Server.MediaTypes
                     var packet = m_Packets.First();
 
                     //The FragmentOffset must be 0 at the start of a new frame.
-                    return Common.Binary.ReadU24(packet.Payload, packet.HeaderOctets + 1, BitConverter.IsLittleEndian) == 0;
+                    return Common.Binary.ReadU24(packet.Payload.Array, packet.HeaderOctets + 1, BitConverter.IsLittleEndian) == 0;
                 }
-            }
+            }            
 
             #endregion
 
@@ -1312,6 +1442,28 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
                 else if (false == allowIncomplete && false == IsComplete) throw new ArgumentException("This Frame not Complete");
+
+                /*
+                 * 
+                 * 3.1.  JPEG header
+                   Each packet contains a special JPEG header which immediately follows
+                   the RTP header.  The first 8 bytes of this header, called the "main
+                   JPEG header", are as follows:
+
+                    0                   1                   2                   3
+                    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+                   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                   | Type-specific |              Fragment Offset                  |
+                   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                   |      Type     |       Q       |     Width     |     Height    |
+                   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                 * 
+                 All fields in this header except for the Fragment Offset field MUST
+                 remain the same in all packets that correspond to the same JPEG
+                 frame.
+
+                 A Restart Marker header and/or Quantization Table header may follow this header, depending on the values of the Type and Q fields.                 
+                 */
 
                 byte TypeSpecific, Type, Quality,
                 //A byte which is bit mapped, each bit indicates 16 bit coeffecients for the table .
@@ -1333,15 +1485,16 @@ namespace Media.Rtsp.Server.MediaTypes
                 {
 
                     //Payload starts at the offset of the first PayloadOctet
-                    int offset = packet.HeaderOctets;
+                    int offset = packet.HeaderOctets, padding = packet.PaddingOctets, end = (packet.Payload.Count - padding);
 
                     //if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
 
                     //Decode RtpJpeg Header
 
-                    TypeSpecific = (packet.Payload.Array[packet.Payload.Offset + offset++]);
-                    FragmentOffset = Common.Binary.ReadU24(packet.Payload, offset, BitConverter.IsLittleEndian); //(uint)(packet.Payload.Array[packet.Payload.Offset + offset++] << 16 | packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
-                    offset += 3;
+                    //Should verify values after first packet....
+
+                    TypeSpecific = (packet.Payload.Array[offset++]);
+                    FragmentOffset = Common.Binary.ReadU24(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(uint)(packet.Payload.Array[offset++] << 16 | packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
 
                     #region RFC2435 -  The Type Field
 
@@ -1424,28 +1577,32 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     #endregion
 
-                    Type = (packet.Payload.Array[packet.Payload.Offset + offset++]);
+                    Type = (packet.Payload.Array[offset++]);
 
                     //Check for a RtpJpeg Type of less than 5 used in RFC2035 for which RFC2435 is the errata
                     if (false == allowLegacyPackets && 
                         Type >= 2 && Type <= 5)
                     {
                         //Should allow for 2035 decoding seperately
-                        throw new ArgumentException("Type numbers 2-5 are reserved and SHOULD NOT be used.  Applications based on RFC 2035 should be updated to indicate the presence of restart markers with type 64 or 65 and the Restart Marker header.");
+                        throw new InvalidOperationException("Type numbers 2-5 are reserved and SHOULD NOT be used.  Applications based on RFC 2035 should be updated to indicate the presence of restart markers with type 64 or 65 and the Restart Marker header.");
                     }
 
-                    Quality = packet.Payload.Array[packet.Payload.Offset + offset++];
+                    Quality = packet.Payload.Array[offset++];
+
+                    if (Quality == 0) throw new InvalidOperationException("Quality == 0 is reserved.");
 
                     //Should round?
 
                     //Should use 256 ..with 8 modulo? 227x149 is a good example and is in the jpeg reference
 
-                    Width = (ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] * 8);// in 8 pixel multiples
+                    Width = (ushort)(packet.Payload.Array[offset++] * 8);// in 8 pixel multiples
 
+                    //0 values are not specified in the rfc
                     if (Width == 0) Width = MaxWidth;
 
-                    Height = (ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] * 8);// in 8 pixel multiples
+                    Height = (ushort)(packet.Payload.Array[offset++] * 8);// in 8 pixel multiples
 
+                    //0 values are not specified in the rfc
                     if (Height == 0) Height = MaxHeight;
 
                     //It is worth noting you can send higher resolution pictures may be sent and these values will simply be ignored in such cases or the receiver will have to know to use a 
@@ -1479,11 +1636,10 @@ namespace Media.Rtsp.Server.MediaTypes
                            |       Restart Interval        |F|L|       Restart Count       |
                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                          */
-                        RestartInterval = Common.Binary.ReadU16(packet.Payload.Array, offset, BitConverter.IsLittleEndian);//(ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
-                        offset += 2;
+                        RestartInterval = Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian);//(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
 
-                        RestartCount = (ushort)(Common.Binary.ReadU16(packet.Payload.Array, offset, BitConverter.IsLittleEndian) & 0x3FFF); //((packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]) & 0x3fff);
-                        offset += 2;
+                        //Discard first and last bits...
+                        RestartCount = (ushort)(Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian) & 0x3FFF); //((packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]) & 0x3fff);
                     }
 
                     // A Q value of 255 denotes that the  quantization table mapping is dynamic and can change on every frame.
@@ -1491,12 +1647,12 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     //I check for the buffer position to be 0 because on large images which exceed the size allowed FragmentOffset wraps.
                     //Due to my 'updates' [which will soon be seperated from the RFC2435 implementation into another e.g. a new RFC or seperate class.]
-                    //One cannot use the TypeSpecific field because I have also allowed for TypeSpecific to be set from the StartOfFrame marker to allow:
-                    //1) Correct component numbering when component numbers do not start at 0 or use non incremental indexes.
-                    //2) Allow for the SubSampling to be indicated in that same field when not 1x1
-                    // 2a) For CMYK or RGB one would also need to provide additional data such as Huffman tables and count (the same for Quantization information)
+                    //One cannot use the TypeSpecific field because it's not valid and I have also allowed for TypeSpecific to be set from the StartOfFrame marker to allow:
+                        //1) Correct component numbering when component numbers do not start at 0 or use non incremental indexes.
+                        //2) Allow for the SubSampling to be indicated in that same field when not 1x1
+                        // 2a) For CMYK or RGB one would also need to provide additional data such as Huffman tables and count (the same for Quantization information)
                     //Could keep TotalFragmentOffset rather than local to not check the buffer position
-                    if (FragmentOffset == 0  && Buffer.Position == 0)
+                    if (FragmentOffset == 0 && Buffer.Position == 0)
                     {
 
                         //RFC2435 http://tools.ietf.org/search/rfc2435#section-3.1.8
@@ -1508,7 +1664,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             this Q value in-band.
                          */
                         if (Quality == 0) throw new InvalidOperationException("(Q)uality = 0 is Reserved.");
-                        else if (Quality >= 100)
+                        else if (Quality >= 100) //RFC2035 uses 0->100 where RFC2435 uses 0 ->127 but values 100 - 127 are not specified in the algorithm provided and should possiblly use the alternate quantization tables
                         {
 
                             /* http://tools.ietf.org/search/rfc2435#section-3.1.8
@@ -1524,14 +1680,27 @@ namespace Media.Rtsp.Server.MediaTypes
                             +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                              */
 
-                            if ((packet.Payload.Array[packet.Payload.Offset + offset++]) != 0) throw new InvalidOperationException("Must be Zero is not 0");
+                            //This can be used to determine incorrectly parsing this for a RFC2035 packet which does not include a table when the quality is >= 100                            
+                            if ((packet.Payload.Array[offset]) != 0)
+                            {
+                                //Sometimes helpful in determining this...
+                                //useRfcQuantizer = Quality > 99;
 
-                            //Read the PrecisionTable (notes below)
-                            PrecisionTable = (packet.Payload.Array[packet.Payload.Offset + offset++]);
+                                //offset not moved into what would be the payload
+                                //create default tables.
+                                tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer));
+                            }
+                            else
+                            {
+                                //MBZ was just read and is 0
+                                ++offset;
 
-                            #region RFC2435 Length Field
+                                //Read the PrecisionTable (notes below)
+                                PrecisionTable = (packet.Payload.Array[offset++]);
 
-                            /*
+                                #region RFC2435 Length Field
+
+                                /*
                                  
                                     The Length field is set to the length in bytes of the quantization
                                     table data to follow.  The Length field MAY be set to zero to
@@ -1561,38 +1730,45 @@ namespace Media.Rtsp.Server.MediaTypes
                                  
                                  */
 
-                            #endregion
+                                #endregion
 
-                            //Length of all tables
-                            ushort Length = Common.Binary.ReadU16(packet.Payload.Array, offset, BitConverter.IsLittleEndian); //(ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
-                            offset += 2;
+                                //Length of all tables
+                                ushort Length = Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
 
-                            //If there is Table Data Read it from the payload, Length should never be larger than 128 * tableCount
-                            if (Length == 0 && Quality == byte.MaxValue) throw new InvalidOperationException("RtpPackets MUST NOT contain Q = 255 and Length = 0.");
-                            else if (Length > packet.Payload.Count - offset)
-                            { 
-                                //If the indicated length is greater than that of the packet taking into account the offset
-                                continue; // The packet must be discarded
+                                //If there is Table Data Read it from the payload, Length should never be larger than 128 * tableCount
+                                if (Length == 0 && Quality == byte.MaxValue/* && false == allowQualityLengthException*/) throw new InvalidOperationException("RtpPackets MUST NOT contain Q = 255 and Length = 0.");
+                                else if (Length == 0 || Length > end - offset)
+                                {
+                                    //If the indicated length is greater than that of the packet taking into account the offset and padding
+                                    //Or
+                                    //The length is 0
+
+                                    //Use default tables
+                                    tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer));
+
+                                    continue; // The packet must be discarded
+                                }                                
+
+                                //Copy the tables present
+                                tables = new Common.MemorySegment(packet.Payload.Array, offset, (int)Length);
+
+                                offset += (int)Length;
                             }
-
-                            //Copy the tables present
-                            tables = new Common.MemorySegment(packet.Payload.Array, packet.Payload.Offset + offset, (int)Length);
-
-                            offset += (int)Length;
                         }
                         else // Create them from the given Quality parameter
                         {
                             tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer));
                         }
 
+                        //Potentially make instance level properties for the tables so they can be accessed again easily.
+
                         //Write the JFIF Header after reading or generating the QTables
                         byte[] header = CreateJFIFHeader(TypeSpecific, Type, Width, Height, tables, PrecisionTable, RestartInterval);
                         Buffer.Write(header, 0, header.Length);
                     }
 
-                    //Write the Payload data from the offset
-                    Buffer.Write(packet.Payload.Array, packet.Payload.Offset + offset, packet.Payload.Count - (offset + packet.PaddingOctets));
-
+                    //Write the Payload data from the offset to the count in the payload minus the offset + any padding, preventing values less than 0
+                    Buffer.Write(packet.Payload.Array, offset, Common.Binary.Max(0, (packet.Payload.Count - padding) - offset));
                 }
 
                 //Check for EOI Marker and write if not found
@@ -1737,7 +1913,7 @@ namespace Media.Rtsp.Server.MediaTypes
             : base(name, new Uri("file://" + System.IO.Path.GetDirectoryName(directory)))
         {
 
-            if (Quality == 0) Quality = DefaultQuality;
+            if (Quality <= 0) Quality = DefaultQuality;
 
             //If we were told to watch and given a directory and the directory exists then make a FileSystemWatcher
             if (System.IO.Directory.Exists(base.Source.LocalPath) && watch)
@@ -2001,14 +2177,14 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 packet.Timestamp = transportContext.RtpTimestamp;
 
-                                switch (transportContext.SequenceNumber)
+                                switch (transportContext.RecieveSequenceNumber)
                                 {
                                     case ushort.MaxValue: 
-                                        transportContext.SequenceNumber = 0; 
+                                        transportContext.RecieveSequenceNumber = 0; 
                                         break;
                                     //Increment the sequence number on the transportChannel and assign the result to the packet
                                     default: 
-                                        packet.SequenceNumber = ++transportContext.SequenceNumber;
+                                        packet.SequenceNumber = ++transportContext.RecieveSequenceNumber;
                                         break;
                                 }
 

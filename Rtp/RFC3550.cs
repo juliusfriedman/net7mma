@@ -56,6 +56,13 @@ namespace Media
     {
         #region Constants and Statics
 
+        #region Rtcp
+
+        /// <summary>
+        /// Creates a random 32 bit integer as specified in RFC3550
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
         public static int Random32(int type = 0)
         {
             #region Reference
@@ -103,10 +110,13 @@ namespace Media
             return (int)r;
         }
 
+        /// <summary>
+        /// A binary mask which is used to filter invalid Rtcp packets as specified in RFC3550
+        /// </summary>
         public const int RtcpValidMask = 0xc000 | 0x2000 | 0xfe;
 
         /// <summary>
-        /// Calculates a value which can be used in conjunction with the RtcpValidMask to validate a RtcpHeader.
+        /// Calculates a value which can be used in conjunction with the <see cref="RtcpValidMask"/> to validate a RtcpHeader.
         /// <see cref="http://tools.ietf.org/html/rfc3550#appendix-A">Appendix A</see>
         /// </summary>
         /// <param name="version">The version of the RtcpPacket to validate</param>
@@ -118,6 +128,12 @@ namespace Media
             return (version << 14 | payloadType);
         }
 
+        /// <summary>
+        /// Validates a RtcpPacket header using the <see cref="RtcpValidMask"/> and compares the result to the <see cref="RtcpValidValue"/> function.
+        /// </summary>
+        /// <param name="header"></param>
+        /// <param name="version"></param>
+        /// <returns>True if the values are equal, otherwise false</returns>
         public static bool IsValidRtcpHeader(Rtcp.RtcpHeader header, int version = 2) { return (header.First16Bits & RtcpValidMask) == RtcpValidValue(version); }
 
         /// <summary>
@@ -310,6 +326,10 @@ namespace Media
             return FromCompoundBytes(array, offset += MagicBytesSize, count -= MagicBytesSize, skipUnknownTypes);
         }
 
+        #endregion
+
+        #region Padding
+
         public static int ReadPadding(byte[] buffer, int offset, int count)
         {
             if (count <= 0 || buffer == null) return 0;
@@ -356,9 +376,233 @@ namespace Media
         public static IEnumerable<byte> CreatePadding(int amount)
         {
             if (amount <= 0) return Enumerable.Empty<byte>();
-            if (amount > byte.MaxValue) Common.Binary.CreateOverflowException("amount", amount, byte.MinValue.ToString(), byte.MinValue.ToString());
+            if (amount > byte.MaxValue) Common.Binary.CreateOverflowException("amount", amount, byte.MinValue.ToString(), byte.MaxValue.ToString());
             return Enumerable.Concat(Enumerable.Repeat(default(byte), amount - 1), Media.Common.Extensions.Linq.LinqExtensions.Yield(((byte)amount)));
         }
+
+        #endregion
+
+        #region Algorithms
+
+        /*
+         
+         A.8 Estimating the Interarrival Jitter
+
+           The code fragments below implement the algorithm given in Section
+           6.4.1 for calculating an estimate of the statistical variance of the
+           RTP data interarrival time to be inserted in the interarrival jitter
+           field of reception reports.  The inputs are r->ts, the timestamp from
+           the incoming packet, and arrival, the current time in the same units.
+           Here s points to state for the source; s->transit holds the relative
+           transit time for the previous packet, and s->jitter holds the
+           estimated jitter.  The jitter field of the reception report is
+           measured in timestamp units and expressed as an unsigned integer, but
+           the jitter estimate is kept in a floating point.  As each data packet
+           arrives, the jitter estimate is updated:
+
+              int transit = arrival - r->ts;
+              int d = transit - s->transit;
+              s->transit = transit;
+              if (d < 0) d = -d;
+              s->jitter += (1./16.) * ((double)d - s->jitter);
+
+           When a reception report block (to which rr points) is generated for
+           this member, the current jitter estimate is returned:
+
+              rr->jitter = (u_int32) s->jitter;
+
+           Alternatively, the jitter estimate can be kept as an integer, but
+           scaled to reduce round-off error.  The calculation is the same except
+           for the last line:
+
+              s->jitter += d - ((s->jitter + 8) >> 4);
+
+           In this case, the estimate is sampled for the reception report as:
+
+              rr->jitter = s->jitter >> 4;
+         
+         */
+
+        /// <summary>
+        /// Calulcates the jitter and transit value from the arrivalDifference as per RFC3550 6.4.1 [Page 93]A.8
+        /// </summary>
+        /// <param name="arrivalDifference"></param>
+        /// <param name="existingJitter"></param>
+        /// <param name="existingTransit"></param>
+        public static void CalulcateJitter(ref TimeSpan arrivalDifference, ref int existingJitter, ref int existingTransit)
+        {
+            uint j = (uint)existingJitter, t = (uint)existingTransit;
+
+            CalulcateJitter(ref arrivalDifference, ref j, ref t);
+
+            existingJitter = (int)j;
+
+            existingTransit = (int)t;
+        }
+
+        [CLSCompliant(false)]
+        public static void CalulcateJitter(ref TimeSpan arrivalDifference, ref uint existingJitter, ref uint existingTransit)
+        {
+            existingJitter += ((existingTransit = (uint)arrivalDifference.TotalMilliseconds) - ((existingTransit + 8) >> 4));
+        }
+
+        //Maybe a nested type for the state of the context would be useful.
+        //Values required for updating sequence number would be kept in state class and UpdateSequenceNumber on context would call the state would call this function...
+
+        //The point at which rollover occurs on the SequenceNumber
+        const uint RTP_SEQ_MOD = (1 << 16); //65536
+
+        const int DefaultMaxDropout = 500, DefaultMaxMisorder = 100, DefaultMinimumSequentalRtpPackets = 2;
+
+        //Probe can be performed by using non ref overload (Todo)
+
+        //Senders just update the seq number on the context (timestamp and ntp timestamp should also be sampled around the same time)
+
+        // Per-source state information
+        //typedef struct {
+        //    u_int16 max_seq;        /* highest seq. number seen */
+        //    u_int32 cycles;         /* shifted count of seq. number cycles */
+        //    u_int32 base_seq;       /* base seq number */
+        //    u_int32 bad_seq;        /* last 'bad' seq number + 1 */
+        //    u_int32 probation;      /* sequ. packets till source is valid */
+        //    u_int32 received;       /* packets received */
+        //    u_int32 expected_prior; /* packet expected at last interval */
+        //    u_int32 received_prior; /* packet received at last interval */
+        //    u_int32 transit;        /* relative trans time for prev pkt */
+        //    u_int32 jitter;         /* estimated jitter */
+        //   /* ... */       
+        //} source;
+         
+
+        [CLSCompliant(false)]
+        public static bool UpdateSequenceNumber(ref ushort sequenceNumber,
+            //From 'source' or TransportContext
+            ref uint RtpBaseSeq, ref ushort RtpMaxSeq, ref uint RtpBadSeq, ref uint RtpSeqCycles, ref uint RtpReceivedPrior, ref uint RtpProbation, ref uint RtpPacketsRecieved,
+            //Defaults
+            int MinimumSequentialValidRtpPackets = DefaultMinimumSequentalRtpPackets, int MaxMisorder = DefaultMaxMisorder, int MaxDropout = DefaultMaxDropout)
+        {
+            // RFC 3550 A.1.
+            ushort udelta = (ushort)(sequenceNumber - RtpMaxSeq);
+
+            /*
+            * Source is not valid until MIN_SEQUENTIAL packets with
+            * sequential sequence numbers have been received.
+            */
+            if (RtpProbation > 0)
+            {
+                /* packet is in sequence */
+                if (sequenceNumber == RtpMaxSeq + 1)
+                {
+                    RtpProbation--;
+
+                    RtpMaxSeq = (ushort)sequenceNumber;
+
+                    //If no more probation is required then reset the coutners and indicate the packet is in state
+                    if (RtpProbation == 0)
+                    {
+                        ResetRtpValidationCounters(ref sequenceNumber, ref RtpBaseSeq, ref RtpMaxSeq, ref RtpBadSeq, ref RtpSeqCycles, ref RtpReceivedPrior, ref RtpPacketsRecieved);
+                        return true;
+                    }
+                }
+                //The sequence number is not as expected
+
+                //Reset probation
+                RtpProbation = (uint)(MinimumSequentialValidRtpPackets - 1);
+
+                //Reset the sequence number
+                RtpMaxSeq = (ushort)sequenceNumber;
+
+                //The packet is not in state
+                return false;
+            }
+            else if (udelta < MaxDropout)
+            {
+                /* in order, with permissible gap */
+                if (sequenceNumber < RtpMaxSeq)
+                {
+                    /*
+                    * Sequence number wrapped - count another 64K cycle.
+                    */
+                    RtpSeqCycles += RTP_SEQ_MOD;
+                }
+
+                //Set the maximum sequence number
+                RtpMaxSeq = (ushort)sequenceNumber;
+            }
+            else if (udelta <= RTP_SEQ_MOD - MaxMisorder)
+            {
+                /* the sequence number made a very large jump */
+                if (sequenceNumber == RtpBadSeq)
+                {
+                    /*
+                     * Two sequential packets -- assume that the other side
+                     * restarted without telling us so just re-sync
+                     * (i.e., pretend this was the first packet).
+                    */
+                    ResetRtpValidationCounters(ref sequenceNumber, ref RtpBaseSeq, ref RtpMaxSeq, ref RtpBadSeq, ref RtpSeqCycles, ref RtpReceivedPrior, ref RtpPacketsRecieved);
+                }
+                else
+                {
+                    //Set the bad sequence to the packets sequence + 1 masking off the bits which correspond to the bits of the sequenceNumber which may have wrapped since SequenceNumber is 16 bits.
+                    RtpBadSeq = (uint)((sequenceNumber + 1) & (RTP_SEQ_MOD - 1));
+                    return false;
+                }
+            }
+            else
+            {
+                /* duplicate or reordered packet */
+                return false;
+            }
+
+            //The RtpPacket is in state
+            return true;
+        }        
+
+        [CLSCompliant(false)]
+        public static void ResetRtpValidationCounters(ref ushort sequenceNumber, ref uint RtpBaseSeq, ref ushort RtpMaxSeq, ref uint RtpBadSeq, ref uint RtpSeqCycles, ref uint RtpReceivedPrior, ref uint RtpPacketsRecieved)
+        {
+            RtpBaseSeq = RtpMaxSeq = (ushort)sequenceNumber;
+            RtpBadSeq = RTP_SEQ_MOD + 1;   /* so seq == bad_seq is false */
+            RtpSeqCycles = RtpReceivedPrior = RtpPacketsRecieved = 0;
+        }
+
+        //CalculateFractionAndLoss (RTCP?)
+
+        [CLSCompliant(false)]
+        public static void CalculateFractionAndLoss(ref uint RtpBaseSeq, ref ushort RtpMaxSeq, ref uint RtpSeqCycles, ref uint RtpPacketsRecieved, ref uint RtpReceivedPrior, ref uint RtpExpectedPrior, out uint fraction, out uint lost)
+        {
+            //Should be performed in the Conference level, these values here will only 
+            //should allow a backoff to occur in reporting and possibly eventually to be turned off.
+            fraction = 0;
+
+            uint extended_max = (uint)(RtpSeqCycles + RtpMaxSeq);
+
+            int expected = (int)(extended_max - RtpBaseSeq + 1);
+
+            lost = (uint)(expected - RtpPacketsRecieved);
+
+            int expected_interval = (int)(expected - RtpExpectedPrior);
+
+            RtpExpectedPrior = (uint)expected;
+
+            int received_interval = (int)(RtpPacketsRecieved - RtpReceivedPrior);
+
+            RtpReceivedPrior = (uint)RtpPacketsRecieved;
+
+            int lost_interval = expected_interval - received_interval;
+
+            if (expected_interval == 0 || lost_interval <= 0)
+            {
+                fraction = 0;
+            }
+            else
+            {
+                fraction = (uint)((lost_interval << 8) / expected_interval);
+            }
+        }
+
+
+        #endregion
 
         //Random32 etc
 
@@ -854,12 +1098,10 @@ namespace Media
 
             #region Fields
 
-            byte[] m_OwnedOctets;
-
             /// <summary>
             /// The memory which contains the SourceList
             /// </summary>
-            Common.MemorySegment m_Binary;
+            Common.MemorySegment m_Binary = Common.MemorySegment.Empty;
 
             int m_CurrentOffset, //The current offset in parsing the binary
                 m_SourceCount, //The amount of ContributingSources to read given from the CC nybble in a RtpHeader
@@ -893,18 +1135,20 @@ namespace Media
                     binary = binary.Concat(Binary.GetBytes(ssrc, BitConverter.IsLittleEndian)).ToArray();
                 }
 
-                m_Binary = new Common.MemorySegment(binary.ToArray(), 0, m_SourceCount * 4);
+                m_Binary = new Common.MemorySegment(binary.ToArray(), 0, m_SourceCount * Binary.BytesPerInteger);
             }
 
             /// <summary>
             /// Creates a new source list from the given parameters.
-            /// The SourceList owns ownly it's own resources and always should be disposed immediately.
+            /// The SourceList has a reference to the buffer and always should be disposed of when no longer used.
             /// </summary>
             /// <param name="header">The <see cref="RtpHeader"/> to read the <see cref="RtpHeader.ContributingSourceCount"/> from</param>
             /// <param name="buffer">The buffer (which is vector of 32 bit values e.g. it will be read in increments of 32 bits per read)</param>
-            public SourceList(Media.Rtp.RtpHeader header, byte[] buffer)
+            public SourceList(Media.Rtp.RtpHeader header, byte[] buffer, int offset = 0)
             {
                 if (header == null) throw new ArgumentNullException("header");
+
+                if (header.IsCompressed) throw new NotSupportedException();
 
                 //Assign the count (don't read it again)
                 m_SourceCount = header.ContributingSourceCount;
@@ -916,7 +1160,9 @@ namespace Media
                 {
                     //Source lists are only inserted by a mixer and come directly after the header and would be present in the payload,
                     //before the RtpExtension (if present) and before the RtpPacket's actual binary data
-                    m_Binary = new Common.MemorySegment(buffer, 0, Math.Min(buffer.Length, m_SourceCount * 4));
+
+                    //Make a segment to the data which corresponds to the data, preventing values less than 0 or greater than the amount of bytes needed to reference the data
+                    m_Binary = new Common.MemorySegment(buffer, offset, Binary.Clamp(buffer.Length - offset, 0, m_SourceCount * Binary.BytesPerInteger));
                 }
             }
 
@@ -926,7 +1172,7 @@ namespace Media
             /// </summary>
             /// <param name="packet">The <see cref="RtpPacket"/> to create a SourceList from</param>
             public SourceList(Media.Rtp.RtpPacket packet)
-                : this(packet.Header, packet.Payload.Array)
+                : this(packet.Header, packet.Payload.Array, packet.Payload.Offset)
             {
 
             }
@@ -942,21 +1188,22 @@ namespace Media
                 
                 int sourceListSize = Binary.BytesPerInteger * sourceCount;
                 
-                m_OwnedOctets = new byte[sourceListSize];
-                
-                m_Binary = new Common.MemorySegment(m_OwnedOctets, 0, sourceListSize);
+                m_Binary = new Common.MemorySegment(sourceListSize);
 
             }
 
             /// <summary>
-            /// Creates a SourceList from the data contained in the GoodbyeReport
+            /// Creates a SourceList from the data contained in the GoodbyeReport.
+            /// Contains it's own reference to the payload and should be disposed of when no longer needed.
             /// </summary>
             /// <param name="goodbyeReport">The GoodbyeReport</param>
             public SourceList(GoodbyeReport goodbyeReport)
             {
                 m_SourceCount = goodbyeReport.Header.BlockCount;
 
-                m_Binary = goodbyeReport.Payload;
+                //Make a new reference to the payload at the correct offset
+                m_Binary = new Common.MemorySegment(goodbyeReport.Payload.Array, goodbyeReport.Payload.Offset, Binary.Min(goodbyeReport.Payload.Count, m_SourceCount * Binary.BytesPerInteger));
+                    //new Common.MemorySegment(goodbyeReport.Payload);
             }
 
             #endregion
@@ -1112,14 +1359,20 @@ namespace Media
             }
 
             /// <summary>
-            /// Prepares a binary sequence of 'Size' containing all of the data in the SourceList.
+            /// Prepares a sequence of data containing the values indicated
             /// </summary>
-            /// <returns>The sequence created.</returns>
+            /// <param name="offset">The logical offset of the item in the list</param>
+            /// <param name="count">the amount of items in the list</param>
+            /// <returns>4 bytes for each value indicated by count starting at the given offset.</returns>
             public IEnumerable<byte> AsBinaryEnumerable(int offset, int count)
             {
                 return m_Binary.Skip(offset * ItemSize).Take(count * ItemSize);
             }
 
+            /// <summary>
+            /// Prepares a binary sequence of 'Size' containing all of the data in the SourceList.
+            /// </summary>
+            /// <returns>The sequence created.</returns>
             public IEnumerable<byte> AsBinaryEnumerable()
             {
                 return AsBinaryEnumerable(0, m_SourceCount);
@@ -1171,9 +1424,12 @@ namespace Media
 
                 if (ShouldDispose)
                 {
-                    m_OwnedOctets = null;
+                    if (m_Binary != null)
+                    {
+                        m_Binary.Dispose();
 
-                    m_Binary = null;
+                        m_Binary = null;
+                    }
                 }
             }
 

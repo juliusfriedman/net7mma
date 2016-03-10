@@ -179,12 +179,12 @@ namespace Media.Rtcp
 
             #region Statics
 
-            internal static SourceDescriptionItem End = new SourceDescriptionItem(SourceDescriptionItem.SourceDescriptionItemType.End, 0);
+            internal static readonly SourceDescriptionItem End = new SourceDescriptionItem(SourceDescriptionItem.SourceDescriptionItemType.End, 0);
 
             /// <summary>
             ///  The CNAME item SHOULD have the format "user@host
             /// </summary>
-            public static SourceDescriptionItem CName = new SourceDescriptionItem(SourceDescriptionItem.SourceDescriptionItemType.CName, Encoding.UTF8.GetBytes(Environment.UserName + '@' + Environment.MachineName));
+            public static readonly SourceDescriptionItem CName = new SourceDescriptionItem(SourceDescriptionItem.SourceDescriptionItemType.CName, Encoding.UTF8.GetBytes(Environment.UserName + '@' + Environment.MachineName));
 
             /// <summary>
             /// The value representing null

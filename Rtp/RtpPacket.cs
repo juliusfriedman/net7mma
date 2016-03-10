@@ -105,8 +105,8 @@ namespace Media.Rtp
         public int ExtensionOctets { get { if (IsDisposed || false == Header.Extension || Payload.Count == 0) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; } }
 
         /// <summary>
-        /// The amount of octets which belong either to the SourceList or the RtpExtension.
-        /// This amount does not reflect any padding which may be present.
+        /// The amount of octets which should exist in the payload and belong either to the SourceList and or the RtpExtension.
+        /// This amount does not reflect any padding which may be present because the padding is at the end of the payload.
         /// </summary>
         internal int HeaderOctets { get { if (IsDisposed || Payload.Count == 0) return 0; return ContributingSourceListOctets + ExtensionOctets; } }
 
@@ -150,7 +150,7 @@ namespace Media.Rtp
                     }
 
                 //If there is no padding there must be at least 0 octetsContained.
-                if (!Header.Padding) return octetsContained >= 0;
+                if (false == Header.Padding) return octetsContained >= 0;
 
                 //Otherwise calulcate the amount of padding in the Payload
                 int paddingOctets = PaddingOctets;
@@ -262,7 +262,7 @@ namespace Media.Rtp
         /// <summary>
         /// Creates a RtpPacket instance by projecting the given sequence to an array which is subsequently owned by the instance.
         /// </summary>
-        /// <param name="header">The header to utilize. When Dispose is called this header will be diposed.</param>
+        /// <param name="header">The header to utilize. When Dispose is called this header will be diposed if ownsHeader is true.</param>
         /// <param name="octets">The octets to project</param>
         public RtpPacket(RtpHeader header, IEnumerable<byte> octets, bool ownsHeader = true)
         {

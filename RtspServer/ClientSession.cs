@@ -429,7 +429,8 @@ namespace Media.Rtsp//.Server
                 sourceContext = localContext = m_RtpClient.GetContextByPayloadType(packet.PayloadType);
             }
 
-            if (localContext == null || localContext.SequenceNumber == packet.SequenceNumber || false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
+            //If there is not context or the sequence number is unchanged or the value is not within the allowed gap
+            if (localContext == null || localContext.RecieveSequenceNumber == packet.SequenceNumber || false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
             {
                 //Common.ILoggingExtensions.Log(m_Server.Logger, "Not valid sequence number " + packet.SequenceNumber + ", = " + localContext.SequenceNumber);
 
@@ -813,7 +814,7 @@ namespace Media.Rtsp//.Server
 
                 //RtpInfoDatum / SubHeader
                 rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
-                    hasAnyState ? sourceContext.SequenceNumber : (int?)null,
+                    hasAnyState ? sourceContext.RecieveSequenceNumber : (int?)null,
                     hasAnyState ? sourceContext.RtpTimestamp : (int?)null,
                     hasAnyState ? (int?)null : context.SynchronizationSourceIdentifier));
 
@@ -840,7 +841,7 @@ namespace Media.Rtsp//.Server
                     bool hasAnyState = sourceContext.RtpPacketsReceived > 0 || sourceContext.RtpPacketsSent > 0 && false == context.InDiscovery;
 
                     rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
-                        hasAnyState ? sourceContext.SequenceNumber : (int?)null,
+                        hasAnyState ? sourceContext.RecieveSequenceNumber : (int?)null,
                         hasAnyState ? sourceContext.RtpTimestamp : (int?)null,
                         hasAnyState ? (int?)null : context.SynchronizationSourceIdentifier));
 
@@ -878,6 +879,8 @@ namespace Media.Rtsp//.Server
         {
             if (Common.BaseDisposable.IsNullOrDisposed(frame)) return;
 
+            //SkipIncompleteFrame option?
+
             //if (false == final && false == frame.IsComplete) return;
 
             foreach (var packet in frame)
@@ -907,7 +910,7 @@ namespace Media.Rtsp//.Server
                 if (PacketBuffer.Remove((int)sourceContext.SynchronizationSourceIdentifier, out packets))
                 {
                     //Send them out, where does UpdateSequenceNumber get called? should be determined by the TransportContext to which the packet pertain
-                    m_RtpClient.m_OutgoingRtpPackets.AddRange(packets.SkipWhile(rtp => rtp.SequenceNumber < sourceContext.SequenceNumber));
+                    m_RtpClient.m_OutgoingRtpPackets.AddRange(packets.SkipWhile(rtp => rtp.SequenceNumber < sourceContext.RecieveSequenceNumber));
                 }
             }
         }
@@ -1184,7 +1187,7 @@ namespace Media.Rtsp//.Server
             UpdateContext:
 
             //Synchronize the context sequence numbers
-            setupContext.SequenceNumber = sourceContext.SequenceNumber;
+            setupContext.RecieveSequenceNumber = sourceContext.RecieveSequenceNumber;
 
             //Start and end times are always equal.
             setupContext.MediaStartTime = sourceContext.MediaStartTime;
