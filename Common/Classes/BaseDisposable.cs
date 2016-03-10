@@ -56,9 +56,8 @@ namespace Media.Common
     [System.Runtime.InteropServices.ComVisible(true)]
     public abstract class BaseDisposable : IDisposed
     {
-        //Should be in BaseDisposableExtensions
-        public static bool IsNullOrDisposed(BaseDisposable toCheck) { return toCheck == null || true == toCheck.IsDisposed; }
-
+        //Not really needed
+        public static bool IsNullOrDisposed(BaseDisposable toCheck) { return IDisposedExtensions.IsNullOrDisposed(toCheck); }
        
         internal static void SetShouldDisposeIfSenderIsBaseDisposable(object sender, EventArgs e)
         {
@@ -67,7 +66,7 @@ namespace Media.Common
 
         internal static void SetShouldDispose(BaseDisposable toDispose, bool dispose = false)
         {
-            if (IsNullOrDisposed(toDispose)) return;
+            if (IDisposedExtensions.IsNullOrDisposed(toDispose)) return;
             toDispose.ShouldDispose = true;
             if (dispose) toDispose.Dispose();
         }

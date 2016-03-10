@@ -2031,7 +2031,7 @@ namespace Media.Rtp
         protected internal virtual void HandleIncomingRtcpPacket(object rtpClient, RtcpPacket packet)
         {
             //Determine if the packet can be handled
-            if (IsDisposed || false == RtcpEnabled || false == HandleIncomingRtcpPackets || BaseDisposable.IsNullOrDisposed(packet)) return;
+            if (IsDisposed || false == RtcpEnabled || false == HandleIncomingRtcpPackets || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
             //Get a context for the packet by the identity of the receiver
             TransportContext transportContext = null;
@@ -2340,7 +2340,7 @@ namespace Media.Rtp
         protected internal virtual void HandleIncomingRtpPacket(object/*RtpClient*/ sender, RtpPacket packet)
         {
             //Determine if the incoming packet should be handled
-            if (false == HandleIncomingRtpPackets || false == RtpEnabled || IsDisposed || BaseDisposable.IsNullOrDisposed(packet)) return;
+            if (false == HandleIncomingRtpPackets || false == RtpEnabled || IsDisposed || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
             //Get the transportContext for the packet by the sourceId then by the payload type of the RtpPacket, not the SSRC alone because it may have not yet been defined.
             //Noting that this is not per RFC3550
@@ -2515,7 +2515,7 @@ namespace Media.Rtp
                     return;
 
                 }//Check to see if the frame belongs to the last frame
-                else if (false == BaseDisposable.IsNullOrDisposed(transportContext.LastFrame) &&
+                else if (false == IDisposedExtensions.IsNullOrDisposed(transportContext.LastFrame) &&
                     packetTimestamp == transportContext.LastFrame.Timestamp)
                 {
                     //If the packet was added to the frame
@@ -2541,7 +2541,7 @@ namespace Media.Rtp
                     return;
 
                 }//Check to see if the frame belongs to a new frame
-                else if (false == BaseDisposable.IsNullOrDisposed(transportContext.CurrentFrame) && 
+                else if (false == IDisposedExtensions.IsNullOrDisposed(transportContext.CurrentFrame) && 
                     packetTimestamp != transportContext.CurrentFrame.Timestamp)
                 {
                     //Dispose the last frame, it's going out of scope.
@@ -2571,7 +2571,7 @@ namespace Media.Rtp
 
 
                 }//Check to see if the frame belongs to the current frame
-                else if (false == BaseDisposable.IsNullOrDisposed(transportContext.CurrentFrame) &&
+                else if (false == IDisposedExtensions.IsNullOrDisposed(transportContext.CurrentFrame) &&
                    packetTimestamp == transportContext.CurrentFrame.Timestamp)
                 {
                     //If the packet was added to the frame
@@ -2611,7 +2611,7 @@ namespace Media.Rtp
         /// <param name="packet"></param>
         protected internal virtual void HandleOutgoingRtpPacket(object sender, RtpPacket packet = null, TransportContext tc = null)
         {
-            if (IsDisposed || BaseDisposable.IsNullOrDisposed(packet) || false == HandleOutgoingRtpPackets || false == packet.Transferred.HasValue) return;
+            if (IsDisposed || IDisposedExtensions.IsNullOrDisposed(packet) || false == HandleOutgoingRtpPackets || false == packet.Transferred.HasValue) return;
 
             #region TransportContext Handles Packet
 
@@ -2673,7 +2673,7 @@ namespace Media.Rtp
         protected internal virtual void HandleOutgoingRtcpPacket(object sender, RtcpPacket packet = null, TransportContext tc = null)
         {
 
-            if (IsDisposed || BaseDisposable.IsNullOrDisposed(packet) || false == HandleOutgoingRtcpPackets || false == packet.Transferred.HasValue) return;
+            if (IsDisposed || IDisposedExtensions.IsNullOrDisposed(packet) || false == HandleOutgoingRtcpPackets || false == packet.Transferred.HasValue) return;
 
             #region TransportContext Handles Packet
 
@@ -2735,7 +2735,7 @@ namespace Media.Rtp
 
             RtpPacketHandler action = RtpPacketReceieved;
 
-            if (action == null || BaseDisposable.IsNullOrDisposed(packet)) return;
+            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
             //using (RtpPacket packetRef = packet.ShouldDispose ? packet.Clone(true, true, true, true, true) : packet)
             //{
@@ -2760,7 +2760,7 @@ namespace Media.Rtp
 
             RtcpPacketHandler action = RtcpPacketReceieved;
 
-            if (action == null || BaseDisposable.IsNullOrDisposed(packet)) return;
+            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
             //using (RtcpPacket packetClone = packet.Clone(true, true, true))
             //{
@@ -2783,7 +2783,7 @@ namespace Media.Rtp
 
             RtpFrameHandler action = RtpFrameChanged;
 
-            if (action == null || BaseDisposable.IsNullOrDisposed(frame)) return;
+            if (action == null || IDisposedExtensions.IsNullOrDisposed(frame)) return;
 
             foreach (RtpFrameHandler handler in action.GetInvocationList())
             {
@@ -2804,7 +2804,7 @@ namespace Media.Rtp
 
             RtpPacketHandler action = RtpPacketSent;
 
-            if (action == null || BaseDisposable.IsNullOrDisposed(packet)) return;
+            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
             //using (RtpPacket packetClone = packet.Clone(true, true, true, true, true))
             //{
@@ -2828,7 +2828,7 @@ namespace Media.Rtp
 
             RtcpPacketHandler action = RtcpPacketSent;
 
-            if (action == null || BaseDisposable.IsNullOrDisposed(packet)) return;
+            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
             //using (RtcpPacket packetClone = packet.Clone(true, true, true))
             //{
@@ -3469,7 +3469,7 @@ namespace Media.Rtp
 
         public virtual void EnquePacket(RtcpPacket packet)
         {
-            if (IsDisposed || m_StopRequested || BaseDisposable.IsNullOrDisposed(packet)) return;
+            if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet)) return;
             m_OutgoingRtcpPackets.Add(packet);
         }
 
@@ -3513,7 +3513,7 @@ namespace Media.Rtp
                 foreach (RtcpPacket packet in packets)
                 {
                     //Handle null or disposed packets.
-                    if (CommonDisposable.IsNullOrDisposed(packet)) continue;
+                    if (IDisposedExtensions.IsNullOrDisposed(packet)) continue;
 
                     //Increment for the length of the packet
                     csent += packet.Length;
@@ -3642,7 +3642,7 @@ namespace Media.Rtp
      
         public TransportContext GetContextForMediaDescription(Sdp.MediaDescription mediaDescription)
         {
-            if (BaseDisposable.IsNullOrDisposed(mediaDescription)) return null;
+            if (IDisposedExtensions.IsNullOrDisposed(mediaDescription)) return null;
             return TransportContexts.FirstOrDefault(c => c.MediaDescription.MediaType == mediaDescription.MediaType && c.MediaDescription.MediaFormat == mediaDescription.MediaFormat);
         }
 
@@ -3653,11 +3653,11 @@ namespace Media.Rtp
         /// <returns></returns>
         public TransportContext GetContextForPacket(RtpPacket packet)
         {
-            if (BaseDisposable.IsNullOrDisposed(packet)) return null; 
+            if (IDisposedExtensions.IsNullOrDisposed(packet)) return null; 
             return GetContextBySourceId(packet.SynchronizationSourceIdentifier) ?? GetContextByPayloadType(packet.PayloadType);
 
             //COuld improve by checking both at the same time
-            //return TransportContexts.FirstOrDefault( c=> false == BaseDisposable.IsNullOrDisposed(c) && c.SynchronizationSourceIdentifier == 
+            //return TransportContexts.FirstOrDefault( c=> false == IDisposedExtensions.IsNullOrDisposed(c) && c.SynchronizationSourceIdentifier == 
         }
 
         /// <summary>
@@ -3667,7 +3667,7 @@ namespace Media.Rtp
         /// <returns></returns>
         public TransportContext GetContextForFrame(RtpFrame frame)
         {
-            if (BaseDisposable.IsNullOrDisposed(frame)) return null; 
+            if (IDisposedExtensions.IsNullOrDisposed(frame)) return null; 
             
             return GetContextBySourceId(frame.SynchronizationSourceIdentifier) ?? GetContextByPayloadType(frame.PayloadTypeByte);
         }
@@ -3679,7 +3679,7 @@ namespace Media.Rtp
         /// <returns></returns>
         public TransportContext GetContextByPayloadType(int payloadType)
         {
-            return TransportContexts.FirstOrDefault(c => false == BaseDisposable.IsNullOrDisposed(c) && c.MediaDescription.PayloadTypes.Contains(payloadType));
+            return TransportContexts.FirstOrDefault(c => false == IDisposedExtensions.IsNullOrDisposed(c) && c.MediaDescription.PayloadTypes.Contains(payloadType));
         }
 
         /// <summary>
@@ -3705,7 +3705,7 @@ namespace Media.Rtp
         /// <param name="packet">The packet to enqueue</param> (used to take the RtpCLient too but we can just check the packet payload type
         public void EnquePacket(RtpPacket packet)
         {
-            if (IsDisposed || m_StopRequested || BaseDisposable.IsNullOrDisposed(packet)) return;
+            if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet)) return;
             
             //Add a the packet to the outgoing
             m_OutgoingRtpPackets.Add(packet);
@@ -3713,7 +3713,7 @@ namespace Media.Rtp
 
         public void EnqueFrame(RtpFrame frame)
         {
-            if (IsDisposed || m_StopRequested || BaseDisposable.IsNullOrDisposed(frame)) return; 
+            if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(frame)) return; 
             
             foreach (RtpPacket packet in frame) EnquePacket(packet);
         }
@@ -3722,7 +3722,7 @@ namespace Media.Rtp
         public void SendRtpFrame(RtpFrame frame, out SocketError error, int? ssrc = null)
         {
             error = SocketError.SocketError; 
-            if (BaseDisposable.IsNullOrDisposed(frame)) return;
+            if (IDisposedExtensions.IsNullOrDisposed(frame)) return;
             foreach (RtpPacket packet in frame)
             {
                 SendRtpPacket(packet, out error, ssrc);
@@ -3746,7 +3746,7 @@ namespace Media.Rtp
         {
             error = SocketError.SocketError;
 
-            if (m_StopRequested || BaseDisposable.IsNullOrDisposed(packet)) return 0;
+            if (m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet)) return 0;
 
             TransportContext transportContext = GetContextForPacket(packet);
 
@@ -4072,7 +4072,7 @@ namespace Media.Rtp
             if (buffer == null) buffer = m_Buffer;
 
             //Ensure the socket can poll
-            if (IsDisposed || m_StopRequested || socket == null || remote == null || BaseDisposable.IsNullOrDisposed(buffer)) return 0;
+            if (IsDisposed || m_StopRequested || socket == null || remote == null || IDisposedExtensions.IsNullOrDisposed(buffer)) return 0;
 
             bool tcp = socket.ProtocolType == ProtocolType.Tcp;
 
@@ -4585,7 +4585,7 @@ namespace Media.Rtp
         internal protected virtual void ParseAndCompleteData(Common.MemorySegment memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
         {
 
-            if (BaseDisposable.IsNullOrDisposed(memory) || memory.Count == 0) return;
+            if (IDisposedExtensions.IsNullOrDisposed(memory) || memory.Count == 0) return;
 
             //handle demultiplex scenarios e.g. RFC5761
             if (parseRtcp == parseRtp && memory.Count > RFC3550.CommonHeaderBits.Size)
@@ -4728,7 +4728,7 @@ namespace Media.Rtp
                             TransportContext tc = TransportContexts[i];
 
                             //Check for a context which is able to receive data
-                            if (Common.BaseDisposable.IsNullOrDisposed(tc) 
+                            if (Common.IDisposedExtensions.IsNullOrDisposed(tc) 
                                 //Active must be true
                                 || false == tc.IsActive
                                 //If the context does not have continious media it must only receive data for the duration of the media.
@@ -4896,7 +4896,7 @@ namespace Media.Rtp
 
                                 //Don't send packets which are disposed but do remove them
 
-                                if (CommonDisposable.IsNullOrDisposed(packet) || CommonDisposable.IsNullOrDisposed(sendContext) || sendContext.Goodbye != null)
+                                if (IDisposedExtensions.IsNullOrDisposed(packet) || IDisposedExtensions.IsNullOrDisposed(sendContext) || sendContext.Goodbye != null)
                                 {
                                     ++remove;
 

@@ -1747,7 +1747,7 @@ namespace Media.Http
                            
 
                             //If playing and interleaved stream AND the last transmitted message is NOT null and is NOT Complete then attempt to complete it
-                            if (false == BaseDisposable.IsNullOrDisposed(m_LastTransmitted))
+                            if (false == IDisposedExtensions.IsNullOrDisposed(m_LastTransmitted))
                             {
                                 //RtspMessage local = m_LastTransmitted;
 
@@ -1758,7 +1758,7 @@ namespace Media.Http
                                 using (var memory = new Media.Common.MemorySegment(data, offset, length))
                                 {
                                     //Use the data recieved to complete the message and not the socket
-                                    int justReceived = false == BaseDisposable.IsNullOrDisposed(m_LastTransmitted) ? m_LastTransmitted.CompleteFrom(null, memory) : 0;
+                                    int justReceived = false == IDisposedExtensions.IsNullOrDisposed(m_LastTransmitted) ? m_LastTransmitted.CompleteFrom(null, memory) : 0;
 
                                     //If anything was received
                                     if (justReceived > 0)
@@ -1767,12 +1767,12 @@ namespace Media.Http
                                         received += justReceived;
 
                                         //No data was consumed don't raise another event.
-                                        if (false == BaseDisposable.IsNullOrDisposed(m_LastTransmitted) && lastLength == m_LastTransmitted.Length) received = 0;
+                                        if (false == IDisposedExtensions.IsNullOrDisposed(m_LastTransmitted) && lastLength == m_LastTransmitted.Length) received = 0;
                                     }
 
                                     //handle the completion of a request sent by the server if allowed.
                                     if (received > 0 &&
-                                        false == BaseDisposable.IsNullOrDisposed(m_LastTransmitted) &&
+                                        false == IDisposedExtensions.IsNullOrDisposed(m_LastTransmitted) &&
                                         m_LastTransmitted.MessageType == HttpMessageType.Request &&
                                         false == InUse) //dont handle if waiting for a resposne...
                                     {
@@ -1801,7 +1801,7 @@ namespace Media.Http
                                     //Thus allowing threads blocked by it to proceed.
                                     m_InterleaveEvent.Set();
                                 } //Otherwise
-                                else if (false == BaseDisposable.IsNullOrDisposed(m_LastTransmitted) &&
+                                else if (false == IDisposedExtensions.IsNullOrDisposed(m_LastTransmitted) &&
                                     m_LastTransmitted.MessageType == HttpMessageType.Response) //and was a response
                                 {
                                     //Otherwise indicate a message has been received now. (for responses only)

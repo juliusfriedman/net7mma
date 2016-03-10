@@ -136,7 +136,7 @@ namespace Media.Http
 
         public void Add(HttpContent content)
         {
-            if (Common.BaseDisposable.IsNullOrDisposed(content)) throw new ArgumentException("content cannot be null or disposed");
+            if (Common.IDisposedExtensions.IsNullOrDisposed(content)) throw new ArgumentException("content cannot be null or disposed");
             Contents.Add(content);
         }
 

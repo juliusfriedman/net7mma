@@ -78,10 +78,10 @@ namespace Media.Codecs.Audio
         public AudioTransformation(AudioBuffer source, AudioBuffer dest, Codec.TransformationQuality quality = Codec.TransformationQuality.Unspecified, bool shouldDispose = true)
             :this(quality, shouldDispose)
         {
-            if (Common.BaseDisposable.IsNullOrDisposed(source)) throw new System.ArgumentNullException("source");
+            if (Common.IDisposedExtensions.IsNullOrDisposed(source)) throw new System.ArgumentNullException("source");
             m_Source = source;
 
-            if (Common.BaseDisposable.IsNullOrDisposed(dest)) throw new System.ArgumentNullException("dest");
+            if (Common.IDisposedExtensions.IsNullOrDisposed(dest)) throw new System.ArgumentNullException("dest");
             m_Dest = dest;  
         }
 
@@ -94,7 +94,7 @@ namespace Media.Codecs.Audio
             get { return m_Source; }
             set
             {
-                if (Common.BaseDisposable.IsNullOrDisposed(value)) throw new System.ArgumentNullException("value");
+                if (Common.IDisposedExtensions.IsNullOrDisposed(value)) throw new System.ArgumentNullException("value");
                 m_Source = value;
             }
         }
@@ -104,7 +104,7 @@ namespace Media.Codecs.Audio
             get { return m_Dest; }
             set
             {
-                if (Common.BaseDisposable.IsNullOrDisposed(value)) throw new System.ArgumentNullException("value");
+                if (Common.IDisposedExtensions.IsNullOrDisposed(value)) throw new System.ArgumentNullException("value");
                 m_Dest = value;
             }
         }
