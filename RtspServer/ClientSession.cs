@@ -412,7 +412,7 @@ namespace Media.Rtsp//.Server
         {
 
             //If the packet is null or not allowed then return
-            if (Common.BaseDisposable.IsNullOrDisposed(packet) || m_RtpClient == null) return;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || m_RtpClient == null) return;
 
             //Thread.BeginCriticalRegion();
 
@@ -466,7 +466,7 @@ namespace Media.Rtsp//.Server
         internal void OnSourceRtcpPacketRecieved(object stream, RtcpPacket packet)
         {
 
-            if (Common.BaseDisposable.IsNullOrDisposed(packet) || m_RtpClient == null) return;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || m_RtpClient == null) return;
 
             //Should check for Goodbye and Deactivate this source
 
@@ -877,7 +877,7 @@ namespace Media.Rtsp//.Server
 
         void OnSourceFrameChanged(object sender, RtpFrame frame = null, RtpClient.TransportContext tc = null, bool final = false)
         {
-            if (Common.BaseDisposable.IsNullOrDisposed(frame)) return;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(frame)) return;
 
             //SkipIncompleteFrame option?
 
@@ -1056,7 +1056,7 @@ namespace Media.Rtsp//.Server
                 Socket tempRtcp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, localAddress, clientRtcpPort);
 
                 //Check if the client was already created.
-                if (Common.BaseDisposable.IsNullOrDisposed(m_RtpClient))
+                if (Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient))
                 {
                     //Create a sender using a new segment on the existing buffer.
                     m_RtpClient = new RtpClient(new Common.MemorySegment(m_Buffer));
@@ -1121,7 +1121,7 @@ namespace Media.Rtsp//.Server
             if (sourceStream.ForceTCP || interleaved) 
             {
                 //Check if the client was already created.
-                if (Common.BaseDisposable.IsNullOrDisposed(m_RtpClient))
+                if (Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient))
                 {
                     //Create a sender using a new segment on the existing buffer.
                     m_RtpClient = new RtpClient(new Common.MemorySegment(m_Buffer));

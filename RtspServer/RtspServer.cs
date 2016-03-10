@@ -1389,7 +1389,7 @@ namespace Media.Rtsp
                 int received = session.m_RtspSocket.EndReceiveFrom(ar, ref inBound);
 
                 //If there is no session return
-                if (BaseDisposable.IsNullOrDisposed(session) || session.m_RtspSocket == null) return;
+                if (IDisposedExtensions.IsNullOrDisposed(session) || session.m_RtspSocket == null) return;
 
                 //Let the client propagate the message
                 if (received > 0 && session.SharesSocket)
@@ -1417,7 +1417,7 @@ namespace Media.Rtsp
                 else //Zero  bytes were received either due to consumption of data or lack thereof.
                 {
                     //If there is a rtp client but it was disposed or disconnected
-                    if (BaseDisposable.IsNullOrDisposed(session.m_RtpClient) || false == session.m_RtpClient.IsActive)
+                    if (IDisposedExtensions.IsNullOrDisposed(session.m_RtpClient) || false == session.m_RtpClient.IsActive)
                     {
                         //Mark the session as Disconnected
                         session.IsDisconnected = true;
@@ -1435,7 +1435,7 @@ namespace Media.Rtsp
                 Common.ILoggingExtensions.LogException(Logger, ex);
 
                 //if a socket exception occured then handle it.
-                if (false == BaseDisposable.IsNullOrDisposed(session) && ex is SocketException) HandleClientSocketException((SocketException)ex, session);                                     
+                if (false == IDisposedExtensions.IsNullOrDisposed(session) && ex is SocketException) HandleClientSocketException((SocketException)ex, session);                                     
                 //else if (ex is ObjectDisposedException)
             }
         }
@@ -1443,7 +1443,7 @@ namespace Media.Rtsp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal void ProcessClientBuffer(ClientSession session, int received)
         {
-            if (BaseDisposable.IsNullOrDisposed(session) || received <= 0) return;
+            if (IDisposedExtensions.IsNullOrDisposed(session) || received <= 0) return;
 
             try
             {
@@ -1610,7 +1610,7 @@ namespace Media.Rtsp
             {
 
                 //Don't do anything if the session cannot be acted on.
-                if (BaseDisposable.IsNullOrDisposed(session) || session.IsDisconnected) return;
+                if (IDisposedExtensions.IsNullOrDisposed(session) || session.IsDisconnected) return;
 
                 //Ensure the bytes were completely sent..
                 int sent = session.m_RtspSocket.EndSendTo(ar);
@@ -1662,7 +1662,7 @@ namespace Media.Rtsp
 
 
                 //handle the socket exception
-                if (false == BaseDisposable.IsNullOrDisposed(session) && ex is SocketException) HandleClientSocketException((SocketException)ex, session);
+                if (false == IDisposedExtensions.IsNullOrDisposed(session) && ex is SocketException) HandleClientSocketException((SocketException)ex, session);
             }
         }
 
@@ -1683,7 +1683,7 @@ namespace Media.Rtsp
                 if (Logger != null) Logger.LogRequest(request, session);
 
                 //Ensure we have a session and request and that the server is still running and that the session is still contained in this server
-                if (BaseDisposable.IsNullOrDisposed(request) || BaseDisposable.IsNullOrDisposed(session))
+                if (IDisposedExtensions.IsNullOrDisposed(request) || IDisposedExtensions.IsNullOrDisposed(session))
                 {
                     return;
                 }//Ensure the session is added to the connected clients if it has not been already.
@@ -2060,7 +2060,7 @@ namespace Media.Rtsp
             */
 
             //If we have a session
-            if (BaseDisposable.IsNullOrDisposed(session)) return;
+            if (IDisposedExtensions.IsNullOrDisposed(session)) return;
 
             try
             {

@@ -85,7 +85,8 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <returns></returns>
             public static bool GetQuantizationTables(RFC2435Frame frame, out IEnumerable<byte> tables, out byte precision)
             {
-                if (frame == null || frame.IsEmpty || false == frame.IsComplete)
+                //If the frame is null or empty
+                if (Common.IDisposedExtensions.IsNullOrDisposed(frame) || frame.IsEmpty)
                 {
                     precision = 0;
 
