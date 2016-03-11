@@ -2342,6 +2342,8 @@ namespace Media.Rtp
             //Determine if the incoming packet should be handled
             if (false == HandleIncomingRtpPackets || false == RtpEnabled || IsDisposed || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
+            //Should check right here incase the packet was incorrectly mapped to rtp from rtcp by checking the payload type to be in the reserved range for rtcp conflict avoidance.
+
             //Get the transportContext for the packet by the sourceId then by the payload type of the RtpPacket, not the SSRC alone because it may have not yet been defined.
             //Noting that this is not per RFC3550
             //This is because this implementation allows for the value 0 to be used as a discovery mechanism.
@@ -4609,6 +4611,8 @@ namespace Media.Rtp
 
                     //Could also lookup the ssrc
                 }
+
+                //Should check right here incase the packet was incorrectly mapped to rtp from rtcp by checking the payload type to be in the reserved range for rtcp conflict avoidance.
             }
 
             //Cache start, count and index
