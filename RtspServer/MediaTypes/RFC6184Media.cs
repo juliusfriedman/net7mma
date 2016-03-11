@@ -444,9 +444,15 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 bool Start = ((FUHeader & 0x80) >> 7) > 0;
 
-                                bool End = ((FUHeader & 0x40) >> 6) > 0;
+                                    //https://tools.ietf.org/html/rfc6184 page 31...
+                                
+                                   //A fragmented NAL unit MUST NOT be transmitted in one FU; that is, the
+                                   //Start bit and End bit MUST NOT both be set to one in the same FU
+                                   //header.
 
-                                //bool Receiver = (FUHeader & 0x20) != 0;
+                                //bool End = ((FUHeader & 0x40) >> 6) > 0;
+
+                                //bool Reserved = (FUHeader & 0x20) != 0;
 
                                 //if (Receiver) throw new InvalidOperationException("Receiver Bit Set");
 
@@ -455,7 +461,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 //Todo Determine if need to Order by DON first.
                                 //DON Present in FU - B
-                                if (nalUnitType == 29) offset += 2;
+                                if (nalUnitType == Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB) offset += 2;
 
                                 //Should verify count... just consumed 1 - 3 bytes and only required 2.
 
@@ -492,8 +498,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 }
 
                                 //Allow If End to Write End Sequence?
-
-                                if (End) Buffer.WriteByte(Media.Codecs.Video.H264.NalUnitType.EndOfSequence);
+                                //if (End) Buffer.WriteByte(Media.Codecs.Video.H264.NalUnitType.EndOfSequence);
                             }
 
                             //No more data?
