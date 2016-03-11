@@ -83,7 +83,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="tables"></param>
             /// <param name="precision"></param>
             /// <returns></returns>
-            public static bool GetQuantizationTables(RFC2435Frame frame, out IEnumerable<byte> tables, out byte precision)
+            public static bool GetQuantizationTables(RFC2435Frame frame, out IEnumerable<byte> tables, out byte precision, bool legacy = false)
             {
                 //If the frame is null or empty
                 if (Common.IDisposedExtensions.IsNullOrDisposed(frame) || frame.IsEmpty)
@@ -101,7 +101,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 var packet = frame.m_Packets.First();
 
                 //Skip Type-specific
-                int offset = packet.HeaderOctets + 1, end = packet.Payload.Count - packet.PaddingOctets;
+                int offset = packet.Payload.Offset + packet.HeaderOctets + 1, end = packet.Payload.Count - packet.PaddingOctets;
 
                 //The FragmentOffset must be 0 at the start of a new frame.
                 if (end - offset < 8 || Common.Binary.ReadU24(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian) != 0)
@@ -131,7 +131,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     return false;
 
                 }
-                else if (Quality <= 99) //Only present for values >= 128 (RFC2035 values >= 100, 0 was reserved and values 100 - 127 were not specified)
+                else if (Quality <= (legacy ? 99 : 127)) //Only present for values >= 128 (RFC2035 values >= 100, 0 was reserved and values 100 - 127 were not specified)
                 {
                     precision = 0;
 
@@ -288,7 +288,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     }
 
                     //Handle Quantization Tables if provided
-                    if (quality >= 100)
+                    if (quality >= 128)
                     {
                         int qTablesCount = qTables.Count;
 
@@ -553,8 +553,11 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <summary>
             /// Creates a Luma and Chroma Table in ZigZag order using the default quantizers specified in RFC2435
             /// </summary>
-            /// <param name="Q">The quality factor</param>
-            /// <returns>64 luma bytes and 64 chroma</returns>
+            /// <param name="type">Should be used to determine the sub sambling and table count or atleast which table to create? (currently not used)</param>
+            /// <param name="Q">The quality factor</param>            
+            /// <param name="precision"></param>
+            /// <param name="useRfcQuantizer"></param>
+            /// <returns>luma and chroma tables</returns>
             internal static byte[] CreateQuantizationTables(uint type, uint Q, byte precision, bool useRfcQuantizer)
             {
                 //Ensure not the reserved value.
@@ -565,25 +568,30 @@ namespace Media.Rtsp.Server.MediaTypes
                 //RFC2435 Other values [between 1 and 99 inclusive but] less than 128 are reserved
    
                 //As per RFC2435 4.2.
-                if (Q >= 100) throw new InvalidOperationException("Q >= 100, a dynamically defined quantization table is used, which might be specified by a session setup protocol.");
+                //if (Q >= 100) throw new InvalidOperationException("Q >= 100, a dynamically defined quantization table is used, which might be specified by a session setup protocol.");
 
                 byte[] quantizer = useRfcQuantizer ? rfcQuantizers :  defaultQuantizers;
 
                 //Factor restricted to range of 1 and 99
-                int factor = (int)Math.Min(Math.Max(1, Q), 99);
+                int factor = (int)Common.Binary.Clamp(Q, 1, 99); // Math.Min(Math.Max(1, Q), 99);
 
                 //Seed quantization value
                 int q = (Q >= 1 && Q <= 50 ? (int)(5000 / factor) : 200 - factor * 2);
 
                 //Create 2 quantization tables from Seed quality value using the RFC quantizers
-                int tableSize = quantizer.Length / 2;
+                int tableSize = (precision > 0 ? 128 : 64);/// quantizer.Length / 2;
                 
-                byte[] resultTables = new byte[tableSize * 2];
+                //The tableSize should depend on the bit in the precision table.
+                //This implies that the count of tables must be given... or that the math determining this needs to be solid..
+                byte[] resultTables = new byte[tableSize * 2]; //two tables being returned... (should allow for only 1?)
 
                 //bool luma16 = Common.Binary.GetBit(precision, 0), chroma16 = Common.Binary.GetBit(precision, 1);
 
-                //Iterate for each element in the tableSize
-                for (int lumaIndex = 0, chromaIndex = tableSize; lumaIndex < tableSize; ++lumaIndex, ++chromaIndex)
+                //Iterate for each element in the tableSize (the default quantizers are 64 bytes each in 8 bit form)
+
+                int destLuma = 0, destChroma = 128;
+
+                for (int lumaIndex = 0, chromaIndex = 64; lumaIndex < 64; ++lumaIndex, ++chromaIndex)
                 {
                     //Check the bit in the precision table for the value which indicates if the tables are 16 bit or 32 bit?
                     //Normally, it would be read from the precision Byte when decoding but because of how this function is called 
@@ -593,7 +601,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     //8 Bit tables       
                     if (precision == 0)
                     {
-                        //Clamp with Min, Max (Should be left in tact but endian is unknown on receiving side)
+                        //Clamp with Min, Max (Should be written in correct bit order)
                         //Luma
                         resultTables[lumaIndex] = (byte)Common.Binary.Min(Common.Binary.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue);
 
@@ -602,17 +610,24 @@ namespace Media.Rtsp.Server.MediaTypes
                     }
                     else //16 bit tables
                     {
+
+                        //Using the 8 bit table offset create the value and copy it to its 16 bit offset
+                        
                         //Luma
                         if (BitConverter.IsLittleEndian)
-                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, lumaIndex++);
+                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, destLuma);
                         else
-                            BitConverter.GetBytes((ushort)Common.Binary.Min(Math.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, lumaIndex++);
+                            BitConverter.GetBytes((ushort)Common.Binary.Min(Math.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, destLuma);
+
+                        destLuma += 2;
 
                         //Chroma
                         if (BitConverter.IsLittleEndian)
-                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, chromaIndex++);
+                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, destChroma);
                         else
-                            BitConverter.GetBytes((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, chromaIndex++);
+                            BitConverter.GetBytes((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, destChroma);
+
+                        destChroma += 2;
                     }
                 }
 
@@ -772,39 +787,129 @@ namespace Media.Rtsp.Server.MediaTypes
                 0xf9, 0xfa
             };
 
-            //http://www.hackerfactor.com/src/jpegquality.c
+            //Todo, Move most of the logic here to Media.Codecs.Image.Jpeg
 
             /// <summary>
-            /// Experimentally determine a Quality factor form the given tables.
+            /// Average AC table values to estimate compression level, doesn't work well with 16 bit tables.
             /// </summary>
             /// <param name="precisionTable"></param>
             /// <param name="tables"></param>
             /// <param name="offset"></param>
             /// <param name="length"></param>
             /// <returns></returns>
-            public static int DetermineQuality(byte precisionTable, byte[] tables, int offset, int length)
+            /// <remarks>Ported from <see href="http://www.hackerfactor.com/src/jpegquality.c">Hacker Factory</see></remarks>
+            public static int DetermineAverageQuality(byte precisionTable, IList<byte> tables, int offset, int length)
             {
-                //Average from all tables
+                /* Quantization tables have 1 DC value and 63 AC values */
 
-                //See also http://trac.imagemagick.org/browser/ImageMagick/trunk/coders/jpeg.c @ JPEGSetImageQuality
+                /** Average AC table values to estimate compression level **/
 
-                int tableCount = length / (precisionTable > 0 ? 128 : 64);
+                //Todo, Optimize
 
-                if (length % tableCount > 0) tableCount = 1;
+                float Diff = 0;  /* difference between quantization tables */
 
-                int tableSize = length / tableCount;
+                float[] QualityAvg = new float[] { 0, 0, 0 };
 
-                int total = 0, diff = 0;
+                float QualityF = 0; /* quality as a float */
+
+                int Quality = 0; /* quality as an integer */
+
+                float Total = 0;
+
+                float TotalNum = 0;
+
+                int Index = 0;
+
+                int tableSize = (precisionTable > 0 ? 128 : 64);
+
+                int tableCount = length / tableSize;
+
+                bool precision = false;
+
+                int sourceOffset = offset;
 
                 for (int i = 0; i < tableCount; ++i)
                 {
-                    diff = tables.Skip(i * tableCount).Take(tableSize).Skip(1).Sum(b => b);
-                    total += diff;
-                    diff = total - diff;
+                    Total = 0;
+
+                    TotalNum = 0;
+
+                    sourceOffset = 0;
+                    
+                    //Todo, ensure MSB....
+                    precision = Common.Binary.GetBit(ref precisionTable, i);
+
+                    //Set the tableSize based on the precision bit
+                    tableSize = precision ? 128 : 64;
+
+                    while (TotalNum < tableSize)
+                    {
+                        //Ignoring the first value, Total the values of the AC components
+                        if (TotalNum != 0) Total += precision ? Common.Binary.ReadU16(tables, (i * tableSize) + sourceOffset, BitConverter.IsLittleEndian) : tables[(i * tableSize) + (int)TotalNum];
+
+                        //Count components
+                        TotalNum++;
+
+                        if (precision) sourceOffset += 2;
+                    }
+
+                    //For tables less than 3  (0, 1, 2)
+                    if (Index < 3)
+                    {
+                        //Set the average to 100
+                        QualityAvg[Index] = (float)(100.0 - Total / TotalNum);
+
+                        //Copy 100 as the default value to any forward tables remaining
+                        for (int z = Index + 1; z < 3; z++) QualityAvg[z] = QualityAvg[Index];
+                    }
+
+                    if (Index > 0)
+                    {
+                        /* Diff is a really rough estimate for converting YCrCb to RGB */
+                        Diff = (float)(Math.Abs(QualityAvg[0] - QualityAvg[1]) * 0.49);
+
+                        Diff += (float)(Math.Abs(QualityAvg[0] - QualityAvg[2]) * 0.49);
+
+                        //Modified to only happen on non 0 cases (may not be correct)
+                        if (Diff > 0)
+                        {
+                            /* If you know that Cr==Cb and don't mind a little more error,
+                            then you can take a short-cut and simply say
+                            Diff = Abs(QualityAvg[0]-QualityAvg[1]); */
+                            QualityF = (float)((QualityAvg[0] + QualityAvg[1] + QualityAvg[2]) / 3.0 + Diff);
+
+                            Quality = (int)(QualityF + 0.5); /* round quality to int */
+                        }
+                    }
+
+                    Index++;
                 }
 
-                return diff == 0 ? 100 : (int)100.0 - total / diff;
+                //////Modified to return the correct results in certain cases
+                ////if (precision && (QualityAvg[0] < 0 || QualityAvg[1] < 0 || QualityAvg[2] < 0))
+                ////{
+                ////    int test = Common.Binary.Abs((int)QualityAvg[1]);
+                ////    if (test >= 5 && test <= 14) Quality = (int)(100 - Diff + 1);//test;
+                ////    if(Quality >= 50) Quality = Common.Binary.Abs(Quality - 50);
+                ////}
 
+                //Don't return values less than 0, use diff instead
+                return (int)(Quality <= 0 ? Diff : Quality);
+            }
+
+            /// <summary>
+            /// Determines the quality of the given table at the offset
+            /// </summary>
+            /// <param name="precision">Indicates if the value is 16 bit</param>
+            /// <param name="table">The quantization table data (after the id and table type)</param>
+            /// <param name="offset">The offset to the data</param>
+            /// <returns>The quality determined</returns>
+            /// <remarks>Ported from <see href="https://github.com/socoola/Zheyang/blob/master/rtp-jpeg.c">socoola/Zheyang</see></remarks>
+            public static int DetermineQuality(bool precision, IList<byte> table, int offset)
+            {
+                int seed = 100 * (precision ? Common.Binary.ReadU16(table, offset, BitConverter.IsLittleEndian) : table[offset]) / defaultQuantizers[0];
+
+                return seed == 0 ? 0 : seed > 100 ? 5000 / seed : 100 - (seed >> 1);
             }
 
             internal static byte[] CreateHuffmanTableMarker(byte[] codeLens, byte[] symbols, int tableNo, int tableClass)
@@ -888,7 +993,8 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Create Encoder Parameters for the Jpeg Encoder
                     System.Drawing.Imaging.EncoderParameters parameters = new System.Drawing.Imaging.EncoderParameters(3);
 
-                    // Set the quality (Quality == 100 on GDI is prone to decoding errors?)
+                    // Set the quality (Quality == 100 on GDI is prone to decoding errors?) It doesn't accept values > 100.
+                    //This should probably clamp to 99
                     parameters.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, (long)(imageQuality >= 100 ? 100 : imageQuality));
 
                     //Set the interlacing
@@ -909,7 +1015,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     if (disposeImage) image.Dispose();
 
-                    return new RFC2435Frame(temp, imageQuality, ssrc, sequenceNo, timeStamp, bytesPerPacket);
+                    //When the quality is >= 100 specify that the quantization tables will be included by using >= 128 for quality. (RFC2035 used >= 100)
+                    return new RFC2435Frame(temp, imageQuality >= 100 ? 128 : imageQuality, ssrc, sequenceNo, timeStamp, bytesPerPacket);
                 }
 
             }
@@ -933,11 +1040,11 @@ namespace Media.Rtsp.Server.MediaTypes
                     throw Common.Binary.CreateOverflowException("qualityFactor", qualityFactor, 1.ToString(), byte.MaxValue.ToString());
 
                 //Store the constant size of the RtpHeader (12) and sourceList
-                int protocolOverhead = Rtp.RtpHeader.Length + (sourceList != null ? 4 * sourceList.Count : 0),
+                int sourceListSize = sourceList != null ? sourceList.Size : 0, protocolOverhead = Rtp.RtpHeader.Length + sourceListSize,
                     precisionTableIndex = 0; //The index of the precision table.
 
                 //Ensure some data will fit
-                if (bytesPerPacket < protocolOverhead) throw new InvalidOperationException("Each RtpPacket in the RtpFrame must contain at least RtpHeader (12 octets) + sourceList as well as the RtpJpeg Header (8 octets + possibly more).");
+                if (bytesPerPacket < protocolOverhead + 8) throw new InvalidOperationException("Each RtpPacket in the RtpFrame must contain at least RtpHeader (12 octets) + sourceList as well as the RtpJpeg Header (8 octets + possibly more).");
 
                 //Set the id of all subsequent packets.
                 SynchronizationSourceIdentifier = ssrc ?? -1;
@@ -1004,17 +1111,17 @@ namespace Media.Rtsp.Server.MediaTypes
                 };
 
                 //Apply source list
-                if (sourceList != null)
+                if (sourceListSize > 0)
                 {
                     currentPacket.ContributingSourceCount = sourceList.Count;
-                    sourceList.TryCopyTo(currentPacket.Payload.Array, 0);
+                    sourceList.TryCopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
                 }
 
 
                 //Offset into the stream
                 long streamOffset = 2,
-                    //Where we are in the current packet payload
-                    currentPacketOffset = currentPacket.HeaderOctets;
+                    //Where we are in the current packet payload after the sourceList and extensions
+                    currentPacketOffset = currentPacket.Payload.Offset + currentPacket.HeaderOctets;
 
                 //Find a Jpeg Tag while we are not at the end of the stream
                 //Tags come in the format 0xFFXX
@@ -1057,7 +1164,8 @@ namespace Media.Rtsp.Server.MediaTypes
                         {
                             case Media.Codecs.Image.Jpeg.Markers.QuantizationTable:
                                 {
-                                    if (Quality < 100) goto default;
+                                    //This is skipping the tables, it should probably adjust quality if needed.
+                                    if (Quality < 128 || CodeSize < 1) goto default;
 
                                     byte compound = (byte)jpegStream.ReadByte();//Read Table Id (And Precision which is in the same byte)
 
@@ -1087,7 +1195,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                     streamOffset += tagSizeMinusOne;
 
                                     //Add the table array to the table blob
-                                    QuantizationTables.AddRange(table);
+                                    QuantizationTables.AddRange(table);                                    
 
                                     break;
                                 }
@@ -1275,10 +1383,18 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                     streamOffset += 3;
 
-                                    if (pos + CodeSize != streamOffset) throw new Exception("Invalid StartOfScan Marker");
+                                    if (pos + CodeSize != streamOffset) throw new InvalidOperationException("Invalid StartOfScan Marker");
 
                                     //Check for alternate endSpectral
                                     //if (RtpJpegType > 0 && Ns > 0 && endSpectralSelection != 0x3f) RtpJpegTypeSpecific = Media.Codecs.Image.Jpeg.Markers.StartOfProgressiveFrame;
+                                    
+                                    //Todo, determine which tables to look at based on how many tables and the type of sub sampling.                                    
+
+                                    //Should attempt to ensure quality is correct by looking at at tables.
+                                    //int determinedQuality = RFC2435Frame.DetermineAverageQuality(RtpJpegPrecisionTable, QuantizationTables, 0, QuantizationTables.Count);
+
+                                    //If the quality was incorrect set then use the quality the image required.
+                                    //if (Quality != determinedQuality) Quality = (byte)determinedQuality;
 
                                     //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
                                     //If Quality >= 100 then the QuantizationTableHeader + QuantizationTables also reside here (after any RtpRestartMarker if present).
@@ -1296,10 +1412,13 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                     int profileHeaderSize = Ri > 0 ? 12 : 8; //Determine if the profile header also contains the RtpRestartMarker
 
+                                    //rtp jpeg header already copied so not included (currentPacketOffset already moved) 
                                     remainingPayloadOctets -= currentPacketOffset + Rtp.RtpHeader.Length;
 
                                     //How much remains in the stream relative to the endOffset
                                     long streamRemains = endOffset - streamOffset;
+
+                                    //Todo, should align restart intervals to ensure partial decoding is possible.
 
                                     //Todo if Ri > 0, each packet can only contain 1 Ri to properly support partial decoding
                                     //Must align intervals.
@@ -1313,16 +1432,32 @@ namespace Media.Rtsp.Server.MediaTypes
                                     //A RtpJpegHeader which must be in the Payload of each Packet (8 Bytes without QTables and RestartInterval)
                                     //RtpJpegPrecisionTable is the the same when the same qTables are being used and will not be included when QTables.Count == 0
                                     //When Ri > 0 an additional 4 bytes occupy the Payload to represent the RST Marker
+
+                                    //The quant and dri headers only appear in the first packet, remove them from the header now.
                                     RtpJpegHeader = RtpJpegHeader.Take(profileHeaderSize).ToArray();
+
+                                    if (profileHeaderSize != RtpJpegHeader.Length) throw new InvalidOperationException("Incorrect profileHeaderSize.");
 
                                     //Only the lastPacket contains the marker, determine when reading
                                     bool lastPacket = false;
 
+                                    int justRead;
+
                                     //While we are not done reading
                                     while (streamRemains > 0)
                                     {
-                                        //Read what we can into the packet
-                                        remainingPayloadOctets -= jpegStream.Read(currentPacket.Payload.Array, (int)(currentPacketOffset), (int)remainingPayloadOctets);
+                                        //Read what we need into the packet
+                                        do
+                                        {
+                                            justRead = jpegStream.Read(currentPacket.Payload.Array, (int)(currentPacketOffset), (int)remainingPayloadOctets);
+
+                                            if (justRead < 0) continue;
+
+                                            streamOffset += justRead;
+
+                                            remainingPayloadOctets -= justRead;
+
+                                        } while (remainingPayloadOctets > 0);
 
                                         //Update how much remains in the stream
                                         streamRemains = endOffset - streamOffset;
@@ -1373,15 +1508,13 @@ namespace Media.Rtsp.Server.MediaTypes
                                         //Copy header
                                         RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
 
-                                        //Set offset in packet (the length of the RtpJpegHeader)
-                                        currentPacketOffset = profileHeaderSize + currentPacket.HeaderOctets;
+                                        //Set offset in packet (the length of the RtpJpegHeader (calculated via profileHeaderSize))
+                                        
+                                        //We are in the payload @ offset + sourceList / extensions + profileHeaderSize
+                                        currentPacketOffset = currentPacket.Payload.Offset + currentPacket.HeaderOctets + profileHeaderSize;
 
                                         //reset the remaning remainingPayloadOctets
                                         remainingPayloadOctets = bytesPerPacket - (currentPacketOffset + Rtp.RtpHeader.Length);
-
-                                        //Move the offset in the stream
-                                        streamOffset += remainingPayloadOctets;
-
                                     }
 
                                     //Done here
@@ -1427,7 +1560,11 @@ namespace Media.Rtsp.Server.MediaTypes
                     var packet = m_Packets.First();
 
                     //The FragmentOffset must be 0 at the start of a new frame.
-                    return Common.Binary.ReadU24(packet.Payload.Array, packet.HeaderOctets + 1, BitConverter.IsLittleEndian) == 0;
+
+                    //Use Payload rather than the array because MemorySegment will fix the offset to start at Payload.Offset
+                    //Or
+                    //Use packet.Payload.Array and  packet.Payload.Offset + packet.HeaderOctets + 1
+                    return Common.Binary.ReadU24(packet.Payload, packet.HeaderOctets + 1, BitConverter.IsLittleEndian) == 0;
                 }
             }            
 
@@ -1485,8 +1622,10 @@ namespace Media.Rtsp.Server.MediaTypes
                 foreach (Rtp.RtpPacket packet in m_Packets)
                 {
 
-                    //Payload starts at the offset of the first PayloadOctet
-                    int offset = packet.HeaderOctets, padding = packet.PaddingOctets, end = (packet.Payload.Count - padding);
+                    //Payload starts at the offset of the first PayloadOctet within the Payload segment after the sourceList or extensions.
+                    int offset = packet.Payload.Offset + packet.HeaderOctets, 
+                        padding = packet.PaddingOctets, 
+                        end = (packet.Payload.Count - padding);
 
                     //if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
 
@@ -1495,6 +1634,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Should verify values after first packet....
 
                     TypeSpecific = (packet.Payload.Array[offset++]);
+
                     FragmentOffset = Common.Binary.ReadU24(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(uint)(packet.Payload.Array[offset++] << 16 | packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
 
                     #region RFC2435 -  The Type Field
@@ -1665,7 +1805,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             this Q value in-band.
                          */
                         if (Quality == 0) throw new InvalidOperationException("(Q)uality = 0 is Reserved.");
-                        else if (Quality >= 100) //RFC2035 uses 0->100 where RFC2435 uses 0 ->127 but values 100 - 127 are not specified in the algorithm provided and should possiblly use the alternate quantization tables
+                        else if (Quality >= (allowLegacyPackets ? 100 : 128)) //RFC2035 uses 0->100 where RFC2435 uses 0 ->127 but values 100 - 127 are not specified in the algorithm provided and should possiblly use the alternate quantization tables
                         {
 
                             /* http://tools.ietf.org/search/rfc2435#section-3.1.8
@@ -1766,11 +1906,16 @@ namespace Media.Rtsp.Server.MediaTypes
                         //Write the JFIF Header after reading or generating the QTables
                         byte[] header = CreateJFIFHeader(TypeSpecific, Type, Width, Height, tables, PrecisionTable, RestartInterval);
                         Buffer.Write(header, 0, header.Length);
+
+                        //Dispose tables, no longer needed.
+                        tables.Dispose();
+                        tables = null;
                     }
 
                     //Write the Payload data from the offset to the count in the payload minus the offset + any padding, preventing values less than 0
                     Buffer.Write(packet.Payload.Array, offset, Common.Binary.Max(0, (packet.Payload.Count - padding) - offset));
                 }
+
 
                 //Check for EOI Marker and write if not found
                 if (Buffer.Position == Buffer.Length)
@@ -1790,21 +1935,23 @@ namespace Media.Rtsp.Server.MediaTypes
 
             //Todo - Remove 'Image'
 
-            //Overload Buffer to PrepareBuffer.
+            //Overload Buffer to PrepareBuffer if made available in base class.
 
             /// <summary>
             /// Creates a image from the processed packets in the memory stream.
             /// </summary>
+            /// <param name="useEmbeddedColorManagement">Passed to Image.FromStream</param>
+            /// <param name="validateImageData">Passsed to Image.FromStream</param>
             /// <returns>The image created from the packets</returns>
             /// <notes>If <see cref="Dispose"/> is called the image data will be invalidated</notes>
-            public System.Drawing.Image ToImage()
+            public System.Drawing.Image ToImage(bool useEmbeddedColorManagement = true, bool validateImageData = false)
             {
                 if (IsDisposed) return null;
                 try
                 {
                     if (Buffer == null || false == Buffer.CanRead) PrepareBuffer();
-                    
-                    return System.Drawing.Image.FromStream(Buffer, true, false); 
+
+                    return System.Drawing.Image.FromStream(Buffer, useEmbeddedColorManagement, validateImageData); 
                 }
                 catch
                 {
@@ -1852,6 +1999,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
             #endregion
 
+
+            //Todo, System.Drawing may not be available.
             #region Operators
 
             public static implicit operator System.Drawing.Image(RFC2435Frame f) { return f.ToImage(); }
@@ -2250,6 +2399,44 @@ namespace Media.UnitTests
     /// </summary>
     internal class RFC2435UnitTest
     {
+
+
+        public void Test_CreateQuantizationTables_And_DetermineQuality()
+        {
+            //Loop all Quality values from 1 -> 100
+            for (int i = 1; i <= 100; ++i)
+            {
+                byte[] tables = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.CreateQuantizationTables(0, (uint)i, 0, false);
+
+                int determinedLumaQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineQuality(false, tables, 0),
+                    determinedChromaQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineQuality(false, tables, 64);
+                    //averageQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineAverageQuality(0, tables, 0, tables.Length);
+
+                //If the quality is not determined correctly from the tables created this is an exception
+                if (Common.Binary.Abs(determinedLumaQuality - i) > 5) throw new InvalidOperationException("Invalid Luma Quality Detected");
+
+                if (Common.Binary.Abs(determinedChromaQuality - i) > 5) throw new InvalidOperationException("Invalid Chroma Quality Detected");
+
+                //if (Common.Binary.Abs(averageQuality - i) > 10) throw new InvalidOperationException("Invalid Average Quality Detected");
+
+                tables = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.CreateQuantizationTables(0, (uint)i, 1, true);
+
+                determinedLumaQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineQuality(true, tables, 0);
+                
+                determinedChromaQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineQuality(true, tables, 128);
+
+                //averageQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineAverageQuality(byte.MaxValue, tables, 0, tables.Length);
+
+                //If the quality is not determined correctly from the tables created this is an exception
+                if (Common.Binary.Abs(determinedLumaQuality - i) > 10) throw new InvalidOperationException("Invalid Luma Quality Detected");
+
+                if (Common.Binary.Abs(determinedChromaQuality - i) > 10) throw new InvalidOperationException("Invalid Chroma Quality Detected");
+
+                //if (Common.Binary.Abs(averageQuality - i) > 10) throw new InvalidOperationException("Invalid Average Quality Detected");
+            }
+
+        }
+
         public void TestDecoding()
         {
             byte[][] jpegPackets = new byte[][]
@@ -2456,10 +2643,11 @@ namespace Media.UnitTests
                     System.IO.File.Delete("result.jpg");
                 }
 
+                //Try with 128
                 using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
                 {
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
-                    f = new Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame(jpegStream, 100);
+                    f = new Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame(jpegStream, 128);
 
                     //Save the JpegFrame as a Image (Decoding performed)
                     using (System.Drawing.Image jpeg = f)
@@ -2487,10 +2675,11 @@ namespace Media.UnitTests
                     System.IO.File.Delete("result.jpg");
                 }
 
+                //Try with 99
                 using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
                 {
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
-                    f = new Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame(jpegStream, 50);
+                    f = new Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame(jpegStream, 99);
 
                     //Save the JpegFrame as a Image (Decoding performed)
                     using (System.Drawing.Image jpeg = f)
@@ -2499,6 +2688,22 @@ namespace Media.UnitTests
                     }
 
                     //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+                    System.IO.File.Delete("result.jpg");
+                }
+
+                //Create a JpegFrame from existing RtpPackets
+                using (Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame x = new Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame())
+                {
+                    foreach (Media.Rtp.RtpPacket p in f) x.Add(p);
+
+                    //Save JpegFrame as Image
+                    using (System.Drawing.Image jpeg = x)
+                    {
+                        jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                    }
+
+                    //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+
                     System.IO.File.Delete("result.jpg");
                 }
 

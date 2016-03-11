@@ -71,13 +71,31 @@ namespace Media.Common
             if (dispose) toDispose.Dispose();
         }
 
+
+//These 2 sections can be combined if the next constructor changes shouldDispose to an optional parameter.
+
+#if DEBUG
+        /// <summary>
+        /// Determine if the object was created in the default app domain and which event handler to unhook at dipose
+        /// </summary>
+        readonly bool DefaultAppDomain;
+#endif
         /// <summary>
         /// Constructs a new BaseDisposable
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected BaseDisposable()
         {
-            AppDomain.CurrentDomain.DomainUnload += SetShouldDisposeIfSenderIsBaseDisposable;
+            //ShouldDispose is false
+
+#if DEBUG
+            //http://stackoverflow.com/questions/18033100/unload-event-for-the-default-application-domain
+            //Catch domain shutdown (Hack: frantically look for things we can catch)
+            if (DefaultAppDomain = AppDomain.CurrentDomain.IsDefaultAppDomain())
+                AppDomain.CurrentDomain.ProcessExit += SetShouldDisposeIfSenderIsBaseDisposable;
+            else
+                AppDomain.CurrentDomain.DomainUnload += SetShouldDisposeIfSenderIsBaseDisposable;
+#endif
         }
 
         /// <summary>
@@ -85,7 +103,7 @@ namespace Media.Common
         /// </summary>
         /// <param name="shouldDispose">The value of <see cref="ShouldDispose"/></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        protected BaseDisposable(bool shouldDispose)
+        protected BaseDisposable(bool shouldDispose) // = false
         {
             ShouldDispose = shouldDispose || Environment.HasShutdownStarted;
         }
@@ -129,8 +147,12 @@ namespace Media.Common
                 //Do not call the finalizer
                 GC.SuppressFinalize(this);
             }
+#if DEBUG
+            //http://stackoverflow.com/questions/18020861/how-to-get-notified-before-static-variables-are-finalized/18316325#18316325
 
-            AppDomain.CurrentDomain.DomainUnload -= SetShouldDisposeIfSenderIsBaseDisposable;
+            if (DefaultAppDomain) AppDomain.CurrentDomain.ProcessExit -= SetShouldDisposeIfSenderIsBaseDisposable;
+            else AppDomain.CurrentDomain.DomainUnload -= SetShouldDisposeIfSenderIsBaseDisposable;
+#endif
         }
 
         /// <summary>
