@@ -316,10 +316,11 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="isIdr"></param>
             internal protected virtual void ProcessPacket(Rtp.RtpPacket packet)
             {
-
                 //From the beginning of the data in the actual payload
-                int payloadOffset = packet.Payload.Offset, offset = payloadOffset + packet.HeaderOctets,
-                    count = packet.Payload.Count - (offset + packet.PaddingOctets); //until the end of the actual payload
+                int payloadOffset = packet.Payload.Offset, 
+                    nonPayloadOctets = packet.HeaderOctets,
+                    offset = payloadOffset + nonPayloadOctets,
+                    count = packet.Payload.Count - (nonPayloadOctets + packet.PaddingOctets); //until the end of the actual payload
 
                 //Obtain the data of the packet (without source list or padding)
                 byte[] packetData = packet.Payload.Array; //PayloadData.ToArray();
