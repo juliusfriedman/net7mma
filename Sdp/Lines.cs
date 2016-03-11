@@ -239,6 +239,7 @@ namespace Media.Sdp
 
                     if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.SlashSplit, 3);
 
+                    //Should verify that the string contains a . and is not shorter/longer than x, y...
                     return m_ConnectionParts.First();
                 }
             }

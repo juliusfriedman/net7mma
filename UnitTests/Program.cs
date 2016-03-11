@@ -2074,6 +2074,36 @@ a=rtpmap:99 h263-1998/90000");
 
             if (connectionLine == null) throw new Exception("Cannot find Connection Line");
 
+             //Test parsing a sdp which has a weird connection line.
+            sd = new Media.Sdp.SessionDescription(@"v=0
+o=- 1109162014219182 0 IN IP4 0.0.0.0
+s=HIK Media Server V3.0.0
+i=HIK Media Server Session Description : standard
+e=NONE
+c=IN c=IN IP4 0.0.0.0
+t=0 0
+a=control:*
+a=range:npt=now-
+m=video 0 RTP/AVP 96
+i=Video Media
+a=rtpmap:96 H264/90000
+a=fmtp:96 profile-level-id=4D0014;packetization-mode=0;sprop-parameter-sets=Z0IAFJW4WCWhAAAHCAABX5AE,aM48gA==
+a=control:trackID=video
+m=audio 0 RTP/AVP 0
+i=Audio Media
+a=rtpmap:0 PCMU/8000
+a=control:trackID=audio
+a=Media_header:MEDIAINFO=494D4B48010100000400000110710110401F000000FA000000000000000000000000000000000000;
+a=appversion:1.0");
+
+            Console.WriteLine(sd.ToString());
+
+            connectionLine = sd.ConnectionLine;
+
+            if (connectionLine == null) throw new Exception("Cannot find Connection Line");
+
+            //Should also verify values of line.
+
             //make a new Sdp using the media descriptions from the old but a new name
 
             sd = new Media.Sdp.SessionDescription(0)
