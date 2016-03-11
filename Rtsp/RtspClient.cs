@@ -3938,7 +3938,7 @@ namespace Media.Rtsp
                         if (created == null || created.IsDisposed)
                         {
                             //Create the context if required.. (Will be created with Sdp Address)
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, null, sourceIp);
 
                             //Set the identity to what we indicated to the server.
                             created.SynchronizationSourceIdentifier = localSsrc;
@@ -4020,22 +4020,24 @@ namespace Media.Rtsp
                         //Get the available context's
                         var availableContexts = m_RtpClient.GetTransportContexts().Where(tc => tc != null && false == tc.IsDisposed);
 
+                        var localIP = ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address;
+
                         //If there are aren't any then create one using the default values
                         if (false == availableContexts.Any())
                         {
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, (byte)(multiplexing ? 0 : 1), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, (byte)(multiplexing ? 0 : 1), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIP, sourceIp);
                         }
                         else
                         {
                             RtpClient.TransportContext lastContext = availableContexts.LastOrDefault();
 
-                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
-                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
+                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIP, sourceIp);
+                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIP, sourceIp);
                         }
 
                         created.ContextMemory = m_RtpClient.m_Buffer;
 
-                        created.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                        created.Initialize(localIP, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
 
                         //No longer need the temporary sockets
                         

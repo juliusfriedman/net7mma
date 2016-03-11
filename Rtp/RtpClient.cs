@@ -286,9 +286,9 @@ namespace Media.Rtp
 
                 if (sessionDescription == null && (localIp == null || remoteIp == null)) throw new InvalidOperationException("Must have a sessionDescription or the localIp and remoteIp cannot be established.");
 
-                if (remoteIp != null) remoteIp = IPAddress.Parse(new Sdp.Lines.SessionConnectionLine(sessionDescription.ConnectionLine).IPAddress);
+                if (remoteIp == null && false == IPAddress.TryParse(new Sdp.Lines.SessionConnectionLine(sessionDescription.ConnectionLine).IPAddress, out remoteIp)) throw new InvalidOperationException("Cannot determine remoteIp from ConnectionLine");
 
-                if(localIp != null) localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
+                if(localIp == null) localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
 
                 TransportContext tc = new TransportContext(dataChannel, controlChannel, RFC3550.Random32(Media.Rtcp.SourceDescriptionReport.PayloadType), mediaDescription, rtcpEnabled, remoteSsrc, minimumSequentialpackets);
 
