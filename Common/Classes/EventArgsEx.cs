@@ -5,6 +5,8 @@ namespace Media.Common
 {
     #region EventHandlerEx
 
+    //Only used by ITransactionResult which should be removed eventually.
+
     public delegate void EventHandlerEx<in T>(object sender, T t);
 
     public delegate void EventHandlerEx(object sender, EventArgsEx t);
@@ -13,6 +15,7 @@ namespace Media.Common
 
     //Ugly
 
+    //Never will be used
     #region EventArgsEx
 
     public class EventArgsEx : EventArgs
@@ -48,6 +51,8 @@ namespace Media.Common
     }
 
     #endregion
+
+    //Todo, Implement something more useful..
 
     //IEvent...
 

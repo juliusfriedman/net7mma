@@ -720,10 +720,10 @@ namespace Media
             readonly Common.MemorySegment m_Memory;
 
             /// <summary>
-            /// The first and octets themselves, utilized by both Rtp and Rtcp.
+            /// The first and second octets themselves, utilized by both Rtp and Rtcp.
             /// Seperated to prevent checks on endian.
             /// </summary>
-            protected byte leastSignificant, mostSignificant;
+            //protected byte leastSignificant, mostSignificant; // Wastes 2 bytes when not used.
 
             #endregion
 
@@ -731,33 +731,19 @@ namespace Media
 
             internal byte First8Bits
             {
-                get { return m_Memory != null ? m_Memory.Array[m_Memory.Offset] : leastSignificant; }
+                get { return m_Memory.Array[m_Memory.Offset]; }
                 set
                 {
-                    if (m_Memory != null)
-                    {
-                        m_Memory.Array[m_Memory.Offset] = value;
-                    }
-                    else
-                    {
-                        leastSignificant = value;
-                    }
+                    m_Memory.Array[m_Memory.Offset] = value;
                 }
             }
-
+            
             internal byte Last8Bits
             {
-                get { return m_Memory != null ? m_Memory.Array[m_Memory.Offset + 1] : mostSignificant; }
+                get { return m_Memory.Array[m_Memory.Offset + 1]; }
                 set
                 {
-                    if (m_Memory != null)
-                    {
-                        m_Memory.Array[m_Memory.Offset + 1] = value;
-                    }
-                    else
-                    {
-                        mostSignificant = value;
-                    }
+                    m_Memory.Array[m_Memory.Offset + 1] = value;
                 }
             }
 
@@ -888,7 +874,7 @@ namespace Media
 
             /// <summary>
             /// Gets or sets the 7 bit value associated with the RtpPayloadType.
-            /// </summary>
+            /// </summary>            
             public int RtpPayloadType
             {
                 //& Binary.SevenBitMaxValue may be faster
@@ -913,7 +899,7 @@ namespace Media
             /// </summary>
             /// <remarks>
             /// A SendersReport has the RtpPayloadType of 72.
-            /// </remarks>
+            /// </remarks>            
             public int RtcpPayloadType
             {
                 get { return Last8Bits; }
@@ -928,10 +914,22 @@ namespace Media
             /// Creates a exact copy of the given CommonHeaderBits
             /// </summary>
             /// <param name="other">The CommonHeaderBits instance to copy</param>
-            public CommonHeaderBits(CommonHeaderBits other)
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            public CommonHeaderBits(CommonHeaderBits other, bool selfReference = false)
             {
-                leastSignificant = other.leastSignificant;
-                mostSignificant = other.mostSignificant;
+                //leastSignificant = other.leastSignificant;
+                //mostSignificant = other.mostSignificant;
+
+                if (selfReference)
+                {
+                    m_Memory = other.m_Memory;
+                }
+                else
+                {
+                    m_Memory = new MemorySegment(CommonHeaderBits.Size);
+
+                    Array.Copy(other.m_Memory.Array, other.m_Memory.Offset, m_Memory.Array, 0, CommonHeaderBits.Size);
+                }
             }
 
             /// <summary>
@@ -939,15 +937,27 @@ namespace Media
             /// </summary>
             /// <param name="lsb">The least significant 8 bits</param>
             /// <param name="msb">The most significant 8 bits</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public CommonHeaderBits(byte lsb, byte msb)
             {
                 //Assign them
 
-                leastSignificant = lsb;
+                //leastSignificant = lsb;
 
-                mostSignificant = msb;
+                //mostSignificant = msb;
+
+                m_Memory = new MemorySegment(CommonHeaderBits.Size);
+
+                m_Memory[0] = lsb;
+
+                m_Memory[1] = msb;
             }
 
+            /// <summary>
+            /// Makes an exact copy of the header from the given memory.
+            /// </summary>
+            /// <param name="memory"></param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public CommonHeaderBits(Common.MemorySegment memory)//, int additionalOffset = 0)
             {
                 //if (Math.Abs(memory.Count - additionalOffset) < CommonHeaderBits.Size) throw new InvalidOperationException("at least two octets are required in memory");
@@ -963,10 +973,11 @@ namespace Media
             /// <param name="version">The version of the common header bits</param>
             /// <param name="padding">The value of the Padding bit</param>
             /// <param name="extension">The value of the Extension bit</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public CommonHeaderBits(int version, bool padding, bool extension)
+                : this(CommonHeaderBits.PackOctet(version, padding, extension), 0)
             {
-                //Pack the bit fields in the first octet wich belong there
-                leastSignificant = CommonHeaderBits.PackOctet(version, padding, extension);
+
             }
 
             /// <summary>
@@ -979,39 +990,30 @@ namespace Media
             /// <param name="marker">The value of the Marker bit</param>
             /// <param name="payloadTypeBits">The value of the PayloadType bits</param>
             /// /// <param name="otherbits">The value of the remaning bits which are not utilized. (4 bits)</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public CommonHeaderBits(int version, bool padding, bool extension, bool marker, int payloadTypeBits, byte otherBits)
-                : this(version, padding, extension)
+                : this(CommonHeaderBits.PackOctet(version, padding, extension, otherBits), CommonHeaderBits.PackOctet(marker, payloadTypeBits))
             {
-                //Pack the bit fields in the second octet which belong there
-                mostSignificant = CommonHeaderBits.PackOctet(marker, payloadTypeBits);
-
-                if (otherBits > 0) RtcpBlockCount = otherBits;
+               
             }
 
             #endregion
+
+            //Clone?
 
             #region IEnumerator Implementations
 
             public IEnumerator<byte> GetEnumerator()
             {
-                if (m_Memory != null)
-                {
-                    Common.MemorySegment segment = m_Memory;
+                Common.MemorySegment segment = m_Memory;
 
-                    byte[] array = segment.Array;
+                byte[] array = segment.Array;
 
-                    int offset = segment.Offset;
+                int offset = segment.Offset;
 
-                    yield return array[offset++];
+                yield return array[offset++];
 
-                    yield return array[offset];
-                }
-                else
-                {
-                    yield return leastSignificant;
-
-                    yield return mostSignificant;
-                }
+                yield return array[offset];
             }
 
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
@@ -1057,6 +1059,7 @@ namespace Media
 
             #region Implicit Operators
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public static implicit operator short(CommonHeaderBits bits) { return Common.Binary.Read16(bits, 0, BitConverter.IsLittleEndian); }
 
             public static bool operator ==(CommonHeaderBits a, CommonHeaderBits b)

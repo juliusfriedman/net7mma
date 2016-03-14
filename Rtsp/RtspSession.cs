@@ -63,8 +63,6 @@ namespace Media.Rtsp
 
         public Sdp.SessionDescription SessionDescription { get; protected set; }
 
-        //public Sdp.MediaDescription MediaDescription { get; protected set; }
-
         #endregion
 
         #region Properties [obtained during SETUP]
@@ -87,7 +85,10 @@ namespace Media.Rtsp
         /// The TransportContext of the RtspSession
         /// </summary>
         /// Should be either a object or a derived class, should not be required due to raw or other transport, could be ISocketReference
+        /// Notes that a session can share one or more context's
         public Rtp.RtpClient.TransportContext Context { get; internal protected set; }
+
+        //public Sdp.MediaDescription MediaDescription { get; protected set; } => {Context.MediaDescription;}
 
         // DateTimeOffset Started or LastStarted
 

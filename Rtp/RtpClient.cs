@@ -282,20 +282,26 @@ namespace Media.Rtp
 
             public static TransportContext FromMediaDescription(Sdp.SessionDescription sessionDescription, byte dataChannel, byte controlChannel, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int remoteSsrc = 0, int minimumSequentialpackets = 2, IPAddress localIp = null, IPAddress remoteIp = null, int? rtpPort = null, int? rtcpPort = null, bool connect = false, Socket existingSocket = null)
             {
+                //Must have a mediaDescription
                 if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
 
+                //If there is no sdp there must be a local and remoteIp
                 if (sessionDescription == null && (localIp == null || remoteIp == null)) throw new InvalidOperationException("Must have a sessionDescription or the localIp and remoteIp cannot be established.");
 
+                //If no remoteIp was given attempt to parse it from the sdp
                 if (remoteIp == null && false == IPAddress.TryParse(new Sdp.Lines.SessionConnectionLine(sessionDescription.ConnectionLine).IPAddress, out remoteIp)) throw new InvalidOperationException("Cannot determine remoteIp from ConnectionLine");
 
+                //If no localIp was given determine based on the remoteIp
                 if(localIp == null) localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
 
+                //Create the context
                 TransportContext tc = new TransportContext(dataChannel, controlChannel, RFC3550.Random32(Media.Rtcp.SourceDescriptionReport.PayloadType), mediaDescription, rtcpEnabled, remoteSsrc, minimumSequentialpackets);
 
                 int reportReceivingEvery = 0, 
                     reportSendingEvery = 0, 
                     asData = 0;
 
+                //If rtcp is enabled
                 if (rtcpEnabled)
                 {
                     //Set to the default interval
@@ -333,7 +339,7 @@ namespace Media.Rtp
                             //Todo
                             //Should set MaximumRtcpBandwidthPercentage
 
-                        }
+                        }//Disable rtcp (already checked to be enabled)
                         else if (rtcpEnabled) tc.IsRtcpEnabled = false;
                     }
                 }
@@ -1973,27 +1979,64 @@ namespace Media.Rtp
         internal List<RtpPacket> m_OutgoingRtpPackets = new List<RtpPacket>();
         internal List<RtcpPacket> m_OutgoingRtcpPackets = new List<RtcpPacket>();
 
-        //Unless I missed something that damn HashSet is good for nothing except hashing.
-        //The list also allows duplicates if required.
-        internal IList<TransportContext> TransportContexts = new List<TransportContext>();
+        /// <summary>
+        /// Any TransportContext's which are added go here for removal. This list can never be null.
+        /// </summary>
+        internal readonly List<TransportContext> TransportContexts = new List<TransportContext>();
 
+        /// <summary>
+        /// Unique id assigned to each RtpClient instance. (16 byte overhead)
+        /// </summary>
         internal readonly Guid InternalId = Guid.NewGuid();
 
+        /// <summary>
+        /// An implementation of ILogging which can be null if unassigned.
+        /// </summary>
         public Common.ILogging Logger;
 
         #endregion
 
         #region Events
 
-        public delegate void InterleaveHandler(object sender, byte[] data, int offset, int length);
+        /// <summary>
+        /// Provides a function signature which is used to process data at a given offset and length.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="data"></param>
+        /// <param name="offset"></param>
+        /// <param name="length"></param>
+        public delegate void InterleavedDataHandler(object sender, byte[] data, int offset, int length);
+        
+        /// <summary>
+        /// Provides a funtion signature which is used to process RtpPacket's
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="packet"></param>
+        /// <param name="tc"></param>
         public delegate void RtpPacketHandler(object sender, RtpPacket packet = null, TransportContext tc = null);
+        
+        /// <summary>
+        /// Provides a function signature which is used to process RtcpPacket's
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="packet"></param>
+        /// <param name="tc"></param>
         public delegate void RtcpPacketHandler(object sender, RtcpPacket packet = null, TransportContext tc = null);
+
+        /// <summary>
+        /// Provides a function signature which is used to process RtpFrame's
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="frame"></param>
+        /// <param name="tc"></param>
+        /// <param name="final"></param>
         public delegate void RtpFrameHandler(object sender, RtpFrame frame = null, TransportContext tc = null, bool final = false);
 
         /// <summary>
-        /// Raised when Interleaved Data is recieved
+        /// Raised when Interleaved Data is recieved.
+        /// Interleaved data is usually on received when using TCP.
         /// </summary>
-        public event InterleaveHandler InterleavedData;
+        public event InterleavedDataHandler InterleavedData;
 
         /// <summary>
         /// Raised when a RtpPacket is received
@@ -2020,11 +2063,16 @@ namespace Media.Rtp
         /// </summary>
         public event RtpFrameHandler RtpFrameChanged;
 
+        #region Table of Participants
 
         //6.3.2 Initialization....
         //I will do no such thing, I will no have no table when no table is required such as be the case when no expectance is put on the identity of the recipient.
         //All such packets should be considered equal unless specifically negioated by means provided by an alternate mechanism such as SDP or the RTP-Info header and is beyond the scope of the RtpClient implementation [based on my interpretation that is.]
         //I could go on and on about this but I think we all get the point
+
+        //In most cases this table would only contain 1 entry anyway...
+
+        #endregion
 
         //6.3.3 Rtp or Rtcp
 
@@ -2613,7 +2661,7 @@ namespace Media.Rtp
         /// <param name="packet"></param>
         protected internal virtual void HandleOutgoingRtpPacket(object sender, RtpPacket packet = null, TransportContext tc = null)
         {
-            if (IsDisposed || IDisposedExtensions.IsNullOrDisposed(packet) || false == HandleOutgoingRtpPackets || false == packet.Transferred.HasValue) return;
+            if (IsDisposed || false == HandleOutgoingRtpPackets || IDisposedExtensions.IsNullOrDisposed(packet) || false == packet.Transferred.HasValue) return;
 
             #region TransportContext Handles Packet
 
@@ -2623,7 +2671,6 @@ namespace Media.Rtp
 
             unchecked
             {
-
                 //This allows detection of middle boxes, make a seperate sample, default implementation should be 'compliant'...
 
                 //increment the counters (Only use the Payload.Count per the RFC) (new Erratta Submitted)
@@ -2716,11 +2763,11 @@ namespace Media.Rtp
         {
             if (IsDisposed) return;
 
-            InterleaveHandler action = InterleavedData;
+            InterleavedDataHandler action = InterleavedData;
 
             if (action == null || data == null || length == 0) return;
 
-            foreach (InterleaveHandler handler in action.GetInvocationList())
+            foreach (InterleavedDataHandler handler in action.GetInvocationList())
             {
                 try { handler(this, data, offset, length); }
                 catch { continue; }
@@ -2739,18 +2786,13 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-            //using (RtpPacket packetRef = packet.ShouldDispose ? packet.Clone(true, true, true, true, true) : packet)
-            //{
             foreach (RtpPacketHandler handler in action.GetInvocationList())
             {
                 if (packet.IsDisposed) break;
                 try { handler(this, packet, tc); }
                 catch { continue; }
             }
-            //}
         }
-
-        //Should ensure the semantic that all callers who observe this event are aware if the packet was already handled or not.
 
         /// <summary>
         /// Raises the RtcpPacketHandler for Recieving
@@ -2764,15 +2806,12 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-            //using (RtcpPacket packetClone = packet.Clone(true, true, true))
-            //{
             foreach (RtcpPacketHandler handler in action.GetInvocationList())
             {
                 if (packet.IsDisposed) break;
                 try { handler(this, packet, tc); }
                 catch { continue; }
             }
-            //}
         }
 
         /// <summary>
@@ -2808,16 +2847,12 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-            //using (RtpPacket packetClone = packet.Clone(true, true, true, true, true))
-            //{
             foreach (RtpPacketHandler handler in action.GetInvocationList())
             {
                 if (packet.IsDisposed) break;
                 try { handler(this, packet, tc); }
                 catch { continue; }
             }
-            //}
-
         }
 
         /// <summary>
@@ -3196,13 +3231,14 @@ namespace Media.Rtp
         /// <returns>The <see cref="TransportContexts"/> used by this instance.</returns>
         public virtual IEnumerable<TransportContext> GetTransportContexts()
         {
-            if (IsDisposed) return Enumerable.Empty<TransportContext>();
+            //if (IsDisposed) return Enumerable.Empty<TransportContext>();
             try
             {
                 return TransportContexts.DefaultIfEmpty();
             }
             catch (InvalidOperationException)
             {
+                //May duplicate objects already projected
                 return GetTransportContexts();
             }
             catch { throw; }
@@ -4247,7 +4283,8 @@ namespace Media.Rtp
 
                             #region Verify Packet Headers
 
-                            //Use CommonHeaderBits on the data after the Interleaved Frame Header, probably wastes time and memory, just should check with offsets...
+                            //Using CommonHeaderBits on the data after the Interleaved Frame Header wastes time and memory, just should check with offsets...
+
                             using (var common = new Media.RFC3550.CommonHeaderBits(buffer[offset + sessionRequired], buffer[offset + sessionRequired + 1]))
                             {
                                 //Check the version...

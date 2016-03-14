@@ -350,6 +350,13 @@ namespace Media.UnitTests
         {
             checkBox1.Checked = comboBox1.SelectedIndex == 1;
         }
+        
+        //Dispose should Dispose Bitmap...
+
+        private void RtspInspector_Load(object sender, EventArgs e)
+        {
+
+        }
 
     }
 }

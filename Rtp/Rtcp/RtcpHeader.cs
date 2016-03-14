@@ -78,9 +78,9 @@ namespace Media.Rtcp
         #region Constants and Statics
 
         /// <summary>
-        /// The length of every RtcpHeader. (In bytes)
+        /// The length of every RtcpHeader. (In bytes) 
         /// </summary>
-        public const int Length = Common.Binary.BytesPerInteger;
+        public const int Length = Common.Binary.BytesPerInteger; //Notes Size and Length could be swapped because Length is more instance orientated.
 
         /// <summary>
         /// The value which is placed into the <see cref="RtcpHeader.LengthInWordsMinusOne"/> by default when creating a RtcpReport.
@@ -122,7 +122,7 @@ namespace Media.Rtcp
 
         public bool IsCompressed
         {
-            get { return Size < Length; }
+            get { return Size < Length; } //E.g. Size < Length would look better as Length < Size ... :p
         } 
 
         /// <summary>
