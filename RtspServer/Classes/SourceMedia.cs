@@ -190,6 +190,8 @@ namespace Media.Rtsp.Server
 
         public virtual bool TrySetLogger(Media.Common.ILogging logger)
         {
+            //Logger = logger...
+
             return false;
         }
 

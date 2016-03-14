@@ -108,7 +108,7 @@ namespace Media.Rtp
         /// The amount of octets which should exist in the payload and belong either to the SourceList and or the RtpExtension.
         /// This amount does not reflect any padding which may be present because the padding is at the end of the payload.
         /// </summary>
-        internal int HeaderOctets { get { if (IsDisposed || Payload.Count == 0) return 0; return ContributingSourceListOctets + ExtensionOctets; } }
+        public int HeaderOctets { get { if (IsDisposed || Payload.Count == 0) return 0; return ContributingSourceListOctets + ExtensionOctets; } }
 
         /// <summary>
         /// Gets the amount of octets which are in the Payload property which are part of the padding if IsComplete is true.            
@@ -163,7 +163,11 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates the length in bytes of this RtpPacket instance. (Including the RtpHeader as well as SourceList and Extension if present.)
         /// </summary>
-        public int Length { get { return IsDisposed ? 0 : RtpHeader.Length + Payload.Count; } }
+        public int Length
+        {
+            //Proably don't have to check...
+            get { return IsDisposed ? 0 : RtpHeader.Length + Payload.Count; }
+        }
 
         /// <summary>
         /// Gets the data in the Payload which does not belong to the ContributingSourceList or RtpExtension or Padding.
@@ -175,6 +179,7 @@ namespace Media.Rtp
         {
             get
             {
+                //Proably don't have to check...
                 if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.EmptyBytes;
 
                 int nonPayloadOctets = HeaderOctets, padding = PaddingOctets;
@@ -247,12 +252,14 @@ namespace Media.Rtp
 
         ~RtpPacket() { Dispose(); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(int version, bool padding, bool extension, byte[] payload)
             : this(new RtpHeader(version, padding, extension), payload ?? Media.Common.MemorySegment.EmptyBytes)
         {
 
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(int version, bool padding, bool extension, bool marker, int payloadType, int csc, int ssrc, int seq, int timestamp, byte[] payload = null)
             : this(new RtpHeader(version, padding, extension, marker, payloadType, csc, ssrc, seq, timestamp), payload ?? Media.Common.MemorySegment.EmptyBytes)
         {
@@ -264,6 +271,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="header">The header to utilize. When Dispose is called this header will be diposed if ownsHeader is true.</param>
         /// <param name="octets">The octets to project</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(RtpHeader header, IEnumerable<byte> octets, bool ownsHeader = true)
         {
             if (header == null) throw new ArgumentNullException("header");
@@ -286,6 +294,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="header">The existing RtpHeader</param>
         /// <param name="payload">The data contained in the payload</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(RtpHeader header, MemorySegment payload, bool ownsHeader = true)
         {
             if (header == null) throw new ArgumentNullException("header");
@@ -302,6 +311,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="buffer">The buffer which contains the binary RtpPacket to decode</param>
         /// <param name="offset">The offset to start copying</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(byte[] buffer, int offset, int count)
         {
             if (buffer == null || buffer.Length == 0) throw new ArgumentException("Must have data in a RtpPacket");
@@ -332,7 +342,8 @@ namespace Media.Rtp
                 Payload = MemorySegment.Empty;
             }
         }
-        
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(byte[] buffer, int offset) : this(buffer, offset, buffer.Length - offset) { }
             
         #endregion

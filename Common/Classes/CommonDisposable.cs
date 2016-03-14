@@ -14,6 +14,8 @@ namespace Media.Common
         
         //Could store Created time?
 
+        //Should be on base class...
+
         //public readonly DateTime Created = DateTime.UtcNow;
 
         public CommonDisposable(bool shouldDispose) : base(shouldDispose) { }

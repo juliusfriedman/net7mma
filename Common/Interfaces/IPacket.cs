@@ -47,7 +47,7 @@ namespace Media.Common
     /// <summary>
     /// Packets are <see cref="IDisposable">disposable</see> contigous allocations of memory which have been created or transferred.
     /// </summary>
-    public interface IPacket : IDisposable, IDisposed
+    public interface IPacket : IDisposed
     {
         /// <summary>
         /// Gets a value indciating when the IPacket was created.
@@ -74,9 +74,6 @@ namespace Media.Common
         /// Determines if the IPacket can be modified.
         /// </summary>
         bool IsReadOnly { get; }
-
-        //Indicates if the packet has been previously disposed.
-        bool IsDisposed { get; }
 
         /// <summary>
         /// The length in bytes of the packet

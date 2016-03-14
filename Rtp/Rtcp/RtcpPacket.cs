@@ -174,12 +174,63 @@ namespace Media.Rtcp
         /// The length of the sequence projected is determined by <paramref name="header"/>.
         /// Throws a ArgumentNullException if header is null
         /// </summary>
-        /// <param name="header">The header to utilize. When Dispose is called this header will be diposed.</param>
+        /// <param name="header">The header to utilize.</param>
         /// <param name="octets">The octets to project</param>
+        /// <param name="ownsHeader">Indicates if the header should be disposed.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpPacket(RtcpHeader header, IEnumerable<byte> octets, bool ownsHeader = true)
-            :this(header.Concat(octets).ToArray(), 0, true)
+            //:this(header.Concat(octets).ToArray(), 0, true)
         {
-           
+            //Should probably keep header and just assign octets...  
+            //The reason why this doesn't happen is that the amount of bytes to take from octets can only be determined from the header...
+
+            //The instance owns the header
+            ShouldDispose = m_OwnsHeader = ownsHeader;
+
+            //Reference the header
+            Header = header;
+
+            //Project the sequence
+            m_OwnedOctets = octets.ToArray();
+
+            //Make a MemorySegment indicating what is in the payload based on the values in the header (minus the header) of 4 bytes already read
+            //Payload = new MemorySegment(m_OwnedOctets, 0, ((ushort)((header.LengthInWordsMinusOne + 1) * 4)));
+
+            //Determine the amount of bytes in the header and packet
+            int headerLength = RtcpHeader.Length, packetLength = Header.LengthInWordsMinusOne;
+
+            //packetLength contains the LengthInWordsMinusOne
+            switch (header.LengthInWordsMinusOne)
+            {
+                case ushort.MaxValue: // FFFF + 1 = 0
+                    //case ushort.MinValue:// 0 + 1 = 1 * 4 = 4, header only.???
+                    {
+                        Payload = Common.MemorySegment.Empty;
+
+                        m_OwnedOctets = Payload.Array;
+
+                        return;
+                    }
+                default:
+                    {
+                        //Header has another word
+                        headerLength = Header.Size; //Binary.BytesPerLong;
+
+                        //Packet length is given by the LengthInWordsMinusOne + 1 * 4
+                        packetLength = ((ushort)((packetLength + 1) * 4));
+
+                        //The header was consumed and the packet cannot be less than 0 bytes or more than the buffer's length - offset in parsing.
+                        packetLength = Binary.Clamp(packetLength - headerLength, 0, m_OwnedOctets.Length - headerLength);
+
+                        //If there are no bytes then just handle as would for 0xFFFF
+                        if (packetLength == 0) goto case ushort.MaxValue;
+
+                        //Assign the payload
+                        Payload = new Common.MemorySegment(m_OwnedOctets, true);
+
+                        return;
+                    }
+            }
         }        
 
         /// <summary>
@@ -188,6 +239,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The existing RtpHeader (which is now owned by this instance)</param>
         /// <param name="payload">The data contained in the payload</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpPacket(RtcpHeader header, MemorySegment payload, bool shouldDispose = true)
         {
             if (header == null) throw new ArgumentNullException("header");
@@ -205,6 +257,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="buffer">The buffer which contains the binary RtcpPacket to decode</param>
         /// <param name="offset">The offset to start decoding</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpPacket(byte[] buffer, int offset, int count, bool shouldDispose = true)
         {
             //The instance owns the header
@@ -256,6 +309,7 @@ namespace Media.Rtcp
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpPacket(byte[] buffer, int offset, bool shouldDispose = true) 
             :this (buffer, offset, buffer.Length - offset, shouldDispose)
         {
@@ -273,6 +327,7 @@ namespace Media.Rtcp
         /// <param name="ssrc">Sets <see cref="SendersSyncrhonizationSourceIdentifier"/></param>
         /// <param name="blockCount">Sets <see cref="BlockCount"/> </param>
         /// <param name="lengthInWords">Sets <see cref="RtcpHeader.LengthInWordsMinusOne"/></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpPacket(int version, int payloadType, int padding, int ssrc, int blockCount, int lengthInWords, int blockSize, int extensionSize)
         {
             //If the padding is greater than allow throw an overflow exception
@@ -303,12 +358,14 @@ namespace Media.Rtcp
             if (padding > 0) m_OwnedOctets[payloadSize - 1] = (byte)padding;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpPacket(int version, int payloadType, int padding, int ssrc, int lengthInWords, int blockCount)
             :this(version, payloadType, padding, ssrc, blockCount, lengthInWords, 0, 0)
         {
             
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpPacket(int version, int payloadType, int padding, int blockCount, int ssrc, int lengthInWords, byte[] payload, int index, int count)
             :this(version, payloadType, padding, ssrc, blockCount, lengthInWords)
         {
@@ -363,6 +420,7 @@ namespace Media.Rtcp
         {
             get
             {
+                //Proably don't have to check IsDisposed
                 return IsDisposed ? 0 : Header.Size + Payload.Count;
             }
         }
@@ -370,7 +428,10 @@ namespace Media.Rtcp
         /// <summary>
         /// Indicates if the RtcpPacket needs any more data to be considered complete.
         /// </summary>
-        public bool IsComplete { get { return IsDisposed || Header.IsDisposed ? false : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * Binary.BytesPerInteger)) - RtcpHeader.Length; } }
+        public bool IsComplete
+        {
+            get { return IsDisposed || Header.IsDisposed ? false : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * Binary.BytesPerInteger)) - RtcpHeader.Length; }
+        }
 
         /// <summary>
         /// <see cref="RtpHeader.Version"/>

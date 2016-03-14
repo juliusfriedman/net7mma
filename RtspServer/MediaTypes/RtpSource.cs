@@ -63,8 +63,15 @@ namespace Media.Rtsp.Server.MediaTypes
         public virtual Rtp.RtpClient RtpClient { get; protected set; }
 
         //This will take effect after the change, existing clients will still have their connection
-        public bool ForceTCP { get { return m_ForceTCP; } set { m_ForceTCP = value; } } 
-        
+        public bool ForceTCP { get { return m_ForceTCP; } set { m_ForceTCP = value; } }
+
+        #region Threaded Frame Events
+
+        //It is completely possible to allow another thread here, such a thread would be soley responsible for issuing the data to the handlers of the RtpClient's events and would provide better performance in some cases.
+        //It's also possible to Multicast the source resulting in the network handling the aggregation (See Sink)
+
+        #endregion
+
         //System.Drawing.Image m_lastDecodedFrame;
         //internal virtual void DecodeFrame(Rtp.RtpClient sender, Rtp.RtpFrame frame)
         //{

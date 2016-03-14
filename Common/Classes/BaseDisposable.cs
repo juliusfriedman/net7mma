@@ -56,6 +56,8 @@ namespace Media.Common
     [System.Runtime.InteropServices.ComVisible(true)]
     public abstract class BaseDisposable : IDisposed
     {
+        #region Statics
+
         //Not really needed
         public static bool IsNullOrDisposed(BaseDisposable toCheck) { return IDisposedExtensions.IsNullOrDisposed(toCheck); }
        
@@ -71,8 +73,11 @@ namespace Media.Common
             if (dispose) toDispose.Dispose();
         }
 
+        #endregion
 
-//These 2 sections can be combined if the next constructor changes shouldDispose to an optional parameter.
+        #region Constructor / Destructor
+
+        //These 2 sections can be combined if the next constructor changes shouldDispose to an optional parameter.
 
 #if DEBUG
         /// <summary>
@@ -114,6 +119,10 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         ~BaseDisposable() { Dispose(); }
 
+        #endregion
+
+        #region Properties
+
         /// <summary>
         /// Indicates if Dispose has been called previously.
         /// </summary>
@@ -123,6 +132,10 @@ namespace Media.Common
         /// Indicates if the instance should dispose any resourced when disposed.
         /// </summary>
         public virtual bool ShouldDispose { get; internal protected set; }
+
+        #endregion
+
+        #region Methods
 
         /// <summary>
         /// Throws a System.ObjectDisposedException if <see cref="IsDisposed"/> is true.
@@ -163,6 +176,8 @@ namespace Media.Common
         {
             Dispose(ShouldDispose);
         }
+
+        #endregion
     }
 
     #endregion

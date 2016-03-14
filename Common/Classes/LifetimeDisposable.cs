@@ -47,16 +47,37 @@ using System.Text;
 
 namespace Media.Common
 {
+    /// <summary>
+    /// A <see cref="CommonDisposable"/> implementation which determines <see cref="ShouldDispose"/> based on the <see cref="HalfLife"/>
+    /// </summary>
     public class LifetimeDisposable : CommonDisposable
     {
+        #region Readonly Fields
+
+        /// <summary>
+        /// The date and time which this instance was created
+        /// </summary>
         public readonly DateTimeOffset CreatedUtc = DateTimeOffset.UtcNow;
 
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// The amount of time this instance should stay alive
+        /// </summary>
         public TimeSpan Lifetime { get; protected set; }
 
-        //Remaining
+        /// <summary>
+        /// The amount of time remaining since <see cref="CreatedUtc"/> before <see cref="LifetimeElapsed"/> is true.
+        /// </summary>
         public TimeSpan HalfLife { get { return DateTimeOffset.UtcNow - CreatedUtc; } }
 
         public bool LifetimeElapsed { get { return HalfLife > Lifetime; } }
+
+        #endregion
+
+        #region Constructor
 
         public LifetimeDisposable(bool shouldDispose)
             : base(shouldDispose)
@@ -69,6 +90,12 @@ namespace Media.Common
         {
             Lifetime = lifetime;
         }
+
+        #endregion
+
+        #region Methods
+
+        protected void Expire() { Lifetime = HalfLife; }
 
         //Dispose could check for lifetime and then reschedule for finalize.
 
@@ -83,6 +110,6 @@ namespace Media.Common
             base.Dispose(disposing = ShouldDispose = ShouldDispose || disposing || LifetimeElapsed);
         }
 
-        protected void Expire() { Lifetime = HalfLife; }
+        #endregion
     }
 }

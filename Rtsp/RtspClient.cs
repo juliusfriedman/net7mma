@@ -3523,7 +3523,7 @@ namespace Media.Rtsp
         /// <param name="mediaDescription"></param>
         /// <param name="unicast"></param>
         /// <returns></returns>
-        //Remove unicast...
+        //Remove unicast... and allow for session based setup
         internal RtspMessage SendSetup(Uri location, MediaDescription mediaDescription, bool unicast = true)//False to use manually set protocol
         {
             if (location == null) throw new ArgumentNullException("location");
@@ -3533,6 +3533,12 @@ namespace Media.Rtsp
             //Todo Setup should only create a TransportContext which COULD then be given to a RtpClient 
             //This will allow for non RTP transports to be used such as MPEG-TS.
             //Must de-coulple the RtpClient and replace it
+
+            //Todo, Add CreateSession logic here and give the session to SendSetup.
+            //Move this logic to the overload with the RtspSession,
+
+            //e.g. something like this SendSetup(GetOrCreateSession(mediaDescription))
+            //But should ensure that sessions are not created when they are not supposed to be e.g. when the response is not a success. 
 
             //Determine if a client_port datum should be sent in the Transport header as a set, list or a single entry
             bool needsRtcp = true, multiplexing = false;
@@ -3622,7 +3628,7 @@ namespace Media.Rtsp
                         remoteSsrc = 0;
 
                     //Cache this to prevent having to go to get it every time down the line
-                    IPAddress sourceIp = IPAddress.Any;
+                    IPAddress sourceIp = IPAddress.Any, localIp = ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address;
 
                     string mode;
 
@@ -3777,17 +3783,25 @@ namespace Media.Rtsp
                         }
                     }
 
-                    //Create a RtspSession if the Id doesn't exist
-
+                    //Get a session ready                    
                     RtspSession session;
-
+                    
+                    //Create a RtspSession if there is not already one assoicated with the current sessionId
                     if (false == m_Sessions.TryGetValue(SessionId, out session))
                     {
-                        //Add the session created
-                        m_Sessions.Add(SessionId, session = new RtspSession(setup, response)
+                        //Create a session
+                        session = new RtspSession(setup, response)
                         {
-                            EnableKeepAliveRequest = false == DisableKeepAliveRequest
-                        });
+                            EnableKeepAliveRequest = false == DisableKeepAliveRequest,
+                            ControlLocation = location
+                        };
+
+                        //Only if there was a sessionId found
+                        if (false == string.IsNullOrWhiteSpace(session.SessionId))
+                        {
+                            //Add the session created
+                            m_Sessions.Add(SessionId, session);
+                        }
                     }
 
                     //Ensure there was a response
@@ -3805,6 +3819,9 @@ namespace Media.Rtsp
                             false == string.IsNullOrWhiteSpace(m_SessionId) && //And there IS an existing session id
                             false == triedTwoTimes) //And setup has not already been attempted two times.
                         {
+
+                            //Dispose old sessions?
+
                             //Erase the old session id
                             m_SessionId = string.Empty;
 
@@ -3866,7 +3883,7 @@ namespace Media.Rtsp
                     //Handle anything else
 
                 NoResponse:
-
+                    
                     //We SHOULD have a valid TransportHeader in the response
                     //Get the transport header from the response if present.
                     session.TransportHeader = response != null ? response[RtspHeaders.Transport] : null;
@@ -3938,7 +3955,7 @@ namespace Media.Rtsp
                         if (created == null || created.IsDisposed)
                         {
                             //Create the context if required.. (Will be created with Sdp Address)
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, null, sourceIp);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
 
                             //Set the identity to what we indicated to the server.
                             created.SynchronizationSourceIdentifier = localSsrc;
@@ -4018,26 +4035,24 @@ namespace Media.Rtsp
                         }
 
                         //Get the available context's
-                        var availableContexts = m_RtpClient.GetTransportContexts().Where(tc => tc != null && false == tc.IsDisposed);
-
-                        var localIP = ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address;
+                        var availableContexts = m_RtpClient.GetTransportContexts().Where(tc => tc != null && false == tc.IsDisposed);                        
 
                         //If there are aren't any then create one using the default values
                         if (false == availableContexts.Any())
                         {
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, (byte)(multiplexing ? 0 : 1), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIP, sourceIp);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, (byte)(multiplexing ? 0 : 1), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
                         }
                         else
                         {
                             RtpClient.TransportContext lastContext = availableContexts.LastOrDefault();
 
-                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIP, sourceIp);
-                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIP, sourceIp);
+                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
+                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
                         }
 
                         created.ContextMemory = m_RtpClient.m_Buffer;
 
-                        created.Initialize(localIP, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                        created.Initialize(localIp, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
 
                         //No longer need the temporary sockets
                         

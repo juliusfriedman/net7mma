@@ -319,6 +319,12 @@ namespace Media.UnitTests
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
+                new
+                {
+                    Uri = "rtsp://rtsp-v3-spbtv.msk.spbtv.com:554/spbtv_v3_1/332_110.sdp", // (h264 aac)
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
                 //RtspServer
                 new
                 {
@@ -975,7 +981,7 @@ namespace Media.UnitTests
                         //This is usually not required.
                         //You can use this event for large or incomplete packet data or othewise as required from the RtspClient.
                         //Under Rtp Transport this event is used propegate data which does not belong to Rtp from the RtpClient to the RtspClient.
-                        Media.Rtp.RtpClient.InterleaveHandler rtpInterleave = (sender, data, offset, count) =>
+                        Media.Rtp.RtpClient.InterleavedDataHandler rtpInterleave = (sender, data, offset, count) =>
                         {
                             ++rtspInterleaved;
                             Console.ForegroundColor = ConsoleColor.Cyan;

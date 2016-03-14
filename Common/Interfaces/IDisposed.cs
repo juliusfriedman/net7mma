@@ -50,8 +50,14 @@ namespace Media.Common
     /// </summary>
     public interface IDisposed : System.IDisposable
     {
+        /// <summary>
+        /// Indicates if the instance is Disposed.
+        /// </summary>
         bool IsDisposed { get; }
 
+        /// <summary>
+        /// Indicates if calls to <see cref="Dispose"/> will effect this instance.
+        /// </summary>
         bool ShouldDispose { get; }
     }
 

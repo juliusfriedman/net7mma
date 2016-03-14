@@ -333,6 +333,7 @@
             this.Controls.Add(this.textBox1);
             this.Name = "RtspInspector";
             this.Text = "WinRtspInspector";
+            this.Load += new System.EventHandler(this.RtspInspector_Load);
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView2)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();

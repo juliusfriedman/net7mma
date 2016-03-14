@@ -12,6 +12,9 @@ namespace Media.Common
     public interface IThreadReference
     {
         IEnumerable<System.Threading.Thread> GetReferencedThreads();
+
+        //SetDefaultApartmentState
+        //SetDefaultStackSize
     }
 
     /// <summary>
@@ -23,8 +26,11 @@ namespace Media.Common
         {
             foreach (var tp in reference.GetReferencedThreads())
             {
+                //Take a reference to that thread
                 System.Threading.Thread t = tp;
-                Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref t, System.Threading.ThreadState.Running, timeoutmSec);
+
+                //Call AbortAndFree                                                    //Should be Stopped to check for stop?
+                if (false == Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref t, System.Threading.ThreadState.Running, timeoutmSec)) t = null; //Remove the reference if required
             }
         }
 
@@ -32,8 +38,11 @@ namespace Media.Common
         {
             foreach (var tp in reference.GetReferencedThreads())
             {
+                //Take a reference to that thread
                 System.Threading.Thread t = tp;
-                Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref t, timeout, System.Threading.ThreadState.Running);
+
+                //Call AbortAndFree                                                    //Should be Stopped to check for stop?
+                if (false == Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref t, timeout, System.Threading.ThreadState.Running)) t = null; //Remove the reference if required
             }
         }
     }
