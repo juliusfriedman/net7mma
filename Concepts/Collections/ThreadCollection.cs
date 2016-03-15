@@ -15,6 +15,8 @@ namespace Media.Concepts.Collections
 
         public Action<System.Threading.Thread> ConfigureThread { get; set; }
 
+        //MaximumStackSize, MinimumStackSize, PreferredApartmentState
+
         IEnumerable<System.Threading.Thread> Media.Common.IThreadReference.GetReferencedThreads()
         {
             using (var e = ((ICollection<System.Threading.Thread>)this).GetEnumerator())
