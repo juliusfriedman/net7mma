@@ -1332,11 +1332,32 @@ namespace Media.Rtsp
                         //If there is a logger then indicate what is happening
                         Common.ILoggingExtensions.Log(Logger, "Accepted Socket @ " + clientSocket.LocalEndPoint + " From: " + clientSocket.RemoteEndPoint + " Disposing. ConnectedClient=" + m_Clients.Count);
 
-                        //Could send a response 429?
+                        //Could send a response 429 or 453...
 
-                        //Try to dispose the socket
-                        try { clientSocket.Dispose(); }
-                        catch { }
+                        //Use a session class to send data to the clientSocket or must send the bytes using the message class over the socket.
+                        //using (ClientSession tempSession = new ClientSession(this, clientSocket))
+                        //{
+                            //use a temporary message
+                            using (var tempMsg = new Rtsp.RtspMessage(RtspMessageType.Response, this.Version)
+                            {
+                                StatusCode = 429, //https://tools.ietf.org/html/rfc6585
+                                ReasonPhrase = "Shutting Down / Too Many Clients",
+                                //Body = "We only alllow " + m_MaximumConnections + " to this server..."
+                            })
+                            {
+                                //Tell the clients when they should attempt to retry again.
+                                tempMsg.AppendOrSetHeader(RtspHeaders.RetryAfter, ((int)(RtspClientInactivityTimeout.TotalSeconds)).ToString());
+
+                                //If the session is too much just send out normally.
+                                clientSocket.Send(tempMsg.ToBytes());
+
+                                try { clientSocket.Dispose(); }
+                                catch { }
+
+                                //Send it, Should have flag not to begin receive again?
+                                //ProcessSendRtspMessage(tempMsg, tempSession, true);
+                            }
+                        //}
 
                         //The server is no longer running.
                         return;
@@ -1355,7 +1376,6 @@ namespace Media.Rtsp
             catch(Exception ex)//Using begin methods you want to hide this exception to ensure that the worker thread does not exit because of an exception at this level
             {
                 //If there is a logger log the exception
-                    //if (Logger != null) Logger.LogException(ex);
                 Common.ILoggingExtensions.LogException(Logger, ex);
             }
         }

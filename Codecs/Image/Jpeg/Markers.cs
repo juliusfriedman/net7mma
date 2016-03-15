@@ -71,6 +71,8 @@ namespace Media.Codecs.Image.Jpeg
 
         public const byte QuantizationTable = 0xdb;
 
+        public const byte DefineNumberOfLines = 0xdc;
+
         public const byte DataRestartInterval = 0xdd;
 
         public const byte StartOfScan = 0xda;

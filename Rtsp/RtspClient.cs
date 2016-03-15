@@ -2277,6 +2277,7 @@ namespace Media.Rtsp
                 {
                     //We may not recieve a response if the socket is closed in a violatile fashion on the sending end
                     //And we realy don't care
+                    //ILoggingExtensions.Log(Logger, @ex)
                 }
                 finally
                 {

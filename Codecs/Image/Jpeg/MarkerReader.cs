@@ -46,7 +46,9 @@ namespace Media.Codecs.Image.Jpeg
                     if (FunctionCode == -1) break;
 
                     //Ensure not padded
-                    if (FunctionCode == Media.Codecs.Image.Jpeg.Markers.Prefix) continue;
+                    if (FunctionCode == Media.Codecs.Image.Jpeg.Markers.Prefix
+                        ||
+                        FunctionCode == 0) continue;
 
                     //Last Tag
                     if (FunctionCode == Media.Codecs.Image.Jpeg.Markers.StartOfInformation
@@ -84,22 +86,26 @@ namespace Media.Codecs.Image.Jpeg
         }
     }
 
-    //Needs to implement a common class if the elements can be reused
+    //Needs to implement a common class if the elements can be reused => 
     public class Marker
     {
+        //OriginOffset
+
+        //Should probably include data of prefix since entropy encoded sections can use ff 00 or ff 01
+
         public int PrefixLength;
 
         public byte Code;
-        
-        public int Length;
 
-        //DataSize => Length - 2;
+        public int Length; //Can't exceed 65535
+
+        //DataSize => Length > 0 ? Length - 2 : 0;
 
         public byte[] Data;
 
         //TotalSize => PrefixLength + 1 + Length
 
-        public IEnumerable<byte> Prepare()
+        public IEnumerable<byte> Prepare() //bool includePrefix, includeCode, includeLength, includeData...
         {
             if(PrefixLength > 0) foreach(byte b in Enumerable.Repeat<byte>(Jpeg.Markers.Prefix, PrefixLength)) yield return b;
 
@@ -110,6 +116,9 @@ namespace Media.Codecs.Image.Jpeg
             foreach (byte b in Common.Binary.GetBytes((short)Length, false == BitConverter.IsLittleEndian)) yield return b;
 
             if (Length > 0) foreach (byte b in Data) yield return b;
+
+            //Should project entire sequence rather than return one at a time.
+            //IEnumerable<byte> result...
         }
     }
 }
