@@ -17,11 +17,11 @@ namespace Media.Common
         /// </summary>
         IEnumerable<System.Net.Sockets.Socket> GetReferencedSockets();
 
-
-        //Action<System.Net.Sockets.Socket> ConfigureSocket { get; set; }
-
-        //GetConfiguration
-        //SetConfiguration
+        /// <summary>
+        /// Gets the function which can set any required socket options on the given socket.
+        /// </summary>
+        /// <param name="socket">The socket to configure</param>
+        Action<System.Net.Sockets.Socket> ConfigureSocket { get; }
     }
 
     /// <summary>

@@ -51,7 +51,7 @@ namespace Media.Rtsp//.Server
     /// <summary>
     /// Represent the resources in use by remote parties connected to a RtspServer.
     /// </summary>
-    internal class ClientSession : Common.BaseDisposable
+    internal class ClientSession : Common.BaseDisposable //ISocketReference....
     {
         //Needs to have it's own concept of range using the Storage...
 
@@ -162,7 +162,10 @@ namespace Media.Rtsp//.Server
                     if (m_RtpClient == null || m_RtpClient.IsDisposed || false == m_RtpClient.IsActive) return false;
 
                     //If the transport is not null and the handle is equal to the rtsp socket's handle
-                    if (((Common.ISocketReference)m_RtpClient).GetReferencedSockets().Any(s => s.Handle == m_RtspSocket.Handle))
+                    if (m_RtpClient.GetTransportContexts().Any(tc=> false == Common.IDisposedExtensions.IsNullOrDisposed(tc) 
+                        && 
+                        ((Common.ISocketReference)tc).GetReferencedSockets().Any(s => s.Handle == m_RtspSocket.Handle))
+                        )
                     {
                         //Indicate the socket is shared
                         return true;
@@ -194,7 +197,7 @@ namespace Media.Rtsp//.Server
 
         #region Constructor
 
-        public ClientSession(RtspServer server, Socket rtspSocket, Common.MemorySegment buffer = null)
+        public ClientSession(RtspServer server, Socket rtspSocket, Common.MemorySegment buffer = null, bool startReceive = true)
         {
             Id = Guid.NewGuid();
 
@@ -209,53 +212,19 @@ namespace Media.Rtsp//.Server
             //Assign the socket and remote endPoint, IPPacketInformation provides thus for UDP
             RtspSocket = rtspSocket;
 
-            if (m_RtspSocket == null) return;
-
-            //m_RtspSocket.Blocking = false;
-
-            //m_RtspSocket.ExclusiveAddressUse = true;
-
-            //Configure TCP Sockets
-            if (m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+            //If there is no socket
+            if (m_RtspSocket == null)
             {
-                //m_RtspSocket.NoDelay = true;
-
-                m_RtspSocket.SendBufferSize = 0;
-
-                m_RtspSocket.ReceiveBufferSize = 0;
-
-                //
-                //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpNoSynRetries(m_RtspSocket);
-
-                //
-                //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpTimestamp(m_RtspSocket);
-
-                // canot specify from a child socket, SO_ACCEPT is already set.
-                //Media.Common.Extensions.Socket.SocketExtensions.SetTcpOffloadPreference(m_RtspSocket);
-
-                // Set option that allows socket to close gracefully without lingering.
-                Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(m_RtspSocket);
-
-                //Retransmit for 0 sec
-                if (Common.Extensions.OperatingSystemExtensions.IsWindows) Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(m_RtspSocket);
-
-                //If both send and receieve buffer size are 0 then there is no coalescing when nagle's algorithm is disabled
-                Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(m_RtspSocket);
-                //socket.NoDelay = true;
-
-                //Allow more than one byte of urgent data
-                Media.Common.Extensions.Socket.SocketExtensions.EnableTcpExpedited(m_RtspSocket);
-                //socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
-
-                //Receive any urgent data in the normal data stream
-                Media.Common.Extensions.Socket.SocketExtensions.EnableTcpOutOfBandDataInLine(m_RtspSocket);
+                //If receive should start then throw an exception, otherwise return
+                if (startReceive) throw new ArgumentNullException("rtspSocket");
+                
+                return;
             }
 
-            if (m_RtspSocket.AddressFamily == AddressFamily.InterNetwork) m_RtspSocket.DontFragment = true;
+            //Use the same socket configuration as per the server.
+            m_Server.ConfigureSocket(m_RtspSocket);
 
-            //m_RtspSocket.SendTimeout = m_RtspSocket.ReceiveTimeout = (int)(m_Server.RtspClientInactivityTimeout.TotalMilliseconds / 3);
-
-            //zActual connect time...
+            //Set the send and receive timeout from the default connection time, it will backoff as required
             m_RtspSocket.SendTimeout = m_RtspSocket.ReceiveTimeout = (int)RtspClient.DefaultConnectionTime.TotalMilliseconds;
 
             //Create a buffer using the size of the largest message possible without a Content-Length header.
@@ -265,10 +234,8 @@ namespace Media.Rtsp//.Server
             else
                 m_Buffer = buffer;
 
-            //Should be optional.
-
-            //Start receiving data
-            StartReceive();
+            //Start receiving data if indicated
+            if(startReceive) StartReceive();
         }
 
         #endregion

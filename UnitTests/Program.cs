@@ -1465,7 +1465,7 @@ namespace Media.UnitTests
         static void TestServer()
         {
             //
-            var serverIp = System.Net.IPAddress.Parse("192.168.1.155"); //Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
+            var serverIp = System.Net.IPAddress.Parse("192.168.1.158"); //Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
 
             Console.WriteLine("Server Starting on: " + serverIp);
 

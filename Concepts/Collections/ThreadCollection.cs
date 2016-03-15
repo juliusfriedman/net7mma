@@ -12,6 +12,9 @@ namespace Media.Concepts.Collections
         ICollection<System.Threading.Thread>,
         Media.Common.IThreadReference
     {
+
+        public Action<System.Threading.Thread> ConfigureThread { get; set; }
+
         IEnumerable<System.Threading.Thread> Media.Common.IThreadReference.GetReferencedThreads()
         {
             using (var e = ((ICollection<System.Threading.Thread>)this).GetEnumerator())

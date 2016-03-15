@@ -82,6 +82,11 @@ namespace Media.Sockets
         #region Properties
 
         /// <summary>
+        /// Provides a property which can set any socket options if required.
+        /// </summary>
+        public System.Action<System.Net.Sockets.Socket> ConfigureSocket { get; set; }
+
+        /// <summary>
         /// Gets the amount of time taken to connect to the <see cref="RemoteEndPoint"/>
         /// </summary>
         public System.TimeSpan RemoteConnectionTime { get { return LastRemoteConnectionCompletedDateTime - LasRemoteConnectionStartedDateTime; } }
@@ -266,6 +271,8 @@ namespace Media.Sockets
             if (ConnectionSocket == null)
             {
                 ConnectionSocket = new System.Net.Sockets.Socket(addressFamily, socketType, protocolType);
+
+                if(ConfigureSocket != null) ConfigureSocket(ConnectionSocket);
 
                 CreateWaitHandle(ConnectionSocket.Handle, true);
             }
