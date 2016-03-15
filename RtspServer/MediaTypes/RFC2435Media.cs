@@ -1141,7 +1141,10 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (FunctionCode == -1) break;
 
                         //Ensure not padded
-                        if (FunctionCode == Media.Codecs.Image.Jpeg.Markers.Prefix) continue;
+                        if (FunctionCode == Media.Codecs.Image.Jpeg.Markers.Prefix
+                            ||
+                            // ff00 is the escaped form of 0xff, will never be encountered the way data is read after the SOF
+                            FunctionCode == 0) continue;
 
                         //Last Tag
                         if (FunctionCode == Media.Codecs.Image.Jpeg.Markers.EndOfInformation) break;
@@ -1178,6 +1181,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                     int tagSizeMinusOne = CodeSize - 1;
 
+                                    //If there is no data in the tag continue
                                     if (tagSizeMinusOne <= 0) continue;
 
                                     byte[] table = new byte[tagSizeMinusOne];
@@ -1199,28 +1203,39 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                     break;
                                 }
+                            //case Media.Codecs.Image.Jpeg.Markers.DefineNumberOfLines:
+                            //    {
+                            //        //ScanLines = (ushort)(jpegStream.ReadByte() * 256 + jpegStream.ReadByte());
+                            //        //streamOffset += 2;
+                            //        break;
+                            //    }
                             case Media.Codecs.Image.Jpeg.Markers.StartOfBaselineFrame:
                             case Media.Codecs.Image.Jpeg.Markers.StartOfProgressiveFrame:
                                 {
+
+                                    //If there is no data in the tag continue. (9 is probably the minimum, unless there are 0 components?)
+                                    if (CodeSize <= 6) throw new InvalidOperationException("Invalid StartOfFrame");
+
                                     //Read the StartOfFrame Marker
                                     byte[] data = new byte[CodeSize];
+
                                     int offset = 0;
-                                    jpegStream.Read(data, offset, CodeSize);
+                                    
+                                    //Read CodeSize bytes from the stream into data and skip the first byte being read.
+                                    jpegStream.Read(data, offset++, CodeSize);
 
                                     //If this is a SOF2 (progressive) marker the type should be set appropraitely.
 
                                     //@0 - Sample precision – Specifies the precision in bits for the samples of the components in the frame (1)
-                                    ++offset;
+                                    //++offset;
 
                                     //Y Number of lines [Height] (2)
-                                    Height = Common.Binary.ReadU16(data, offset, BitConverter.IsLittleEndian);
-
-                                    offset += 2;
+                                    Height = Common.Binary.ReadU16(data, ref offset, BitConverter.IsLittleEndian);
 
                                     //X Number of lines [Width] (2)
-                                    Width = Common.Binary.ReadU16(data, offset, BitConverter.IsLittleEndian);
+                                    Width = Common.Binary.ReadU16(data, ref offset, BitConverter.IsLittleEndian);
 
-                                    offset += 2;
+                                    //When width, height == 0, DNL Marker should be present..
 
                                     //Check for SubSampling to set the RtpJpegType from the Luma component
 
@@ -1229,7 +1244,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                     //if (data[7] != 0x21) RtpJpegType |= 1;
 
-                                    //Nf - Number of image components in frame
+                                    //Nf - Number of image components in frame (Channels)
                                     int Nf = data[offset++];
 
                                     //Hi: Horizontal sampling factor – Specifies the relationship between the component horizontal dimension
@@ -1269,19 +1284,23 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 }
                                             }
                                         }
-                                    }//Single Component, Flag in Subsampling if required
-                                    else
+                                    }//Nf == 1 Single Component, Flag in Subsampling if required
+                                    else if(Nf == 1)
                                     {
                                         //H ! 2x1
                                         if (data[++offset] != 0x21) RtpJpegType |= 1;
                                         //V ! 1x1
                                         if (data[++offset] != 0x11 && data[offset] > 0) RtpJpegTypeSpecific = data[offset];
                                     }
+                                    //else //Nf == 0, There are no defined components
+                                    //{
+                                        //offset should be equal to CodeSize or undefined data resides.
+                                    //}
 
-                                    //Move stream offset
+                                    //Move stream offset (Already read CodeSize bytes)
                                     streamOffset += CodeSize;
 
-                                    break;
+                                    continue;
                                 }
                             case Media.Codecs.Image.Jpeg.Markers.DataRestartInterval:
                                 {
@@ -1341,7 +1360,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                     //Increase RtpJpegType by 64
                                     RtpJpegType |= 0x40;
 
-                                    break;
+                                    continue;
                                 }
                             case Media.Codecs.Image.Jpeg.Markers.StartOfScan: //Last marker encountered
                                 {
@@ -1451,7 +1470,11 @@ namespace Media.Rtsp.Server.MediaTypes
                                         {
                                             justRead = jpegStream.Read(currentPacket.Payload.Array, (int)(currentPacketOffset), (int)remainingPayloadOctets);
 
-                                            if (justRead < 0) continue;
+                                            if (justRead < 0)
+                                            {
+                                                if (jpegStream.CanRead) continue;
+                                                else throw new InvalidOperationException("Cannot read remaining data from image.");
+                                            }
 
                                             streamOffset += justRead;
 
@@ -1530,7 +1553,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                     streamOffset += CodeSize;
 
-                                    break;
+                                    continue;
                                 }
                         }
                     }

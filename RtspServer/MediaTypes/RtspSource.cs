@@ -265,7 +265,11 @@ namespace Media.Rtsp.Server.MediaTypes
         void RtspClient_OnConnect(RtspClient sender, object args)
         {
             if (RtspClient != sender || false == RtspClient.IsConnected || RtspClient.IsPlaying) return;
+            
+            //Remove the connect event
             RtspClient.OnConnect -= RtspClient_OnConnect;
+
+            //Try to start playing
             try
             {
                 //Start listening is not already playing

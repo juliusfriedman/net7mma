@@ -172,7 +172,7 @@ namespace Media
                 if (packet.SynchronizationSourceIdentifier != ssrc) hasSourceDescription = hasCName = false;
 
                 //if the packet is a SourceDescriptionReport ensure a CName is present.
-                if (!hasCName && packet.PayloadType == SourceDescriptionReport.PayloadType)
+                if (false == hasCName && packet.PayloadType == SourceDescriptionReport.PayloadType)
                 {
                     //The packets contained a SourceDescription Report.
                     hasSourceDescription = true;
@@ -183,7 +183,7 @@ namespace Media
             }
 
             //Verify the SourceDesscription has a CName Item if present
-            if (hasSourceDescription && !hasCName) throw new InvalidOperationException("A Compound RtcpPacket must have a SourceDescriptionReport with a SourceDescriptionChunk with a CName item.");
+            if (hasSourceDescription && false == hasCName) throw new InvalidOperationException("A Compound RtcpPacket must have a SourceDescriptionReport with a SourceDescriptionChunk with a CName item.");
 
             //Determine if padding is required
             int paddingAmount = totalLength % 4;

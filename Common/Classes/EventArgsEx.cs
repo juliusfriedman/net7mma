@@ -13,9 +13,7 @@ namespace Media.Common
 
     #endregion
 
-    //Ugly
-
-    //Never will be used
+    //Ugly and Never will be used
     #region EventArgsEx
 
     public class EventArgsEx : EventArgs
@@ -51,10 +49,63 @@ namespace Media.Common
     }
 
     #endregion
+    
+    #region IEvent
 
     //Todo, Implement something more useful..
 
-    //IEvent...
+    ////IEvent...
 
-        //Enabled, Event, Raise(bool force, object sender = null(this))
+    //    //Enabled, Event, Raise(bool force, object sender = null(this))
+
+
+    //public interface IEvent
+    //{
+    //    bool Enabled { get; }
+
+    //    Delegate Event { get; }
+    //}
+
+    //public class EnableableEvent :IEvent
+    //{
+    //    public EnableableEvent(Delegate @event, bool enabled = true)
+    //    {
+    //        if (@event == null) throw new ArgumentNullException("@event");
+
+    //        Event = @event;
+
+    //        Enabled = enabled;
+    //    }
+
+    //    public Delegate Event { get; protected set; }
+
+    //    public bool Enabled { get; protected set; }
+
+    //    //While its possible to improve the way the call is made for performance, it's impossible to use a signature here unless dynamic utilized which required Binder.
+
+    //    void DynamicRaise(bool force, dynamic args)
+    //    {
+    //        if (Enabled || force)
+    //        {
+    //            //Performance...
+    //            Event.DynamicInvoke(args);
+    //        }
+    //    }
+
+    //    void Raise(bool force, params object[] args)
+    //    {
+    //        if (Enabled || force)
+    //        {
+    //            //Performance...
+    //            Event.DynamicInvoke(args);
+    //        }
+    //    }
+
+    //    void Disable() { Enabled = false; }
+
+    //    void Enable() { Enabled = true; }
+    //}
+
+#endregion
+
 }
