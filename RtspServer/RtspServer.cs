@@ -62,6 +62,13 @@ namespace Media.Rtsp
         //Milliseconds
         internal const int DefaultSendTimeout = 500;
 
+        internal static void ConfigureRtspServerThread(Thread thread)
+        {
+            thread.TrySetApartmentState(ApartmentState.MTA);
+
+            thread.Priority = ThreadPriority.BelowNormal;
+        }
+
         internal static void ConfigureRtspServerSocket(Socket socket)
         {
             if (socket == null) throw new ArgumentNullException("socket");
@@ -176,7 +183,7 @@ namespace Media.Rtsp
 
         #region Propeties
 
-        public Action<Socket> ConfigureSocket { get; set; }
+       
 
         internal IEnumerable<ClientSession> Clients
         {
@@ -436,6 +443,8 @@ namespace Media.Rtsp
             RequiredCredentials = new CredentialCache();
 
             ConfigureSocket = ConfigureRtspServerSocket;
+
+            ConfigureThread = ConfigureRtspServerThread;
         }
 
         #endregion
@@ -1018,10 +1027,8 @@ namespace Media.Rtsp
             
             //Configure the thread
             m_ServerThread.Name = ServerName + "@" + m_ServerPort;
-            
-            m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
 
-            m_ServerThread.Priority = ThreadPriority.BelowNormal;
+            ConfigureThread(m_ServerThread);
 
             //Erase any prior stats
             m_Sent = m_Recieved = 0;
@@ -3001,6 +3008,12 @@ namespace Media.Rtsp
         }
 
         #endregion
+
+        //Could be explicit implementation but would require casts.. determine how much cleaner the API is without them and reduce if necessary
+
+        public Action<Socket> ConfigureSocket { get; set; }
+
+        public Action<Thread> ConfigureThread { get; set; }
 
         IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
         {

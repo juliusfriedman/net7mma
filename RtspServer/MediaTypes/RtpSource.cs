@@ -170,5 +170,11 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             return RtpClient != null ? Media.Common.Extensions.Linq.LinqExtensions.Yield(RtpClient.m_WorkerThread) : null;
         }
+
+        Action<System.Threading.Thread> Common.IThreadReference.ConfigureThread
+        {
+            get { return RtpClient.ConfigureThread; }
+            set { RtpClient.ConfigureThread = value; }
+        }
     }
 }
