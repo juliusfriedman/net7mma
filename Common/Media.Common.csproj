@@ -68,8 +68,6 @@
     <Compile Include="Collections\Generic\ConcurrentThesaurus.cs" />
     <Compile Include="Collections\Generic\RingBuffer.cs" />
     <Compile Include="Classes\CommonDisposable.cs" />
-    <Compile Include="Collections\SocketCollection.cs" />
-    <Compile Include="Collections\ThreadCollection.cs" />
     <Compile Include="Extensions\ArrayExtensions.cs" />
     <Compile Include="Extensions\DebugExtensions.cs" />
     <Compile Include="Extensions\Delegate.cs" />
