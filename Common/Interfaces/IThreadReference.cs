@@ -13,8 +13,10 @@ namespace Media.Common
     {
         IEnumerable<System.Threading.Thread> GetReferencedThreads();
 
-        //SetDefaultApartmentState
-        //SetDefaultStackSize
+        /// <summary>
+        /// Provides a function which configures a thread as required.
+        /// </summary>
+        //Action<System.Threading.Thread> ConfigureThread { get; }
     }
 
     /// <summary>

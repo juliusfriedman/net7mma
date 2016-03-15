@@ -91,9 +91,14 @@ namespace Media.Rtp
     /// Provides an implementation of the <see cref="http://tools.ietf.org/html/rfc3550"> Real Time Protocol </see>.
     /// A RtpClient typically allows one <see cref="System.Net.Socket"/> to communicate (via RTP) to another <see cref="System.Net.Socket"/> via <see cref="RtpClient.TransportContext"/>'s in which some <see cref="SessionDescription"/> has been created.
     /// </summary>
-    public class RtpClient : Common.BaseDisposable, Media.Common.IThreadReference, Media.Common.ISocketReference
+    public class RtpClient : Common.BaseDisposable, Media.Common.IThreadReference
     {
         #region Constants / Statics
+
+        //internal static void ConfigureRtpThread(Thread thread)
+        //{
+
+        //}
 
         //Possibly should be moved to RFC3550
 
@@ -280,7 +285,66 @@ namespace Media.Rtp
         {
             #region Statics
 
-            public static TransportContext FromMediaDescription(Sdp.SessionDescription sessionDescription, byte dataChannel, byte controlChannel, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int remoteSsrc = 0, int minimumSequentialpackets = 2, IPAddress localIp = null, IPAddress remoteIp = null, int? rtpPort = null, int? rtcpPort = null, bool connect = false, Socket existingSocket = null)
+            internal static void ConfigureRtpSocket(Socket socket)
+            {
+                if (socket == null) throw new ArgumentNullException("socket");
+
+                Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket);
+
+                //RtpSocket.Blocking = false;
+
+                //RtpSocket.SendBufferSize = RtpSocket.ReceiveBufferSize = 0; //Use local buffer dont copy
+
+                //IP Options for InterNetwork
+                if (socket.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    //http://en.wikipedia.org/wiki/Type_of_service
+                    //CS5,EF	40,46	5 :Critical - mainly used for voice RTP
+                    //40 || 46 is used for RTP Audio per Wikipedia
+                    //48 is Internetwork Control
+                    //56 is Network Control
+                    //Set type of service
+                    socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
+
+                    //Tell the network stack what we send and receive has an order
+                    socket.DontFragment = true;
+                }
+
+                //Check for Multicast
+                //if (localIp.IsMulticast())
+                //{
+                //    //JoinMulticastGroup
+
+                    //Don't send our own packets back to us when multicasting
+                    //socket.MulticastLoopback = false;
+                //}
+
+                //Don't buffer sending
+                socket.SendBufferSize = 0;
+
+                if (socket.ProtocolType == ProtocolType.Tcp)
+                {
+                    //Retransmit for 0 sec
+                    if (Common.Extensions.OperatingSystemExtensions.IsWindows) Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket);
+
+                    //Don't buffer receiving
+                    socket.ReceiveBufferSize = 0;
+
+                    //If both send and receieve buffer size are 0 then there is no coalescing when nagle's algorithm is disabled
+                    Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(socket);
+                }
+                else if (socket.ProtocolType == ProtocolType.Udp)
+                {
+                    //Set max ttl for slower networks
+                    socket.Ttl = 255;
+
+                    //May help if behind a router
+                    //Allow Nat Traversal
+                    //RtpSocket.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
+                }
+            }
+
+            public static TransportContext FromMediaDescription(Sdp.SessionDescription sessionDescription, byte dataChannel, byte controlChannel, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int remoteSsrc = 0, int minimumSequentialpackets = 2, IPAddress localIp = null, IPAddress remoteIp = null, int? rtpPort = null, int? rtcpPort = null, bool connect = false, Socket existingSocket = null, Action<Socket> configure = null)
             {
                 //Must have a mediaDescription
                 if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
@@ -371,15 +435,22 @@ namespace Media.Rtp
 
                 //rtcp-mux is handled in the Initialize call
 
+                //tc.ConfigureSocket = given;
+
                 //Handle connect
                 if (connect)
                 {
+                    //Determine if a socket was given or if it will be created.
                     bool hasSocket = existingSocket != null;
+
+                    //If a configuration has been given then set that configuration in the TransportContext.
+                    if (configure != null) tc.ConfigureSocket = configure;
 
                     //Check for udp if no existing socket was given
                     if (false == hasSocket && string.Compare(mediaDescription.MediaProtocol, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, true) == 0)
                     {
                         int localPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp);
+                        
                         tc.Initialize(localIp, remoteIp, localPort == 0 ? localPort : localPort++, localPort == 0 ? localPort : localPort++, rtpPort ?? mediaDescription.MediaPort, rtcpPort ?? (mediaDescription.MediaPort != 0 ? mediaDescription.MediaPort + 1 : mediaDescription.MediaPort));
                     }
                     else if (hasSocket)//If had a socket use it
@@ -664,6 +735,8 @@ namespace Media.Rtp
             #endregion
 
             #region Properties
+
+            public Action<Socket> ConfigureSocket { get; set; }
 
             /// <summary>
             /// Sets or gets the applications-specific state associated with the TransportContext.
@@ -1127,11 +1200,8 @@ namespace Media.Rtp
             public int RecieveSequenceNumber
             {
                 get { return (short)m_SequenceNumber; }
-                internal set
+                internal protected set
                 {
-                    //Check for bad values rather than cast and ignore
-                    if (value < 0 || value > ushort.MaxValue) throw Common.Binary.CreateOverflowException("value", value, short.MinValue.ToString(), short.MaxValue.ToString());
-
                     m_SequenceNumber = (ushort)value;
                 }
             }
@@ -1139,11 +1209,8 @@ namespace Media.Rtp
             public int SendSequenceNumber
             {
                 get { return (short)m_SequenceNumber; }
-                internal set
+                internal protected set
                 {
-                    //Check for bad values rather than cast and ignore
-                    if (value < 0 || value > ushort.MaxValue) throw Common.Binary.CreateOverflowException("value", value, short.MinValue.ToString(), short.MaxValue.ToString());
-
                     m_LastSentSequenceNumber = (ushort)value;
                 }
             }
@@ -1182,7 +1249,7 @@ namespace Media.Rtp
             /// <param name="rtcpEnabled"></param>
             /// <param name="senderSsrc"></param>
             /// <param name="minimumSequentialRtpPackets"></param>
-            public TransportContext(byte dataChannel, byte controlChannel, int ssrc, bool rtcpEnabled = true, int senderSsrc = 0, int minimumSequentialRtpPackets = 2)
+            public TransportContext(byte dataChannel, byte controlChannel, int ssrc, bool rtcpEnabled = true, int senderSsrc = 0, int minimumSequentialRtpPackets = 2, Action<System.Net.Sockets.Socket> configure = null)
             {
                 if (dataChannel == controlChannel) throw new InvalidOperationException("dataChannel and controlChannel must be unique.");
 
@@ -1207,6 +1274,9 @@ namespace Media.Rtp
 
                 //Default bandwidth restriction
                 MaximumRtcpBandwidthPercentage = DefaultReportInterval.TotalSeconds;
+
+                //Assign the function responsible for configuring the socket
+                ConfigureSocket = configure ?? ConfigureRtpSocket;
             }
 
             public TransportContext(byte dataChannel, byte controlChannel, int ssrc, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int senderSsrc = 0, int minimumSequentialRtpPackets = 2)
@@ -1238,9 +1308,6 @@ namespace Media.Rtp
                     //Generate the id per RFC3550
                     do SynchronizationSourceIdentifier = RFC3550.Random32(seed);
                     while (SynchronizationSourceIdentifier == 0 || SynchronizationSourceIdentifier == RemoteSynchronizationSourceIdentifier);
-
-
-                    //Should send reports for send and recieve
                 }
             }
 
@@ -1431,83 +1498,6 @@ namespace Media.Rtp
                 ushort val = (ushort)sequenceNumber;
 
                 return RFC3550.UpdateSequenceNumber(ref val, ref RtpBaseSeq, ref RtpMaxSeq, ref RtpBadSeq, ref RtpSeqCycles, ref RtpReceivedPrior, ref RtpProbation, ref ValidRtpPacketsReceived, MinimumSequentialValidRtpPackets, MaxMisorder, MaxDropout);
-
-
-                // RFC 3550 A.1.
-                //ushort udelta = (ushort)(sequenceNumber - RtpMaxSeq);
-
-                ///*
-                //* Source is not valid until MIN_SEQUENTIAL packets with
-                //* sequential sequence numbers have been received.
-                //*/
-                //if (RtpProbation > 0)
-                //{
-                //    /* packet is in sequence */
-                //    if (sequenceNumber == RtpMaxSeq + 1)
-                //    {
-                //        RtpProbation--;
-                //        RtpMaxSeq = (ushort)sequenceNumber;
-                //        //If no more probation is required then reset the coutners and indicate the packet is in state
-                //        if (RtpProbation == 0)
-                //        {
-                //            ResetRtpValidationCounters(sequenceNumber);
-                //            return true;
-                //        }
-                //    }
-                //    //The sequence number is not as expected
-
-                //    //Reset probation
-                //    RtpProbation = (uint)(MinimumSequentialValidRtpPackets - 1);
-
-                //    //Reset the sequence number
-                //    RtpMaxSeq = (ushort)sequenceNumber;
-
-                //    //The packet is not in state
-                //    return false;
-                //}
-                //else if (udelta < DefaultMaxDropout)
-                //{
-                //    /* in order, with permissible gap */
-                //    if (sequenceNumber < RtpMaxSeq)
-                //    {
-                //        /*
-                //        * Sequence number wrapped - count another 64K cycle.
-                //        */
-                //        RtpSeqCycles += RTP_SEQ_MOD;
-                //    }
-
-                //    //Set the maximum sequence number
-                //    RtpMaxSeq = (ushort)sequenceNumber;
-                //}
-                //else if (udelta <= RTP_SEQ_MOD - DefaultMaxMisorder)
-                //{
-                //    /* the sequence number made a very large jump */
-                //    if (sequenceNumber == RtpBadSeq)
-                //    {
-                //        /*
-                //         * Two sequential packets -- assume that the other side
-                //         * restarted without telling us so just re-sync
-                //         * (i.e., pretend this was the first packet).
-                //        */
-                //        ResetRtpValidationCounters(sequenceNumber);
-                //    }
-                //    else
-                //    {
-                //        //Set the bad sequence to the packets sequence + 1 masking off the bits which correspond to the bits of the sequenceNumber which may have wrapped since SequenceNumber is 16 bits.
-                //        RtpBadSeq = (uint)((sequenceNumber + 1) & (RTP_SEQ_MOD - 1));
-                //        return false;
-                //    }
-                //}
-                //else
-                //{
-                //    /* duplicate or reordered packet */
-                //    return false;
-                //}
-
-                ////Events count packet reception
-
-                ////The RtpPacket is in state
-                //return true;
             }
 
             /// <summary>
@@ -1515,7 +1505,7 @@ namespace Media.Rtp
             /// </summary>
             public void RandomizeSequenceNumber() { RecieveSequenceNumber = Utility.Random.Next(); }
 
-            #region Initialize
+            #region Initialize            
 
             //Todo allow for Leave Open...
 
@@ -1553,56 +1543,22 @@ namespace Media.Rtp
 
                 try
                 {
-                    //Setup the RtpSocket
-
-                    //ConfigureSocket(RtpSocket)
-
+                    //Create the RtpSocket
                     RtpSocket = new Socket(localRtp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-                    RtpSocket.ExclusiveAddressUse = false;
-                    RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+
+                    //Configure it
+                    ConfigureRtpSocket(RtpSocket);
+
+                    //Apply the send and receive timeout based on the ReceiveInterval
                     RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;  
+                    
+                    //Assign the LocalRtp EndPoint and Bind the socket to that EndPoint
                     RtpSocket.Bind(LocalRtp = localRtp);
+                    
+                    //Assign the RemoteRtp EndPoint and Bind the socket to that EndPoint
                     RtpSocket.Connect(RemoteRtp = remoteRtp);
-                    //RtpSocket.Blocking = false;
-                    //RtpSocket.SendBufferSize = RtpSocket.ReceiveBufferSize = 0; //Use local buffer dont copy
                     
-                    //Tell the network stack what we send and receive has an order
-                    if (RtpSocket.AddressFamily == AddressFamily.InterNetwork)
-                    {
-                        //http://en.wikipedia.org/wiki/Type_of_service
-                        //CS5,EF	40,46	5 :Critical - mainly used for voice RTP
-                        //40 || 46 is used for RTP Audio per Wikipedia
-                        //48 is Internetwork Control
-                        //56 is Network Control
-                        //Set type of service
-                        RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
-
-                        RtpSocket.DontFragment = true;
-                    }
-                    
-                    RtpSocket.MulticastLoopback = false;
-                    
-                    RtpSocket.SendBufferSize = 0;
-
-                    //RtpSocket.ReceiveTimeout = RtpSocket.SendTimeout = DefaultReportInterval.Milliseconds;
-
-                    #region Optional Parameters
-
-                    //Set max ttl for slower networks
-                    RtpSocket.Ttl = 255;
-
-                    //May help if behind a router
-                    //Allow Nat Traversal
-                    //RtpSocket.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
-
-                    #endregion
-
-                    //Check for Multicast
-                    //if (localIp.IsMulticast())
-                    //{
-                    //    //JoinMulticastGroup
-                    //}
-
+                    //Determine if holepunch is required
                     if (punchHole)
                     {
                         //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
@@ -1623,54 +1579,20 @@ namespace Media.Rtp
                     else if (IsRtcpEnabled)
                     {
 
-                        //Setup the RtcpSocket
+                        //Create the RtcpSocket
+                        RtcpSocket = new Socket(localRtp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
 
-                        //ConfigureSocket(RtpSocket)
+                        //Configure it
+                        ConfigureRtpSocket(RtcpSocket);
 
-                        RtcpSocket = new Socket(localRtcp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-                        RtcpSocket.ExclusiveAddressUse = false;
-                        RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                        RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;  
+                        //Apply the send and receive timeout based on the ReceiveInterval
+                        RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;
+
+                        //Assign the LocalRtcp EndPoint and Bind the socket to that EndPoint
                         RtcpSocket.Bind(LocalRtcp = localRtcp);
+
+                        //Assign the RemoteRtcp EndPoint and Bind the socket to that EndPoint
                         RtcpSocket.Connect(RemoteRtcp = remoteRtcp);
-                        //RtcpSocket.Blocking = false;
-
-                        //Tell the network stack what we send and receive has an order
-                        if (RtpSocket.AddressFamily == AddressFamily.InterNetwork)
-                        {
-                            RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
-
-                            RtcpSocket.DontFragment = true;
-                        }
-
-                        RtcpSocket.MulticastLoopback = false;
-
-                        RtcpSocket.SendBufferSize = 0;
-
-                        //RtcpSocket.UseOnlyOverlappedIO = true;
-
-                        #region Optional Parameters
-
-                        //Set max ttl for slower networks
-                        RtcpSocket.Ttl = 255;
-
-                        //May help if behind a router
-                        //Allow Nat Traversal
-                        //RtcpSocket.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
-
-                        //Set type of service
-                        //For older networks (http://en.wikipedia.org/wiki/Type_of_service)
-                        //RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
-
-                        #endregion
-
-                        //Check for Multicast
-                        //Todo should be seperate for each socket...
-                        //if (localIp.IsMulticast())
-                        //{
-                        //    //SetBroadcastOption
-                        //    //JoinMulticastGroup
-                        //}
 
                         if (punchHole)
                         {
@@ -1719,20 +1641,17 @@ namespace Media.Rtp
             public void Initialize(IPEndPoint local, IPEndPoint remote)
             {
                 LocalRtp = local;
+
                 RemoteRtp = remote;
 
-                var socket = new Socket(local.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
-                {
-                    Blocking = false,
-                    ReceiveBufferSize = 0,
-                    SendBufferSize = 0,
-                    NoDelay = true,
-                    ExclusiveAddressUse = false
-                };
+                Socket socket = new Socket(local.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-                //ConfigureSocket(socket)
+                ConfigureSocket(socket);
 
                 Initialize(socket);
+
+                //This reference is not needed anymore
+                socket = null;
             }
 
             /// <summary>
@@ -1744,26 +1663,17 @@ namespace Media.Rtp
                 //If the socket is not exclusively using the address
                 if (false == duplexed.ExclusiveAddressUse)
                 {
-                    //Duplicte the socket
-                    Socket duplicate = new Socket(duplexed.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                    //Duplicte the socket's type for a Rtcp socket.
+                    Socket rtcpSocket = new Socket(duplexed.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-                    Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(duplicate);
+                    //Configure the duplicate
+                    ConfigureSocket(rtcpSocket);
 
-                    duplicate.SendBufferSize = duplexed.SendBufferSize;
+                    //Initialize with the duplicate socket
+                    Initialize(duplexed, rtcpSocket);
 
-                    duplicate.ReceiveBufferSize = duplexed.ReceiveBufferSize;
-
-                    duplicate.Blocking = duplexed.Blocking;
-
-                    duplicate.NoDelay = duplexed.NoDelay;
-
-                    //Set in Initialize
-                    //duplicate.SendTimeout = duplexed.SendTimeout;
-
-                    //Set in Initialize
-                    //duplicate.ReceiveTimeout = duplexed.ReceiveTimeout;
-
-                    Initialize(duplexed, duplicate);
+                    //This reference is no longer needed.
+                    rtcpSocket = null;
                 }
                 else Initialize(duplexed, duplexed); //Otherwise use the existing socket twice
             }
@@ -1791,8 +1701,6 @@ namespace Media.Rtp
 
                 RtpSocket = rtpSocket;
 
-                if (RtpSocket.AddressFamily == AddressFamily.InterNetwork) RtpSocket.DontFragment = true;
-
                 RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;                
 
                 bool punchHole = RtpSocket.ProtocolType != ProtocolType.Tcp && false == Media.Common.Extensions.IPAddress.IPAddressExtensions.IsOnIntranet(((IPEndPoint)RtpSocket.RemoteEndPoint).Address); //Only punch a hole if the remoteIp is not on the LAN by default.
@@ -1805,7 +1713,6 @@ namespace Media.Rtp
 
                 if (RemoteRtp != null && false == RtpSocket.Connected) try { RtpSocket.Connect(RemoteRtp); }
                     catch { }
-                    
 
                 //If a different socket is used for rtcp configure it also
                 if ((RtcpSocket = rtcpSocket) != null)
@@ -1814,14 +1721,6 @@ namespace Media.Rtp
                     if (RtpSocket.Handle != RtcpSocket.Handle)
                     {
                         RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;  
-
-                        if (RtcpSocket.AddressFamily == AddressFamily.InterNetwork) RtcpSocket.DontFragment = true;
-
-                        if (RtpSocket.ProtocolType == ProtocolType.Tcp)
-                        {
-                            //Use expedited data as defined in RFC-1222. This option can be set only once; after it is set, it cannot be turned off.
-                            RtpSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
-                        }
 
                         LocalRtcp = RtcpSocket.LocalEndPoint;
 
@@ -1834,6 +1733,8 @@ namespace Media.Rtp
                     }
                     else
                     {
+                        //Just assign the same end points from the rtp socket.
+
                         if (LocalRtcp == null) LocalRtcp = LocalRtp;
 
                         if (RemoteRtcp == null) RemoteRtcp = RemoteRtp;
@@ -1848,7 +1749,7 @@ namespace Media.Rtp
                     try { RtpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtp); }
                     catch (SocketException) { }//We don't care about the response or any issues during the holePunch
 
-                    //Check for the same socket.
+                    //Check for the same socket, don't send more than 1 wake up sequence to a unique socket.
                     if (RtpSocket.Handle == RtcpSocket.Handle) return;
 
                     try { RtcpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
@@ -5073,29 +4974,29 @@ namespace Media.Rtp
             return IsDisposed ? null : Media.Common.Extensions.Linq.LinqExtensions.Yield(m_WorkerThread);
         }
 
-        /// <summary>
-        /// Gets any sockets which are utilized by this RtpClient.
-        /// If a socket is used more than one time it will be given that many times.
-        /// </summary>
-        /// <returns></returns>
-        IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
-        {
-            if (IsDisposed) yield break;
+        ///// <summary>
+        ///// Gets any sockets which are utilized by this RtpClient.
+        ///// If a socket is used more than one time it will be given that many times.
+        ///// </summary>
+        ///// <returns></returns>
+        //IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
+        //{
+        //    if (IsDisposed) yield break;
 
-            //Determine if a Unique parameter should be given but the caller can use Distinct() anyway
-           // HashSet<Socket> known = new HashSet<Socket>();
+        //    //Determine if a Unique parameter should be given but the caller can use Distinct() anyway
+        //   // HashSet<Socket> known = new HashSet<Socket>();
 
-            foreach (TransportContext tc in TransportContexts)
-            {
-                if (tc == null || tc.IsDisposed) continue; //tc.IsActive
+        //    foreach (TransportContext tc in TransportContexts)
+        //    {
+        //        if (tc == null || tc.IsDisposed) continue; //tc.IsActive
 
-                foreach (Socket referenced in ((Common.ISocketReference)tc).GetReferencedSockets())
-                {
-                    if (referenced == null) continue;
+        //        foreach (Socket referenced in ((Common.ISocketReference)tc).GetReferencedSockets())
+        //        {
+        //            if (referenced == null) continue;
 
-                    yield return referenced;
-                }
-            }
-        }
+        //            yield return referenced;
+        //        }
+        //    }
+        //}
     }
 }

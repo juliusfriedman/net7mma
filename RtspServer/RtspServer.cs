@@ -62,6 +62,52 @@ namespace Media.Rtsp
         //Milliseconds
         internal const int DefaultSendTimeout = 500;
 
+        internal static void ConfigureRtspServerSocket(Socket socket)
+        {
+            if (socket == null) throw new ArgumentNullException("socket");
+
+            if (socket.ProtocolType == ProtocolType.Tcp)
+            {
+                //
+                if(socket.ExclusiveAddressUse) Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket);
+
+                //
+                Media.Common.Extensions.Socket.SocketExtensions.EnableTcpNoSynRetries(socket);
+
+                //
+                //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpTimestamp(m_TcpServerSocket);
+
+                //
+                //Media.Common.Extensions.Socket.SocketExtensions.SetTcpOffloadPreference(m_TcpServerSocket);
+
+                //
+                //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpCongestionAlgorithm(m_TcpServerSocket);
+
+                // Set option that allows socket to close gracefully without lingering.
+                Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(socket);
+
+                //Retransmit for 0 sec
+                if (Common.Extensions.OperatingSystemExtensions.IsWindows) Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket);
+
+                //If both send and receieve buffer size are 0 then there is no coalescing when socket's algorithm is disabled
+                Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(socket);
+                //socket.NoDelay = true;
+
+                //Allow more than one byte of urgent data
+                Media.Common.Extensions.Socket.SocketExtensions.EnableTcpExpedited(socket);
+                //socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
+
+                //Receive any urgent data in the normal data stream
+                Media.Common.Extensions.Socket.SocketExtensions.EnableTcpOutOfBandDataInLine(socket);
+            }
+            //else if(socket.ProtocolType == ProtocolType.Udp)
+            //{
+                
+            //}
+
+            if (socket.AddressFamily == AddressFamily.InterNetwork) socket.DontFragment = true;
+        }
+
         #region Fields
 
         DateTime? m_Started;
@@ -129,6 +175,8 @@ namespace Media.Rtsp
         #endregion
 
         #region Propeties
+
+        public Action<Socket> ConfigureSocket { get; set; }
 
         internal IEnumerable<ClientSession> Clients
         {
@@ -375,12 +423,19 @@ namespace Media.Rtsp
         public RtspServer(IPEndPoint listenEndPoint)
         {
             RtspClientInactivityTimeout = TimeSpan.FromSeconds(60);
-            //NO / ... Because apparently some values are not allowed in the ServerName in MOST implementation (not this one)
+            
+            //Check syntax of Server header to ensure allowed format...
             ServerName = "ASTI Media Server RTSP " + Version.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture);
+            
             m_ServerEndPoint = listenEndPoint;
+            
             m_ServerIP = listenEndPoint.Address;
+            
             m_ServerPort = listenEndPoint.Port;
+
             RequiredCredentials = new CredentialCache();
+
+            ConfigureSocket = ConfigureRtspServerSocket;
         }
 
         #endregion
@@ -920,7 +975,7 @@ namespace Media.Rtsp
                 }
                 
             }
-        }
+        }        
 
         /// <summary>
         /// Starts the RtspServer and listens for requests.
@@ -943,37 +998,8 @@ namespace Media.Rtsp
             //Create the server Socket
             m_TcpServerSocket = new Socket(m_ServerIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-            //
-            Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(m_TcpServerSocket);
-
-            //
-            Media.Common.Extensions.Socket.SocketExtensions.EnableTcpNoSynRetries(m_TcpServerSocket);
-
-            //
-            //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpTimestamp(m_TcpServerSocket);
-
-            //
-            //Media.Common.Extensions.Socket.SocketExtensions.SetTcpOffloadPreference(m_TcpServerSocket);
-
-            //
-            //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpCongestionAlgorithm(m_TcpServerSocket);
-
-            // Set option that allows socket to close gracefully without lingering.
-            Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(m_TcpServerSocket);
-
-            //Retransmit for 0 sec
-            if (Common.Extensions.OperatingSystemExtensions.IsWindows) Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(m_TcpServerSocket);
-
-            //If both send and receieve buffer size are 0 then there is no coalescing when nagle's algorithm is disabled
-            Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(m_TcpServerSocket);
-            //socket.NoDelay = true;
-
-            //Allow more than one byte of urgent data
-            Media.Common.Extensions.Socket.SocketExtensions.EnableTcpExpedited(m_TcpServerSocket);
-            //socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
-
-            //Receive any urgent data in the normal data stream
-            Media.Common.Extensions.Socket.SocketExtensions.EnableTcpOutOfBandDataInLine(m_TcpServerSocket);
+            //Configure the socket
+            ConfigureSocket(m_TcpServerSocket);
 
             //Bind the server Socket to the server EndPoint
             m_TcpServerSocket.Bind(m_ServerEndPoint);
@@ -992,7 +1018,9 @@ namespace Media.Rtsp
             
             //Configure the thread
             m_ServerThread.Name = ServerName + "@" + m_ServerPort;
+            
             m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
+
             m_ServerThread.Priority = ThreadPriority.BelowNormal;
 
             //Erase any prior stats
@@ -1604,6 +1632,8 @@ namespace Media.Rtsp
 
                         //Mark the client as disconnected.
                         cs.IsDisconnected = true;
+
+                        //Should dipose client here to save CPU.
                         
                         return;
                     }
@@ -2974,12 +3004,42 @@ namespace Media.Rtsp
 
         IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
         {
+            if (IsDisposed) yield break;
+
             yield return m_TcpServerSocket;
 
             if (m_UdpServerSocket != null) yield return m_UdpServerSocket;
 
             //Get socket using reflection?
             //if (m_HttpListner != null) yield return m_HttpListner.;
+
+            //All client session sockets are technically referenced...
+            foreach (var client in Clients)
+            {
+                //If the client is null or disposed or disconnected continue
+                if (Common.IDisposedExtensions.IsNullOrDisposed(client) || client.IsDisconnected) continue;
+
+                //The clients Rtsp socket is referenced.
+                yield return client.m_RtspSocket;
+
+                //If there is a RtpClient which is not disposed
+                if (false == Common.IDisposedExtensions.IsNullOrDisposed(client.m_RtpClient))
+                {
+                    //Enumerate the transport context for sockets
+                    foreach (var tc in client.m_RtpClient.GetTransportContexts())
+                    {
+                        //If the context is null or diposed continue
+                        if (Common.IDisposedExtensions.IsNullOrDisposed(tc)) continue;
+
+                        //Cast to ISocketReference and call GetReferencedSockets to obtain any sockets of the context
+                        foreach (var s in ((Common.ISocketReference)tc).GetReferencedSockets())
+                        {
+                            //Return them
+                            yield return s;
+                        }
+                    }
+                }
+            }
         }
 
         IEnumerable<Thread> Common.IThreadReference.GetReferencedThreads()
