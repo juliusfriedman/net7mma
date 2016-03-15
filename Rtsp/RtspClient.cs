@@ -70,6 +70,10 @@ namespace Media.Rtsp
             //socket.ExclusiveAddressUse = false;
             //socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
 
+            //It was reported that Mono on iOS has a bug with SendBufferSize, ReceiveBufferSize and by looking further possibly SetSocketOption in general...
+            //Mono goes through too much trouble to verify socket options and should probably just pass them along to the native layer.
+            //SendBufferSize,ReceiveBufferSize and SetSocketOption is supposedly fixed in the latest versions but still do too much option verification...
+            
             //Don't buffer send.
             socket.SendBufferSize = 0;
 
@@ -2655,7 +2659,7 @@ namespace Media.Rtsp
                     #region Auto Reconnect
 
                     if (AutomaticallyReconnect &&
-                        error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset)
+                        (error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset))
                     {
                         //Check for the host to have dropped the connection
                         if (error == SocketError.ConnectionReset)
@@ -2726,7 +2730,7 @@ namespace Media.Rtsp
                     #region Auto Reconnect
 
                     if (AutomaticallyReconnect &&
-                        error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset)
+                        (error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset))
                     {
                         //Check for the host to have dropped the connection
                         if (error == SocketError.ConnectionReset)
@@ -3765,7 +3769,11 @@ namespace Media.Rtsp
                         else
                         {
                             //Handle host dropping the connection
-                            if (error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset) Reconnect();
+                            if (error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset)
+                            {
+                                if (AutomaticallyReconnect) Reconnect();
+                                else Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Connection Aborted or Reset and AutomaticallyReconnect is false.");
+                            }
 
                             //make another request if we didn't already try.
                             if (false == triedTwoTimes)

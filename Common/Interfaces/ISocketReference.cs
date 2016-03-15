@@ -17,6 +17,9 @@ namespace Media.Common
         /// </summary>
         IEnumerable<System.Net.Sockets.Socket> GetReferencedSockets();
 
+
+        //Action<System.Net.Sockets.Socket> ConfigureSocket { get; set; }
+
         //GetConfiguration
         //SetConfiguration
     }

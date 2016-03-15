@@ -1554,6 +1554,9 @@ namespace Media.Rtp
                 try
                 {
                     //Setup the RtpSocket
+
+                    //ConfigureSocket(RtpSocket)
+
                     RtpSocket = new Socket(localRtp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                     RtpSocket.ExclusiveAddressUse = false;
                     RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -1621,6 +1624,9 @@ namespace Media.Rtp
                     {
 
                         //Setup the RtcpSocket
+
+                        //ConfigureSocket(RtpSocket)
+
                         RtcpSocket = new Socket(localRtcp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                         RtcpSocket.ExclusiveAddressUse = false;
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -1714,14 +1720,19 @@ namespace Media.Rtp
             {
                 LocalRtp = local;
                 RemoteRtp = remote;
-                Initialize(new Socket(local.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+
+                var socket = new Socket(local.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
                 {
                     Blocking = false,
                     ReceiveBufferSize = 0,
                     SendBufferSize = 0,
                     NoDelay = true,
                     ExclusiveAddressUse = false
-                });
+                };
+
+                //ConfigureSocket(socket)
+
+                Initialize(socket);
             }
 
             /// <summary>
