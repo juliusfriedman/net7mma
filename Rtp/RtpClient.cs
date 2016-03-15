@@ -4658,6 +4658,10 @@ namespace Media.Rtp
                                 else //If anything was received, even 0 bytes then the context is active
                                     if (receivedRtp >= 0) lastOperation = DateTime.UtcNow;
                             }
+                            else
+                            {
+                                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "Unable to Poll RtpSocket");
+                            }
 
                             //if Rtcp is enabled
                             if (rtcpEnabled && false == (shouldStop || IsDisposed || m_StopRequested))
@@ -4692,6 +4696,10 @@ namespace Media.Rtp
                                         }
                                     }
                                     else if (receivedRtcp >= 0) lastOperation = DateTime.UtcNow;
+                                }
+                                else
+                                {
+                                    Media.Common.ILoggingExtensions.Log(Logger, InternalId + "Unable to Poll RtcpSocket");
                                 }
 
                                 //Try to send reports for the latest packets or a goodbye if inactive.
