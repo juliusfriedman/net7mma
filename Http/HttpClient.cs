@@ -14,7 +14,7 @@ namespace Media.Http
     //Expand concepts to RtspClient and RtpClient
 
 
-    public class HttpClient : Common.BaseDisposable
+    public class HttpClient : Common.BaseDisposable, Common.ISocketReference
     {
 
         #region Constants and Statics
@@ -557,8 +557,6 @@ namespace Media.Http
             //Set the protocol version to use in requests.
             ProtocolVersion = DefaultProtocolVersion;
             
-            //Could create a RtpClient to prevent accidental errors, (would be easier for attaching logger)
-
             ConfigureSocket = ConfigureHttpSocket;
 
             m_ResponseTimeoutInterval = responseTimeoutInterval;
@@ -1834,5 +1832,14 @@ namespace Media.Http
         }
 
         #endregion
+
+        IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
+        {
+            if (IsDisposed) yield break;
+
+            //Technically any sockets which are used by a http session should also be returned.
+
+            yield return m_HttpSocket;
+        }
     }
 }
