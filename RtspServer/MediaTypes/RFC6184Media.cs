@@ -666,7 +666,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 using (var thumb = image.Width != Width || image.Height != Height ? image.GetThumbnailImage(Width, Height, null, IntPtr.Zero) : image)
                 {
                     //Ensure the transformation will work.
-                    //if (thumb.PixelFormat != System.Drawing.Imaging.PixelFormat.Format32bppArgb) throw new NotSupportedException("Only ARGB is currently supported.");
+                    if (thumb.PixelFormat != System.Drawing.Imaging.PixelFormat.Format32bppArgb) throw new NotSupportedException("Only ARGB is currently supported.");
 
                     //Create a new frame
                     var newFrame = new RFC6184Frame(96); //should all payload type to come from the media description...
@@ -698,8 +698,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     macroBlocks.Add(new byte[] { 0x80 });//Stop bit (Wasteful by itself)
 
-                    //Packetize the data
-                    newFrame.Packetize(macroBlocks.SelectMany(mb => mb).ToArray());
+                    //Packetize the data with the slice header.
+                    newFrame.Packetize(slice_header1.Concat(macroBlocks.SelectMany(mb => mb)).ToArray());
 
                     //Add the frame
                     AddFrame(newFrame);
