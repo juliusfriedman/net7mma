@@ -2040,8 +2040,8 @@ namespace Media.Rtsp.Server.MediaTypes
         //Should be moved to SourceStream? Should have Fps and calculate for developers?
         protected int clockRate = 9;//kHz //90 dekahertz
 
-        //Should be moved to SourceStream?
-        protected readonly int sourceId = (int)DateTime.UtcNow.Ticks;
+        //Should be moved to RtpSourceSource;
+        protected readonly int sourceId = RFC3550.Random32(RFC2435Frame.RtpJpegPayloadType); //Doesn't really matter what seed was used, if really desired could be set in constructor
 
         protected Queue<Rtp.RtpFrame> m_Frames = new Queue<Rtp.RtpFrame>();
 
@@ -2161,10 +2161,17 @@ namespace Media.Rtsp.Server.MediaTypes
 
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Generic.Dictionary to support various tracks
-            m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, 1));
 
-            //Add the control line
-            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+            //Create a context
+            m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1,  //data and control channel id's (can be any number and should not overlap but can...)
+                sourceId, //A randomId which was alredy generated 
+                SessionDescription.MediaDescriptions.First(), //This is the media description we just created.
+                false, //Don't enable Rtcp reports because this source doesn't communicate with any clients
+                1, // This context is not in discovery
+                0)); //This context is always valid from the first rtp packet received
+
+            //Add the control line, could be anything... this indicates the URI which will appear in the SETUP and PLAY commands
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=control:trackID=video"));
 
             //Add the line with the clock rate in ms, obtained by TimeSpan.TicksPerMillisecond * clockRate            
 
@@ -2197,7 +2204,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     }
                     catch (Exception ex)
                     {
-                        throw ex;
+                        Common.ILoggingExtensions.LogException(RtpClient.Logger, ex);
                     }
                 }
 

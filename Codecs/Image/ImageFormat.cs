@@ -13,6 +13,11 @@ namespace Media.Codecs.Image
 
         public const byte AlphaChannelId = (byte)'a';
 
+        public const byte PreMultipliedAlphaChannelId = (byte)'A';
+
+        //Possibly a type which has multiplied and straight types... 
+        //public const byte MixedAlphaChannelId = (byte)'@';
+
         public const byte DeltaChannelId = (byte)'d';
 
         //
@@ -42,6 +47,10 @@ namespace Media.Codecs.Image
 
         //Key
         public const byte KChannelId = (byte)'k';
+
+        //Functions for reading lines are in the type which corresponds, e.g. Image.
+
+        //Could have support here for this given a MediaBuffer and forced / known format...
 
         #endregion
 
@@ -88,25 +97,25 @@ namespace Media.Codecs.Image
             });
         }
 
-        public static ImageFormat ARGB(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed)
+        public static ImageFormat ARGB(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed, bool premultipliedAlpha = false)
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent(AlphaChannelId, bitsPerComponent),
+                new Codec.MediaComponent(premultipliedAlpha ? PreMultipliedAlphaChannelId :AlphaChannelId, bitsPerComponent),
                 new Codec.MediaComponent(RedChannelId, bitsPerComponent),
                 new Codec.MediaComponent(GreenChannelId, bitsPerComponent),
                 new Codec.MediaComponent(BlueChannelId, bitsPerComponent)
             });
         }
 
-        public static ImageFormat RGBA(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed)
+        public static ImageFormat RGBA(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed, bool premultipliedAlpha = false)
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
                 new Codec.MediaComponent(RedChannelId, bitsPerComponent),
                 new Codec.MediaComponent(GreenChannelId, bitsPerComponent),
                 new Codec.MediaComponent(BlueChannelId, bitsPerComponent),
-                new Codec.MediaComponent(AlphaChannelId, bitsPerComponent)
+                new Codec.MediaComponent(premultipliedAlpha ? PreMultipliedAlphaChannelId : AlphaChannelId, bitsPerComponent)
             });
         }
 
@@ -120,22 +129,22 @@ namespace Media.Codecs.Image
             });
         }
 
-        public static ImageFormat BGRA(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed)
+        public static ImageFormat BGRA(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed, bool premultipliedAlpha = false)
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
                 new Codec.MediaComponent(BlueChannelId, bitsPerComponent),
                 new Codec.MediaComponent(GreenChannelId, bitsPerComponent),
                 new Codec.MediaComponent(RedChannelId, bitsPerComponent),
-                new Codec.MediaComponent(AlphaChannelId, bitsPerComponent)
+                new Codec.MediaComponent(premultipliedAlpha ? PreMultipliedAlphaChannelId : AlphaChannelId, bitsPerComponent)
             });
         }
 
-        public static ImageFormat ABGR(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed)
+        public static ImageFormat ABGR(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed, bool premultipliedAlpha = false)
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent(AlphaChannelId, bitsPerComponent),
+                new Codec.MediaComponent(premultipliedAlpha ? PreMultipliedAlphaChannelId : AlphaChannelId, bitsPerComponent),
                 new Codec.MediaComponent(BlueChannelId, bitsPerComponent),
                 new Codec.MediaComponent(GreenChannelId, bitsPerComponent),
                 new Codec.MediaComponent(RedChannelId, bitsPerComponent)                
@@ -154,22 +163,22 @@ namespace Media.Codecs.Image
             });
         }
 
-        public static ImageFormat YUVA(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed)
+        public static ImageFormat YUVA(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed, bool premultipliedAlpha = false)
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
                 new Codec.MediaComponent(LumaChannelId, bitsPerComponent),
                 new Codec.MediaComponent(ChromaMajorChannelId, bitsPerComponent),
                 new Codec.MediaComponent(ChromaMinorChannelId, bitsPerComponent),
-                new Codec.MediaComponent(AlphaChannelId, bitsPerComponent)
+                new Codec.MediaComponent(premultipliedAlpha ? PreMultipliedAlphaChannelId : AlphaChannelId, bitsPerComponent)
             });
         }
 
-        public static ImageFormat AYUV(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed)
+        public static ImageFormat AYUV(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed, bool premultipliedAlpha = false)
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent(AlphaChannelId, bitsPerComponent),
+                new Codec.MediaComponent(premultipliedAlpha ? PreMultipliedAlphaChannelId : AlphaChannelId, bitsPerComponent),
                 new Codec.MediaComponent(LumaChannelId, bitsPerComponent),
                 new Codec.MediaComponent(ChromaMajorChannelId, bitsPerComponent),
                 new Codec.MediaComponent(ChromaMinorChannelId, bitsPerComponent)
@@ -186,25 +195,25 @@ namespace Media.Codecs.Image
             });
         }
 
-        public static ImageFormat VUYA(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed)
+        public static ImageFormat VUYA(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed, bool premultipliedAlpha = false)
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
                 new Codec.MediaComponent(ChromaMinorChannelId, bitsPerComponent),
                 new Codec.MediaComponent(ChromaMajorChannelId, bitsPerComponent),
                 new Codec.MediaComponent(LumaChannelId, bitsPerComponent),
-                new Codec.MediaComponent(AlphaChannelId, bitsPerComponent)
+                new Codec.MediaComponent(premultipliedAlpha ? PreMultipliedAlphaChannelId : AlphaChannelId, bitsPerComponent)
             });
         }
 
-        public static ImageFormat AVUY(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed)
+        public static ImageFormat AVUY(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed, bool premultipliedAlpha = false)
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
                 new Codec.MediaComponent(AlphaChannelId, bitsPerComponent),
                 new Codec.MediaComponent(ChromaMinorChannelId, bitsPerComponent),
                 new Codec.MediaComponent(ChromaMajorChannelId, bitsPerComponent),
-                new Codec.MediaComponent(LumaChannelId, bitsPerComponent)                
+                new Codec.MediaComponent(premultipliedAlpha ? PreMultipliedAlphaChannelId : LumaChannelId, bitsPerComponent)                
             });
         }
 
@@ -390,6 +399,15 @@ namespace Media.Codecs.Image
         public Codec.MediaComponent AlphaComponent { get { return GetComponentById(AlphaChannelId); } }
 
         public bool HasAlphaComponent { get { return AlphaComponent != null; } }
+
+        public bool IsPremultipliedWithAplha
+        {
+            get
+            {
+                Codec.MediaComponent alphaComponent = AlphaComponent;
+                return alphaComponent!= null && alphaComponent.Id == PreMultipliedAlphaChannelId;
+            }
+        }
 
         #endregion
 

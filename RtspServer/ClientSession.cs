@@ -1275,7 +1275,7 @@ namespace Media.Rtsp//.Server
                     //For each TransportContext in the RtpClient
                     foreach (RtpClient.TransportContext tc in rtpSource.RtpClient.GetTransportContexts()) Attached.Remove(tc);
 
-                    //Attach events
+                    //Detach events
                     //rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
                     rtpSource.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
                     rtpSource.RtpClient.RtpFrameChanged -= OnSourceFrameChanged;
@@ -1350,8 +1350,10 @@ namespace Media.Rtsp//.Server
             return CreateRtspResponse(request);
         }
 
-        internal void ReleaseUnusedResources()
+        internal bool ReleaseUnusedResources()
         {
+            bool released = false;
+
             //Enumerate each context 'SETUP' in the session
             if (m_RtpClient != null)
             {
@@ -1367,31 +1369,83 @@ namespace Media.Rtsp//.Server
                         //Session level logger
                         //Context has no activity
 
-                        //See if there is still a source for the context 
-                        RtpClient.TransportContext sourceContext = GetSourceContext(context.MediaDescription);
+                        Common.ILoggingExtensions.Log(m_Server.Logger, "Session Inactive - " + SessionId);
 
-                        //If there was a source context with activity
-                        if (sourceContext != null && sourceContext.HasAnyRecentActivity)
-                        {
-                            //Remove the attachment from the source context to the session context
-                            RemoveSource(Attached[sourceContext]);
+                        //Dispose the context and indicate in release
 
-                            //Session level logger
-                            //Removed Attachment for sourceContext.Id
-
-                            //Remove the reference to the sourceContext
-                            sourceContext = null;
-                        }
+                        context.Dispose();
+                        
+                        released = true;
                     }
-                }
+                    //else //The context has activity, check the source (Will be checked below)
+                    //{
+                    //    //See if there is still a source for the context 
+                    //    RtpClient.TransportContext sourceContext = GetSourceContext(context.MediaDescription);
+
+                    //    //If there was a source context AND the source has activity
+                    //    if (sourceContext != null && false == sourceContext.HasAnyRecentActivity)
+                    //    {
+                    //        //Get the attached source
+                    //        Media.Rtsp.Server.SourceMedia sourceMedia = Attached[sourceContext];
+
+                    //        //if there is a source still attached
+                    //        if (sourceMedia != null)
+                    //        {
+                    //            //Removed Attachment for sourceContext.Id
+                    //            Common.ILoggingExtensions.Log(m_Server.Logger, "Session Source Inactive, Removing SourceMedia = " + sourceMedia.Id);
+
+                    //            //Remove the attachment from the source context to the session context
+                    //            RemoveSource(sourceMedia);
+
+                    //            //Remove the reference to the sourceContext
+                    //            sourceContext = null;
+
+                    //            //Remove the reference to the sourceMedia
+                    //            sourceMedia = null;
+
+                    //            //Dispose the context and indicate in release
+
+                    //            context.Dispose();
+
+                    //            released = true;
+                    //        }
+                    //    }
+                    //}
+                }                
             }
 
 
-            //Get rid of any attachment this ClientSession had which no longer have a context.
-            foreach (Media.Rtsp.Server.IMediaSource source in Attached.Keys.ToList().Where(s=> GetSourceContext(s.MediaDescription) == null))
+            //Check all remaining attachments
+            foreach (var attachment in Attached)
             {
-                //Remove the attached media
-                RemoveSource(source);
+                var source = attachment.Value;
+
+                var localContext = attachment.Key;
+
+                //Use the transportContext MediaDescription to obtain the sourceContext
+                var sourceContext = GetSourceContext(localContext.MediaDescription);
+
+                //If the sourceContext is null
+                if (sourceContext == null || false == sourceContext.HasAnyRecentActivity)
+                {
+                    //Removed Attachment for sourceContext.Id
+                    Common.ILoggingExtensions.Log(m_Server.Logger, "Session source is null or sourceContext has no recent activity, Removing SourceMedia = " + source.Id);
+
+                    //Remove the attachment from the source context to the session context
+                    RemoveSource(source);
+
+                    //Dispose the context and indicate in release
+                    localContext.Dispose();
+
+                    localContext = null;
+
+                    released = true;
+                }
+
+                //Remove refs
+                localContext = sourceContext = null;
+
+                source = null;
             }
 
             //Remove rtp theads
@@ -1403,6 +1457,8 @@ namespace Media.Rtsp//.Server
                     m_RtpClient = null;
                 }
             }
+
+            return released;
         }
 
         internal RtspMessage ProcessRecord(RtspMessage request, Media.Rtsp.Server.IMedia source)
@@ -1560,6 +1616,9 @@ namespace Media.Rtsp//.Server
 
             //Todo add a Range line which shows the length of this media.
 
+            //Add the sesison control line
+            sdp.Add(new Sdp.SessionDescriptionLine(controlLineBase));
+
             //Iterate the source MediaDescriptions, could just create a new one with the fmt which contains the profile level information
             foreach (Sdp.MediaDescription md in sdp.MediaDescriptions)
             {               
@@ -1586,7 +1645,7 @@ namespace Media.Rtsp//.Server
                 //Add a control line for the MedaiDescription (which is `rtsp://./Id/audio` (video etc)
                 //Should be a TrackId and not the media type to allow more then one media type to be controlled.
                 //e.g. Two audio streams or text streams is valid.
-                md.Add(new Sdp.SessionDescriptionLine("a=control:" + md.MediaType));
+                md.Add(new Sdp.SessionDescriptionLine(controlLineBase + "/" + md.MediaType));
 
 
                 //Add the connection line for the media

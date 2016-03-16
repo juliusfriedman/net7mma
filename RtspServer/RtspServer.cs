@@ -920,20 +920,19 @@ namespace Media.Rtsp
             foreach (ClientSession session in Clients)
             {
                 //If the session is not in the dictionary then it cannot be removed.
-                if (session == null
+                if (IDisposedExtensions.IsNullOrDisposed(session)
                     ||  //Or if the session was created after maintenanceStarted
                     session.Created > maintenanceStarted
                     || //Or if the LastRequest was created after maintenanceStarted
                     session.LastRequest != null && session.LastRequest.Created > maintenanceStarted
                     || //Or if the LastResponse was created after maintenanceStarted
-                    session.LastResponse != null && session.LastResponse.Created > maintenanceStarted)
+                    session.LastResponse != null && session.LastResponse.Created > maintenanceStarted
+                    || //Or if there were no resources released
+                    false == session.ReleaseUnusedResources())
                 {
                     //Do not attempt to perform any disconnection of the session
                     continue;
                 }
-
-                //Remove any inactive source attachments.
-                session.ReleaseUnusedResources();
 
                 //Don't disconnect sessions which are playing media if activity can be determined by the transport (rtp or rtcp etc)
                 if (session.Playing.Count > 0) continue;
@@ -3026,33 +3025,38 @@ namespace Media.Rtsp
             //Get socket using reflection?
             //if (m_HttpListner != null) yield return m_HttpListner.;
 
-            //All client session sockets are technically referenced...
-            foreach (var client in Clients)
-            {
-                //If the client is null or disposed or disconnected continue
-                if (Common.IDisposedExtensions.IsNullOrDisposed(client) || client.IsDisconnected) continue;
+            //ClientSession should be a CollectionType which implements ISocketReference
+            //This logic should then appear in that collection.
 
-                //The clients Rtsp socket is referenced.
-                yield return client.m_RtspSocket;
+            //Closing the server socket will also close client sockets.
 
-                //If there is a RtpClient which is not disposed
-                if (false == Common.IDisposedExtensions.IsNullOrDisposed(client.m_RtpClient))
-                {
-                    //Enumerate the transport context for sockets
-                    foreach (var tc in client.m_RtpClient.GetTransportContexts())
-                    {
-                        //If the context is null or diposed continue
-                        if (Common.IDisposedExtensions.IsNullOrDisposed(tc)) continue;
+            //////All client session sockets are technically referenced...
+            ////foreach (var client in Clients)
+            ////{
+            ////    //If the client is null or disposed or disconnected continue
+            ////    if (Common.IDisposedExtensions.IsNullOrDisposed(client) || client.IsDisconnected) continue;
 
-                        //Cast to ISocketReference and call GetReferencedSockets to obtain any sockets of the context
-                        foreach (var s in ((Common.ISocketReference)tc).GetReferencedSockets())
-                        {
-                            //Return them
-                            yield return s;
-                        }
-                    }
-                }
-            }
+            ////    //The clients Rtsp socket is referenced.
+            ////    yield return client.m_RtspSocket;
+
+            ////    //If there is a RtpClient which is not disposed
+            ////    if (false == Common.IDisposedExtensions.IsNullOrDisposed(client.m_RtpClient))
+            ////    {
+            ////        //Enumerate the transport context for sockets
+            ////        foreach (var tc in client.m_RtpClient.GetTransportContexts())
+            ////        {
+            ////            //If the context is null or diposed continue
+            ////            if (Common.IDisposedExtensions.IsNullOrDisposed(tc)) continue;
+
+            ////            //Cast to ISocketReference and call GetReferencedSockets to obtain any sockets of the context
+            ////            foreach (var s in ((Common.ISocketReference)tc).GetReferencedSockets())
+            ////            {
+            ////                //Return them
+            ////                yield return s;
+            ////            }
+            ////        }
+            ////    }
+            ////}
         }
 
         IEnumerable<Thread> Common.IThreadReference.GetReferencedThreads()
