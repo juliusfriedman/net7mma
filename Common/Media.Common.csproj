@@ -58,16 +58,17 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Classes\EventArgsEx.cs" />
-    <Compile Include="Classes\LifetimeDisposable.cs" />
-    <Compile Include="Classes\MessageBase.cs" />
+    <Compile Include="Classes\Disposables\LifetimeDisposable.cs" />
+    <Compile Include="Classes\Transport\TransportClient.cs" />
+    <Compile Include="Classes\Transport\TransportMessageBase.cs" />
     <Compile Include="Classes\Text\ASCII.cs" />
-    <Compile Include="Classes\BaseDisposable.cs" />
+    <Compile Include="Classes\Disposables\BaseDisposable.cs" />
     <Compile Include="Classes\Binary\Binary.cs" />
     <Compile Include="Classes\Binary\BitReader.cs" />
     <Compile Include="Classes\Binary\BitWriter.cs" />
     <Compile Include="Collections\Generic\ConcurrentThesaurus.cs" />
     <Compile Include="Collections\Generic\RingBuffer.cs" />
-    <Compile Include="Classes\CommonDisposable.cs" />
+    <Compile Include="Classes\Disposables\CommonDisposable.cs" />
     <Compile Include="Extensions\ArrayExtensions.cs" />
     <Compile Include="Extensions\DebugExtensions.cs" />
     <Compile Include="Extensions\Delegate.cs" />

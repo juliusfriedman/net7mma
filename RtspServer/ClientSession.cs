@@ -287,6 +287,7 @@ namespace Media.Rtsp//.Server
 
         public void SendRtspData(byte[] data, int offset, int length, SocketFlags flags = SocketFlags.None, EndPoint other = null)
         {
+            //Check for no data or 0 length when sharing socket.
             if (data == null || length == 0 && SharesSocket) return;
 
             try
@@ -378,8 +379,8 @@ namespace Media.Rtsp//.Server
         internal void OnSourceRtpPacketRecieved(object client, RtpPacket packet = null, RtpClient.TransportContext tc = null)
         {
 
-            //If the packet is null or not allowed then return
-            if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || m_RtpClient == null) return;
+            //Check if both the packet and our client are null or disposed already.
+            if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) return;
 
             //Thread.BeginCriticalRegion();
 
@@ -413,7 +414,7 @@ namespace Media.Rtsp//.Server
             {
                 PacketBuffer.Add(sourceContext.SynchronizationSourceIdentifier, packet);
             }
-            else if (m_RtpClient != null)
+            else if (false == Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) //double check...
             {
                 //Send packet on Client Thread
                 m_RtpClient.EnquePacket(packet);
@@ -433,7 +434,7 @@ namespace Media.Rtsp//.Server
         internal void OnSourceRtcpPacketRecieved(object stream, RtcpPacket packet)
         {
 
-            if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || m_RtpClient == null) return;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) return;
 
             //Should check for Goodbye and Deactivate this source
 

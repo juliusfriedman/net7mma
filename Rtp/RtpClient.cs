@@ -638,7 +638,11 @@ namespace Media.Rtp
                 //Valid amount of rtp packets recieved 
                 ValidRtpPacketsReceived;
 
-            internal TimeSpan m_SendInterval = DefaultReportInterval, m_ReceiveInterval = DefaultReportInterval, m_InactiveTime = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan,m_StartTime = TimeSpan.Zero, m_EndTime = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
+            internal TimeSpan m_SendInterval = DefaultReportInterval, m_ReceiveInterval = DefaultReportInterval,
+                m_InactiveTime = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan,
+                m_StartTime = TimeSpan.Zero, m_EndTime = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
+                //Used to allow a specific reporting interval (would proably need varaibles for send and receive to allow full customization...)
+                //m_ContextReportInterval = DefaultReportInterval;
 
             //When packets are succesfully transferred the DateTime (utc) is copied in these variables and will reflect the point in time in which  the last 
             internal DateTime m_FirstPacketReceived, m_FirstPacketSent, 
@@ -1777,8 +1781,6 @@ namespace Media.Rtp
             }
 
             #endregion
-
-            //Needs a way to allow custom configuration of socket for Initialize
 
             IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
             {
@@ -4908,30 +4910,5 @@ namespace Media.Rtp
         {
             return IsDisposed ? null : Media.Common.Extensions.Linq.LinqExtensions.Yield(m_WorkerThread);
         }
-
-        ///// <summary>
-        ///// Gets any sockets which are utilized by this RtpClient.
-        ///// If a socket is used more than one time it will be given that many times.
-        ///// </summary>
-        ///// <returns></returns>
-        //IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
-        //{
-        //    if (IsDisposed) yield break;
-
-        //    //Determine if a Unique parameter should be given but the caller can use Distinct() anyway
-        //   // HashSet<Socket> known = new HashSet<Socket>();
-
-        //    foreach (TransportContext tc in TransportContexts)
-        //    {
-        //        if (tc == null || tc.IsDisposed) continue; //tc.IsActive
-
-        //        foreach (Socket referenced in ((Common.ISocketReference)tc).GetReferencedSockets())
-        //        {
-        //            if (referenced == null) continue;
-
-        //            yield return referenced;
-        //        }
-        //    }
-        //}
     }
 }
