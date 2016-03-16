@@ -2168,7 +2168,17 @@ namespace Media.Rtsp.Server.MediaTypes
                 SessionDescription.MediaDescriptions.First(), //This is the media description we just created.
                 false, //Don't enable Rtcp reports because this source doesn't communicate with any clients
                 1, // This context is not in discovery
-                0)); //This context is always valid from the first rtp packet received
+                0)
+                {
+                    //Never has to send
+                    SendInterval = Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan,
+                    //Never has to recieve
+                    ReceiveInterval = Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan,
+                    //Assign a LocalRtp so IsActive is true
+                    LocalRtp = Common.Extensions.IPEndPoint.IPEndPointExtensions.Any,
+                    //Assign a RemoteRtp so IsActive is true
+                    RemoteRtp = Common.Extensions.IPEndPoint.IPEndPointExtensions.Any
+                }); //This context is always valid from the first rtp packet received
 
             //Add the control line, could be anything... this indicates the URI which will appear in the SETUP and PLAY commands
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=control:trackID=video"));
@@ -2309,6 +2319,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
         //Needs to only send packets and not worry about updating the frame, that should be done by ImageSource
 
+        //This logic is general enough, that it could go in RtpSource...
         internal override void SendPackets()
         {
             m_RtpClient.FrameChangedEventsEnabled = false;
@@ -2333,7 +2344,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         //Dequeue a frame or die
                         Rtp.RtpFrame frame = m_Frames.Dequeue();
 
-                        if (frame == null || frame.IsDisposed) continue;
+                        if (Common.IDisposedExtensions.IsNullOrDisposed(frame)) continue;
 
                         //Get the transportChannel for the packet
                         Rtp.RtpClient.TransportContext transportContext = m_RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);
@@ -2341,15 +2352,28 @@ namespace Media.Rtsp.Server.MediaTypes
                         //If there is a context
                         if (transportContext != null)
                         {
-
                             //Increase priority
                             m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.AboveNormal;
+
+                            //Ensure HasRecievedRtpWithinSendInterval is true
+                            //transportContext.m_LastRtpIn = DateTime.UtcNow;
 
                             transportContext.RtpTimestamp += period;
 
                             frame.Timestamp = (int)transportContext.RtpTimestamp;
 
-                            foreach (Rtp.RtpPacket packet in frame)
+                            //Todo, should not copy packets
+
+                            //Take all the packet from the frame                            
+                            var packets = frame.ToArray();
+
+                            //Clear the frame to reset sequence numbers (could add method to do this)
+                            frame.RemoveAllPackets();
+
+                            //Todo, should provide access to property or provide a method which updates this property.
+
+                            //Iterate each packet in the frame
+                            foreach (Rtp.RtpPacket packet in packets)
                             {
                                 //Copy the values before we signal the server
                                 //packet.Channel = transportContext.DataChannel;
@@ -2357,10 +2381,11 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 packet.Timestamp = transportContext.RtpTimestamp;
 
+                                //Assign next sequence number
                                 switch (transportContext.RecieveSequenceNumber)
                                 {
-                                    case ushort.MaxValue: 
-                                        transportContext.RecieveSequenceNumber = 0; 
+                                    case ushort.MaxValue:
+                                        packet.SequenceNumber = transportContext.RecieveSequenceNumber = 0; 
                                         break;
                                     //Increment the sequence number on the transportChannel and assign the result to the packet
                                     default: 
@@ -2370,13 +2395,27 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 //Fire an event so the server sends a packet to all clients connected to this source
                                 if (false == m_RtpClient.FrameChangedEventsEnabled) m_RtpClient.OnRtpPacketReceieved(packet, transportContext);
+
+                                //Put the packet back to ensure the timestamp and other values are correct.
+                                frame.Add(packet);
+
+                                //Update the jitter and timestamp
+                                transportContext.UpdateJitterAndTimestamp(packet);
+                                
+                                //Todo, should provide access to property or provide a method which updates this property.
+
+                                //Ensure HasSentRtpWithinSendInterval is true
+                                //transportContext.m_LastRtpOut = DateTime.UtcNow;
                             }
+
+                            packets = null;
 
                             //Modified frame HasMissingPackets because SequenceNumbers were modified and the SortedList's keys were assigned to the previous sequence numbers
 
                             //Fire a frame changed event manually
                             if (m_RtpClient.FrameChangedEventsEnabled) m_RtpClient.OnRtpFrameChanged(frame, transportContext);
 
+                            //Check for if previews should be updated (only for the jpeg type for now)
                             if (DecodeFrames && frame.PayloadTypeByte == RFC2435Frame.RtpJpegPayloadType) OnFrameDecoded((RFC2435Media.RFC2435Frame)frame);
 
                             ++m_FramesPerSecondCounter;

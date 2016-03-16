@@ -1377,83 +1377,96 @@ namespace Media.Rtsp//.Server
                         
                         released = true;
                     }
-                    //else //The context has activity, check the source (Will be checked below)
-                    //{
-                    //    //See if there is still a source for the context 
-                    //    RtpClient.TransportContext sourceContext = GetSourceContext(context.MediaDescription);
+                    else //The context has activity, check the source (Will be checked below)
+                    {
+                        //See if there is still a source for the context 
+                        RtpClient.TransportContext sourceContext = GetSourceContext(context.MediaDescription);
 
-                    //    //If there was a source context AND the source has activity
-                    //    if (sourceContext != null && false == sourceContext.HasAnyRecentActivity)
-                    //    {
-                    //        //Get the attached source
-                    //        Media.Rtsp.Server.SourceMedia sourceMedia = Attached[sourceContext];
+                        //Todo, if source is no active it should probably be removed.
 
-                    //        //if there is a source still attached
-                    //        if (sourceMedia != null)
-                    //        {
-                    //            //Removed Attachment for sourceContext.Id
-                    //            Common.ILoggingExtensions.Log(m_Server.Logger, "Session Source Inactive, Removing SourceMedia = " + sourceMedia.Id);
+                        //If there was a source context AND the source has activity
+                        if (sourceContext != null && sourceContext.IsActive && false == sourceContext.HasAnyRecentActivity)
+                        {
+                            //Get the attached source
+                            Media.Rtsp.Server.SourceMedia sourceMedia = Attached[sourceContext];
 
-                    //            //Remove the attachment from the source context to the session context
-                    //            RemoveSource(sourceMedia);
+                            //if there is a source still attached
+                            if (sourceMedia != null)
+                            {
+                                //Removed Attachment for sourceContext.Id
+                                Common.ILoggingExtensions.Log(m_Server.Logger, "Session Source Inactive, Removing SourceMedia = " + sourceMedia.Id);
 
-                    //            //Remove the reference to the sourceContext
-                    //            sourceContext = null;
+                                //Remove the attachment from the source context to the session context
+                                RemoveSource(sourceMedia);
 
-                    //            //Remove the reference to the sourceMedia
-                    //            sourceMedia = null;
+                                //Remove the reference to the sourceContext
+                                sourceContext = null;
 
-                    //            //Dispose the context and indicate in release
+                                //Remove the reference to the sourceMedia
+                                sourceMedia = null;
 
-                    //            context.Dispose();
+                                //Dispose the context and indicate in release
 
-                    //            released = true;
-                    //        }
-                    //    }
-                    //}
+                                context.Dispose();
+
+                                released = true;
+                            }
+                        }
+                    }
                 }                
             }
 
+            //Not needed because the source may not be attached just yet
+            //try
+            //{
+            //    //Check all remaining attachments
+            //    foreach (var attachment in Attached)
+            //    {
+            //        var source = attachment.Value;
 
-            //Check all remaining attachments
-            foreach (var attachment in Attached)
-            {
-                var source = attachment.Value;
+            //        var localContext = attachment.Key;
 
-                var localContext = attachment.Key;
+            //        //Use the transportContext MediaDescription to obtain the sourceContext
+            //        var sourceContext = GetSourceContext(localContext.MediaDescription);
 
-                //Use the transportContext MediaDescription to obtain the sourceContext
-                var sourceContext = GetSourceContext(localContext.MediaDescription);
+            //        //If the sourceContext is null
+            //        if (sourceContext == null || false == sourceContext.HasAnyRecentActivity)
+            //        {
+            //            //Removed Attachment for sourceContext.Id
+            //            Common.ILoggingExtensions.Log(m_Server.Logger, "Session " + (sourceContext == null ? "source is null" :  "sourceContext has no recent activity") +", Removing SourceMedia = " + source.Id);
 
-                //If the sourceContext is null
-                if (sourceContext == null || false == sourceContext.HasAnyRecentActivity)
-                {
-                    //Removed Attachment for sourceContext.Id
-                    Common.ILoggingExtensions.Log(m_Server.Logger, "Session source is null or sourceContext has no recent activity, Removing SourceMedia = " + source.Id);
+            //            //Remove the attachment from the source context to the session context
+            //            RemoveSource(source);
 
-                    //Remove the attachment from the source context to the session context
-                    RemoveSource(source);
+            //            //Dispose the context and indicate in release
+            //            localContext.Dispose();
 
-                    //Dispose the context and indicate in release
-                    localContext.Dispose();
+            //            localContext = null;
 
-                    localContext = null;
+            //            released = true;
+            //        }
 
-                    released = true;
-                }
+            //        //Remove refs
+            //        localContext = sourceContext = null;
 
-                //Remove refs
-                localContext = sourceContext = null;
-
-                source = null;
-            }
+            //        source = null;
+            //    }
+            //}
+            //catch
+            //{
+            //    //
+            //}
+           
 
             //Remove rtp theads
             if (Playing.Count == 0)
             {
-                if (m_RtpClient != null)
+                if (m_RtpClient != null && m_RtpClient.IsActive)
                 {
                     m_RtpClient.Dispose();
+
+                    released = true;
+
                     m_RtpClient = null;
                 }
             }

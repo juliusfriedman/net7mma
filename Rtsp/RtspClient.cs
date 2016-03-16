@@ -2762,6 +2762,9 @@ namespace Media.Rtsp
                             //White / Black Hole Feature(s)? *cough*QuickTime*cough*
 
                             //Deliver any data which was intercepted to the underlying Transport.
+                            //Any data handled in the rtp layer is should not count towards what was received.
+                            //This can throw off the call if SharesSocket changes during the life of this call.
+                            //In cases where this is off it can be fixed by using Clamp, it usually only occurs when someone is disconnecting.
                             received -= m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
 
                             //Handle when the client received a lot of data and no response was found when interleaving.
@@ -2853,8 +2856,14 @@ namespace Media.Rtsp
                             }
                         }
 
-                        //If not playing trying to receive again.
-                        if (false == SharesSocket) goto Receive;
+                        //If not sharing socket trying to receive again.
+                        if (false == SharesSocket)
+                        {
+                            //This can throw the offsets off if was previously sharing socket
+                            //received = 0;
+
+                            goto Receive;
+                        }
                     }
 
                     #endregion
@@ -3964,7 +3973,7 @@ namespace Media.Rtsp
                         if (created == null || created.IsDisposed)
                         {
                             //Create the context if required.. (Will be created with Sdp Address)
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
 
                             //Set the identity to what we indicated to the server.
                             created.SynchronizationSourceIdentifier = localSsrc;
@@ -4049,14 +4058,14 @@ namespace Media.Rtsp
                         //If there are aren't any then create one using the default values
                         if (false == availableContexts.Any())
                         {
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, (byte)(multiplexing ? 0 : 1), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, (byte)(multiplexing ? 0 : 1), mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
                         }
                         else
                         {
                             RtpClient.TransportContext lastContext = availableContexts.LastOrDefault();
 
-                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
-                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
+                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
+                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
                         }
 
                         created.ContextMemory = m_RtpClient.m_Buffer;

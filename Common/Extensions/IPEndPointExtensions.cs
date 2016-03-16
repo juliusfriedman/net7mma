@@ -44,6 +44,8 @@ namespace Media.Common.Extensions.IPEndPoint
 
         const string SchemeSeperator = "://";
 
+        public static System.Net.IPEndPoint Any = new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0);
+
         public static System.Uri ToUri(this System.Net.IPEndPoint endPoint, string scheme = null)
         {
             if (endPoint == null) throw new System.ArgumentNullException();                
