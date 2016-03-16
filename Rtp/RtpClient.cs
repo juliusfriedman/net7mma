@@ -1807,6 +1807,7 @@ namespace Media.Rtp
         /// <summary>
         /// Any TransportContext's which are added go here for removal. This list can never be null.
         /// </summary>
+        /// <notes>This possibly should be sorted but sorted lists cannot contain duplicates.</notes>
         internal readonly List<TransportContext> TransportContexts = new List<TransportContext>();
 
         /// <summary>
@@ -3031,7 +3032,8 @@ namespace Media.Rtp
                     }
                 }
 
-            //Add the context
+
+            //Add the context (This can introduce incorrect logic if the caller adds the context with channels in a reverse order, e.g. 2-3, 0-1)
             TransportContexts.Add(context);
 
             //Should check if sending is allowed via the media description
@@ -3066,11 +3068,11 @@ namespace Media.Rtp
             //if (IsDisposed) return Enumerable.Empty<TransportContext>();
             try
             {
-                return TransportContexts.DefaultIfEmpty();
+                return TransportContexts.DefaultIfEmpty(); //null
             }
             catch (InvalidOperationException)
             {
-                //May duplicate objects already projected
+                //May duplicate objects already projected, store index or use for construct.
                 return GetTransportContexts();
             }
             catch { throw; }
@@ -3102,8 +3104,8 @@ namespace Media.Rtp
                     compound = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(TransportContext.CreateSendersReport(context, false)), compound);
             }
 
-            //If Rtp data was received then send a Receivers Report.
-            if (context.RtpPacketsReceived > 0 || context.TotalBytesSent > 0)
+            //If Rtp data was received OR Rtcp data was sent then send a Receivers Report.
+            if (context.RtpPacketsReceived > 0 || context.TotalRtcpBytesSent > 0)
             {
                 //Insert the last ReceiversReport as the first compound packet
                 if (storeReports)
@@ -3112,10 +3114,12 @@ namespace Media.Rtp
                     compound = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(TransportContext.CreateReceiversReport(context, false)), compound);
             }
 
-            //If there are any packets to be sent and we don't care about bandwidth or the bandwidth is not exceeded
+            //If there are any packets to be sent AND we don't care about bandwidth OR the bandwidth is not exceeded
             if (compound.Any() && 
                 (checkBandwidth == false || false == context.RtcpBandwidthExceeded))
             {
+                //Todo, possibly send additional items only when AverageRtcpBandwidth is not exceeded...
+
                 //Include the SourceDescription
                 if (storeReports)
                     compound = Enumerable.Concat(compound, Media.Common.Extensions.Linq.LinqExtensions.Yield((context.SourceDescription = TransportContext.CreateSourceDescription(context, (string.IsNullOrWhiteSpace(ClientName) ? null : new SourceDescriptionReport.SourceDescriptionItem(SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName, System.Text.Encoding.UTF8.GetBytes(ClientName))), AdditionalSourceDescriptionItems))));
@@ -3123,9 +3127,7 @@ namespace Media.Rtp
                     compound = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(TransportContext.CreateSourceDescription(context, (string.IsNullOrWhiteSpace(ClientName) ? null : new SourceDescriptionReport.SourceDescriptionItem(SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName, System.Text.Encoding.UTF8.GetBytes(ClientName))), AdditionalSourceDescriptionItems)), compound);
             }
 
-            //Could also put a Goodbye for inactivity ... :) Currently handled by SendGoodbye
-
-            //Todo, possibly send additional items only when AverageRtcpBandwidth is not exceeded...
+            //Could also put a Goodbye for inactivity ... :) Currently handled by SendGoodbye, possibly allow for optional parameter where this occurs here.
 
             return compound;
         }
@@ -3142,7 +3144,7 @@ namespace Media.Rtp
 
             foreach (TransportContext tc in TransportContexts)
             {
-                if (false == tc.IsDisposed && tc.IsRtcpEnabled && SendReports(tc))
+                if (false == IDisposedExtensions.IsNullOrDisposed(tc) && tc.IsRtcpEnabled && SendReports(tc))
                 {
                     sentAny = true;
                 }
@@ -3171,13 +3173,13 @@ namespace Media.Rtp
         internal protected virtual int SendGoodbye(TransportContext context, byte[] reasonForLeaving = null, int? ssrc = null, bool force = false)
         {
             //Check if the Goodbye can be sent.
-            if (IsDisposed //If the context is disposed
-                && //AND the call has not been forced AND the context IsRtcpEnabled 
-                (false == force && true == context.IsRtcpEnabled) 
-                // OR there is no RtcpSocket
-                || context.RtcpSocket == null
-                //Of the final Goodbye was sent.
-                || context.Goodbye != null && context.Goodbye.Transferred.HasValue)
+            if (IsDisposed //If the RtpClient is disposed 
+                || //OR the context is disposed
+                IDisposedExtensions.IsNullOrDisposed(context)
+                || //OR the call has not been forced AND the context IsRtcpEnabled AND the context is active
+                (false == force && true == context.IsRtcpEnabled && context.IsActive
+                && //AND the final Goodbye was sent already
+                context.Goodbye != null && context.Goodbye.Transferred.HasValue))
             {
                 //Indicate nothing was sent
                 return 0;
@@ -4587,7 +4589,7 @@ namespace Media.Rtp
                         //set stop by all
 
                         //Stop if nothing has happed in at least the time required for sending and receiving on all contexts.
-                       // shouldStop = GetTransportContexts().Where(tc => tc != null).All(tc => tc.SendInterval > TimeSpan.Zero ? taken > tc.SendInterval + tc.ReceiveInterval : false);
+                        //shouldStop = GetTransportContexts().Where(tc => false == Common.IDisposedExtensions.IsNullOrDisposed(tc)).All(tc => tc.SendInterval > TimeSpan.Zero ? taken > tc.SendInterval + tc.ReceiveInterval : false);
 
                         //peek thread exit
                         if (shouldStop || IsDisposed || m_StopRequested) return;
@@ -4640,27 +4642,18 @@ namespace Media.Rtp
                                     //Increment for failed receptions
                                     ++tc.m_FailedRtpReceptions;
 
-                                    //Determine if the socket is out of sync
-                                    if (lastError == SocketError.ConnectionAborted || lastError == SocketError.ConnectionReset)
-                                    {
-                                        //Tcp this needs to be handled better, storing the last error on the context may also be useful
-
-                                        //if (tc.RtpSocket.ProtocolType == ProtocolType.Tcp)
-                                        //{
-                                        //    tc.DisconnectSockets();
-
-                                        //    continue;
-                                        //}
-
-                                        System.Threading.Thread.Sleep(0);
-                                    }
+                                    //Log for the error
+                                    Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRecieve RtpSocket - SocketError = " + lastError + " lastOperation = " + lastOperation + " taken = " + taken);
                                 }
                                 else //If anything was received, even 0 bytes then the context is active
                                     if (receivedRtp >= 0) lastOperation = DateTime.UtcNow;
                             }
-                            else
+                            else if (taken.TotalSeconds >= 0.5)
                             {
-                                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "Unable to Poll RtpSocket");
+                                //Indicate the poll was not successful
+                                lastError = SocketError.SocketError;
+
+                                Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRecieve - Unable to Poll RtcpSocket, taken =" + taken);
                             }
 
                             //if Rtcp is enabled
@@ -4680,41 +4673,28 @@ namespace Media.Rtp
                                         //Increment for failed receptions
                                         ++tc.m_FailedRtcpReceptions;
 
-                                        //Determine if the socket is out of sync
-                                        if (lastError == SocketError.ConnectionAborted || lastError == SocketError.ConnectionReset)
-                                        {
-                                            //Tcp this needs to be handled better, storing the last error on the context may also be useful
-
-                                            //if (tc.RtpSocket.ProtocolType == ProtocolType.Tcp)
-                                            //{
-                                            //    tc.DisconnectSockets();
-
-                                            //    continue;
-                                            //}
-
-                                            System.Threading.Thread.Sleep(0);
-                                        }
+                                        //Log for the error
+                                        Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRecieve RtcpSocket - SocketError = " + lastError + " lastOperation = " + lastOperation + " taken = " + taken);
                                     }
                                     else if (receivedRtcp >= 0) lastOperation = DateTime.UtcNow;
                                 }
-                                else
+                                else if (taken.TotalSeconds >= 0.5)
                                 {
-                                    Media.Common.ILoggingExtensions.Log(Logger, InternalId + "Unable to Poll RtcpSocket");
+                                    //Indicate the poll was not successful
+                                    lastError = SocketError.SocketError;
+
+                                    Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRecieve - Unable to Poll RtcpSocket, taken =" + taken);
                                 }
 
                                 //Try to send reports for the latest packets or a goodbye if inactive.
                                 if (SendReports(tc, out lastError) || SendGoodbyeIfInactive(lastOperation, tc)) lastOperation = DateTime.UtcNow;
-
-                                //Log when not default or success
-                                if (lastError != SocketError.SocketError && lastError != SocketError.Success && lastError != SocketError.TimedOut)
-                                {
-                                    Media.Common.ILoggingExtensions.Log(Logger, InternalId + "SocketError = " + lastError + " lastOperation = " + lastOperation + " taken = " + taken);
-                                }
                             }
                         }
 
                         //If there are no outgoing packets
-                        if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
+                        if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0
+                            || // OR there was a socket error at the last stage
+                            lastError != SocketError.Success)
                         {
                             //Check if not already lowest priority
                             if (System.Threading.Thread.CurrentThread.Priority != ThreadPriority.Lowest)
@@ -4722,7 +4702,9 @@ namespace Media.Rtp
                                 //Relinquish priority
                                 System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
                             }
-                            //else System.Threading.Thread.Sleep(0);
+
+                            //Waste time
+                            //System.Threading.Thread.Sleep(0);
                         }
 
                         //Critical

@@ -1571,10 +1571,10 @@ namespace Media.UnitTests
                 server.TryAddMedia(sampleStream = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Bandit", localPath + "\\Media\\Bandit\\") { Loop = true });
 
                 //Test Experimental H.264 Encoding
-                //server.AddMedia(new Media.Rtsp.Server.Media.RFC6184Media(128, 96, "h264", localPath + "\\Media\\JpegTest\\") { Loop = true });
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RFC6184Media(128, 96, "h264", localPath + "\\Media\\JpegTest\\") { Loop = true });
 
                 //Test Experimental MPEG Encoding
-                //server.AddMedia(new Media.Rtsp.Server.Media.RFC2250Media(128, 96, "mpeg", localPath + "\\Media\\JpegTest\\") { Loop = true });
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RFC2250Media(128, 96, "mpeg", localPath + "\\Media\\JpegTest\\") { Loop = true });
 
                 //Test Http Jpeg Transcoding
                 //server.AddMedia(new Media.Rtsp.Server.Media.JPEGMedia("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
