@@ -591,15 +591,19 @@ namespace Media.Rtsp.Server.MediaTypes
 
         //TODO, Use a better starting point e.g. https://github.com/jordicenzano/h264simpleCoder/blob/master/src/CJOCh264encoder.h or the OpenH264 stuff @ https://github.com/cisco/openh264
 
+        //http://stackoverflow.com/questions/6394874/fetching-the-dimensions-of-a-h264video-stream
+
+        //The sps should be changed to reflect the correct amount of macro blocks for the width and height specified as well as color depth.
+
         protected byte[] sps = { 0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x0a, 0xf8, 0x41, 0xa2 };
 
         protected byte[] pps = { 0x00, 0x00, 0x00, 0x01, 0x68, 0xce, 0x38, 0x80 };
 
-        byte[] slice_header = { 0x00, 0x00, 0x00, 0x01, 0x05, 0x88, 0x84, 0x21, 0xa0 },
+        byte[] //slice_header = { 0x00, 0x00, 0x00, 0x01, 0x05, 0x88, 0x84, 0x21, 0xa0 },
             slice_header1 = { 0x00, 0x00, 0x00, 0x01, 0x65, 0x88, 0x84, 0x21, 0xa0 },
             slice_header2 = { 0x00, 0x00, 0x00, 0x01, 0x65, 0x88, 0x94, 0x21, 0xa0 };
 
-        //bool useSliceHeader1 = true;
+        bool useSliceHeader1 = true;
         
         byte[] macroblock_header = { 0x0d, 0x00 };
 
@@ -651,6 +655,8 @@ namespace Media.Rtsp.Server.MediaTypes
                 0)); //This context is always valid from the first rtp packet received
         }
 
+        //Ported from https://cardinalpeak.com/downloads/hello264.c
+
         //Move to Codec/h264
         //H264Encoder
 
@@ -698,8 +704,11 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     macroBlocks.Add(new byte[] { 0x80 });//Stop bit (Wasteful by itself)
 
-                    //Packetize the data with the slice header.
-                    newFrame.Packetize(slice_header1.Concat(macroBlocks.SelectMany(mb => mb)).ToArray());
+                    //Packetize the data with the slice header (omit start code)
+                    newFrame.Packetize((useSliceHeader1 ? slice_header1 : slice_header2).Skip(4).Concat(macroBlocks.SelectMany(mb => mb)).ToArray());
+
+                    //Change slice header next time.
+                    useSliceHeader1 = !useSliceHeader1;
 
                     //Add the frame
                     AddFrame(newFrame);

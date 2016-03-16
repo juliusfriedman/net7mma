@@ -953,6 +953,14 @@ namespace Media
                 m_Memory[1] = msb;
             }
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            public CommonHeaderBits(byte[] data, int offset)
+            {
+                m_Memory = new MemorySegment(data, offset, CommonHeaderBits.Size);
+            }
+
+
+
             /// <summary>
             /// Makes an exact copy of the header from the given memory.
             /// </summary>
