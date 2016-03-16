@@ -8,17 +8,17 @@ using System.Collections.Generic;
 
 //This will prevent that by default but once implict operators are added in the implementation then it will be possible again
 
-namespace Media.Common.Classes
+namespace Media.Common
 {
 
-    public enum MessageType
+    public enum TransportMessageType
     {
         Unknown,
         Request,
         Response
     }
 
-    public abstract class MessageBase : CommonDisposable, IPacket
+    public abstract class TransportMessageBase : CommonDisposable, IPacket
     {
         /// <summary>
         /// The Date and Time the message was created.
@@ -35,7 +35,7 @@ namespace Media.Common.Classes
         /// </summary>
         public readonly string Protocol;
 
-        public MessageBase(string protocol)
+        public TransportMessageBase(string protocol)
             : base(true)
         {
             if (string.IsNullOrWhiteSpace(protocol)) 
@@ -44,7 +44,7 @@ namespace Media.Common.Classes
             Protocol = protocol;
         }
 
-        public MessageType MessageType { get; protected set; }
+        public TransportMessageType MessageType { get; protected set; }
 
         DateTime IPacket.Created
         {
