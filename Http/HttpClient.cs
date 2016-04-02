@@ -863,7 +863,9 @@ namespace Media.Http
                     #region Prepare To Send
 
                     //Determine if the message should be sent in chunks
-                    bool sendChunked = SendChunked && false == string.IsNullOrWhiteSpace(message.Body) || message.Version > 1.0 && string.Compare(message[HttpHeaders.TransferEncoding], "chunked", true) == 0;
+                    bool sendChunked = SendChunked && false == string.IsNullOrWhiteSpace(message.Body) 
+                        || 
+                        message.Version > 1.0 && string.Compare(message[HttpHeaders.TransferEncoding], "chunked", true) == 0;
 
                     //Protocol version < 1.1 does not support Transfer-Encoding.
                     if (sendChunked && ProtocolVersion < 1.1)

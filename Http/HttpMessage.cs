@@ -211,6 +211,7 @@ namespace Media.Http
         //String which is used to split Header values of the HttpMessage
         internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space };
 
+        //Should be instance variable and calulcated from Protocol
         internal static int MinimumStatusLineSize = 9; //'HTTP/X.X ' 
 
         public static readonly Encoding DefaultEncoding = System.Text.Encoding.UTF8;
@@ -227,6 +228,8 @@ namespace Media.Http
         #endregion
 
         #region Fields
+
+        public readonly string Protocol;
 
         protected bool m_StatusLineParsed, m_HeadersParsed;
 
@@ -252,6 +255,8 @@ namespace Media.Http
         /// Generic.Dictionary containing the headers of the HttpMessage
         /// </summary>
         readonly protected Dictionary<string, string> m_Headers = new Dictionary<string, string>(), m_EntityHeaders = new Dictionary<string, string>();
+
+        //readonly ValueType...
 
         /// <summary>
         /// The Date and Time the message was created.
@@ -301,11 +306,21 @@ namespace Media.Http
 
         #region Properties
 
+        //Todo...
+
+        //MaximumHeaders
+
+        //MaximumLength
+
+        /// <summary>
+        /// Gets or sets any ReasonPhrase assoicaited with the message. If the <see cref="MessageType"/> is equal to Response...
+        /// </summary>
         public string ReasonPhrase
         {
             get { return m_ReasonPhrase; }
             set
             {
+                //Maybe should allow setting even though its not used...
                 if (MessageType == HttpMessageType.Response) m_ReasonPhrase = value;
             }
         }
@@ -528,8 +543,10 @@ namespace Media.Http
 
                     //Should not be done for Multipart or Chunked...
 
+                    Encoding contentEncoding = ContentEncoding;
+
                     //Get the length of the body
-                    m_ContentLength = ContentEncoding.GetByteCount(m_Body);
+                    m_ContentLength = contentEncoding.GetByteCount(m_Body);
 
                     //Ensure all requests end with a CRLF
                     //if (false == m_Body.EndsWith(CRLF)) m_Body += CRLF;
@@ -538,7 +555,9 @@ namespace Media.Http
                     SetHeader(HttpHeaders.ContentLength, m_ContentLength.ToString());
 
                     //Set the Content-Encoding
-                    SetHeader(HttpHeaders.ContentEncoding, ContentEncoding.WebName);
+                    SetHeader(HttpHeaders.ContentEncoding, contentEncoding.WebName);
+
+                    contentEncoding = null;
                 }
             }
         }
@@ -581,9 +600,7 @@ namespace Media.Http
         {
             get { return GetHeader(header); }
             set { SetHeader(header, value); }
-        }
-
-        public readonly string Protocol;
+        }        
 
         /// <summary>
         /// Gets or Sets the encoding of the headers of this HttpMessage. (Defaults to UTF-8).
@@ -864,6 +881,9 @@ namespace Media.Http
             //Determine how much data is present.
             int count = (int)m_Buffer.Length, index = -1;
 
+
+            //Todo, should be Protocol.Length + 6
+
             //Ensure enough data is availble to parse.
             if (count <= MinimumStatusLineSize) return false;
 
@@ -901,16 +921,19 @@ namespace Media.Http
             //Determine where `HTTP` occurs.
             index = StatusLine.IndexOf(Protocol);
 
-            //If it was not present then do not parse further
-            if (index == -1)
+            //use the index of the Protocol to determine the MessageType
+            switch (index)
             {
-                MessageType = HttpMessageType.Invalid;
+                //If it was not present then do not parse further
+                case -1:
+                    {
+                        MessageType = HttpMessageType.Invalid;
 
-                return false;
+                        return false;
+                    }
+                case 0: MessageType = HttpMessageType.Response; break;
+                default: MessageType = HttpMessageType.Request; break;
             }
-
-            //Determine the message type by there the identifier occurs.
-            MessageType = index == 0 ? HttpMessageType.Response : HttpMessageType.Request;
 
             //Make an array of sub strings delemited by ' ', should max at 3 entries
             string[] parts = StatusLine.Split(SpaceSplit, 3);
@@ -935,9 +958,10 @@ namespace Media.Http
                 string part = string.Empty;// = parts[2];
 
                 if (string.IsNullOrWhiteSpace(MethodString) ||
-                    false == Uri.TryCreate(parts[1], UriKind.RelativeOrAbsolute, out Location) ||
-                    partsLength > 2 && string.IsNullOrEmpty(part = parts[2]) || part.Length <= 5 ||
-                    false == double.TryParse(Media.Common.ASCII.ExtractPrecisionNumber(part.Substring(5)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
+                    false == Uri.TryCreate(parts[1], UriKind.RelativeOrAbsolute, out Location) || //Ensure Location and the version can be parsed.
+                    partsLength > 2 && string.IsNullOrEmpty(part = parts[2]) || part.Length <= Protocol.Length || //assign part, check for null, empty or <= only the protocol string
+                    false == double.TryParse(Media.Common.ASCII.ExtractPrecisionNumber(part.Substring(Protocol.Length)), //Try to parse the version at the protocol length
+                            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
                 {
                     return false;
                 }
@@ -950,8 +974,9 @@ namespace Media.Http
 
                 //Extract PrecisionNumber should use EncodingExtensions
                 if (false == int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_StatusCode) ||
-                    string.IsNullOrEmpty(part) || part.Length <= 5 ||
-                    false == double.TryParse(Media.Common.ASCII.ExtractPrecisionNumber(part.Substring(5)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
+                    string.IsNullOrEmpty(part) || part.Length <= Protocol.Length || //Check for null, empty or <= only the protocol string
+                    false == double.TryParse(Media.Common.ASCII.ExtractPrecisionNumber(part.Substring(Protocol.Length)), //Try to parse the version at the protocol length
+                            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
                 {
                     return false;
                 }
@@ -960,14 +985,15 @@ namespace Media.Http
                 if (partsLength >= 3) m_ReasonPhrase = parts[2];
 
             }
-            else if (m_Buffer.Length > MaximumLength)
+            else if (m_Buffer.Length > MaximumLength) 
             {
                 MessageType = HttpMessageType.Invalid;
 
+                //Maybe should not dispose... (ShouldDispose)
                 DisposeBuffer();
             }
 
-            //The status line was parsed if the message is not invalid and the delemit was encountered
+            //The status line was parsed if the message is not invalid and the delemit was encountered (If not the reason phrase may be incomplete...)
             return m_StatusLineParsed = MessageType != HttpMessageType.Invalid && sawDelemit;
         }
 
@@ -1113,7 +1139,6 @@ namespace Media.Http
             catch { return false; }
         }
 
-        //Notes should use a seperate dictionary for entity headers.
         virtual protected bool ParseTrailer()
         {
             try
@@ -1864,6 +1889,9 @@ namespace Media.Http
             }
         }
 
+        //SupportsHeader, would help to eliminate unsupported headers...
+        //Possibly static on each Message type implementation
+
         /// <summary>
         /// Called when a header is added
         /// </summary>
@@ -2416,6 +2444,7 @@ namespace Media.Http
 
         int ParseChunk(ref int offset, int length) //out string extensions
         {
+        //Top:
             if (length <= 0) return -1;
 
             string ChunkLine;
@@ -2434,7 +2463,12 @@ namespace Media.Http
             if (read == 1 && sawDelemit && length > 1)
             {
                 ++offset;
-                return ParseChunk(ref offset, --length);
+                
+                //No Recursion
+                //--length;
+                //goto Top;
+                
+                return ParseChunk(ref offset, --length); 
             }
 
             int ChunkLength = -1;
@@ -2845,284 +2879,286 @@ namespace Media.UnitTests
 
         }
 
-        public void TestCompleteFrom()
-        {
-            using (Media.Http.HttpMessage message = new Media.Http.HttpMessage(Media.Http.HttpMessageType.Response))
-            {
-                message.HttpStatusCode = Media.Http.HttpStatusCode.OK;
-
-                //Include the session header
-                message.SetHeader(Media.Http.HttpHeaders.Session, "A9B8C7D6");
-
-                //This header should be included (it contains an invalid header directly after the end line data)
-                message.SetHeader(Media.Http.HttpHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
-
-                //This header should be included
-                message.SetHeader("Ignore", "$UserAgent $009\r\n$\0\0\aHTTP/1.0");
-
-                //This header should be ignored
-                message.SetHeader("$", string.Empty);
-
-                //Set the date header
-                message.SetHeader(Media.Http.HttpHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
-
-                //Create a buffer from the message
-                byte[] buffer = message.Prepare().ToArray();
-
-                //Cache the size of the buffer and the offset in parsing it.
-                int size = buffer.Length, offset;
-
-                //Test for every possible offset in the message
-                for (int i = 0; i < size; ++i)
-                {
-                    //Reset the offset
-                    offset = 0;
-
-                    //Complete a message in chunks
-                    using (Media.Http.HttpMessage toComplete = new Http.HttpMessage(Media.Common.MemorySegment.EmptyBytes))
-                    {
-
-                        //Store the sizes encountered
-                        List<int> chunkSizes = new List<int>();
-
-                        int currentSize = size;
-
-                        //While data remains
-                        while (currentSize > 0)
-                        {
-                            //Take a random sized chunk of at least 1 byte
-                            int chunkSize = Utility.Random.Next(1, currentSize);
-
-                            //Store the size of the chunk
-                            chunkSizes.Add(chunkSize);
-
-                            //Make a segment to that chunk
-                            using (Common.MemorySegment chunkData = new Common.MemorySegment(buffer, offset, chunkSize))
-                            {
-                                //Keep track of how much data was just used to complete the message using that chunk
-                                int justUsed = toComplete.CompleteFrom(null, chunkData);
-
-                                //Ensure the chunk was totally consumed
-                                if (justUsed != chunkSize) throw new Exception("TestCompleteFrom Failed! Did not consume all chunkData.");
-
-                                //Move the offset
-                                offset += chunkSize;
-
-                                //Decrese size
-                                currentSize -= chunkSize;
-                            }
-
-                            //Do another iteration
-                        }
-
-                        //Verify the message
-                        if (toComplete.IsComplete != message.IsComplete ||
-                            toComplete.HttpStatusCode != message.HttpStatusCode ||
-                            toComplete.Version != message.Version ||
-                            toComplete.HeaderCount != message.HeaderCount ||
-                            toComplete.GetHeaders().Where(h => message.ContainsHeader(h)).Any(h => string.Compare(toComplete[h], message[h]) > 0)) throw new Exception("TestCompleteFrom Failed! ChunkSizes =>" + string.Join(",", chunkSizes));
-
-                        //The header UserAgent should be different as it contains an invalid header in the message
-                        //Todo determine if this should be overlooked in Equals?
-                        //if (toComplete == message) throw new Exception("TestCompleteFrom Failed! Found equal message");
-                    }
-                }
-            }
-        }
-
-        public void TestCompleteFromWithBody()
-        {
-            using (Media.Http.HttpMessage message = new Media.Http.HttpMessage(Media.Http.HttpMessageType.Response, 1.0, Media.Http.HttpMessage.DefaultEncoding)
-            {
-                HttpStatusCode = Media.Http.HttpStatusCode.OK,
-                UserAgent = "$UserAgent $007\r\n$\0\0\aHttp/1.0",
-                Body = "$00Q\r\n$\0:\0"
-            })
-            {
-                //Shoudn't matter
-                message.HttpStatusCode = Media.Http.HttpStatusCode.OK;
-
-                //Include the session header
-                message.SetHeader(Media.Http.HttpHeaders.Session, "A9B8C7D6");
-
-                //This header should be included (it contains an invalid header directly after the end line data)
-                message.SetHeader(Media.Http.HttpHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
-
-                //This header should be included
-                message.SetHeader("Ignore", "$UserAgent $009\r\n$\0\0\aHTTP/1.0");
-
-                //This header should be ignored
-                message.SetHeader("$", string.Empty);
+        //Todo, must test in TE chunks, etc as per http spec, not rtsp
+
+        //public void TestCompleteFrom()
+        //{
+        //    using (Media.Http.HttpMessage message = new Media.Http.HttpMessage(Media.Http.HttpMessageType.Response))
+        //    {
+        //        message.HttpStatusCode = Media.Http.HttpStatusCode.OK;
+
+        //        //Include the session header
+        //        message.SetHeader(Media.Http.HttpHeaders.Session, "A9B8C7D6");
+
+        //        //This header should be included (it contains an invalid header directly after the end line data)
+        //        message.SetHeader(Media.Http.HttpHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
+
+        //        //This header should be included
+        //        message.SetHeader("Ignore", "$UserAgent $009\r\n$\0\0\aHTTP/1.0");
+
+        //        //This header should be ignored
+        //        message.SetHeader("$", string.Empty);
+
+        //        //Set the date header
+        //        message.SetHeader(Media.Http.HttpHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
+
+        //        //Create a buffer from the message
+        //        byte[] buffer = message.Prepare().ToArray();
+
+        //        //Cache the size of the buffer and the offset in parsing it.
+        //        int size = buffer.Length, offset;
+
+        //        //Test for every possible offset in the message
+        //        for (int i = 0; i < size; ++i)
+        //        {
+        //            //Reset the offset
+        //            offset = 0;
+
+        //            //Complete a message in chunks
+        //            using (Media.Http.HttpMessage toComplete = new Http.HttpMessage(Media.Common.MemorySegment.EmptyBytes))
+        //            {
+
+        //                //Store the sizes encountered
+        //                List<int> chunkSizes = new List<int>();
+
+        //                int currentSize = size;
+
+        //                //While data remains
+        //                while (currentSize > 0)
+        //                {
+        //                    //Take a random sized chunk of at least 1 byte
+        //                    int chunkSize = Utility.Random.Next(1, currentSize);
+
+        //                    //Store the size of the chunk
+        //                    chunkSizes.Add(chunkSize);
+
+        //                    //Make a segment to that chunk
+        //                    using (Common.MemorySegment chunkData = new Common.MemorySegment(buffer, offset, chunkSize))
+        //                    {
+        //                        //Keep track of how much data was just used to complete the message using that chunk
+        //                        int justUsed = toComplete.CompleteFrom(null, chunkData);
+
+        //                        //Ensure the chunk was totally consumed
+        //                        if (justUsed != chunkSize) throw new Exception("TestCompleteFrom Failed! Did not consume all chunkData.");
+
+        //                        //Move the offset
+        //                        offset += chunkSize;
 
-                //Set the date header
-                message.SetHeader(Media.Http.HttpHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
+        //                        //Decrese size
+        //                        currentSize -= chunkSize;
+        //                    }
+
+        //                    //Do another iteration
+        //                }
+
+        //                //Verify the message
+        //                if (toComplete.IsComplete != message.IsComplete ||
+        //                    toComplete.HttpStatusCode != message.HttpStatusCode ||
+        //                    toComplete.Version != message.Version ||
+        //                    toComplete.HeaderCount != message.HeaderCount ||
+        //                    toComplete.GetHeaders().Where(h => message.ContainsHeader(h)).Any(h => string.Compare(toComplete[h], message[h]) > 0)) throw new Exception("TestCompleteFrom Failed! ChunkSizes =>" + string.Join(",", chunkSizes));
+
+        //                //The header UserAgent should be different as it contains an invalid header in the message
+        //                //Todo determine if this should be overlooked in Equals?
+        //                //if (toComplete == message) throw new Exception("TestCompleteFrom Failed! Found equal message");
+        //            }
+        //        }
+        //    }
+        //}
+
+        //public void TestCompleteFromWithBody()
+        //{
+        //    using (Media.Http.HttpMessage message = new Media.Http.HttpMessage(Media.Http.HttpMessageType.Response, 1.0, Media.Http.HttpMessage.DefaultEncoding)
+        //    {
+        //        HttpStatusCode = Media.Http.HttpStatusCode.OK,
+        //        UserAgent = "$UserAgent $007\r\n$\0\0\aHttp/1.0",
+        //        Body = "$00Q\r\n$\0:\0"
+        //    })
+        //    {
+        //        //Shoudn't matter
+        //        message.HttpStatusCode = Media.Http.HttpStatusCode.OK;
+
+        //        //Include the session header
+        //        message.SetHeader(Media.Http.HttpHeaders.Session, "A9B8C7D6");
+
+        //        //This header should be included (it contains an invalid header directly after the end line data)
+        //        message.SetHeader(Media.Http.HttpHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
 
-                //Create a buffer from the message
-                byte[] buffer = message.Prepare().ToArray();
+        //        //This header should be included
+        //        message.SetHeader("Ignore", "$UserAgent $009\r\n$\0\0\aHTTP/1.0");
 
-                //Cache the size of the buffer and the offset in parsing it.
-                int size = buffer.Length, offset;
+        //        //This header should be ignored
+        //        message.SetHeader("$", string.Empty);
 
-                //Test for every possible offset in the message
-                for (int i = 0; i < size; ++i)
-                {
-                    //Reset the offset
-                    offset = 0;
+        //        //Set the date header
+        //        message.SetHeader(Media.Http.HttpHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
 
-                    //Complete a message in chunks
-                    using (Media.Http.HttpMessage toComplete = new Http.HttpMessage(Media.Common.MemorySegment.EmptyBytes))
-                    {
+        //        //Create a buffer from the message
+        //        byte[] buffer = message.Prepare().ToArray();
 
-                        //Store the sizes encountered
-                        List<int> chunkSizes = new List<int>();
+        //        //Cache the size of the buffer and the offset in parsing it.
+        //        int size = buffer.Length, offset;
 
-                        int currentSize = size;
+        //        //Test for every possible offset in the message
+        //        for (int i = 0; i < size; ++i)
+        //        {
+        //            //Reset the offset
+        //            offset = 0;
 
-                        //While data remains
-                        while (currentSize > 0)
-                        {
-                            //Take a random sized chunk of at least 1 byte
-                            int chunkSize = Utility.Random.Next(1, currentSize);
+        //            //Complete a message in chunks
+        //            using (Media.Http.HttpMessage toComplete = new Http.HttpMessage(Media.Common.MemorySegment.EmptyBytes))
+        //            {
 
-                            //Store the size of the chunk
-                            chunkSizes.Add(chunkSize);
+        //                //Store the sizes encountered
+        //                List<int> chunkSizes = new List<int>();
 
-                            //Make a segment to that chunk
-                            using (Common.MemorySegment chunkData = new Common.MemorySegment(buffer, offset, chunkSize))
-                            {
-                                //Keep track of how much data was just used to complete the message using that chunk
-                                int justUsed = toComplete.CompleteFrom(null, chunkData);
+        //                int currentSize = size;
 
-                                //Ensure the chunk was totally consumed
-                                if (justUsed != chunkSize) throw new Exception("TestCompleteFrom Failed! Did not consume all chunkData.");
+        //                //While data remains
+        //                while (currentSize > 0)
+        //                {
+        //                    //Take a random sized chunk of at least 1 byte
+        //                    int chunkSize = Utility.Random.Next(1, currentSize);
 
-                                //Move the offset
-                                offset += chunkSize;
+        //                    //Store the size of the chunk
+        //                    chunkSizes.Add(chunkSize);
 
-                                //Decrese size
-                                currentSize -= chunkSize;
-                            }
+        //                    //Make a segment to that chunk
+        //                    using (Common.MemorySegment chunkData = new Common.MemorySegment(buffer, offset, chunkSize))
+        //                    {
+        //                        //Keep track of how much data was just used to complete the message using that chunk
+        //                        int justUsed = toComplete.CompleteFrom(null, chunkData);
 
-                            //Do another iteration
-                        }
+        //                        //Ensure the chunk was totally consumed
+        //                        if (justUsed != chunkSize) throw new Exception("TestCompleteFrom Failed! Did not consume all chunkData.");
 
-                        //Verify the message
-                        if (toComplete.IsComplete != message.IsComplete ||
-                            toComplete.HttpStatusCode != message.HttpStatusCode ||
-                            toComplete.Version != message.Version ||
-                            toComplete.HeaderCount != message.HeaderCount ||
-                            toComplete.GetHeaders().Where(h => message.ContainsHeader(h)).Any(h => string.Compare(toComplete[h], message[h]) > 0) ||
-                            string.Compare(toComplete.Body, message.Body, false) != 0) throw new Exception("TestCompleteFrom Failed! ChunkSizes =>" + string.Join(",", chunkSizes));
+        //                        //Move the offset
+        //                        offset += chunkSize;
 
-                        //The header UserAgent should be different as it contains an invalid header in the message
-                        //Todo determine if this should be overlooked in Equals?
-                        //if (toComplete == message) throw new Exception("TestCompleteFrom Failed! Found equal message");
-                    }
-                }
-            }
-        }
+        //                        //Decrese size
+        //                        currentSize -= chunkSize;
+        //                    }
 
-        public void TestCompleteFromWith0LengthBody()
-        {
-            using (Media.Http.HttpMessage message = new Media.Http.HttpMessage(Media.Http.HttpMessageType.Response, 1.0, Media.Http.HttpMessage.DefaultEncoding)
-            {
-                HttpStatusCode = Media.Http.HttpStatusCode.OK,
-                UserAgent = "$UserAgent $007\r\n$\0\0\aHttp/1.0",
-                Body = string.Empty
-            })
-            {
-
-                //Set the Content-Length
-                message.SetHeader(Media.Http.HttpHeaders.ContentLength, (0).ToString());
-
-                //Set the Content-Encoding
-                message.SetHeader(Media.Http.HttpHeaders.ContentEncoding, message.ContentEncoding.WebName);
-
-                //Shoudn't matter
-                message.HttpStatusCode = Media.Http.HttpStatusCode.OK;
-
-                //Include the session header
-                message.SetHeader(Media.Http.HttpHeaders.Session, "A9B8C7D6");
-
-                //This header should be included (it contains an invalid header directly after the end line data)
-                message.SetHeader(Media.Http.HttpHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
-
-                //This header should be included
-                message.SetHeader("Ignore", "$UserAgent $009\r\n$\0\0\aHTTP/1.0");
-
-                //This header should be ignored
-                message.SetHeader("$", string.Empty);
-
-                //This header should not be ignored, it's a multiline value
-                message.SetHeader("Word of the day", "The quick brown fox \r\tJumps over the lazy dog.");
-
-                //Set the date header
-                message.SetHeader(Media.Http.HttpHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
-
-                //Create a buffer from the message
-                byte[] buffer = message.Prepare().ToArray();
-
-                //Cache the size of the buffer and the offset in parsing it.
-                int size = buffer.Length, offset;
-
-                //Test for every possible offset in the message
-                for (int i = 0; i < size; ++i)
-                {
-                    //Reset the offset
-                    offset = 0;
-
-                    //Complete a message in chunks
-                    using (Media.Http.HttpMessage toComplete = new Http.HttpMessage(Media.Common.MemorySegment.EmptyBytes))
-                    {
-
-                        //Store the sizes encountered
-                        List<int> chunkSizes = new List<int>();
-
-                        int currentSize = size;
-
-                        //While data remains
-                        while (currentSize > 0)
-                        {
-                            //Take a random sized chunk of at least 1 byte
-                            int chunkSize = Utility.Random.Next(1, currentSize);
-
-                            //Store the size of the chunk
-                            chunkSizes.Add(chunkSize);
-
-                            //Make a segment to that chunk
-                            using (Common.MemorySegment chunkData = new Common.MemorySegment(buffer, offset, chunkSize))
-                            {
-                                //Keep track of how much data was just used to complete the message using that chunk
-                                int justUsed = toComplete.CompleteFrom(null, chunkData);
-
-                                //Ensure the chunk was totally consumed
-                                if (justUsed != chunkSize) throw new Exception("TestCompleteFrom Failed! Did not consume all chunkData.");
-
-                                //Move the offset
-                                offset += chunkSize;
-
-                                //Decrese size
-                                currentSize -= chunkSize;
-                            }
-
-                            //Do another iteration
-                        }
-
-
-                        //Verify the message
-                        if (toComplete.IsComplete != message.IsComplete ||
-                            toComplete.HttpStatusCode != message.HttpStatusCode ||
-                            toComplete.Version != message.Version ||
-                            toComplete.HeaderCount != message.HeaderCount ||
-                            toComplete.GetHeaders().Where(h => message.ContainsHeader(h)).Any(h => string.Compare(toComplete[h], message[h]) > 0) ||
-                            string.Compare(toComplete.Body, message.Body) != 0) throw new Exception("TestCompleteFrom Failed! ChunkSizes =>" + string.Join(",", chunkSizes));
-
-                        //The header UserAgent should be different as it contains an invalid header in the message
-                        //Todo determine if this should be overlooked in Equals?
-                        //if (toComplete == message) throw new Exception("TestCompleteFrom Failed! Found equal message");
-                    }
-                }
-            }
-        }
+        //                    //Do another iteration
+        //                }
+
+        //                //Verify the message
+        //                if (toComplete.IsComplete != message.IsComplete ||
+        //                    toComplete.HttpStatusCode != message.HttpStatusCode ||
+        //                    toComplete.Version != message.Version ||
+        //                    toComplete.HeaderCount != message.HeaderCount ||
+        //                    toComplete.GetHeaders().Where(h => message.ContainsHeader(h)).Any(h => string.Compare(toComplete[h], message[h]) > 0) ||
+        //                    string.Compare(toComplete.Body, message.Body, false) != 0) throw new Exception("TestCompleteFrom Failed! ChunkSizes =>" + string.Join(",", chunkSizes));
+
+        //                //The header UserAgent should be different as it contains an invalid header in the message
+        //                //Todo determine if this should be overlooked in Equals?
+        //                //if (toComplete == message) throw new Exception("TestCompleteFrom Failed! Found equal message");
+        //            }
+        //        }
+        //    }
+        //}
+
+        //public void TestCompleteFromWith0LengthBody()
+        //{
+        //    using (Media.Http.HttpMessage message = new Media.Http.HttpMessage(Media.Http.HttpMessageType.Response, 1.0, Media.Http.HttpMessage.DefaultEncoding)
+        //    {
+        //        HttpStatusCode = Media.Http.HttpStatusCode.OK,
+        //        UserAgent = "$UserAgent $007\r\n$\0\0\aHttp/1.0",
+        //        Body = string.Empty
+        //    })
+        //    {
+
+        //        //Set the Content-Length
+        //        message.SetHeader(Media.Http.HttpHeaders.ContentLength, (0).ToString());
+
+        //        //Set the Content-Encoding
+        //        message.SetHeader(Media.Http.HttpHeaders.ContentEncoding, message.ContentEncoding.WebName);
+
+        //        //Shoudn't matter
+        //        message.HttpStatusCode = Media.Http.HttpStatusCode.OK;
+
+        //        //Include the session header
+        //        message.SetHeader(Media.Http.HttpHeaders.Session, "A9B8C7D6");
+
+        //        //This header should be included (it contains an invalid header directly after the end line data)
+        //        message.SetHeader(Media.Http.HttpHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
+
+        //        //This header should be included
+        //        message.SetHeader("Ignore", "$UserAgent $009\r\n$\0\0\aHTTP/1.0");
+
+        //        //This header should be ignored
+        //        message.SetHeader("$", string.Empty);
+
+        //        //This header should not be ignored, it's a multiline value
+        //        message.SetHeader("Word of the day", "The quick brown fox \r\tJumps over the lazy dog.");
+
+        //        //Set the date header
+        //        message.SetHeader(Media.Http.HttpHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
+
+        //        //Create a buffer from the message
+        //        byte[] buffer = message.Prepare().ToArray();
+
+        //        //Cache the size of the buffer and the offset in parsing it.
+        //        int size = buffer.Length, offset;
+
+        //        //Test for every possible offset in the message
+        //        for (int i = 0; i < size; ++i)
+        //        {
+        //            //Reset the offset
+        //            offset = 0;
+
+        //            //Complete a message in chunks
+        //            using (Media.Http.HttpMessage toComplete = new Http.HttpMessage(Media.Common.MemorySegment.EmptyBytes))
+        //            {
+
+        //                //Store the sizes encountered
+        //                List<int> chunkSizes = new List<int>();
+
+        //                int currentSize = size;
+
+        //                //While data remains
+        //                while (currentSize > 0)
+        //                {
+        //                    //Take a random sized chunk of at least 1 byte
+        //                    int chunkSize = Utility.Random.Next(1, currentSize);
+
+        //                    //Store the size of the chunk
+        //                    chunkSizes.Add(chunkSize);
+
+        //                    //Make a segment to that chunk
+        //                    using (Common.MemorySegment chunkData = new Common.MemorySegment(buffer, offset, chunkSize))
+        //                    {
+        //                        //Keep track of how much data was just used to complete the message using that chunk
+        //                        int justUsed = toComplete.CompleteFrom(null, chunkData);
+
+        //                        //Ensure the chunk was totally consumed
+        //                        if (justUsed != chunkSize) throw new Exception("TestCompleteFrom Failed! Did not consume all chunkData.");
+
+        //                        //Move the offset
+        //                        offset += chunkSize;
+
+        //                        //Decrese size
+        //                        currentSize -= chunkSize;
+        //                    }
+
+        //                    //Do another iteration
+        //                }
+
+
+        //                //Verify the message
+        //                if (toComplete.IsComplete != message.IsComplete ||
+        //                    toComplete.HttpStatusCode != message.HttpStatusCode ||
+        //                    toComplete.Version != message.Version ||
+        //                    toComplete.HeaderCount != message.HeaderCount ||
+        //                    toComplete.GetHeaders().Where(h => message.ContainsHeader(h)).Any(h => string.Compare(toComplete[h], message[h]) > 0) ||
+        //                    string.Compare(toComplete.Body, message.Body) != 0) throw new Exception("TestCompleteFrom Failed! ChunkSizes =>" + string.Join(",", chunkSizes));
+
+        //                //The header UserAgent should be different as it contains an invalid header in the message
+        //                //Todo determine if this should be overlooked in Equals?
+        //                //if (toComplete == message) throw new Exception("TestCompleteFrom Failed! Found equal message");
+        //            }
+        //        }
+        //    }
+        //}
     }
 }

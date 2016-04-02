@@ -293,7 +293,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         int qTablesCount = qTables.Count;
 
                         //Check for a table
-                        if (qTablesCount < 64) throw new InvalidOperationException("At least 1 quantization table must be included when quality >= 100");
+                        if (quality == byte.MaxValue && qTablesCount == 0) throw new InvalidOperationException("Packets MUST NOT contain Q = 255 and Length = 0.");
 
                         //Check for overflow
                         if (qTablesCount > ushort.MaxValue) Common.Binary.CreateOverflowException("qTables", qTablesCount, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
@@ -331,10 +331,14 @@ namespace Media.Rtsp.Server.MediaTypes
                 int tablesCount = tables.Count;
 
                 result.Add(Media.Codecs.Image.Jpeg.Markers.Prefix);
-                result.Add(Media.Codecs.Image.Jpeg.Markers.StartOfInformation);//SOI                
+                result.Add(Media.Codecs.Image.Jpeg.Markers.StartOfInformation);//SOI      
+          
+                //JFIF marker should be included here if jfif header is required. (16 more bytes)
+                
+                //JFXX marker would have thumbnail but is not required
 
-                //Quantization Tables
-                result.AddRange(CreateQuantizationTableMarkers(tables, precision));
+                //Quantization Tables (if needed, pass an empty tables segment to omit)
+                if(tables.Count > 0) result.AddRange(CreateQuantizationTableMarkers(tables, precision));
 
                 //Data Restart Invertval
                 if (dri > 0) result.AddRange(CreateDataRestartIntervalMarker(dri));
@@ -342,34 +346,38 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Start Of Frame
 
                 /*
-             
                    BitsPerSample / ColorComponents (1)
                    EncodingProcess	(1)
                  * Possible Values
-                        0x0 = Baseline DCT, Huffman coding 
-                        0x1 = Extended sequential DCT, Huffman coding 
-                        0x2 = Progressive DCT, Huffman coding 
-                        0x3 = Lossless, Huffman coding 
-                        0x5 = Sequential DCT, differential Huffman coding 
-                        0x6 = Progressive DCT, differential Huffman coding 
-                        0x7 = Lossless, Differential Huffman coding 
-                        0x9 = Extended sequential DCT, arithmetic coding 
-                        0xa = Progressive DCT, arithmetic coding 
-                        0xb = Lossless, arithmetic coding 
-                        0xd = Sequential DCT, differential arithmetic coding 
-                        0xe = Progressive DCT, differential arithmetic coding 
-                        0xf = Lossless, differential arithmetic coding
+                        0xc0 = Baseline DCT, Huffman coding 
+                        0xc1 = Extended sequential DCT, Huffman coding 
+                        0xc2 = Progressive DCT, Huffman coding 
+                        0xc3 = Lossless, Huffman coding 
+                 *      0xc4 = Huffman Table.
+                        0xc5 = Sequential DCT, differential Huffman coding 
+                        0xc6 = Progressive DCT, differential Huffman coding 
+                        0xc7 = Lossless, Differential Huffman coding 
+                 *      0xc8 = Extension
+                        0xc9 = Extended sequential DCT, arithmetic coding 
+                        0xca = Progressive DCT, arithmetic coding 
+                        0xcb = Lossless, arithmetic coding 
+                 *      0xcc =  DAC   = 0xcc,   define arithmetic-coding conditioning
+                        0xcd = Sequential DCT, differential arithmetic coding 
+                        0xce = Progressive DCT, differential arithmetic coding 
+                        0xcf = Lossless, differential arithmetic coding
+                 *      0xf7 = JPEG-LS Start Of Frame
                     ImageHeight	(2)
                     ImageWidth	(2) 
                     YCbCrSubSampling	(1)
                  * Possible Values
                         '1 1' = YCbCr4:4:4 (1 1) 
                         '1 2' = YCbCr4:4:0 (1 2) 
-                        '2 1' = YCbCr4:2:2 (2 1)              
+                        '1 4' = YCbCr4:4:1 (1 4) 
+                        '2 1' = YCbCr4:2:2 (2 1) 
                         '2 2' = YCbCr4:2:0 (2 2) 
+                        '2 4' = YCbCr4:2:1 (2 4) 
                         '4 1' = YCbCr4:1:1 (4 1) 
                         '4 2' = YCbCr4:1:0 (4 2)
-             
                  */
 
                 //Need a progrssive indication, problem is that CMYK and RGB also use that indication
@@ -378,6 +386,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 result.Add(Media.Codecs.Image.Jpeg.Markers.Prefix);
 
+                //This is not soley based on progressive or not, this needs to include more types based on what is defined (above)
                 if(progressive)
                     result.Add(Media.Codecs.Image.Jpeg.Markers.StartOfProgressiveFrame);//SOF
                 else
@@ -506,7 +515,7 @@ namespace Media.Rtsp.Server.MediaTypes
             // The default 'luma' and 'chroma' quantizer tables, in zigzag order and energy reduced
             static byte[] defaultQuantizers = new byte[]
         {
-           // luma table:
+           // luma table: Psychovisual
            16, 11, 12, 14, 12, 10, 16, 14,
            13, 14, 18, 17, 16, 19, 24, 40,
            26, 24, 22, 22, 24, 49, 35, 37,
@@ -549,6 +558,29 @@ namespace Media.Rtsp.Server.MediaTypes
             99, 99, 99, 99, 99, 99, 99, 99,
             99, 99, 99, 99, 99, 99, 99, 99
         };
+            
+            //http://www.jatit.org/volumes/Vol70No3/24Vol70No3.pdf
+            static byte[] psychoVisualQuantizers = new byte[]
+        {
+           // luma table:
+           16, 14, 13, 15, 19, 28, 37, 55,
+           14, 13, 15, 19, 28, 37, 55, 64,
+           13, 15, 19, 28, 37, 55, 64, 83,
+           15, 19, 28, 37, 55, 64, 83, 103,
+           19, 28, 37, 55, 64, 83, 103, 117,
+           28, 37, 55, 64, 83, 103, 117, 117,
+           37, 55, 64, 83, 103, 117, 117, 111,
+           55, 64, 83, 103, 117, 117, 111, 90,
+           //chroma table
+           18, 18, 23, 34, 45, 61, 71, 9,
+           18, 23, 34, 45, 61, 71, 92, 92,
+           23, 34, 45, 61, 71, 92, 92, 104,
+           34, 45, 61, 71, 92, 92, 104, 115,
+           45, 61, 71, 92, 92, 104, 115, 119,
+           61, 71, 92, 92, 104, 115, 119, 112,
+           71, 92, 92, 104, 115, 119, 112, 106,
+           92, 92, 104, 115, 119, 112, 106, 100
+        };
 
             /// <summary>
             /// Creates a Luma and Chroma Table in ZigZag order using the default quantizers specified in RFC2435
@@ -558,7 +590,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="precision"></param>
             /// <param name="useRfcQuantizer"></param>
             /// <returns>luma and chroma tables</returns>
-            internal static byte[] CreateQuantizationTables(uint type, uint Q, byte precision, bool useRfcQuantizer)
+            internal static byte[] CreateQuantizationTables(uint type, uint Q, byte precision, bool useRfcQuantizer, bool clamp = true, int maxQ = 100, bool psychoVisualQuantizer = false)
             {
                 //Ensure not the reserved value.
                 if (Q == 0) throw new InvalidOperationException("Q == 0 is reserved.");
@@ -570,13 +602,26 @@ namespace Media.Rtsp.Server.MediaTypes
                 //As per RFC2435 4.2.
                 //if (Q >= 100) throw new InvalidOperationException("Q >= 100, a dynamically defined quantization table is used, which might be specified by a session setup protocol.");
 
-                byte[] quantizer = useRfcQuantizer ? rfcQuantizers :  defaultQuantizers;
+                byte[] quantizer = useRfcQuantizer ? rfcQuantizers : psychoVisualQuantizer ? psychoVisualQuantizers : defaultQuantizers;
 
-                //Factor restricted to range of 1 and 99
-                int factor = (int)Common.Binary.Clamp(Q, 1, 99); // Math.Min(Math.Max(1, Q), 99);
+                //This is because Q can be 1 - 128 and values 100 - 127 may produce different Seed values however the standard only defines for Q 1 => 100
+                //The higher values sometimes round or don't depending on the system they were generated in or the decoder of the system and are typically found in progressive images.
 
-                //Seed quantization value
-                int q = (Q >= 1 && Q <= 50 ? (int)(5000 / factor) : 200 - factor * 2);
+                //Note that FFMPEG uses slightly different quantization tables (as does this implementation) which are saturated for viewing within the psychovisual threshold.
+                
+
+                //Factor restricted to range of 1 and 100 (or maxQ)
+                int factor = (int)(clamp ? Common.Binary.Clamp(Q, 1, maxQ) : Q);
+
+                // 4.2 Text
+                // S = 5000 / Q          for  1 <= Q <= 50
+                //   = 200 - 2 * Q       for 51 <= Q <= 99
+
+                //Seed quantization value for values less than or equal to 50, ffmpeg uses 1 - 49... @ https://ffmpeg.org/doxygen/2.3/rtpdec__jpeg_8c_source.html
+                //Following the RFC @ Appendix A https://tools.ietf.org/html/rfc2435#appendix-A
+
+                //This implementation differs slightly in that it uses the text from 4.2 literally.
+                int q = (Q <= 50 ? (int)(5000 / factor) : 200 - factor * 2);
 
                 //Create 2 quantization tables from Seed quality value using the RFC quantizers
                 int tableSize = (precision > 0 ? 128 : 64);/// quantizer.Length / 2;
@@ -647,6 +692,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 int tableCount = tables.Count / (precisionTable > 0 ? 128 : 64);
 
+                //Invalid sized tables....
                 if (tables.Count % tableCount > 0) tableCount = 1;
 
                 //??Some might have more then 3?
@@ -659,6 +705,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //Each tag is 4 bytes (prefix and tag) + 2 for len = 4 + 1 for Precision and TableId 
                 byte[] result = new byte[(5 * tableCount) + (tableSize * tableCount)];
+
+                //1 Table
 
                 //Define QTable
                 result[0] = Media.Codecs.Image.Jpeg.Markers.Prefix;
@@ -673,6 +721,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 //First table. Type - Lumiance usually when two
                 System.Array.Copy(tables.Array, tables.Offset, result, 5, tableSize);
 
+                //2 Tables
                 if (tableCount > 1)
                 {
                     result[tableSize + 5] = Media.Codecs.Image.Jpeg.Markers.Prefix;
@@ -682,12 +731,13 @@ namespace Media.Rtsp.Server.MediaTypes
                     result[tableSize + 8] = len;
 
                     //Pq / Tq
-                    result[tableSize + 9] = (byte)(precisionTable << 7 > 0 ? 8 : 0 | 1);//Precision and table Id 1
+                    result[tableSize + 9] = (byte)(precisionTable << 7 > 0 ? 8 : 1);//Precision and table Id 1
 
                     //Second Table. Type - Chromiance usually when two
                     System.Array.Copy(tables.Array, tables.Offset + tableSize, result, 10 + tableSize, tableSize);
                 }
 
+                //3 Tables
                 if (tableCount > 2)
                 {
                     result[tableSize + 10] = Media.Codecs.Image.Jpeg.Markers.Prefix;
@@ -697,7 +747,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     result[tableSize + 13] = len;
 
                     //Pq / Tq
-                    result[tableSize + 14] = (byte)(precisionTable << 6 > 0 ? 8 : 0 | 2);//Precision and table Id 2
+                    result[tableSize + 14] = (byte)(precisionTable << 6 > 0 ? 8 : 2);//Precision and table Id 2
 
                     //Second Table. Type - Chromiance usually when two
                     System.Array.Copy(tables.Array, tables.Offset + tableSize, result, 14 + tableSize, tableSize);
@@ -1016,6 +1066,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     if (disposeImage) image.Dispose();
 
                     //When the quality is >= 100 specify that the quantization tables will be included by using >= 128 for quality. (RFC2035 used >= 100)
+                    //ffmpeg recently allows Q=100 to be calculated so this may need to change to > 100
                     return new RFC2435Frame(temp, imageQuality >= 100 ? 128 : imageQuality, ssrc, sequenceNo, timeStamp, bytesPerPacket);
                 }
 
@@ -1167,7 +1218,9 @@ namespace Media.Rtsp.Server.MediaTypes
                         {
                             case Media.Codecs.Image.Jpeg.Markers.QuantizationTable:
                                 {
-                                    //This is skipping the tables, it should probably adjust quality if needed.
+                                    //Note that RFC2035 allowed 100 - 127 to specify this.
+
+                                    //This is skipping the tables, it should probably continue and ensure the Quality value given will hold or adjust it if necessary.
                                     if (Quality < 128 || CodeSize < 1) goto default;
 
                                     byte compound = (byte)jpegStream.ReadByte();//Read Table Id (And Precision which is in the same byte)
@@ -1209,9 +1262,24 @@ namespace Media.Rtsp.Server.MediaTypes
                             //        //streamOffset += 2;
                             //        break;
                             //    }
+                            //I assume this could really be based on the first few bits (startOf) 0xc where the 0 indicates baseline, etc.
                             case Media.Codecs.Image.Jpeg.Markers.StartOfBaselineFrame:
+                                //Extended sequential DCT
                             case Media.Codecs.Image.Jpeg.Markers.StartOfProgressiveFrame:
+                                //Lossless
+                                //etc
                                 {
+                                    #region Using other types of frames
+
+                                    //Thus if you wanted to signal that you could give the last 4 bits of the FunctionCode to the RtpJpegType or RtpJpegTypeSpecific.
+                                    //I use RtpJpegTypeSpecific to signal the sampling factors because there are 4 unused bits which is all that is needed, this value is also not usually passed to the bitstream so changing it usually does not get it into the bit stream or interfere with receivers.
+                                    //I could also use the RtpJpeg field to signal the FrameTime, it is only checked to be 0 in the RFC to determine the sampling factors, other values here shouldn't matter depending on how the receiver interprets this however the SOF0 WILL be written at the receiver side so it's best not to use this field to signal anything
+
+                                    //RtpJpegType |= (byte)(FunctionCode << 28);
+                                    //Or by masking out what we may expect...
+                                    //RtpJpegType = (byte)(FunctionCode & 0xc0);
+
+                                    #endregion
 
                                     //If there is no data in the tag continue. (9 is probably the minimum, unless there are 0 components?)
                                     if (CodeSize <= 6) throw new InvalidOperationException("Invalid StartOfFrame");
@@ -1255,7 +1323,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                     //Vi: Vertical sampling factor – Specifies the relationship between the component vertical dimension and
                                     //maximum image dimension Y (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of vertical data units of component Ci in
-                                    //each MCU, when more than one component is encoded in a scan                             
+                                    //each MCU, when more than one component is encoded in a scan                                                                 
 
                                     //Experimental Support for Any amount of samples.
                                     if (Nf > 1)
@@ -1263,8 +1331,14 @@ namespace Media.Rtsp.Server.MediaTypes
                                         //Check remaining components (Chroma)
                                         //for (int i = 1; i < numberOfComponents; ++i) if (data[7 + i * 3] != 17) throw new Exception("Only 1x1 chroma blocks are supported.");
 
-                                        // Add all of the necessary components to the frame.
-                                        for (int tableId = 0; tableId < Nf; ++tableId)
+                                        // Add all of the necessary components to the frame, if there is the data specified for the component.
+                                        for (int tableId = 0; 
+                                            //Ensure count and offsets
+                                            tableId < Nf 
+                                                && 
+                                            offset + 3 < CodeSize; 
+                                            //Increase tableId
+                                            ++tableId)
                                         {
                                             byte compId = data[offset++];
                                             byte samplingFactors = data[offset++];
@@ -1280,7 +1354,12 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 if ((sampleHFactor != 2 || sampleVFactor != 1))
                                                 {
                                                     if (tableId == 0) RtpJpegType |= 1;
-                                                    else if (tableId > 0 && samplingFactors != RtpJpegTypeSpecific) RtpJpegTypeSpecific ^= samplingFactors;
+                                                    else if (tableId > 0 && samplingFactors != RtpJpegTypeSpecific)
+                                                    {
+                                                        //Experimentally
+                                                        //Signal the sampling factor of the component into the RtpJpegTypeSpecific
+                                                        RtpJpegTypeSpecific ^= samplingFactors;
+                                                    }
                                                 }
                                             }
                                         }
@@ -1375,19 +1454,23 @@ namespace Media.Rtsp.Server.MediaTypes
                                     if (Ns > 0)
                                     {
                                         //Should check tableInfo  does not exceed the number of HuffmanTables
-                                        //The number of Quant tables will be equal to the number of huffman tables so if there are (64 / QuantizationTables.Count) Tables
-                                        int tableCount = QuantizationTables.Count / (RtpJpegPrecisionTable > 0 ? 128 : 64);
+                                        //The number of Quant tables MAY be equal to the number of huffman tables so if there are (64 / QuantizationTables.Count) Tables
+                                        //int tableCount = QuantizationTables.Count / (RtpJpegPrecisionTable > 0 ? 128 : 64);
 
+                                        //Should ALSO verify count of data remaining or check result of ReadByte for -1.
+
+                                        //loop to extract the information
                                         for (int i = 0; i < Ns; ++i)
                                         {
                                             // Component ID, packed byte containing the Id for the
                                             // AC table and DC table.
                                             byte componentID = (byte)jpegStream.ReadByte();
+
                                             byte tableInfo = (byte)jpegStream.ReadByte();
 
                                             streamOffset += 2;
 
-                                            //Restrict or throw exception?
+                                            //Restrict or throw exception? (See notes above)
                                             //if (tableInfo > tableCount - 1) tableInfo = (byte)(tableCount - 1);
 
                                             //Decode DC and AC Values if require
@@ -1396,15 +1479,18 @@ namespace Media.Rtsp.Server.MediaTypes
                                         }
                                     }
 
+                                    //These sometimes matter and thus would also need to be signaled.
                                     byte startSpectralSelection = (byte)(jpegStream.ReadByte());
+
                                     byte endSpectralSelection = (byte)(jpegStream.ReadByte());
+
                                     byte successiveApproximation = (byte)(jpegStream.ReadByte());
 
                                     streamOffset += 3;
 
                                     if (pos + CodeSize != streamOffset) throw new InvalidOperationException("Invalid StartOfScan Marker");
 
-                                    //Check for alternate endSpectral
+                                    //Check for alternate endSpectral (63 = default)
                                     //if (RtpJpegType > 0 && Ns > 0 && endSpectralSelection != 0x3f) RtpJpegTypeSpecific = Media.Codecs.Image.Jpeg.Markers.StartOfProgressiveFrame;
                                     
                                     //Todo, determine which tables to look at based on how many tables and the type of sub sampling.                                    
@@ -1465,7 +1551,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                     //While we are not done reading
                                     while (streamRemains > 0)
                                     {
-                                        //Read what we need into the packet
+                                        //Read what we need into the packet (Should be done according to CodeSize.)
                                         do
                                         {
                                             justRead = jpegStream.Read(currentPacket.Payload.Array, (int)(currentPacketOffset), (int)remainingPayloadOctets);
@@ -1545,6 +1631,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 }
                             default:
                                 {
+
                                     //C4 = Huffman
                                     //Might have to read huffman to determine compatiblity tableClass 1 is Lossless?)
                                     //E1 = JpegThumbnail 160x120 Adobe XMP
@@ -1598,7 +1685,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <summary>
             /// Writes the packets to a memory stream and creates the default header and quantization tables if necessary.
             /// </summary>
-            public virtual void  PrepareBuffer(bool allowLegacyPackets = false, bool allowIncomplete = false, bool useRfcQuantizer = false)
+            public virtual void  PrepareBuffer(bool allowLegacyPackets = false, bool allowIncomplete = false, bool useRfcQuantizer = false) //clamp, maxQ, psychoVisual
             {
 
                 if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
@@ -1844,15 +1931,16 @@ namespace Media.Rtsp.Server.MediaTypes
                             +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                              */
 
-                            //This can be used to determine incorrectly parsing this for a RFC2035 packet which does not include a table when the quality is >= 100                            
+                            //This can be used to determine incorrectly parsing this data for a RFC2035 packet which does not include a table when the quality is >= 100                            
                             if ((packet.Payload.Array[offset]) != 0)
                             {
                                 //Sometimes helpful in determining this...
-                                //useRfcQuantizer = Quality > 99;
+                                //useRfcQuantizer = Quality > 100;
 
                                 //offset not moved into what would be the payload
+
                                 //create default tables.
-                                tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer));
+                                tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer)); //clamp, maxQ, psycovisual
                             }
                             else
                             {
@@ -1956,6 +2044,14 @@ namespace Media.Rtsp.Server.MediaTypes
                 }                
             }
 
+            //Allow a PrepareBuffer with tables
+
+            //PrepareBufferRFC2035
+
+            ////PrepareBufferRFC2435
+
+            ////PrepareBufferPsychoVisual
+
             //Todo - Remove 'Image'
 
             //Overload Buffer to PrepareBuffer if made available in base class.
@@ -1970,6 +2066,7 @@ namespace Media.Rtsp.Server.MediaTypes
             public System.Drawing.Image ToImage(bool useEmbeddedColorManagement = true, bool validateImageData = false)
             {
                 if (IsDisposed) return null;
+
                 try
                 {
                     if (Buffer == null || false == Buffer.CanRead) PrepareBuffer();
@@ -2488,6 +2585,32 @@ namespace Media.UnitTests
 
                 //if (Common.Binary.Abs(averageQuality - i) > 10) throw new InvalidOperationException("Invalid Average Quality Detected");
 
+                tables = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.CreateQuantizationTables(0, (uint)i, 0, true);
+
+                determinedLumaQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineQuality(false, tables, 0);
+
+                determinedChromaQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineQuality(false, tables, 64);
+
+                //If the quality is not determined correctly from the tables created this is an exception
+                if (Common.Binary.Abs(determinedLumaQuality - i) > 5) throw new InvalidOperationException("Invalid Luma Quality Detected");
+
+                if (Common.Binary.Abs(determinedChromaQuality - i) > 5) throw new InvalidOperationException("Invalid Chroma Quality Detected");
+
+                //if (Common.Binary.Abs(averageQuality - i) > 10) throw new InvalidOperationException("Invalid Average Quality Detected");
+
+                tables = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.CreateQuantizationTables(0, (uint)i, 0, false, true, 100, true);
+
+                determinedLumaQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineQuality(false, tables, 0);
+
+                determinedChromaQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineQuality(false, tables, 64);
+
+                //If the quality is not determined correctly from the tables created this is an exception
+                if (Common.Binary.Abs(determinedLumaQuality - i) > 5) throw new InvalidOperationException("Invalid Luma Quality Detected");
+
+                if (Common.Binary.Abs(i - determinedChromaQuality) > 7) throw new InvalidOperationException("Invalid Chroma Quality Detected");
+
+                //if (Common.Binary.Abs(averageQuality - i) > 10) throw new InvalidOperationException("Invalid Average Quality Detected");
+
                 tables = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.CreateQuantizationTables(0, (uint)i, 1, true);
 
                 determinedLumaQuality = Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame.DetermineQuality(true, tables, 0);
@@ -2678,6 +2801,12 @@ namespace Media.UnitTests
 
             if (false == System.IO.Directory.Exists(TestDirectory)) throw new System.InvalidOperationException("TestDirectory does not exist!");
 
+            //Currently 444 is the only type not really passing even when it's own tables are included.
+            //Also Progressive imagages, some due to the wrong tag and others due to the spectral.
+
+            //The standard also doesn't really work for images with only 1 huffman table so to get around that you have to specify quality 128 to ensure that the tables are included. (only 64 bytes)
+            //This will also depend on the receiver who should check this length to determine the number of components.
+
             //Used in tests below
             Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame f = null;
 
@@ -2715,7 +2844,7 @@ namespace Media.UnitTests
                 //Try with 128
                 using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
                 {
-                    //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
+                    //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization with Quant Tables)
                     f = new Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame(jpegStream, 128);
 
                     //Save the JpegFrame as a Image (Decoding performed)

@@ -81,6 +81,10 @@
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
       <Name>Media.Common</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
+      <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>
+      <Name>Media.Ntp</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Content Include="License.txt" />

@@ -100,6 +100,8 @@ namespace Media.Common.Extensions
             }
         }
 
+        //Notes these values are compiled into the library.
+        //To determine at RunTime use the RuntimeExtensions.
         #region Xaramin
 
         public static bool IsiOS
@@ -127,7 +129,7 @@ namespace Media.Common.Extensions
         }
 
 
-        public static bool IsTVOS
+        public static bool IsTvOS
         {
             get
             {

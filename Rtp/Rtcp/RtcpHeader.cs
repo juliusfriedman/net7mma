@@ -112,9 +112,9 @@ namespace Media.Rtcp
         /// <summary>
         /// The last six octets of the RtcpHeader which contain the length in 32 bit words and the SSRC/CSRC of the sender of this RtcpHeader
         /// </summary>
-        byte[] Last6Bytes;
+        internal byte[] Last6Bytes;
 
-        Common.MemorySegment PointerToLast6Bytes;
+        internal Common.MemorySegment PointerToLast6Bytes;
 
         #endregion
 
@@ -288,6 +288,7 @@ namespace Media.Rtcp
         /// Reads an instance of the RtcpHeader class and copies octets which make up the RtcpHeader.
         /// </summary>
         /// <param name="octets">A reference to a byte array which contains at least 4 octets to copy.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(byte[] octets, int offset = 0)
         {
             //If the octets reference is null throw an exception
@@ -325,6 +326,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="other">The RtpHeader to copy</param>
         /// <param name="reference">A value indicating if the RtpHeader given should be referenced or copied.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(RtcpHeader other, bool reference)
         {
             if (reference)
@@ -354,6 +356,7 @@ namespace Media.Rtcp
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(Common.MemorySegment memory)//, int additionalOffset = 0) 
         {
             First16Bits = new Media.RFC3550.CommonHeaderBits(memory);//, additionalOffset);
@@ -363,6 +366,7 @@ namespace Media.Rtcp
 
         //Todo overloads when CommonHeaderBits exist...
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount)
         {
             First16Bits = new Media.RFC3550.CommonHeaderBits(version, padding, false, false, payloadType, (byte)blockCount);
@@ -375,12 +379,14 @@ namespace Media.Rtcp
             if(blockCount == 0) LengthInWordsMinusOne = RtcpHeader.MaximumLengthInWords; // ushort (0 - 1)
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc)
             : this(version, payloadType, padding, blockCount)
         {
             SendersSynchronizationSourceIdentifier = ssrc;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc, int lengthInWords)
             : this(version, payloadType, padding, blockCount, ssrc)
         {

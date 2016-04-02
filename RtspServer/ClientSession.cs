@@ -59,6 +59,7 @@ namespace Media.Rtsp//.Server
 
         #region Fields
 
+        //internal bool HasAuthenticated;
 
         //The time the session was created.
         public readonly DateTime Created = DateTime.UtcNow;
@@ -932,6 +933,8 @@ namespace Media.Rtsp//.Server
 
             //RTCP-mux: when RTSP 2.0 is official... (Along with Server Sent Messages)
 
+            //Todo, destination datum support.
+
             //Check if the ssrc was 0 which indicates any id
             if (localSsrc == 0) localSsrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
 
@@ -989,7 +992,7 @@ namespace Media.Rtsp//.Server
                 if (sourceStream.ForceTCP)//The client wanted Udp and Tcp was forced
                 {
                     //Return the result
-                    var result = CreateRtspResponse(request, RtspStatusCode.UnsupportedTransport);
+                    RtspMessage result = CreateRtspResponse(request, RtspStatusCode.UnsupportedTransport);
 
                     //Indicate interleaved is required.
                     result.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, null, false, null, true, dataChannel, controlChannel));
@@ -1017,7 +1020,7 @@ namespace Media.Rtsp//.Server
 
                 //Create sockets to reserve the ports.
 
-                var localAddress = ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address;
+                IPAddress localAddress = ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address;
 
                 Socket tempRtp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, localAddress, clientRtpPort);
 
@@ -1152,7 +1155,7 @@ namespace Media.Rtsp//.Server
             //Add the new source
             Attached.Add(sourceContext, sourceStream);
         
-            UpdateContext:
+        UpdateContext:
 
             //Synchronize the context sequence numbers
             setupContext.RecieveSequenceNumber = sourceContext.RecieveSequenceNumber;
@@ -1496,6 +1499,8 @@ namespace Media.Rtsp//.Server
         /// <param name="request">The request to utilize the SequenceNumber from, if null the current SequenceNumber is used</param>
         /// <param name="statusCode">The StatusCode of the generated response</param>
         /// <returns>The RtspResponse created</returns>
+        /// 
+        //todo, should not allow body or should also allow content-type
         internal RtspMessage CreateRtspResponse(RtspMessage request = null, RtspStatusCode statusCode = RtspStatusCode.OK, string reasonPhrase = null, string body = null)
         {
             RtspMessage response = new RtspMessage(RtspMessageType.Response);
@@ -1516,17 +1521,17 @@ namespace Media.Rtsp//.Server
                 if (request.ContainsHeader(RtspHeaders.Session)) response.SetHeader(RtspHeaders.Session, request.GetHeader(RtspHeaders.Session));
 
                 if (statusCode != RtspStatusCode.BadRequest) response.CSeq = request.CSeq;
-            }
-            else if (statusCode != RtspStatusCode.BadRequest && LastRequest.CSeq >= 0) response.CSeq = LastRequest.CSeq;
+            }//Request is null, check the statusCode, if not BadRequest check for a LastRequest and use that CSeq.
+            else if (statusCode != RtspStatusCode.BadRequest && false == Common.IDisposedExtensions.IsNullOrDisposed(LastRequest) && LastRequest.CSeq >= 0) response.CSeq = LastRequest.CSeq;
+            //Otherwise no CSeq is provided in response...
 
             //Include any reason phrase.
             if (false == string.IsNullOrWhiteSpace(reasonPhrase)) response.ReasonPhrase = reasonPhrase;
 
-            //else response.ReasonPhrase = statusCode.ToString();
+            //Include any body if provided and the response is allowed to have a body.
+            if (false == string.IsNullOrWhiteSpace(body) && response.CanHaveBody) response.Body = body;
 
-            //Include any body.
-            if (false == string.IsNullOrWhiteSpace(body)) response.Body = body;
-
+            //return the response.
             return response;
         }
 
@@ -1581,8 +1586,10 @@ namespace Media.Rtsp//.Server
             //Type = broadcast
             //charset 
 
-            string protcol = RtspMessage.MessageIdentifier.ToLowerInvariant(), controlLineBase = "a=control:" + protcol + "://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address.ToString() + "/live/" + stream.Id;
-            //check for rtspu later...
+            //Todo, protocol should be determined from server and request.
+            string protcol = RtspMessage.MessageIdentifier.ToLowerInvariant(),
+                addressString = LocalEndPoint.Address.ToString(),
+                controlLineBase = "a=control:" + protcol + "://" + addressString + "/live/" + stream.Id;
 
             //Find an existing control line
             Media.Sdp.SessionDescriptionLine controlLine = sdp.ControlLine;
@@ -1593,10 +1600,11 @@ namespace Media.Rtsp//.Server
                 sdp.Remove(controlLine);
                 controlLine = sdp.ControlLine;
             }
+
             //Determine if session level control line should be present
             
             //Rewrite a new connection line
-            string addressString = LocalEndPoint.Address.ToString();// +"/127/2";
+            //string addressString = LocalEndPoint.Address.ToString();// +"/127/2";
 
             //int lastPort = Utility.FindOpenPort( stream.m_ForceTCP ? ProtocolType.Tcp : ProtocolType.Udp);
 
@@ -1605,7 +1613,6 @@ namespace Media.Rtsp//.Server
                 //addressString += "/127" +'/' +  lastPort + 1;
             //else 
                 //addressString += + ((IPEndPoint)RemoteEndPoint).Port;
-
             
             //Check for the existing connectionLine
             Sdp.Lines.SessionConnectionLine connectionLine = sdp.ConnectionLine as Sdp.Lines.SessionConnectionLine;

@@ -135,6 +135,21 @@ namespace Media.Rtsp
 
         private RtspHeaders() { }
 
+        //Todo, Most parse header functions could be changed to use a ParseHeader function which gives an array of values which can then be parsed further.
+        //Create header would do the reverse.
+
+        //internal static string CreateHeader(string key, string value) => key + ':' + CreateHeaderValue(";", value);
+
+        //internal static string CreateHeaderValue(string sep, params string[] values)
+        //{
+        //    return string.Join(sep, values);
+        //}
+
+        //Something like this for the reverse
+        //string[] ParseHeaderValues(string delemit, string source) => source.Split(delemit);
+
+        //string[] ParseHeaderValues(int count) => source.Split(delemit, count);
+
         /// <summary>
         /// Parses a RFCXXXX range string often used in SDP to describe start and end times.
         /// </summary>
@@ -244,7 +259,7 @@ namespace Media.Rtsp
                     }
                     else
                     {
-                        throw new NotImplementedException();
+                        throw new NotImplementedException("Quality Of Protection:" + qopPart);
                     }
                 }
                 else // No Quality of Protection
@@ -254,13 +269,21 @@ namespace Media.Rtsp
                     result = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username=\"{0}\", realm=\"{1}\", nonce=\"{2}\", uri=\"{3}\", response=\"{4}\"", usernamePart, realmPart, nOncePart, uriPart, BitConverter.ToString(ResponseHash).Replace("-", string.Empty).ToLowerInvariant());
                 }
             }
+
             return result;
         }
 
         //TryParseAuthorizationHeader
 
         //Values should be nullable...?
-        public static bool TryParseTransportHeader(string value, out int ssrc, out System.Net.IPAddress source, out int serverRtpPort, out int serverRtcpPort, out int clientRtpPort, out int clientRtcpPort, out bool interleaved, out byte dataChannel, out byte controlChannel, out string mode, out bool unicast, out bool multicast)
+        //destination
+        public static bool TryParseTransportHeader(string value, out int ssrc, //todo, reorder and add destination
+            out System.Net.IPAddress source, 
+            out int serverRtpPort, out int serverRtcpPort, 
+            out int clientRtpPort, out int clientRtcpPort, 
+            out bool interleaved, out byte dataChannel, out byte controlChannel, 
+            out string mode, 
+            out bool unicast, out bool multicast)
         {
             if (string.IsNullOrWhiteSpace(value)) throw new InvalidOperationException("value cannot be null or whitespace.");
 
@@ -275,6 +298,7 @@ namespace Media.Rtsp
             controlChannel = 1;
             interleaved = unicast = multicast = false;
             mode = string.Empty;
+
             try
             {
                 //Get the recognized parts of information from the transportHeader
@@ -289,28 +313,77 @@ namespace Media.Rtsp
                         case "unicast":
                             {
                                 if (multicast) throw new InvalidOperationException("Cannot be unicast and multicast");
+                                
                                 unicast = true;
+                                
                                 continue;
                             }
                         case "multicast":
                             {
                                 if (unicast) throw new InvalidOperationException("Cannot be unicast and multicast");
+                                
                                 multicast = true;
+                                
                                 continue;
                             }
                         case "mode":
                             {
                                 mode = subParts[1];
+
                                 continue;
                             }
+                        //The header may indicate a source address different from that of the connection's address
                         case "source":
                             {
                                 string sourcePart = subParts[1];
 
+                                //Ensure not empty
+                                if (string.IsNullOrWhiteSpace(sourcePart)) continue;
+
+                                //Attempt to parse the token as an IPAddress
                                 if (false == System.Net.IPAddress.TryParse(sourcePart, out source))
                                 {
+                                    //new Uri(sourcePart).HostNameType == UriHostNameType.Dns
+
+                                    //Get the host entry
+                                    //var hostEntry = System.Net.Dns.GetHostEntry(sourcePart);
+
+                                    //Should either return the hostEntry or require an address family.
+                                    
+                                    //hostEntry.AddressList.FirstOrDefault(e=>e.AddressFamily == connectionAddressType...)
+
+                                    //Could work around by always providing the v6 address if possible...
+
                                     source = System.Net.Dns.GetHostEntry(sourcePart).AddressList.First();
                                 }
+
+                                continue;
+                            }
+                        //The header may indicate the the destination address is different from that of the connection's address
+                        case "destination":
+                            {
+                                //string destinationPart = subParts[1];
+
+                                ////Ensure not empty
+                                //if (string.IsNullOrWhiteSpace(destinationPart)) continue;
+
+                                ////Attempt to parse the token as an IPAddress
+                                //if (false == System.Net.IPAddress.TryParse(destinationPart, out destination))
+                                //{
+                                //    //new Uri(sourcePart).HostNameType == UriHostNameType.Dns
+
+                                //    //Get the host entry
+                                //    //var hostEntry = System.Net.Dns.GetHostEntry(sourcePart);
+
+                                //    //Should either return the hostEntry or require an address family.
+
+                                //    //hostEntry.AddressList.FirstOrDefault(e=>e.AddressFamily == connectionAddressType...)
+
+                                //    //Could work around by always providing the v6 address if possible...
+
+                                //    destination = System.Net.Dns.GetHostEntry(destinationPart).AddressList.First();
+                                //}
+
                                 continue;
                             }
                         case "ssrc":
@@ -400,9 +473,14 @@ namespace Media.Rtsp
             }
         }
 
-
-
-        public static string TransportHeader(string connectionType, int? ssrc, System.Net.IPAddress source, int? clientRtpPort, int? clientRtcpPort, int? serverRtpPort, int? serverRtcpPort, bool? unicast, bool? multicast, int? ttl, bool? interleaved, byte? dataChannel, byte? controlChannel, string mode = null) //string[] others?
+        public static string TransportHeader(string connectionType, int? ssrc, //todo, reorder and add destination
+            System.Net.IPAddress source, 
+            int? clientRtpPort, int? clientRtcpPort, 
+            int? serverRtpPort, int? serverRtcpPort, 
+            bool? unicast, bool? multicast, 
+            int? ttl, 
+            bool? interleaved, byte? dataChannel, byte? controlChannel, 
+            string mode = null) //string[] others?
         {
             if (string.IsNullOrWhiteSpace(connectionType)) throw new ArgumentNullException("connectionType");
 
@@ -525,7 +603,7 @@ namespace Media.Rtsp
                     builder.Append(ssrc.Value.ToString("X"));
                 }
 
-                //address datum
+                //mode datum
 
                 if (false == string.IsNullOrWhiteSpace(mode))
                 {
@@ -542,14 +620,7 @@ namespace Media.Rtsp
             }
             catch { throw; }
             finally { builder = null; }
-        }
-
-        //internal static string BuildHeader(string sep, params string[] values)
-        //{
-        //    return string.Join(sep, values, 0, values.Length - 1) + values.Last();
-        //}
-
-
+        }        
 
         /// <summary>
         /// Parses a RFC2326 Rtp-Info header, if two sub headers are present only the values from the last header are returned.
@@ -668,30 +739,48 @@ namespace Media.Rtsp
         /// <returns></returns>
         public static string RtpInfoHeader(Uri url, int? seq, int? rtpTime, int? ssrc)
         {
-
             StringBuilder result = new StringBuilder();
 
-            if (url != null) result.Append("url=" + url.ToString());
+            if (url != null)
+            {
+                result.Append("url=");
+
+                result.Append(url.ToString());
+            }
+
+            //result.Append(string.Join(";", 
+            //    seq.HasValue ? "seq=" + seq.Value : string.Empty, 
+            //    rtpTime.HasValue ? "rtptime=" + rtpTime.Value : string.Empty, 
+            //    ssrc.HasValue ? "ssrc=" + ssrc.Value.ToString("X") : string.Empty));
 
             if (seq.HasValue)
             {
+                //When url is null there will be a preceeding ';'
                 result.Append(SemiColon);
 
-                result.Append("seq=" + seq.Value);
+                result.Append("seq=");
+
+                result.Append(seq.Value);
             }
 
             if (rtpTime.HasValue)
             {
+                //When uri & seq are null there will be a preceeding ';'
                 result.Append(SemiColon);
 
-                result.Append("rtptime=" + rtpTime.Value);
+                result.Append("rtptime=");
+
+                result.Append(rtpTime.Value);
             }
 
             if (ssrc.HasValue)
             {
+                //When uri & seq & rtoTime are null there will be a preceeding ';'
                 result.Append(SemiColon);
 
-                result.Append("ssrc=" + ssrc.Value.ToString("X"));
+                result.Append("ssrc=");
+
+                result.Append(ssrc.Value.ToString("X"));
             }
             
             return result.ToString();

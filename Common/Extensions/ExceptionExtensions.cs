@@ -49,25 +49,26 @@ namespace Media.Common.Extensions.Exception
     /// </summary>
     public static class ExceptionExtensions
     {
-
         /// <summary>
         /// Check if we are in a exception unwind scenario or not.
         /// </summary>
         public static bool InException
         {
             get
-            {   // Errata: The red marked code seems to be necessary. Since unit tests with .NET 2.0
-                // have shown that only checking for the Exception Pointers structure does not always work.
+            {
+                //See http://geekswithblogs.net/akraus1/archive/2008/04/08/121121.aspx
                 return System.Runtime.InteropServices.Marshal.GetExceptionPointers() == IntPtr.Zero && System.Runtime.InteropServices.Marshal.GetExceptionCode() == 0 ? false : true;
             }
         }
+
+        //These methods should be in TaggegExceptionExtensions....
 
         /// <summary>
         /// Raises the given <see cref="TaggedException"/>
         /// </summary>
         /// <typeparam name="T">The type related to the exception.</typeparam>
         /// <param name="exception">The <see cref="System.Exception"/> which occured.</param>
-        public static void Raise<T>(this TaggedException<T> exception) { if(exception != null) throw exception; }
+        public static void Raise<T>(this TaggedException<T> exception) { if (exception != null) throw exception; }
 
         /// <summary>
         /// Tries to <see cref="Raise"/> the given <see cref="TaggedException"/>
@@ -108,8 +109,6 @@ namespace Media.Common.Extensions.Exception
             }
         }
 
-        //Resumeable?
-
         /// <summary>
         /// Raises an <see cref="Common.Exception"/> on the calling thread.
         /// </summary>
@@ -127,5 +126,22 @@ namespace Media.Common.Extensions.Exception
         /// <param name="message">The message realted to the exception, if not provided a default message will be used.</param>
         /// <param name="innerException">any <see cref="System.Exception"/> which is related to the exception being thrown</param>
         public static void TryRaiseTaggedException<T>(T tag, string message, System.Exception innerException = null) { new TaggedException<T>(tag, message ?? TaggedException<T>.DefaultExceptionTypeMessage<T>(), innerException).TryRaise(); }
+
+        //This is possibly the only one which would be useful here
+
+        //http://stackoverflow.com/questions/3007608/resuming-execution-of-code-after-exception-is-thrown-and-caught
+        //public static System.Exception ResumeOnError(Action action)
+        //{
+        //    try
+        //    {
+        //        action();
+        //        return null;
+        //    }
+        //    catch (System.Exception caught)
+        //    {
+        //        return caught;
+        //    }
+        //}
+
     }
 }

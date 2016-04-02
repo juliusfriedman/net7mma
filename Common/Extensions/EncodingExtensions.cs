@@ -79,6 +79,9 @@ namespace Media.Common.Extensions.Encoding
 
             any = null;
 
+            //Todo, check for large delemits and use a hash or always use a hash.
+            //System.Collections.Generic.HashSet<char> delimitsC = new System.Collections.Generic.HashSet<char>(delimits);
+
             if (delimits == null) delimits = EmptyChar;
 
             if (stream == null || false == stream.CanRead || count == 0)
@@ -116,6 +119,8 @@ namespace Media.Common.Extensions.Encoding
 
                         //Determine where ReadChar advanced to (e.g. if Fallback occured)
                         read = (ulong)(stream.Position - at);
+
+                        //delimitsC.Contains(cached);
 
                         //If the char was a delemit, indicate the delimit was seen
                         if (sawDelimit = System.Array.IndexOf<char>(delimits, cached) >= 0)

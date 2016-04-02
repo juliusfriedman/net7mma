@@ -64,6 +64,8 @@ namespace Media.Common
     /// <typeparam name="T">The type data in the Tag property</typeparam>
     public class TaggedException<T> : Exception, ITaggedException, IDisposed
     {
+        #region Statics
+
         /// <summary>
         /// The string which will be used on all instances if no message was provided when instantiated.
         /// </summary>
@@ -71,14 +73,14 @@ namespace Media.Common
 
         public static string DefaultExceptionTypeMessage<t>() { return string.Format(TaggedException<t>.ExceptionFormat, typeof(T).FullName); }
 
-        /// <summary>
         /// <see cref="ExceptionExtensions.InException"/>
-        /// </summary>
-        public static bool InException { get { return Media.Common.Extensions.Exception.ExceptionExtensions.InException; } }
+        //public static bool InException { get { return Media.Common.Extensions.Exception.ExceptionExtensions.InException; } }
+
+        #endregion
 
         #region Fields
 
-        readonly Common.CommonDisposable m_Base = new Common.CommonDisposable(true);
+        readonly Common.CommonDisposable @base = new Common.CommonDisposable(true);
 
         #endregion
 
@@ -108,9 +110,9 @@ namespace Media.Common
         /// <summary>
         /// Indicates if the Exception has been previously disposed
         /// </summary>
-        public bool IsDisposed { get { return m_Base.IsDisposed; } }
+        public bool IsDisposed { get { return @base.IsDisposed; } }
 
-        public bool ShouldDispose { get { return m_Base.ShouldDispose; } }
+        public bool ShouldDispose { get { return @base.ShouldDispose; } }
 
         #endregion
 
@@ -175,9 +177,12 @@ namespace Media.Common
         /// </summary>
         public virtual void Dispose()
         {
-            if (m_Base.IsDisposed) return;
+            if (@base.IsDisposed) return;
+
             GC.SuppressFinalize(this);
-            m_Base.Dispose();
+
+            @base.Dispose();
+
             //ClearData();
         }
 

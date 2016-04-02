@@ -62,7 +62,7 @@ namespace Media.UnitTests
             TestClock,
             TestTimer,
             //Common
-            TestPlatformExtensions,
+            TestRuntimeExtensions,
             TestOperatingSystemExtensions,
             TestEncodingExtensions, 
             TestUtility, 
@@ -79,6 +79,10 @@ namespace Media.UnitTests
             TestRFC6184VideoFrame,
             //Sdp
             TestSdp, 
+            //Http
+            TestHttpMessage,
+            //Sip
+            TestSipMessage,
             //RtspMessage
             TestRtspMessage, 
             //RtpClient
@@ -132,26 +136,34 @@ namespace Media.UnitTests
 
         //The following tests need to be properly seperated
 
-        public static void TestPlatformExtensions()
+        public static void TestRuntimeExtensions()
         {
             if (Common.Extensions.RuntimeExtensions.IsMono) System.Console.WriteLine("IsMono");
+
+            if (Common.Extensions.RuntimeExtensions.IsMonoMac) System.Console.WriteLine("IsMonoMac");
 
             if (Common.Extensions.RuntimeExtensions.IsAndroid) System.Console.WriteLine("IsAndroid");
 
             if (Common.Extensions.RuntimeExtensions.IsiOS) System.Console.WriteLine("IsiOS");
 
-            
+            if (Common.Extensions.RuntimeExtensions.IsWatchKit) System.Console.WriteLine("IsWatchKit");           
         }
 
         public static void TestOperatingSystemExtensions()
         {
+            if (Common.Extensions.OperatingSystemExtensions.IsWindows) System.Console.WriteLine("IsWindows");
+
+            if (Common.Extensions.OperatingSystemExtensions.IsXbox) System.Console.WriteLine("IsXbox");
+
             if (Common.Extensions.OperatingSystemExtensions.IsLinux) System.Console.WriteLine("IsLinux");
 
             if (Common.Extensions.OperatingSystemExtensions.IsMac) System.Console.WriteLine("IsMac");
 
-            if (Common.Extensions.OperatingSystemExtensions.IsTVOS) System.Console.WriteLine("IsTVOS");
+            if (Common.Extensions.OperatingSystemExtensions.IsiOS) System.Console.WriteLine("IsiOS");
 
-            if (Common.Extensions.OperatingSystemExtensions.IsWatchOS) System.Console.WriteLine("IsWatchOS");            
+            if (Common.Extensions.OperatingSystemExtensions.IsWatchOS) System.Console.WriteLine("IsWatchOS");
+
+            if (Common.Extensions.OperatingSystemExtensions.IsTvOS) System.Console.WriteLine("IsTvOS");
         }
 
         public static void TestUtility()
@@ -364,7 +376,7 @@ namespace Media.UnitTests
 
         static void TestRtpClient()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpClientUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpClientUnitTests), TypeOfVoid);
 
             TestRtpClient(false);
 
@@ -1974,10 +1986,10 @@ namespace Media.UnitTests
                  }
                 }
                  */
-
+               
                 //Create a RFC6184Frame
                 using (Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame profileFrame = new Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame(97))
-                {
+                {                    
                     //Take each packet in the examples
                     foreach (byte[] packet in packetBytes)
                     {
@@ -1988,12 +2000,22 @@ namespace Media.UnitTests
                     //Remove any profile header and create a stream which can be given to a decoder.
                     profileFrame.Depacketize();
 
+                    //Useful for debugging
+                    //Console.WriteLine("Contained Nal Types: " + string.Join(",", profileFrame.ContainedUnitTypes));
+
+                    //Console.WriteLine("Rtsp Buffer Offset: " + rtspClient.Buffer.Offset + ", Count: " + rtspClient.Buffer.Count + " FirstByte: " + rtspClient.Buffer[0]);
+
+                    //foreach (var rtp in profileFrame)
+                    //{
+                    //    Console.WriteLine("Rtp @ " + rtp.SequenceNumber + " Payload Offset: " + rtp.Payload.Offset + ", Count: " + rtp.Payload.Count +  " FirstByte: " + rtp.Payload[0]);
+                    //}
+
                     //If there is no buffer then there is nothing to process.
                     if (profileFrame.Buffer == null) return;
 
                     //If there is not a sps or pps in band and this is the first frame given to a decoder then it needs to contain a SPS and PPS
                     //This is typically retrieved from the SessionDescription or CodecPrivateData but only the very first time.
-                    if (/*false == m_InitializedStream && */false == profileFrame.ContainsSequenceParameterSet || false == profileFrame.ContainsPictureParameterSet)
+                    if (/*false == m_InitializedStream && */ profileFrame.ContainedUnitTypes.Any(nalType => nalType == Media.Codecs.Video.H264.NalUnitType.SequenceParameterSet || nalType == Media.Codecs.Video.H264.NalUnitType.PictureParameterSet) /*false == profileFrame.ContainsSequenceParameterSet || false == profileFrame.ContainsPictureParameterSet*/)
                     {
                         //From the MediaDescription.FmtpLine from the SessionDescription which describes the media.
                         Media.Sdp.SessionDescriptionLine fmtp = new Sdp.SessionDescriptionLine("a=fmtp:97 packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==");
@@ -2008,8 +2030,11 @@ namespace Media.UnitTests
                                 if (trim.StartsWith("sprop-parameter-sets=", StringComparison.InvariantCultureIgnoreCase))
                                 {
                                     string[] data = trim.Replace("sprop-parameter-sets=", string.Empty).Split(',');
-                                    sps = System.Convert.FromBase64String(data[0]);
-                                    pps = System.Convert.FromBase64String(data[1]);
+
+                                    if (data.Length > 0) sps = System.Convert.FromBase64String(data[0]);
+
+                                    if (data.Length > 1) pps = System.Convert.FromBase64String(data[1]);
+                                    
                                     break;
                                 }
                             }
@@ -2201,7 +2226,7 @@ a=appversion:1.0");
 
             #endregion
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(SDPUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(SDPUnitTests), TypeOfVoid);
         }
 
         static void TestContainerImplementations()
@@ -2785,7 +2810,7 @@ a=appversion:1.0");
         static void TestEncodingExtensions()
         {
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.EncodingExtensionsTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.EncodingExtensionsTests), TypeOfVoid);
         }
 
         /// <summary>
@@ -2793,7 +2818,7 @@ a=appversion:1.0");
         /// </summary>
         static void TestTimer()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.TimerTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.TimerTests), TypeOfVoid);
         }
 
         /// <summary>
@@ -2801,7 +2826,7 @@ a=appversion:1.0");
         /// </summary>
         static void TestClock()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ClockTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ClockTests), TypeOfVoid);
         }
 
         /// <summary>
@@ -2809,7 +2834,7 @@ a=appversion:1.0");
         /// </summary>
         static void TestStopWatch()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.StopWatchTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.StopWatchTests), TypeOfVoid);
         }
 
         /// <summary>
@@ -2819,7 +2844,7 @@ a=appversion:1.0");
         {
 
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpFrameUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpFrameUnitTests), TypeOfVoid);
         }
 
         /// <summary>
@@ -2828,7 +2853,7 @@ a=appversion:1.0");
         static void TestRFC2435JpegFrame()
         {
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RFC2435UnitTest), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RFC2435UnitTest), TypeOfVoid);
         }
         
         /// <summary>
@@ -2836,25 +2861,25 @@ a=appversion:1.0");
         /// </summary>
         static void TestRtpRtcp()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpPacketUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpPacketUnitTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpPacketUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpPacketUnitTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpSendersReportUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpSendersReportUnitTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpReceiversReportUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpReceiversReportUnitTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SourceDescriptionItemUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SourceDescriptionItemUnitTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SourceDescriptionChunkUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SourceDescriptionChunkUnitTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpSourceDescriptionReportUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpSourceDescriptionReportUnitTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpGoodbyeReportUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpGoodbyeReportUnitTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpApplicationSpecificReportUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpApplicationSpecificReportUnitTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpRtcpTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpRtcpTests), TypeOfVoid);
         }
 
         /// <summary>
@@ -2863,7 +2888,22 @@ a=appversion:1.0");
         static void TestRtspMessage()
         {
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtspMessgeUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtspMessgeUnitTests), TypeOfVoid);
+        }
+
+        static void TestSipMessage()
+        {
+            //Perform the tests
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SipMessgeUnitTests), TypeOfVoid);
+        }
+        
+        /// <summary>
+        /// 
+        /// </summary>
+        static void TestHttpMessage()
+        {
+            //Perform the tests
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.HttpMessgeUnitTests), TypeOfVoid);
         }
 
         /// <summary>
@@ -2874,34 +2914,34 @@ a=appversion:1.0");
 
             Console.WriteLine("Detected a: " + Media.Common.Binary.SystemByteOrder.ToString() + ' ' + Media.Common.Binary.SystemByteOrder.GetType().Name + " System.");
 
-            Console.WriteLine("Detected a: " + Media.Common.Binary.SystemBinaryRepresentation.ToString() + ' ' + Media.Common.Binary.SystemBinaryRepresentation.GetType().Name + " System.");
-
             Console.WriteLine("Detected a: " + Media.Common.Binary.SystemBitOrder.ToString() + ' ' + Media.Common.Binary.SystemBitOrder.GetType().Name + " System.");
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.BinaryUnitTests), typeOfVoid);
+            Console.WriteLine("Detected a: " + Media.Concepts.Classes.BinaryRepresentations.SystemBinaryRepresentation.ToString() + ' ' + Media.Concepts.Classes.BinaryRepresentations.SystemBinaryRepresentation.GetType().Name + " System.");
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.BinaryUnitTests), TypeOfVoid);
         }
 
         static void TestCodec()
         {
             //Other types from Codec
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MediaBufferUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MediaBufferUnitTests), TypeOfVoid);
         }
 
         static void TestAudioBuffer()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.AudioUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.AudioUnitTests), TypeOfVoid);
         }
 
         static void TestImageBuffer()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ImageUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ImageUnitTests), TypeOfVoid);
         }
 
         #endregion
 
         #region Methods (To Support Unit Tests)
 
-        static Type typeOfVoid = typeof(void);
+        static Type TypeOfVoid = typeof(void);
 
         static void CreateInstanceAndInvokeAllMethodsWithReturnType(Type instanceType, Type returnType, bool writeNames = true)
         {
@@ -2965,10 +3005,15 @@ a=appversion:1.0");
             }
         }
 
-        static void TraceMessage(string message, string memberName = "",
+        static void TraceMessage(string message,
+          [System.Runtime.CompilerServices.CallerMemberName] string memberName = "",
           [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "",
           [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
         {
+            //Prints the Path and Line Number
+            //Console.WriteLine(string.Format(TestingFormat, sourceFilePath, sourceLineNumber));
+
+            //Prints the message and the memberName
             Console.WriteLine(string.Format(TestingFormat, message, memberName ?? "No MethodName Provided"));
         }
 
@@ -3192,7 +3237,7 @@ a=appversion:1.0");
 
                         using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(p, false))
                         {
-                            Console.WriteLine(string.Format(TestingFormat, "NtpTime", sr.NtpTime));
+                            Console.WriteLine(string.Format(TestingFormat, "NtpTime", sr.NtpDateTime));
 
                             Console.WriteLine(string.Format(TestingFormat, "RtpTimestamp", sr.RtpTimestamp));
 
@@ -3306,7 +3351,7 @@ a=appversion:1.0");
 
                 Media.Rtsp.RtspMessage parsed = Media.Rtsp.RtspMessage.FromString(message.ToString());
 
-                int max = message.Length, toSend = Utility.Random.Next(client.Buffer.Count);
+                int max = message.Length - 1, toSend = Utility.Random.Next(client.Buffer.Count) - 1;
 
                 if (toSend == max) using (client.SendRtspMessage(message)) parsed.Dispose();
                 else

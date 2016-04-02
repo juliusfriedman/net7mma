@@ -56,8 +56,6 @@ namespace Media
     {
         #region Constants and Statics
 
-        #region Rtcp
-
         /// <summary>
         /// Creates a random 32 bit integer as specified in RFC3550
         /// </summary>
@@ -109,6 +107,8 @@ namespace Media
             r ^= BitConverter.ToUInt32(digest, 12);
             return (int)r;
         }
+
+        #region Rtcp
 
         /// <summary>
         /// A binary mask which is used to filter invalid Rtcp packets as specified in RFC3550
@@ -234,7 +234,9 @@ namespace Media
                 }
             }
 
-            PreparePackets:
+            //Could use GetAllocate or InternalToBytes to reduce allocations
+
+        PreparePackets:
             //Return the projection of the sequence containing the compound data
              return packets.SelectMany(p => p.Prepare());
         }
@@ -452,7 +454,7 @@ namespace Media
         //The point at which rollover occurs on the SequenceNumber
         const uint RTP_SEQ_MOD = (1 << 16); //65536
 
-        const int DefaultMaxDropout = 500, DefaultMaxMisorder = 100, DefaultMinimumSequentalRtpPackets = 2;
+        public const int DefaultMaxDropout = 500, DefaultMaxMisorder = 100, DefaultMinimumSequentalRtpPackets = 2;
 
         //Probe can be performed by using non ref overload (Todo)
 
@@ -604,8 +606,6 @@ namespace Media
 
         #endregion
 
-        //Random32 etc
-
         #endregion
 
         #region Nested Types
@@ -666,6 +666,7 @@ namespace Media
             /// <param name="extension">Indicates the value of the 3rd Bit</param>
             /// <param name="remainingBits">Bits 4, 5, 6, 7 and 8</param>
             /// <returns>The octet which has been composed as a result of packing the bit fields</returns>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public static byte PackOctet(int version, bool padding, bool extension, byte remainingBits = 0)
             {
                 //Ensure the version is valid in a quarter bit
@@ -694,6 +695,7 @@ namespace Media
                 return PacketOctet(version, remainingBits);
             }
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public static byte PacketOctet(int version, byte remainingBits)
             {
                 return (byte)(version << 6 | (byte)remainingBits);
@@ -705,6 +707,7 @@ namespace Media
             /// <param name="marker"></param>
             /// <param name="payloadTypeBits"></param>
             /// <returns></returns>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public static byte PackOctet(bool marker, int payloadTypeBits)
             {
                 return ((byte)(marker ? (RtpMarkerMask | (byte)payloadTypeBits) : payloadTypeBits));
@@ -717,7 +720,7 @@ namespace Media
             /// <summary>
             /// If created from memory existing
             /// </summary>
-            readonly Common.MemorySegment m_Memory;
+            internal readonly Common.MemorySegment m_Memory;
 
             /// <summary>
             /// The first and second octets themselves, utilized by both Rtp and Rtcp.
@@ -792,6 +795,12 @@ namespace Media
                     //leastSignificant = (byte)((byte)Version << 6 | (value ? (PaddingMask) : 0) | (Extension ? (byte)(ExtensionMask) : 0) | RtpContributingSourceCount);
                     First8Bits = PackOctet((byte)Version, value, Extension, (byte)RtpContributingSourceCount);
                 }
+            }
+
+            //Draft only
+            public bool OptionsPresent
+            {
+                get { return (Last8Bits >> 7) > 0; }
             }
 
             /// <summary>
@@ -872,6 +881,12 @@ namespace Media
                 set { Last8Bits = PackOctet(value, (byte)RtpPayloadType); }
             }
 
+            //Draft only
+            public bool EndOfSynchroniztionUnit
+            {
+                get { return (Last8Bits & 64) > 0; }
+            }
+
             /// <summary>
             /// Gets or sets the 7 bit value associated with the RtpPayloadType.
             /// </summary>            
@@ -891,6 +906,12 @@ namespace Media
 
                     Last8Bits = PackOctet(RtpMarker, (byte)unsigned);
                 }
+            }
+
+            //Draft only
+            public int Format
+            {
+                get { return (Last8Bits & VersionMask); }
             }
 
             /// <summary>
@@ -915,12 +936,9 @@ namespace Media
             /// </summary>
             /// <param name="other">The CommonHeaderBits instance to copy</param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public CommonHeaderBits(CommonHeaderBits other, bool selfReference = false)
+            public CommonHeaderBits(CommonHeaderBits other, bool reference = false)
             {
-                //leastSignificant = other.leastSignificant;
-                //mostSignificant = other.mostSignificant;
-
-                if (selfReference)
+                if (reference)
                 {
                     m_Memory = other.m_Memory;
                 }
@@ -935,31 +953,28 @@ namespace Media
             /// <summary>
             /// Constructs a managed representation around a copy of the given two octets
             /// </summary>
-            /// <param name="lsb">The least significant 8 bits</param>
-            /// <param name="msb">The most significant 8 bits</param>
+            /// <param name="one">The first byte</param>
+            /// <param name="two">The second byte</param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public CommonHeaderBits(byte lsb, byte msb)
+            public CommonHeaderBits(byte one, byte two)
             {
-                //Assign them
-
-                //leastSignificant = lsb;
-
-                //mostSignificant = msb;
-
                 m_Memory = new MemorySegment(CommonHeaderBits.Size);
 
-                m_Memory[0] = lsb;
+                m_Memory[0] = one;
 
-                m_Memory[1] = msb;
+                m_Memory[1] = two;
             }
 
+            /// <summary>
+            /// Expects at least 2 bytes of data
+            /// </summary>
+            /// <param name="data"></param>
+            /// <param name="offset"></param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public CommonHeaderBits(byte[] data, int offset)
             {
                 m_Memory = new MemorySegment(data, offset, CommonHeaderBits.Size);
             }
-
-
 
             /// <summary>
             /// Makes an exact copy of the header from the given memory.
@@ -1013,6 +1028,10 @@ namespace Media
 
             public IEnumerator<byte> GetEnumerator()
             {
+                if (IsDisposed) yield break;
+
+                //return ((IEnumerable<byte>)m_Memory).GetEnumerator();
+
                 Common.MemorySegment segment = m_Memory;
 
                 byte[] array = segment.Array;
@@ -1039,14 +1058,7 @@ namespace Media
 
                 if (ShouldDispose)
                 {
-                    IDisposable memory = (IDisposable)m_Memory;
-
-                    if (memory != null)
-                    {
-                        memory.Dispose();
-
-                        memory = null;
-                    }
+                    m_Memory.Dispose();
                 }
             }
 
@@ -1103,8 +1115,16 @@ namespace Media
             /// </summary>
             public const int ItemSize = 4;
 
-            //Maybe choose to allow creation of a FixedSizedList
+            /// <summary>
+            /// Maximum amount of items in a source list is 31
+            /// </summary>
+            public const int MaxItems = Common.Binary.FiveBitMaxValue;
 
+            /// <summary>
+            /// 31 * 4 = 124 bytes.
+            /// </summary>
+            public const int MaxSize = ItemSize * MaxItems;
+            
             #endregion
 
             #region Fields
@@ -1112,7 +1132,7 @@ namespace Media
             /// <summary>
             /// The memory which contains the SourceList
             /// </summary>
-            Common.MemorySegment m_Binary = Common.MemorySegment.Empty;
+            readonly Common.MemorySegment m_Binary = Common.MemorySegment.Empty;
 
             int m_CurrentOffset, //The current offset in parsing the binary
                 m_SourceCount, //The amount of ContributingSources to read given from the CC nybble in a RtpHeader
@@ -1128,6 +1148,7 @@ namespace Media
             #region Constructor
 
             [CLSCompliant(false)]
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceList(uint ssrc) : this(Media.Common.Extensions.Linq.LinqExtensions.Yield(ssrc)) { }
 
             /// <summary>
@@ -1135,15 +1156,17 @@ namespace Media
             /// </summary>
             /// <param name="sources"></param>
             /// <param name="start"></param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceList(IEnumerable<uint> sources, int start = 0)
             {
-                m_SourceCount = Math.Min(Common.Binary.FourBitMaxValue, sources.Count());
-
                 IEnumerable<byte> binary = Media.Common.MemorySegment.EmptyBytes;
 
                 foreach (var ssrc in sources.Skip(start))
                 {
                     binary = binary.Concat(Binary.GetBytes(ssrc, BitConverter.IsLittleEndian)).ToArray();
+                    
+                    //Increment for the added value and determine if the maximum is reached.
+                    if (++m_SourceCount >= SourceList.MaxItems) break;
                 }
 
                 m_Binary = new Common.MemorySegment(binary.ToArray(), 0, m_SourceCount * Binary.BytesPerInteger);
@@ -1155,6 +1178,7 @@ namespace Media
             /// </summary>
             /// <param name="header">The <see cref="RtpHeader"/> to read the <see cref="RtpHeader.ContributingSourceCount"/> from</param>
             /// <param name="buffer">The buffer (which is vector of 32 bit values e.g. it will be read in increments of 32 bits per read)</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceList(Media.Rtp.RtpHeader header, byte[] buffer, int offset = 0)
             {
                 if (header == null) throw new ArgumentNullException("header");
@@ -1164,11 +1188,10 @@ namespace Media
                 //Assign the count (don't read it again)
                 m_SourceCount = header.ContributingSourceCount;
 
-                if (buffer == null) throw new ArgumentNullException("buffer");
-
-                //Keep a reference to the buffer and the amount of bytes required
                 if (m_SourceCount > 0)
                 {
+                    if (buffer == null) throw new ArgumentNullException("buffer");
+
                     //Source lists are only inserted by a mixer and come directly after the header and would be present in the payload,
                     //before the RtpExtension (if present) and before the RtpPacket's actual binary data
 
@@ -1182,6 +1205,7 @@ namespace Media
             /// The SourceList owns ownly it's own resources and always should be disposed immediately.
             /// </summary>
             /// <param name="packet">The <see cref="RtpPacket"/> to create a SourceList from</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceList(Media.Rtp.RtpPacket packet)
                 : this(packet.Header, packet.Payload.Array, packet.Payload.Offset)
             {
@@ -1193,13 +1217,12 @@ namespace Media
             /// </summary>
             /// <param name="sourceCount">The count of sources expected in the SourceList</param>
             /// <param name="data">The data contained in the SourceList.</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceList(int sourceCount)
             {
-                m_SourceCount = sourceCount;
-                
-                int sourceListSize = Binary.BytesPerInteger * sourceCount;
-                
-                m_Binary = new Common.MemorySegment(sourceListSize);
+                m_SourceCount = Common.Binary.Min(SourceList.MaxItems, sourceCount);
+
+                m_Binary = new Common.MemorySegment(Binary.BytesPerInteger * m_SourceCount);
 
             }
 
@@ -1208,6 +1231,7 @@ namespace Media
             /// Contains it's own reference to the payload and should be disposed of when no longer needed.
             /// </summary>
             /// <param name="goodbyeReport">The GoodbyeReport</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceList(GoodbyeReport goodbyeReport)
             {
                 m_SourceCount = goodbyeReport.Header.BlockCount;
@@ -1435,12 +1459,7 @@ namespace Media
 
                 if (ShouldDispose)
                 {
-                    if (m_Binary != null)
-                    {
-                        m_Binary.Dispose();
-
-                        m_Binary = null;
-                    }
+                    m_Binary.Dispose();
                 }
             }
 
@@ -1491,9 +1510,41 @@ namespace Media
 
         #endregion
 
-        //RtpProfile
+        //Would be removed from RtpTools and placed here but would provide no way to get a frametype unless a mapping was also created.
+        //Would need mapping from rtpmap or fmtp because payloadtype alone is not enough.
+        //Could use it with Payload unless Dynamic is found and then iterate Dynamic profiles...
+        //RFC3551
+
+        //public class RtpProfile
+        //{
+        //    //readonly ValueType
+        //    readonly byte PayloadType;
+
+        //    readonly string EncodingName;
+
+        //    readonly Sdp.MediaType MediaType;
+
+        //    //readonly ValueType
+        //    readonly long ClockRate;
+        //}
+
+        ////public class RtpAudioProfile : RtpProfile
+        ////{
+        ////    readonly int Channels, BitsPerSample;
+
+        ////    //MediaType = Audio
+        ////}
+
+        ////public class RtpVideoProfile : RtpProfile
+        ////{
+        ////    readonly int Width, Height, BitsPerSample;
+
+        ////    //MediaType = Video
+        ////}
 
         //RtpProfiles?  
+
+        //{ StaticProfiles, DynamicProfiles   }
       
         #endregion
     }

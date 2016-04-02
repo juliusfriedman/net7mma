@@ -286,8 +286,20 @@ namespace Media.RtpTools
 
             /// <summary>
             /// Used traditionally to describe the Rtp 1.0 channel field in which the data was expected to be recieved.
-            /// <see cref="http://tools.ietf.org/html/draft-ietf-dccp-rtp-07"/>
+            /// <see cref="ftp://gaia.cs.umass.edu/pub/hgschulz/rtp/draft-ietf-avt-rtp-04.txt"/>
             /// </summary>
+            /*
+             V V P X C C C C M T T T T T T T S S S S S S S S S S S S S S S S (RTP 2 Header Comparison)
+             0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+            |Ver| ChannelID |P|S|  format   |       sequence number         |
+            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+            |     timestamp (seconds)       |     timestamp (fraction)      |
+            +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+            | options ...                                                   |
+            +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+             */
+
             public byte Channel { get; internal set; }
 
             public override string ToString()
@@ -378,7 +390,7 @@ namespace Media.RtpTools
                             packet.Header.LengthInWordsMinusOne,
                             (ToTextualConvention(sr) + (char)Common.ASCII.Space + string.Format(RtcpSendersInformationFormat,
                             //0
-                                (DateTime.UtcNow - sr.NtpTime).TotalSeconds.ToString("0.000000"), //ts=
+                                (DateTime.UtcNow - sr.NtpDateTime).TotalSeconds.ToString("0.000000"), //ts=
                             //1
                                 sr.NtpTimestamp, //ntp=
                             //2
@@ -766,7 +778,7 @@ namespace Media.RtpTools
 
                     //Could be a binary format however....
                 }
-                else if (tokensParsed > 0 && peek == 'r' || peek == Common.ASCII.R) //Don't read any further a new entry follows (Could be a malformed entry with rXXX=YYY\n)
+                else if (tokensParsed > 0 && peek == 'r' || peek == 'R') //Don't read any further a new entry follows (Could be a malformed entry with rXXX=YYY\n)
                 {
                     //doneParsing = true;
                     break;
