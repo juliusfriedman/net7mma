@@ -56,14 +56,12 @@ namespace Media.Common
         /// <param name="message">The message to write</param>
         void Log(string message);
 
-        ///// <summary>
-        ///// Writes an Exception to the log.
-        ///// </summary>
-        ///// <param name="ex">The exception to write</param>
-        ///// <notes>Only provided to allow differentation between types of logging, users can just use Log </notes>
+        /// <summary>
+        /// Writes an Exception to the log.
+        /// </summary>
+        /// <param name="ex">The exception to write</param>
+        /// <notes>Only provided to allow differentation between types of logging, users can just use Log </notes>
         void LogException(Exception ex);
-
-        //Notice, Fatal, Information(al)/WhoCares
     }
 
     public static class ILoggingExtensions

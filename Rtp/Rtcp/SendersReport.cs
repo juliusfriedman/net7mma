@@ -208,10 +208,9 @@ namespace Media.Rtcp
         }
 
         /// <summary>
-        /// Calculates a DateTime representation of the NtpTimestamp.
-        /// If the NtpTimestamp would be 0 then DateTime UtcNow is returned.
+        /// Gets or Sets the DateTime representation of the NtpTimestamp.
         /// </summary>
-        public DateTime NtpTime
+        public DateTime NtpDateTime
         {
             get { return Media.Ntp.NetworkTimeProtocol.NptTimestampToDateTime((ulong)NtpTimestamp); }
             internal protected set { NtpTimestamp = (long)Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(ref value); }
@@ -219,6 +218,7 @@ namespace Media.Rtcp
 
         #endregion
 
+        //Calulcated correctly without the override
         //public override int ReportBlockOctets
         //{
         //    get

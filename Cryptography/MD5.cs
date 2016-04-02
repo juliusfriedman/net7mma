@@ -1,5 +1,15 @@
 ﻿using System;
 using System.Text;
+
+// **************************************************************
+// * Raw implementation of the MD5 hash algorithm
+// * from RFC 1321.
+// *
+// * Written By: Reid Borsuk and Jenny Zheng
+// * Copyright (c) Microsoft Corporation.  All rights reserved.
+// * Modified by Julius Frideman, premultiplied constant's used post increment where possible, passed ABCD by reference.
+// **************************************************************
+
 namespace Media.Cryptography
 {
     //Needs an Interface IHashAlgorithm
@@ -26,10 +36,10 @@ namespace Media.Cryptography
         // Simple struct for the (a,b,c,d) which is used to compute the mesage digest.    
         internal struct ABCDStruct
         {
-            public uint A;
-            public uint B;
-            public uint C;
-            public uint D;
+            public uint A; // => AA
+            public uint B; // => BB
+            public uint C; // => CC
+            public uint D; // => DD
         }
 
         #endregion
@@ -55,9 +65,9 @@ namespace Media.Cryptography
 
         #region Methods
 
-        #region [Instance]
+        #region Instance
 
-        #region [Private - Instance]
+        #region Private - Instance
 
         void Initialize()
         {
@@ -71,52 +81,64 @@ namespace Media.Cryptography
             _abcd.D = DD;
         }
 
-        #endregion
+        #endregion [Private - Instance]
 
-        #region [Internal - Instance]
+        #region Internal - Instance
 
         internal void HashCore(byte[] array, int ibStart, int cbSize)
         {
             int startIndex = ibStart;
+            
             int totalArrayLength = _dataSize + cbSize;
+            
             if (totalArrayLength >= AlignValue)
             {
                 Array.Copy(array, startIndex, _data, _dataSize, AlignValue - _dataSize);
+                
                 // Process message of 64 bytes (512 bits)
                 MD5.GetHashBlock(_data, ref _abcd, Zero);
+                
                 startIndex += AlignValue - _dataSize;
+                
                 totalArrayLength -= AlignValue;
+
                 while (totalArrayLength >= AlignValue)
                 {
                     Array.Copy(array, startIndex, _data, Zero, AlignValue);
+
                     MD5.GetHashBlock(array, ref _abcd, startIndex);
+
                     totalArrayLength -= AlignValue;
+
                     startIndex += AlignValue;
                 }
+                
                 _dataSize = totalArrayLength;
+
                 Array.Copy(array, startIndex, _data, Zero, totalArrayLength);
             }
             else
             {
                 Array.Copy(array, startIndex, _data, _dataSize, cbSize);
+
                 _dataSize = totalArrayLength;
             }
+
             _totalLength += cbSize;
         }
 
         internal byte[] HashFinal()
         {
-
             return HashValue = MD5.GetHashFinalBlock(_data, Zero, _dataSize, ref _abcd, _totalLength * BitsInByte);
         }
 
-        #endregion
+        #endregion [Internal - Instance]
 
-        #endregion
+        #endregion [Instance]
 
-        #region [Static]
+        #region Static
 
-        #region [Public - Static]
+        #region Public - Static
 
         public static byte[] GetHash(string input, Encoding encoding)
         {
@@ -153,6 +175,8 @@ namespace Media.Cryptography
             return GetHashString(input, new UTF8Encoding());
         }
 
+        //TryGetHash(... , out abcd forReuse)
+
         public static byte[] GetHash(byte[] input)
         {
             if (null == input) throw new System.ArgumentNullException("input", "Unable to calculate hash over null input data");
@@ -170,18 +194,23 @@ namespace Media.Cryptography
 
             //We pass in the input array by block, the final block of data must be handled specialy for padding & length embeding
             int startIndex = Zero;
+
             while (startIndex <= inputLength - HashAlignValue)
             {
                 MD5.GetHashBlock(input, ref abcd, startIndex);
+
                 startIndex += HashAlignValue;
             }
+            
             // The final data block. 
-            return MD5.GetHashFinalBlock(input, startIndex, inputLength - startIndex, ref abcd, (Int64)inputLength * BitsInByte);
+            return MD5.GetHashFinalBlock(input, startIndex, inputLength - startIndex, ref abcd, inputLength * BitsInByte);
+
+            //finally abcd = null;
         }
 
-        #endregion
+        #endregion [Public - Static]
 
-        #region [Internal - Static]
+        #region Internal - Static
 
         //Manually unrolling these equations nets us a 20% performance improvement
         internal static uint r1(uint a, uint b, uint c, uint d, uint x, int s, uint t)
@@ -261,14 +290,18 @@ namespace Media.Cryptography
             if (cbSize <= FinalAlignValue)
             {
                 Array.Copy(length, Zero, working, FinalAlignValue, BitsInByte);
+
                 GetHashBlock(working, ref ABCD, Zero);
             }
             else  //We need an aditional chunk to store the length
             {
                 GetHashBlock(working, ref ABCD, Zero);
+
                 //Create an entirely new chunk due to the 0-assigned trick mentioned above, to avoid an extra function call clearing the array
                 working = new byte[HashAlignValue];
+
                 Array.Copy(length, Zero, working, FinalAlignValue, BitsInByte);
+
                 GetHashBlock(working, ref ABCD, Zero);
             }
             
@@ -335,19 +368,19 @@ namespace Media.Cryptography
 
                 a = r3(a, b, c, d, temp[5], BitsInNibble, 0xfffa3942);
                 d = r3(d, a, b, c, temp[8], 11, 0x8771f681);
-                c = r3(c, d, a, b, temp[11], 16, 0x6d9d6122);
+                c = r3(c, d, a, b, temp[11], BitsInWord, 0x6d9d6122);
                 b = r3(b, c, d, a, temp[14], 23, 0xfde5380c);
                 a = r3(a, b, c, d, temp[1], BitsInNibble, 0xa4beea44);
                 d = r3(d, a, b, c, temp[4], 11, 0x4bdecfa9);
-                c = r3(c, d, a, b, temp[7], 16, 0xf6bb4b60);
+                c = r3(c, d, a, b, temp[7], BitsInWord, 0xf6bb4b60);
                 b = r3(b, c, d, a, temp[10], 23, 0xbebfbc70);
                 a = r3(a, b, c, d, temp[13], BitsInNibble, 0x289b7ec6);
                 d = r3(d, a, b, c, temp[0], 11, 0xeaa127fa);
-                c = r3(c, d, a, b, temp[3], 16, 0xd4ef3085);
+                c = r3(c, d, a, b, temp[3], BitsInWord, 0xd4ef3085);
                 b = r3(b, c, d, a, temp[6], 23, 0x04881d05);
                 a = r3(a, b, c, d, temp[9], BitsInNibble, 0xd9d4d039);
                 d = r3(d, a, b, c, temp[12], 11, 0xe6db99e5);
-                c = r3(c, d, a, b, temp[15], 16, 0x1fa27cf8);
+                c = r3(c, d, a, b, temp[15], BitsInWord, 0x1fa27cf8);
                 b = r3(b, c, d, a, temp[2], 23, 0xc4ac5665);
 
                 a = r4(a, b, c, d, temp[0], 6, 0xf4292244);
@@ -376,10 +409,10 @@ namespace Media.Cryptography
             }
         }
 
-        #endregion
+        #endregion [Internal - Static]
 
-        #endregion
+        #endregion [Static]
 
-        #endregion
+        #endregion [Methods]
     }
 }

@@ -57,6 +57,9 @@ namespace Media.Rtsp.Server.MediaTypes
         //C# h264 elementary stream stuff
         //https://bitbucket.org/jerky/rtp-streaming-server
 
+        //C# MP4 and H.264 ES Writer
+        //http://iknowu.duckdns.org/files/public/MP4Maker/MP4Maker.htm
+
         /// <summary>
         /// Implements Packetization and Depacketization of packets defined in <see href="https://tools.ietf.org/html/rfc6184">RFC6184</see>.
         /// </summary>
@@ -150,6 +153,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             //Keep a list of encountered nal types so it can be augmented when Packetized or vice versa. Should store offset also?
 
+            //Should use HashSet? (would not allow counting of types but isn't really needed)
             List<byte> m_ContainedNalTypes = new List<byte>();
 
             public bool ContainsSupplementalEncoderInformation
@@ -195,11 +199,11 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <summary>
             /// After Packetization or Depacketization, will indicate the types of Nal units contained in the data of the frame.
             /// </summary>
-            public System.Collections.ObjectModel.ReadOnlyCollection<byte> ContainedUnitTypes
+            public IEnumerable<byte> ContainedUnitTypes
             {
                 get
                 {
-                    return m_ContainedNalTypes.AsReadOnly();
+                    return m_ContainedNalTypes;
                 }
             }
 
@@ -288,18 +292,20 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <summary>
             /// Creates <see cref="Buffer"/> with a H.264 RBSP from the contained packets
             /// </summary>
-            public virtual void Depacketize()
+            public virtual void Depacketize() //bool fullStartCodes
             {
                 DisposeBuffer();
 
                 this.Buffer = new MemoryStream();
 
-                //Get all packets in the frame
-                foreach (Rtp.RtpPacket packet in m_Packets)
-                    ProcessPacket(packet);
+                var packets = m_Packets;
 
-                //Todo, 
-                    //Order by DON if contains MTAP etc
+                //Todo, check if need to 
+                //Order by DON / TSOFFSET (if any packets contains MTAP etc)
+
+                //Get all packets in the frame
+                foreach (Rtp.RtpPacket packet in packets)
+                    ProcessPacket(packet);
 
                 //Bring the buffer back the start.
                 this.Buffer.Seek(0, SeekOrigin.Begin);
@@ -314,29 +320,33 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="containsSei"></param>
             /// <param name="containsSlice"></param>
             /// <param name="isIdr"></param>
-            internal protected virtual void ProcessPacket(Rtp.RtpPacket packet)
+            internal protected virtual void ProcessPacket(Rtp.RtpPacket packet, bool ignoreForbiddenZeroBit = true, bool fullStartCodes = false)
             {
+
+                //(May need to handle re-ordering)
+                //In such cases this step needs to place the packets into a seperate collection for sorting on DON / TSOFFSET before writing to the buffer.
+
                 //From the beginning of the data in the actual payload
                 int payloadOffset = packet.Payload.Offset, 
                     nonPayloadOctets = packet.HeaderOctets,
                     offset = payloadOffset + nonPayloadOctets,
                     count = packet.Payload.Count - (nonPayloadOctets + packet.PaddingOctets); //until the end of the actual payload
 
-                //Obtain the data of the packet (without source list or padding)
-                byte[] packetData = packet.Payload.Array; //PayloadData.ToArray();
-
                 //Must have at least 2 bytes
                 if (count <= 2) return;
+
+                //Obtain the data of the packet (without source list or padding)
+                byte[] packetData = packet.Payload.Array; //PayloadData.ToArray();
 
                 //Determine if the forbidden bit is set and the type of nal from the first byte
                 byte firstByte = packetData[offset];
 
-                //bool forbiddenZeroBit = ((firstByte & 0x80) >> 7) != 0;
+                //Should never be set...
+                if (false == ignoreForbiddenZeroBit && ((firstByte & 0x80) >> 7) != 0) throw new Exception("forbiddenZeroBit");
 
                 byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);                
 
-                //TODO, needs state for if the F bit was encountered. (FragmentEnd, FragmentStart, FragmentReceiver => FragmentFlags)
-
+                //RFC6184 @ Page 20
                 //o  The F bit MUST be cleared if all F bits of the aggregated NAL units are zero; otherwise, it MUST be set.
                 //if (forbiddenZeroBit && nalUnitType <= 23 && nalUnitType > 29) throw new InvalidOperationException("Forbidden Zero Bit is Set.");
 
@@ -372,23 +382,19 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //Determine the nal unit size which does not include the nal header
                                 int tmp_nal_size = Common.Binary.Read16(packetData, ref offset, BitConverter.IsLittleEndian);
 
-                                //If the nal had data then write it
-                                if (tmp_nal_size > 0)
+                                //If the nal had data and that data is in this packet then write it
+                                if (tmp_nal_size > 0 && tmp_nal_size <= count - offset)
                                 {
-
-                                    //Store the nalType contained
-                                    m_ContainedNalTypes.Add(nalUnitType);
-
                                     //For DOND and TSOFFSET
                                     switch (nalUnitType)
                                     {
-                                        case Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation16:// MTAP - 16
+                                        case Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation16:// MTAP - 16 (May require re-ordering)
                                             {
                                                 //SKIP DOND and TSOFFSET
                                                 offset += 3;
                                                 goto default;
                                             }
-                                        case Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24:// MTAP - 24
+                                        case Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24:// MTAP - 24 (May require re-ordering)
                                             {
                                                 //SKIP DOND and TSOFFSET
                                                 offset += 4;
@@ -396,24 +402,17 @@ namespace Media.Rtsp.Server.MediaTypes
                                             }
                                         default:
                                             {
-                                                //Read the nal header but don't move the offset
-                                                //byte nalHeader = (byte)(packetData[offset] & Common.Binary.FiveBitMaxValue);
 
-                                                //Store the nalType contained
-                                                //m_ContainedNalTypes.Add(nalHeader);
+                                                //Could check for extra bytes or emulation prevention
+                                                //https://github.com/raspberrypi/userland/blob/master/containers/rtp/rtp_h264.c
 
-                                                //>= 6 && <= 8
-                                                //if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
-
-                                                WriteStartCode(ref packetData[offset]);
+                                                //(Stores the nal) Write the start code
+                                                WriteStartCode(ref packetData[offset], fullStartCodes);
 
                                                 //Done reading
                                                 break;
                                             }
                                     }
-
-                                    //Write the start code
-                                    //Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
 
                                     //Write the nal header and data
                                     Buffer.Write(packetData, offset, tmp_nal_size);
@@ -427,7 +426,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             return;
                         }
                     case Media.Codecs.Video.H264.NalUnitType.FragmentationUnitA: //FU - A
-                    case Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB: //FU - B
+                    case Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB: //FU - B (May require re-ordering)
                         {
                             /*
                              Informative note: When an FU-A occurs in interleaved mode, it
@@ -454,7 +453,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 //bool Reserved = (FUHeader & 0x20) != 0;
 
-                                //if (Receiver) throw new InvalidOperationException("Receiver Bit Set");
+                                //Should not be set 
+                                //if (Reserved) throw new InvalidOperationException("Reserved Bit Set");
 
                                 //Move to data
                                 ++offset;
@@ -468,55 +468,42 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //Determine the fragment size
                                 int fragment_size = count - offset;
 
+                                //Don't emit empty fragments
+                                if (fragment_size == 0) return;
+
                                 //If the start bit was set
                                 if (Start)
                                 {
+                                    //if (End) throw new InvalidOperationException("Start and End Bit Set in same FU");
+
                                     //Reconstruct the nal header
                                     //Use the first 3 bits of the first byte and last 5 bites of the FU Header
                                     byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
 
-                                    //Store the nalType contained
-                                    //m_ContainedNalTypes.Add((byte)(nalHeader & Common.Binary.FiveBitMaxValue));
-
-                                    //Emulation prevention byte...
-                                    //if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
-
-                                    //Write the start code
-                                    //Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
-
-                                    WriteStartCode(ref nalHeader);
+                                    //(Stores the nal) Write the start code
+                                    WriteStartCode(ref nalHeader, fullStartCodes);
 
                                     //Write the re-construced header
                                     Buffer.WriteByte(nalHeader);
                                 }
 
-                                //If the size was valid
-                                if (fragment_size > 0)
-                                {
-                                    //Write the data of the fragment.
-                                    Buffer.Write(packetData, offset, fragment_size);
-                                }
+                                //Write the data of the fragment.
+                                Buffer.Write(packetData, offset, fragment_size);
 
                                 //Allow If End to Write End Sequence?
+                                //Should only be done if last byte is 0?
                                 //if (End) Buffer.WriteByte(Media.Codecs.Video.H264.NalUnitType.EndOfSequence);
                             }
 
                             //No more data?
                             return;
                         }
-                    default:
+                    default: //Any other type including PayloadContentScalabilityInformation(30) and Reserved(31)
                         {
-                            //Store the nalType contained
-                            //m_ContainedNalTypes.Add(nalUnitType);
+                            //(Stores the nalUnitType) Write the start code
+                            WriteStartCode(ref nalUnitType, fullStartCodes);
 
-                            //if (nalUnitType == 6 || nalUnitType == 7 || nalUnitType == 8) Buffer.WriteByte(0);
-
-                            //Write the start code
-                            //Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
-
-                            WriteStartCode(ref nalUnitType);
-
-                            //Write the nal heaer and data data
+                            //Write the nal heaer and data
                             Buffer.Write(packetData, offset, count - offset);
 
                             return;
@@ -529,13 +516,14 @@ namespace Media.Rtsp.Server.MediaTypes
                 if (Buffer != null)
                 {
                     Buffer.Dispose();
+
                     Buffer = null;
                 }
 
                 m_ContainedNalTypes.Clear();
             }
 
-            protected virtual void WriteStartCode(ref byte nalHeader)
+            protected virtual void WriteStartCode(ref byte nalHeader, bool fullStartCodes = false)
             {
                 //Determine the type of Nal
                 byte nalType = (byte)(nalHeader & Common.Binary.FiveBitMaxValue);
@@ -543,15 +531,32 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Store the nalType contained
                 m_ContainedNalTypes.Add(nalType);
 
+                if (fullStartCodes)
+                {
+                    Buffer.WriteByte(0);
+
+                    Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+
+                    return;
+                }
+
                 //Determine if the Emulation prevention byte is required.
                 switch (nalType)
                 {
+                    ////Should technically only be written for first iframe in au and only when not precceded by sps and pps
+                    //case Media.Codecs.Video.H264.NalUnitType.InstantaneousDecoderRefresh://5
+                    //case Media.Codecs.Video.H264.NalUnitType.SequenceParameterSetSubset:// 15 (6190)
+                    //    {
+                    //        //Check if first nal in Access Unit m_ContainedNalTypes[0] == Media.Codecs.Video.H264.NalUnitType.SequenceParameterSetSubset;
+                    //        if (Buffer.Position == 0) goto case Media.Codecs.Video.H264.NalUnitType.SequenceParameterSet;
+                            
+                    //        //Handle without extra byte
+                    //        goto default;
+                    //    }
                     case Media.Codecs.Video.H264.NalUnitType.SupplementalEncoderInformation://6:                    
                     case Media.Codecs.Video.H264.NalUnitType.SequenceParameterSet://7:
                     case Media.Codecs.Video.H264.NalUnitType.PictureParameterSet://8:
-                    case Media.Codecs.Video.H264.NalUnitType.AccessUnitDelimiter://9
-                    //case Media.Codecs.Video.H264.NalUnitType.CodedSlice:
-                    //case Media.Codecs.Video.H264.NalUnitType.SliceExtension:
+                    case Media.Codecs.Video.H264.NalUnitType.AccessUnitDelimiter://9                                        
                         {
                             //Write the extra 0 byte to the Buffer
                             Buffer.WriteByte(0);
@@ -559,8 +564,64 @@ namespace Media.Rtsp.Server.MediaTypes
                             //Handle as normal
                             goto default;
                         }
+                    // See: [ITU-T H.264] 7.4.1.2.4 Detection of the first VCL NAL unit of a primary coded picture
+                    //case Media.Codecs.Video.H264.NalUnitType.CodedSlice:1  (6190)
+                    //case Media.Codecs.Video.H264.NalUnitType.SliceExtension:20  (6190)
+                    //    {
+                    //        //Write the extra 0 byte to the Buffer (could also check for a contained slice header to eliminate the possibility of needing to check?)
+                    //        if (Buffer.Position == 0 && isFirstVclInPrimaryCodedPicture()) goto case Media.Codecs.Video.H264.NalUnitType.AccessUnitDelimiter;
+
+                    //        //Handle as normal
+                    //        goto default;
+                    //    }
                     default:
                         {
+                            #region Notes
+
+                            /* 7.1 NAL Unit Semantics
+                             
+                            1) The first byte of the RBSP contains the (most significant, left-most) eight bits of the SODB; the next byte of
+                            the RBSP shall contain the next eight bits of the SODB, etc., until fewer than eight bits of the SODB remain.
+                            
+                            2) rbsp_trailing_bits( ) are present after the SODB as follows:
+                            i) The first (most significant, left-most) bits of the final RBSP byte contains the remaining bits of the SODB,
+                            (if any)
+                            ii) The next bit consists of a single rbsp_stop_one_bit equal to 1, and
+                            iii) When the rbsp_stop_one_bit is not the last bit of a byte-aligned byte, one or more
+                            rbsp_alignment_zero_bit is present to result in byte alignment.
+                            
+                            3) One or more cabac_zero_word 16-bit syntax elements equal to 0x0000 may be present in some RBSPs after
+                            the rbsp_trailing_bits( ) at the end of the RBSP.
+                            Syntax structures having these RBSP properties are denoted in the syntax tables using an "_rbsp" suffix. These
+                            structures shall be carried within NAL units as the content of the rbsp_byte[ i ] data bytes. The association of the RBSP
+                            syntax structures to the NAL units shall be as specified in Table 7-1.
+                            NOTE - When the boundaries of the RBSP are known, the decoder can extract the SODB from the RBSP by concatenating the bits
+                            of the bytes of the RBSP and discarding the rbsp_stop_one_bit, which is the last (least significant, right-most) bit equal to 1, and
+                            discarding any following (less significant, farther to the right) bits that follow it, which are equal to 0. The data necessary for the
+                            decoding process is contained in the SODB part of the RBSP.
+                            emulation_prevention_three_byte is a byte equal to 0x03. When an emulation_prevention_three_byte is present in the
+                            NAL unit, it shall be discarded by the decoding process.
+                            The last byte of the NAL unit shall not be equal to 0x00.
+                            Within the NAL unit, the following three-byte sequences shall not occur at any byte-aligned position:
+                            – 0x000000
+                            – 0x000001
+                            – 0x000002
+                            Within the NAL unit, any four-byte sequence that starts with 0x000003 other than the following sequences shall not
+                            occur at any byte-aligned position:
+                            – 0x00000300
+                            – 0x00000301
+                            – 0x00000302
+                            – 0x00000303 
+                             
+                             */
+
+                            //Could also check last byte(s) in buffer to ensure no 0...
+
+                            //FFMPEG changed to always emit full start codes.
+                            //https://ffmpeg.org/doxygen/trunk/rtpdec__h264_8c_source.html
+
+                            #endregion
+
                             //Write the start code to the Buffer
                             Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
 
@@ -573,7 +634,9 @@ namespace Media.Rtsp.Server.MediaTypes
             public override void Dispose()
             {
                 if (IsDisposed) return;
+
                 base.Dispose();                
+
                 DisposeBuffer();
             }
 
@@ -594,6 +657,8 @@ namespace Media.Rtsp.Server.MediaTypes
         //http://stackoverflow.com/questions/6394874/fetching-the-dimensions-of-a-h264video-stream
 
         //The sps should be changed to reflect the correct amount of macro blocks for the width and height specified as well as color depth.
+
+        //profile_idc, profile_iop, level_idc
 
         protected byte[] sps = { 0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x0a, 0xf8, 0x41, 0xa2 };
 
@@ -668,7 +733,7 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             try
             {
-                //Make the width and height correct
+                //Make the width and height correct (Should not dispoe image if not resized... (https://net7mma.codeplex.com/discussions/652556)
                 using (var thumb = image.Width != Width || image.Height != Height ? image.GetThumbnailImage(Width, Height, null, IntPtr.Zero) : image)
                 {
                     //Ensure the transformation will work.

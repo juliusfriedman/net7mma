@@ -69,6 +69,7 @@ namespace Media.Rtcp
         /// <param name="blockCount"><see cref="RtcpHeader.BlockCount"/></param>
         /// <param name="blockSize">The size in bytes of each block in the RtcpReport</param>
         /// <param name="extensionSize">The size in bytes of any extension data contained in the report.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpReport(int version, int payloadType, int padding, int ssrc, int blockCount, int blockSize, int lengthInWords, int extensionSize = 0)
             : base(version, payloadType, padding, ssrc, blockCount, lengthInWords, blockSize, extensionSize)
         {
@@ -85,6 +86,7 @@ namespace Media.Rtcp
         /// <param name="blockCount"><see cref="RtcpHeader.BlockCount"/></param>
         /// <param name="blockSize">The size in bytes of each block in the RtcpReport</param>
         /// <param name="extensionSize">The size in bytes of any extension data contained in the report.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpReport(int version, int payloadType, int padding, int ssrc, int blockCount, int blockSize, int extensionSize = 0)
             : base(version, payloadType, padding, ssrc, blockCount,
             RtcpHeader.DefaultLengthInWords,
@@ -100,6 +102,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The <see cref="RtcpHeader"/> of the instance</param>
         /// <param name="payload">The <see cref="RtcpPacket.Payload"/> of the instance.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpReport(RtcpHeader header, IEnumerable<byte> payload, bool shouldDispose = true)
             : base(header, payload, shouldDispose)
         {
@@ -112,6 +115,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The <see cref="RtcpHeader"/> of the instance</param>
         /// <param name="payload">The <see cref="RtcpPacket.Payload"/> of the instance.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpReport(RtcpHeader header, Common.MemorySegment payload, bool shouldDispose = true)
             : base(header, payload, shouldDispose)
         {

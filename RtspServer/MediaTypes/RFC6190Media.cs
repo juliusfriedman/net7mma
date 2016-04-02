@@ -60,7 +60,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public RFC6190Frame(RFC6184Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
 
-            protected internal override void ProcessPacket(Rtp.RtpPacket packet)
+            protected internal override void ProcessPacket(Rtp.RtpPacket packet, bool ignoreForbiddenZeroBit = true, bool fullStartCodes = false)
             {
                 
                 //Determine if the forbidden bit is set and the type of nal from the first byte
@@ -106,7 +106,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     default:
                         {
                             //Handle as per RFC6184
-                            base.ProcessPacket(packet);
+                            base.ProcessPacket(packet, ignoreForbiddenZeroBit, fullStartCodes);
                             return;
                         }
                 }

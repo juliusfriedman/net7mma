@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace Media.Sip
 {
-    class SipClient
-    {
-        //
-    }
+    //class SipClient
+    //{
+    //    //
+    //}
 }

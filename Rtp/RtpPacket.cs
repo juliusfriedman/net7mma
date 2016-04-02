@@ -590,7 +590,15 @@ namespace Media.Rtp
             {
                 throw;
             }
-        }       
+        }
+
+        //internal byte[] GetAllocatedBytes()
+        //{
+        //    if (Header.First16Bits.m_Memory.Array == Header.PointerToLast10Bytes.Array &&
+        //       Header.PointerToLast10Bytes.Array == Payload.Array) return Payload.Array;
+
+        //    return Prepare().ToArray();
+        //}
 
         /// <summary>
         /// Provides a sample implementation of what would be required to complete a RtpPacket that has the IsComplete property False.

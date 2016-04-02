@@ -50,6 +50,11 @@ namespace Media.Common.Extensions.TimeSpan
             NanosecondsPerMillisecond = 1000000, //MicrosecondsPerMillisecond * MicrosecondsPerMillisecond, 
             NanosecondsPerSecond = 1000000000;
 
+        //const long would be a suitable replacement, then would use the .Ticks property of the instance.
+        //public const long InfiniteTicks = -1;
+
+        //readonly ValueType....
+
         /// <summary>
         /// A <see cref="System.TimeSpan"/> with the value of -1 Millisecond
         /// </summary>

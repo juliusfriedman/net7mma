@@ -1945,8 +1945,10 @@ namespace Media.Rtsp
                 //Determine the handler for the request and process it
                 switch (request.RtspMethod)
                 {
-                    case RtspMethod.ANNOUNCE:
+                    case RtspMethod.ANNOUNCE: //C->S announcement...
                         {
+                            //An Allow header field must be present in a 405 (Method not allowed) 
+                            //This should be able to pre provided in the Invalid function via headers.
                             ProcessInvalidRtspRequest(session, RtspStatusCode.MethodNotAllowed, null, sendResponse);
                             break;
                         }
@@ -2128,6 +2130,21 @@ namespace Media.Rtsp
                     if (false == message.ContainsHeader(RtspHeaders.Server)) message.SetHeader(RtspHeaders.Server, ServerName);
 
                     if (false == message.ContainsHeader(RtspHeaders.Date)) message.SetHeader(RtspHeaders.Date, DateTime.UtcNow.ToString("r"));
+
+                    //12.4 Allow
+                    if (message.StatusCode == 405 && false == message.ContainsHeader(RtspHeaders.Allow))
+                    {
+                        ////Authenticated users can see allowed parameters but this is related to the current request URI
+                        //Should determine what methods can be called on the current uri, GetAllowedMethods(session, uri)
+                        //if (session.HasAuthenticated)
+                        //{
+                        //    message.SetHeader(RtspHeaders.Allow, "OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER, REDIRECT, ANNOUNCE, RECORD, SET_PARAMETER");
+                        //}
+                        //else
+                        //{
+                            message.SetHeader(RtspHeaders.Allow, "OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER, REDIRECT");
+                        //}
+                    }
 
                     #region RFC2326 12.38 Timestamp / Delay
 
@@ -2352,6 +2369,7 @@ namespace Media.Rtsp
         /// <param name="session"></param>
         internal void ProcessRtspOptions(RtspMessage request, ClientSession session, bool sendResponse = true)
         {
+
             //See if the location requires a certain stream
             if (request.Location != RtspMessage.Wildcard && false == string.IsNullOrWhiteSpace(request.Location.LocalPath) && request.Location.LocalPath.Length > 1)
             {
@@ -2370,17 +2388,22 @@ namespace Media.Rtsp
                     return;
                 }
 
-                //See if RECORD is supported?
+                //Todo, Found should be used to build the Allowed options.
 
+                //If the stream required authentication then SETUP and PLAY should not appear unless authenticated?
+
+                //See if RECORD is supported?
             }
 
             //Check for additional options of the stream... e.g. allow recording or not
 
             RtspMessage resp = session.CreateRtspResponse(request);
 
-            resp.SetHeader(RtspHeaders.Public, "OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER");
+            //Todo should be a property and should not return PLAY or PAUSE for not ready, should only show Teardown if sessions exist from this ip.
+            resp.SetHeader(RtspHeaders.Public, "OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER"); //, REDIRECT
 
-            //Allow for Authorized
+            //Todo should be a property
+            //Allow for Authorized (should only send if authenticated?)
             resp.SetHeader(RtspHeaders.Allow, "ANNOUNCE, RECORD, SET_PARAMETER");
 
             //Add from handlers?

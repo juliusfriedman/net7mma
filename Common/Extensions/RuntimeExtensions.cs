@@ -42,7 +42,17 @@ namespace Media.Common.Extensions
     {
         internal static readonly System.Type MonoType = System.Type.GetType("Mono.Runtime");
 
+        public static bool IsMono { get { return MonoType != null; } }
+
+        internal static readonly System.Type MonoMacType = System.Type.GetType("MonoMac");
+
+        public static bool IsMonoMac { get { return MonoMacType != null; } }
+
+        //Maybe a IsMonoOrMonoMac...
+
         internal static readonly System.Type MonoTouchObjCRuntimeType = System.Type.GetType("MonoTouch.ObjCRuntime");
+        
+        public static bool IsiOS { get { return MonoTouchObjCRuntimeType != null; } }
 
         //To have a Classic property one would need to ensure MonoTouchObjCRuntimeType != null and reflect the Constants.Version field.
         /*
@@ -57,15 +67,14 @@ namespace Media.Common.Extensions
 
         internal static readonly System.Type AndroidOSType = System.Type.GetType("Android.OS");
 
-        //WatchKit indicates AppleWatch
-
-        //Should be taken into account when setting socket options...
-
-        public static bool IsMono { get { return MonoType != null; } }
-
-        public static bool IsiOS { get { return MonoTouchObjCRuntimeType != null; } }
-
         public static bool IsAndroid { get { return AndroidOSType != null; } }
+
+        internal static readonly System.Type WatchKitType = System.Type.GetType("WatchKit");
+
+        /// <summary>
+        /// Indicates if the WatchKit namespace is available.
+        /// </summary>
+        public static bool IsWatchKit { get { return WatchKitType != null; } }
 
         //IsRyuJit - http://stackoverflow.com/questions/22422021/how-do-i-verify-that-ryujit-is-jitting-my-app
 

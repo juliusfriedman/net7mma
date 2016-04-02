@@ -64,6 +64,7 @@ namespace Media.Codecs.Video.H264
         public const byte PayloadContentScalabilityInformation = 30;
 
         public const byte Reserved = 31;
+
         public static bool IsReserved(byte type) { return type == Reserved || type >= 16 && type <= 18 || type >= 22 && type <= 23; }
 
         public const byte NonInterleavedMultiTimeAggregation = Reserved;

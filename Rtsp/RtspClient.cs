@@ -262,7 +262,15 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspClient is currently sending or receiving data.
         /// </summary>
-        public bool InUse { get { return false == m_InterleaveEvent.IsSet && m_InterleaveEvent.Wait((int)((m_RtspSessionTimeout.TotalMilliseconds + 1) / m_ResponseTimeoutInterval)); } }
+        public bool InUse
+        {
+            get
+            {
+                return false == m_InterleaveEvent.IsSet;
+                    //&& //Waits too long...
+                    //m_InterleaveEvent.Wait((int)((m_RtspSessionTimeout.TotalMilliseconds + 1) / m_ResponseTimeoutInterval));
+            }
+        }
 
         /// <summary>
         /// Indicates if the <see cref="StartedPlaying"/> property will be set as a result of handling the Play event.
@@ -385,12 +393,12 @@ namespace Media.Rtsp
                 if (IsDisposed) return true;
 
                 // A null or disposed client or one which is no longer connected cannot share the socket
-                if (m_RtpClient == null || m_RtpClient.IsDisposed || false == m_RtpClient.IsActive) return false;
+                if (Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient) || false == m_RtpClient.IsActive) return false;
 
                 //The socket is shared if there is a context using the same socket
                 var context = m_RtpClient.GetContextBySocket(m_RtspSocket);
                 
-                return context != null && context.IsActive && context.HasAnyRecentActivity;
+                return false == Common.IDisposedExtensions.IsNullOrDisposed(context) && context.IsActive && context.HasAnyRecentActivity;
             }
         }
 
@@ -1443,6 +1451,55 @@ namespace Media.Rtsp
             }
         }
 
+        //https://www.ietf.org/proceedings/60/slides/mmusic-8.pdf
+        //Announce? Maybe it's depreceated maybe it's not...
+        //Event codes are in the header.?
+        //WTF is play_notify then...
+
+        /*
+         
+        +-------------+-------------------------+---------------------------+
+        | Notice-code | Notice-string           | Description               |
+        +-------------+-------------------------+---------------------------+
+        | 1103        | Playout Stalled         | -/-                       |
+        |             |                         |                           |
+        | 1104        | Playout Resumed         | Temporarily stopped       |
+        |             |                         |                           |
+        | 2101        | End-of-Stream Reached   | Content terminated        |
+        |             |                         |                           |
+        | 2103        | Transition              | In transition             |
+        |             |                         |                           |
+        | 2104        | Start-of-Stream Reached | Returned to the initial   |
+        |             |                         | content                   |
+        |             |                         |                           |
+        | 2306        | Continuous Feed         | Live finished             |
+        |             | Terminated              |                           |
+        |             |                         |                           |
+        | 2401        | Ticket Expired          | Viewing right expired     |
+        |             |                         |                           |
+        | 4400        | Error Reading Content   | Data read error           |
+        |             | Data                    |                           |
+        |             |                         |                           |
+        | 5200        | Server Resource         | Resource cannot be        |
+        |             | Unavailable             | obtained                  |
+        |             |                         |                           |
+        | 5401        | Downstream Failure      | Stream could not be       |
+        |             |                         | obtained                  |
+        |             |                         |                           |
+        | 5402        | Client Session          | -/-                       |
+        |             | Terminated              |                           |
+        |             |                         |                           |
+        | 5403        | Server Shutting Down    | -/-                       |
+        |             |                         |                           |
+        | 5404        | Internal Server Error   | -/-                       |
+        |             |                         |                           |
+        | 5501        | End-of-Window_term      | -/-                       |
+        |             |                         |                           |
+        | 5502        | End-of-Contract_term    | -/-                       |
+        +-------------+-------------------------+---------------------------+
+         
+         */
+
         internal protected virtual void ProcessRemotePlayNotify(RtspMessage playNotify)
         {
             //Make a response
@@ -1521,7 +1578,9 @@ namespace Media.Rtsp
                 case RtspMethod.ANNOUNCE:
                     {
                         //https://www.ietf.org/proceedings/60/slides/mmusic-8.pdf
-                        //Announce is sometimes used for this, special EvenType header.
+                        //Announce is sometimes used for this, special EventType header.
+
+                        //Check for codes present...
 
                         if (Uri.Equals(toProcess.Location, CurrentLocation))
                         {
@@ -1582,6 +1641,9 @@ namespace Media.Rtsp
                         {
                             //Indicate Not Allowed.
                             response.RtspStatusCode = RtspStatusCode.NotImplemented;
+
+                            //Todo
+                            //Should use MethodNotAllowed and set Allow header with supported methods.
 
                             //Set the sequence number
                             response.CSeq = toProcess.CSeq;
@@ -1812,6 +1874,12 @@ namespace Media.Rtsp
             //Get the media descriptions in the session description to setup
             var toSetup = SessionDescription.MediaDescriptions;
 
+            //////Should check the TimeDescriptions to ensure media is active (Before chaning the order)
+            ////if (SessionDescription.TimeDescriptions.Count() > 0)
+            ////{
+
+            ////}
+
             //Windows Media Server May require an order like so.
             //SetupOrder = (mds) => mds.OrderBy(md=> md.MediaType).Reverse();
 
@@ -1825,7 +1893,6 @@ namespace Media.Rtsp
             //What could be done though is to use the detection of the rtx track to force interleaved playback.
             foreach (Sdp.MediaDescription md in toSetup)
             {
-
                 //Don't setup unwanted streams
                 if (mediaTypes != null && false == mediaTypes.Any(t=> t ==  md.MediaType)) continue;
 
@@ -2004,7 +2071,7 @@ namespace Media.Rtsp
             var context = Client.GetContextForMediaDescription(mediaDescription);
 
             //Dont setup media which is already setup.
-            if (mediaDescription != null && context == null) return;            
+            if (mediaDescription != null && context == null) return;                        
 
             //setup the media description
             using (var setupResponse = SendSetup(mediaDescription))
@@ -2721,11 +2788,12 @@ namespace Media.Rtsp
                 Receive:
                     #region Receive
                     //If we can receive 
-                    //if (m_RtspSocket != null && m_RtspSocket.Poll(pollTime, SelectMode.SelectRead))
-                    //{
+                    if (m_RtspSocket != null && //Can be polled for data within 1 msec
+                        m_RtspSocket.Poll((int)Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Common.Extensions.TimeSpan.TimeSpanExtensions.OneMillisecond), SelectMode.SelectRead))
+                    {
                         //Receive
                         received += m_RtspSocket.Receive(m_Buffer.Array, offset, m_Buffer.Count, SocketFlags.None, out error);
-                    //}
+                    }
 
                     #region Auto Reconnect
 

@@ -49,6 +49,12 @@ namespace Media.Sdp
     /// </summary>
     public class MediaDescription : Common.BaseDisposable, IEnumerable<SessionDescriptionLine>
     {
+        //Nested type for MediaDescriptionLine?
+
+        //Proto fields http://www.iana.org/assignments/sdp-parameters/sdp-parameters-2.csv
+
+        //public sealed class ProtocolFields { const string RealTimeAudioVideoProfile = "RTP/AVP";  }
+
         public const char MediaDescriptionLineType = 'm';
 
         #region Fields
@@ -260,6 +266,9 @@ namespace Media.Sdp
         public void Add(SessionDescriptionLine line)
         {
             if (line == null) return;
+
+            //Should ensure that the line is allowed.
+
             m_Lines.Add(line);
         }
 
@@ -307,7 +316,7 @@ namespace Media.Sdp
 
                     if (portSpecifier.HasValue)
                     {
-                        buffer.Append(MediaDescriptionLineType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(SessionDescription.Space.ToString(), MediaType, MediaPort.ToString() + ((char)Common.ASCII.ForwardSlash).ToString() + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.NewLine);
+                        buffer.Append(MediaDescriptionLineType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(SessionDescription.Space.ToString(), MediaType, MediaPort.ToString() + ((char)Common.ASCII.ForwardSlash).ToString() + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.NewLineString);
 
                         goto LinesOnly;
                     }
@@ -338,7 +347,7 @@ namespace Media.Sdp
         {
             get
             {
-                return new SessionDescriptionLine(MediaDescriptionLineType, ((char)Common.ASCII.Space).ToString())
+                return new SessionDescriptionLine(MediaDescriptionLineType, SessionDescription.SpaceString)
                 {
                     MediaType.ToString(),
                     PortRangeString,
@@ -370,7 +379,7 @@ namespace Media.Sdp
         {
             get
             {
-                return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts[0].StartsWith("rtpmap:", StringComparison.InvariantCultureIgnoreCase));
+                return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith("rtpmap:", StringComparison.InvariantCultureIgnoreCase));
             }
         }
        
@@ -378,20 +387,20 @@ namespace Media.Sdp
         {
             get
             {
-                return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts[0].StartsWith("fmtp:", StringComparison.InvariantCultureIgnoreCase));
+                return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith("fmtp:", StringComparison.InvariantCultureIgnoreCase));
             }
         }
 
         public SessionDescriptionLine RangeLine
         {
-            get { return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts[0].StartsWith("range:", StringComparison.InvariantCultureIgnoreCase)); }
+            get { return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith("range:", StringComparison.InvariantCultureIgnoreCase)); }
         }
 
         public SessionDescriptionLine ControlLine
         {
             get
             {
-                return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts[0].StartsWith("control:", StringComparison.InvariantCultureIgnoreCase));
+                return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith("control:", StringComparison.InvariantCultureIgnoreCase));
             }
         }
 
@@ -459,6 +468,8 @@ namespace Media.Sdp
                     //Return a new uri using the original string and the controlUri relative path.
                     //Hopefully the direction of the braces matched
 
+                                                                                                    //string.Join(source.OriginalString, controlUri.OriginalString);
+
                     return new Uri(source.OriginalString.EndsWith(SessionDescription.ForwardSlashString) ? source.OriginalString + controlUri.OriginalString : string.Join(SessionDescription.ForwardSlashString, source.OriginalString, controlUri.OriginalString));
 
                     #region Explination
@@ -481,6 +492,69 @@ namespace Media.Sdp
 
             //There is no control line, just return the source.
             return source;
+        }
+
+        public static TimeDescription GetTimeDescription(this MediaDescription mediaDescription, SessionDescription sessionDescription)
+        {
+            if (mediaDescription == null || sessionDescription == null) return null;
+
+            //Get index of mediaDescription
+
+            //Needs a better way to get the index of the media description
+            int index = sessionDescription.GetIndexFor(mediaDescription);  //Array.IndexOf(sessionDescription.MediaDescriptions.ToArray(), mediaDescription);
+
+            if (index == -1) return null;
+
+            return sessionDescription.GetTimeDescription(index);
+        }
+
+        //Should have a date when or should return the date playable, which would then be used by another method to compare against a time.
+        public static bool IsPlayable(this MediaDescription mediaDescription, SessionDescription sessionDescription) //, DateTime? check = null) ,TimeSpan within = TimeSpan.Zero
+        {
+            if (mediaDescription == null || sessionDescription == null) return false;
+
+            //Get index of mediaDesription
+            
+            //Check TimeDescription @ index.
+
+            TimeDescription td = GetTimeDescription(mediaDescription, sessionDescription);
+
+            if (td == null) return true;
+
+            //Unbound start and end ?
+            if (td.StartTime == 0
+                &&
+                td.StopTime == 0) return true;
+
+
+            //Notes multiple calls to UtcNow... (avoid with a within parameter)?
+            try
+            {
+                //Ensure not a bounded end and that the end time is less than now
+                if (td.StopTime != 0
+                    &&
+                    td.NtpStopDateTime >= DateTime.UtcNow) return false;
+
+                //Ensure start time is not bounded and that the start time is greater than now
+                if (td.StartTime != 0
+                    &&
+                    td.NtpStartDateTime > DateTime.UtcNow) return false;
+
+                //Check repeat times.
+
+                //td.RepeatTimes;
+            }
+            catch
+            {
+                //Out of range values for conversion, assume true if end is unbounded
+                if (td.StopTime != 0) return false;
+            }
+            finally
+            {
+                td = null;
+            }
+            
+            return true;
         }
     }
 

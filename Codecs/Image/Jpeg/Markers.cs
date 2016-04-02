@@ -49,33 +49,81 @@ namespace Media.Codecs.Image.Jpeg
         /// <summary>
         /// In every marker segment the first two bytes after the marker shall be an unsigned value [In Network ByteOrder] that denotes the length in bytes of 
         /// the marker segment parameters (including the two bytes of this length parameter but not the two bytes of the marker itself). 
-        /// </summary>
+        /// </summary>    
 
-        public const byte Prefix = 0xff;
+        //https://svn.xiph.org/experimental/giles/jpegdump.c
 
-        public const byte TextComment = 0xfe;
+        public const byte Nul = 0x0;
+
+        public const byte TEM = 0x01;        
 
         public const byte StartOfBaselineFrame = 0xc0;
 
         public const byte StartOfProgressiveFrame = 0xc2;
 
+        public const byte StartOfLosslessHuffmanFrame = 0xc3;
+
         public const byte HuffmanTable = 0xc4;
+
+        public const byte StartOfDifferentialSequentialHuffmanFrame = 0xc5;
+
+        public const byte StartOfDifferentialProgressiveHuffmanFrame = 0xc6;
+
+        public const byte StartOfDifferentialLosslessHuffmanFrame = 0xc7;
+
+        public const byte Extension = 0xc8;        
+
+        public const byte StartOfExtendedSequentialArithmeticFrame = 0xc9;
+
+        public const byte StartOfProgressiveArithmeticFrame = 0xca;
+
+        public const byte StartOfLosslessArithmeticFrame = 0xcb;
+
+        public const byte ArithmeticConditioning = 0xcc;
+
+        public const byte StartOfDifferentialSequentialArithmeticFrame = 0xcd;
+
+        public const byte StartOfDifferentialProgressiveArithmeticFrame = 0xce;
+
+        public const byte StartOfDifferentialLosslessArithmeticFrame = 0xcf;
+
+        //0xd0 => 0xd7 RST => RestartMarker
 
         public const byte StartOfInformation = 0xd8;
 
-        public const byte AppFirst = 0xe0;
-
-        public const byte AppLast = 0xee;
-
         public const byte EndOfInformation = 0xd9;
+
+        public const byte StartOfScan = 0xda;
 
         public const byte QuantizationTable = 0xdb;
 
-        public const byte DefineNumberOfLines = 0xdc;
+        public const byte NumberOfLines = 0xdc;
 
         public const byte DataRestartInterval = 0xdd;
 
-        public const byte StartOfScan = 0xda;
+        public const byte HierarchialProgression = 0xde;
+        /// <summary>
+        /// Expand reference components
+        /// </summary>
+        public const byte Expand = 0xdf;
+
+        public const byte AppFirst = 0xe0;
+
+        //0xe1 => 0xee App 1 => App 14
+
+        public const byte AppLast = 0xef;
+
+        //0xf0 => 0xf6 Extension Data
+
+        // 0xf7 => start of frame JPEG LS
+
+        // 0xf8 = LSE extension parameters JPEG LS
+
+        //0xf9 => 0xfd Extension Data
+
+        public const byte TextComment = 0xfe;
+
+        public const byte Prefix = 0xff;
     }
 
     //Todo Should be moved to JpegReader in Container or JpegReader should use this?

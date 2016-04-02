@@ -47,10 +47,20 @@ namespace Media.Common
         /// </summary>
         public static readonly System.Text.Encoding ASCIIEncoding = new System.Text.ASCIIEncoding();
 
-        public const byte Space = 0x20,// ` `
-            Tab = 0x09,      // `\t => 09 Decimal`
-            LineFeed = 0x0A, // `\n` => 10 Decimal
+        public const byte Null = 0x00, 
+            Bell = 0x07, // `\a` => 07 Decimal`
+            Backspace = 0x08, //`\b` => 08 Decimal`
+            HorizontalTab = 0x09, // `\t` => 09 Decimal`
+            LineFeed = 0x0A, // NewLine `\n` => 10 Decimal
+            VerticalTab = 0x0B, // `\v` => 11 Decimal
+            FormFeed = 0x0C, // NewPage `\f` => 12 Decimal
             NewLine = 0x0D, // `\r` => 13 Decimal
+            //ShiftOut 14
+            //ShiftIn 15
+            //DataLinkEscape 16
+            Escape = 0x1B, // `\e` => 27 Decimal
+            Space = 0x20,// ` ` => 32 Decimal
+            /*....*/
             EqualsSign = 0x3D, // =
             HyphenSign = 0x2D, // -
             Comma = 0x2C, // ,
@@ -59,7 +69,6 @@ namespace Media.Common
             Colon = 0x3A, // :
             SemiColon = 0x3B, // ;
             AtSign = 0x40, // @
-            R = 0x52, // 'R' = 82 Decimal
             BackSlash = 0x5C, // '\'
             DoubleQuote = 0x22,// '"'
             SingleQuote = 0x27, // '\''
@@ -146,7 +155,6 @@ namespace Media.Common
 
                     //If the value is not a hex digit then do not allow it
                     if (false == ASCII.IsHexDigit(ref c)) continue;
-                    //if(c > 'f' || c > 'F') continue;
 
                     //Append the char
                     output.Append(c);

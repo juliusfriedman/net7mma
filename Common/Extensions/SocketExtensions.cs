@@ -184,7 +184,13 @@ namespace Media.Common.Extensions.Socket
                             if (working != null) working.Dispose();
 
                             //Try next port
-                            ++start;
+                            if (++start > ushort.MaxValue)
+                            {
+                                //No port found
+                                start = -1;
+
+                                break;
+                            }
 
                             //Ensure even if possible
                             if (even && Common.Binary.IsOdd(ref start) && start < ushort.MaxValue) ++start;
@@ -203,7 +209,7 @@ namespace Media.Common.Extensions.Socket
             }
 
         Done:
-            //Dispose working socket
+            //Dispose working socket if assigned.
             if (working != null) working.Dispose();
 
             //Return the port.

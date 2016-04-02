@@ -137,14 +137,14 @@ namespace Media.Rtp
         /// <summary>
         /// A managed abstraction of the first two octets, 16 bits of the RtpHeader.
         /// </summary>
-        Media.RFC3550.CommonHeaderBits First16Bits;
+        internal Media.RFC3550.CommonHeaderBits First16Bits;
 
         /// <summary>
         /// A the last 10 octets of the RtpHeader.
         /// </summary>
-        byte[] Last10Bytes;
+        internal byte[] Last10Bytes;
 
-        Common.MemorySegment PointerToLast10Bytes;
+        internal Common.MemorySegment PointerToLast10Bytes;
 
         #endregion
 
@@ -280,47 +280,37 @@ namespace Media.Rtp
         /// Reads an instance of the RtpHeader class and copies 12 octets which make up the RtpHeader.
         /// </summary>
         /// <param name="octets">A reference to a byte array which contains at least 12 octets to copy.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(byte[] octets, int offset = 0)
         {
-            //If the octets reference is null throw an exception
-            if (octets == null) throw new ArgumentNullException("octets");
-
             //Determine the length of the array
-            int octetsLength = octets.Length;
+            long octetsLength;
+
+            //If the octets reference is null throw an exception
+            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(octets, out octetsLength)) throw new ArgumentException("octets must not be null and must contain at least 1 element given the deleniation of the offset parameter.", "octets");
 
             //Check range
             if (offset > octetsLength) throw new ArgumentOutOfRangeException("offset", "Cannot be greater than the length of octets");
 
-            //Check for the amount of octets required to build a RtpHeader given by the delination of the offset
-            //if (octetsLength == 0 || octetsLength - offset < Length) throw new ArgumentException("octets must contain at least 12 elements given the deleniation of the offset parameter.", "octets");
-            if (octetsLength == 0) throw new ArgumentException("octets must contain at least 1 element given the deleniation of the offset parameter.", "octets");
+            //Todo, should not matter since this header instance would be allowed to be modified, saving the allocation here is not necessary.
+            //The check is only relevent because octets my have less than 2 bytes which cannot be handled without exception in the CommonHeaderBits
+            //Read a managed representation of the first two octets which are stored in Big ByteOrder / Network Byte Order
+            First16Bits = octetsLength == 1 ? new Media.RFC3550.CommonHeaderBits(octets[offset], default(byte)) : new Media.RFC3550.CommonHeaderBits(octets, offset);
 
-            bool hasMoreThanOnebyte = octetsLength > 1;
+            //Allocate space for the other 10 octets
+            Last10Bytes = new byte[10];
 
-            if (hasMoreThanOnebyte)
+            //If there are octets for those bytes in the source array
+            if (octetsLength > 2)
             {
-
-                //Read a managed representation of the first two octets which are stored in Big ByteOrder / Network Byte Order
-                First16Bits = new Media.RFC3550.CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
-
-                //Allocate space for the other 10 octets
-                Last10Bytes = hasMoreThanOnebyte ? new byte[10] : Media.Common.MemorySegment.EmptyBytes;
-
                 //Copy the remaining bytes of the header which consist of the 
                 //SequenceNumber (2 octets / U16)
                 //Timestamp (4 octets / U32)
                 //SSRC (4 octets / U32)
                 Array.Copy(octets, offset + 2, Last10Bytes, 0, Math.Min(10, octetsLength - 2));
             }
-            else
-            {
-                //Read a managed representation of the first two octets which are stored in Big ByteOrder / Network Byte Order
-                First16Bits = new Media.RFC3550.CommonHeaderBits(octets[offset + 0], default(byte));
 
-                //Allocate space for the other 10 octets
-                Last10Bytes =  Media.Common.MemorySegment.EmptyBytes;
-            }
-
+            //Assign the segment
             PointerToLast10Bytes = new MemorySegment(Last10Bytes, 0, Last10Bytes.Length);
         }
 
@@ -329,6 +319,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="other">The RtpHeader to copy</param>
         /// <param name="reference">A value indicating if the RtpHeader given should be referenced or copied.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(RtpHeader other, bool reference)
         {
             if (reference)
@@ -345,14 +336,16 @@ namespace Media.Rtp
                 other.Last10Bytes.CopyTo(Last10Bytes, 0);
             }
         }
-
+        
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(Common.MemorySegment memory)
         {
             First16Bits = new Media.RFC3550.CommonHeaderBits(memory);
 
             PointerToLast10Bytes = new Common.MemorySegment(memory.Array, memory.Offset + RFC3550.CommonHeaderBits.Size, Binary.Clamp(memory.Count - RFC3550.CommonHeaderBits.Size, 0, 10));
         }
-
+        
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(int version, bool padding, bool extension)
         {
             First16Bits = new Media.RFC3550.CommonHeaderBits(version, padding, extension);
@@ -369,6 +362,7 @@ namespace Media.Rtp
             Extension = extension;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(int version, bool padding, bool extension, bool marker, int payloadTypeBits, int contributingSourceCount, int ssrc, int sequenceNumber, int timestamp)
             :this(version, padding, extension)
         {

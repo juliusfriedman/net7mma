@@ -93,13 +93,16 @@ namespace Media.Rtsp
         // DateTimeOffset Started or LastStarted
 
         // TimeSpan Remaining
+        
+
+        //PauseTime
 
         #endregion
 
         #region Properties
 
         /// <summary>
-        /// Determines if a request must be sent periodically to keep the session or connection alive
+        /// Determines if a request must be sent periodically to keep the session and any underlying connection alive
         /// </summary>
         public bool EnableKeepAliveRequest { get; internal protected set; }
 
@@ -154,6 +157,8 @@ namespace Media.Rtsp
         {
             get { return SessionTimeRemaining > System.TimeSpan.Zero; }
         }
+        
+        ///HasAuthenticated
 
         #endregion
 
@@ -299,82 +304,6 @@ namespace Media.Rtsp
 
             return false;
         }
-
-        #region Seperation
-
-        //Determine what needs to be stored by this function
-
-        //Should be compatible with MPEG or something other types of transport e.g. Rtmp
-
-        //string TransportProfile; //RTP/AVP/UDP - RTP/SAVP/UDP
-
-        //string ConnectionType; //unicast - multicast - anycast
-
-        //int[]LocalPorts, RemotePorts[]
-
-        //ProtocolType TransportProtocol; //Tcp or Udp
-
-        ////public void ParseTransport(RtspMessage from)
-        ////{
-        ////    //We SHOULD have a valid TransportHeader in the response
-        ////    //Get the transport header from the response if present.
-        ////    TransportHeader = from[RtspHeaders.Transport];
-
-        ////    //Values in the header we need
-        ////    int clientRtpPort = -1, clientRtcpPort = -1,
-        ////        serverRtpPort = -1, serverRtcpPort = -1,
-        ////        //Darwin and Wowza uses this ssrc, VLC/Live Gives a Unsupported Transport, WMS and most others seem to ignore it.
-        ////        localSsrc = 0,//RFC3550.Random32(),  //Could also use SessionId?
-        ////        remoteSsrc = 0;
-
-        ////    //Cache this to prevent having to go to get it every time down the line
-        ////    System.Net.IPAddress sourceIp = System.Net.IPAddress.Any;
-
-        ////    string mode;
-
-        ////    bool unicast, multicast = false, interleaved = false;
-
-        ////    byte dataChannel = 0, controlChannel = 1;
-
-        ////    int minimumPacketSize = interleaved ? 4 : 8, maximumPacketSize = Context.ContextMemory.Count;
-
-        ////    //Todo Determine if Unicast or Multicast from mediaDescription ....?
-        ////    string connectionType = false == multicast ? "unicast;" : "multicast";
-
-        ////    //If there was no return transport header then we don't know what ports to utilize for reception.
-        ////    if (string.IsNullOrWhiteSpace(TransportHeader))
-        ////    {
-        ////        //Discover them when receiving from the host
-        ////        serverRtpPort = 0;
-
-        ////        serverRtcpPort = 0;
-        ////    }
-        ////    else
-        ////    {
-        ////        //Check for the RTP token to ensure the underlying tranport is supported.
-        ////        //Eventually any type such as RAW etc will be supported.
-        ////        if (false == TransportHeader.Contains("RTP")
-        ////        ||
-        ////        false == RtspHeaders.TryParseTransportHeader(TransportHeader,
-        ////        out remoteSsrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
-        ////        out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast))
-        ////            Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(from, "Invalid Transport Header in Rtsp Response. (See Tag for response)");
-        ////    }
-
-        ////    //Create the context if required.. (Will be created with Sdp Address)
-        ////    Context = Media.Rtp.RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, MediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
-
-        ////    //Set the identity to what we indicated to the server.
-        ////    Context.SynchronizationSourceIdentifier = localSsrc;
-
-        ////    //Set the minimum packet size
-        ////    Context.MinimumPacketSize = minimumPacketSize;
-
-        ////    //Set the maximum packet size
-        ////    Context.MaximumPacketSize = maximumPacketSize;
-        ////}
-
-        #endregion
 
         public string TransportHeader;
 

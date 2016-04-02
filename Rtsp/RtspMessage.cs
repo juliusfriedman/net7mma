@@ -541,7 +541,7 @@ namespace Media.Rtsp
                 //Use the unsigned representation
                 if (m_CSeq != value) SetHeader(RtspHeaders.CSeq, ((uint)(m_CSeq = value)).ToString());
             }
-        }
+        }        
 
         #endregion
 
@@ -893,6 +893,13 @@ namespace Media.Rtsp
             }
 
             return true;
+        }        
+
+        protected override void OnHeaderAdded(string headerName, string headerValue)
+        {
+            if (string.Compare(headerName, Http.HttpHeaders.TransferEncoding, true) == 0) throw new InvalidOperationException("Protocol: " + Protocol + ", does not support TrasferEncoding.");
+
+            base.OnHeaderAdded(headerName, headerValue);
         }
 
         /// <summary>

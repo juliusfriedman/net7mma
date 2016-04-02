@@ -41,7 +41,7 @@ namespace Media.Common
     [System.CLSCompliant(true)]
     public sealed class UTF8
     {
-        public static readonly byte[] LineEndingBytes = new byte[] { Media.Common.ASCII.NewLine, Media.Common.ASCII.LineFeed };
+        public static readonly byte[] LineEndingBytes = new byte[] { Media.Common.ASCII.NewLine, Media.Common.ASCII.LineFeed }; //, Media.Common.ASCII.FormFeed
 
         public static readonly char[] LineEndingCharacters = System.Text.Encoding.UTF8.GetChars(LineEndingBytes);
 
@@ -61,7 +61,7 @@ namespace Media.Common
 
         public static readonly char[] ForwardSlashCharacters = System.Text.Encoding.UTF8.GetChars(ForwardSlashBytes);
 
-        public static readonly byte[] TabBytes = new byte[] { Common.ASCII.Tab };
+        public static readonly byte[] TabBytes = new byte[] { Common.ASCII.HorizontalTab };
 
         public static readonly char[] TabCharacters = System.Text.Encoding.UTF8.GetChars(TabBytes);
     }

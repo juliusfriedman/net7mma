@@ -67,10 +67,15 @@ namespace Media.Common.Extensions.String
         public static byte[] HexStringToBytes(string str, int start = 0, int length = -1)
         {
             if (length == 0) return null;
+            
             if (length <= -1) length = str.Length;
+
             if (start > length - start) throw new System.ArgumentOutOfRangeException("start");
+
             if (length > length - start) throw new System.ArgumentOutOfRangeException("length");
+
             System.Collections.Generic.List<byte> result = new System.Collections.Generic.List<byte>(length / 2);
+            
             //Dont check the results for overflow
             unchecked
             {

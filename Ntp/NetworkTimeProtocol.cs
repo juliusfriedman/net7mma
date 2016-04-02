@@ -109,7 +109,7 @@ namespace Media.Ntp
 
             //System.DateTime.SpecifyKind( , System.DateTimeKind.Utc);
             return epoch.HasValue ? epoch.Value + System.TimeSpan.FromTicks((long)ticks) : 
-                    (seconds & 0x80000000L) == 0 ? 
+                    /*seconds > 0 && */(seconds & 0x80000000L) == 0 ? 
                         UtcEpoch2036 + System.TimeSpan.FromTicks((long)ticks) :
                             UtcEpoch1900 + System.TimeSpan.FromTicks((long)ticks);
         }
@@ -123,6 +123,11 @@ namespace Media.Ntp
             
             return NptTimestampToDateTime(ref sec, ref frac, epoch);
         }
+
+        /// <summary>
+        /// The seconds difference between NTP Time and Unix Time.
+        /// </summary>
+        public const long NtpDifferenceUnix = 2208988800;
 
         //When the First Epoch will wrap (The real Y2k)
         public static System.DateTime UtcEpoch2036 = new System.DateTime(2036, 2, 7, 6, 28, 16, System.DateTimeKind.Utc);

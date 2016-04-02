@@ -58,6 +58,8 @@ namespace Media.Common
     {
         #region Constants
 
+        #region Internal Constants
+
         /// <summary>
         /// 0
         /// </summary>
@@ -135,6 +137,164 @@ namespace Media.Common
 
         #endregion
 
+        #region Public Constants
+
+        public const int Zero = Binary.Nihil;
+
+        public const int One = Binary.Ūnus;
+
+        public const int Three = Binary.Tres;
+
+        public const int ThirtyOne = Binary.TrīgintāŪnus;
+
+        #endregion
+
+        //Could be moved to BitSizes
+        #region Public Bit Sizes
+
+        /// <summary>
+        /// 16
+        /// </summary>
+        public const int DoubleBitSize = Binary.BitsPerByte * Duo;
+
+        /// <summary>
+        ///24
+        /// </summary>
+        public const int TripleBitSize = Binary.BitsPerByte * Tres;
+
+        /// <summary>
+        /// 32
+        /// </summary>
+        public const int QuadrupleBitSize = Binary.BitsPerByte * Quattuor;
+
+        /// <summary>
+        /// 64
+        /// </summary>
+        public const int OctupleBitSize = Binary.BitsPerByte * Binary.BitsPerByte;
+
+        /// <summary>
+        /// 128
+        /// </summary>
+        internal const int SedecimBitSize = Binary.BitsPerByte * DoubleBitSize;
+
+        /// <summary>
+        /// 256
+        /// </summary>
+        internal const int TrīgintāDuoBitSize = Binary.BitsPerByte * QuadrupleBitSize;
+
+        /// <summary>
+        /// The amount of bits available to the <see cref="byte"/> type.
+        /// </summary>
+        public const int BitsPerByte = Binary.Octo;
+
+        /// <summary>
+        /// The amount of bits available to the <see cref="short"/> type.
+        /// </summary>
+        public const int BitsPerShort = DoubleBitSize;
+
+        /// <summary>
+        /// The amount of bits available to the <see cref="int"/> type.
+        /// </summary>
+        public const int BitsPerInteger = QuadrupleBitSize;
+
+        /// <summary>
+        /// The amount of bits available to the <see cref="long"/> type.
+        /// </summary>
+        public const int BitsPerLong = OctupleBitSize;
+
+        /// <summary>
+        /// The amount of bits available to the <see cref="double"/> type.
+        /// </summary>
+        public const int BitsPerDouble = BitsPerLong;
+
+        /// <summary>
+        /// The amount of bits available to the <see cref="decimal"/> type.
+        /// </summary>
+        public const int BitsPerDecimal = SedecimBitSize;
+
+        #endregion
+
+        //Could be moved to TypeSizes
+        #region Public Type Sizes
+
+        /// <summary>
+        /// The size in bytes of values of the type <see cref="byte"/>
+        /// </summary>
+        public const int BytesPerByte = sizeof(byte);
+
+        /// <summary>
+        /// The size in bytes of values of the type <see cref="short"/>
+        /// </summary>
+        public const int BytesPerShort = sizeof(short);
+
+        /// <summary>
+        /// The size in bytes of values of the type <see cref="char"/>
+        /// </summary>
+        public const int BytesPerChar = sizeof(char);
+
+        /// <summary>
+        /// The size in bytes of values of the type <see cref="int"/>
+        /// </summary>
+        public const int BytesPerInteger = sizeof(int);
+
+        /// <summary>
+        /// The size in bytes of values of the type <see cref="long"/>
+        /// </summary>
+        public const int BytesPerLong = sizeof(long);
+
+        /// <summary>
+        /// The size in bytes of values of the type <see cref="double"/>
+        /// </summary>
+        public const int BytesPerDouble = sizeof(double);
+
+        /// <summary>
+        /// The size in bytes of values of the type <see cref="decimal"/>
+        /// </summary>
+        public const int BytesPerDecimal = sizeof(decimal);
+
+        #endregion
+
+        #region Maximum Values
+
+        /// <summary>
+        /// (000000)11 in Binary, Decimal 3
+        /// </summary>
+        public const byte TwoBitMaxValue = Binary.Tres;
+
+        /// <summary>
+        /// (00000)111 in Binary, Decimal 7
+        /// </summary>
+        public const byte ThreeBitMaxValue = Binary.Septem;
+
+        /// <summary>
+        /// (0000)1111 in Binary, Decimal 15
+        /// </summary>
+        public const byte FourBitMaxValue = Binary.Quīndecim;
+
+        /// <summary>
+        /// (000)11111 in Binary, Decimal 31
+        /// </summary>
+        public const byte FiveBitMaxValue = Binary.TrīgintāŪnus;
+
+        //63 for 6 bit
+
+        /// <summary>
+        /// An octet which represents a set of 8 bits with only the 0th  bit clear. (127 Decimal)
+        /// </summary>
+        /// <remarks>
+        /// 01111111 in Binary
+        /// </remarks>
+        public const byte SevenBitMaxValue = (byte)sbyte.MaxValue;
+
+        /// <summary>
+        /// 00000000 11111111 11111111 11111111 in binary
+        /// </summary>
+        public const int U24MaxValue = 16777215;
+
+        #endregion
+
+        #endregion
+
         #region Exceptions
 
         /// <summary>
@@ -173,7 +333,7 @@ namespace Media.Common
         }
         #endregion
 
-        #region Nested Types
+        #region Enumerations
 
         /// <summary>
         /// Defines a known ByteOrder
@@ -206,24 +366,6 @@ namespace Media.Common
             All = int.MaxValue
         }
 
-        /// <summary>
-        /// Defines a known <see href="http://en.wikipedia.org/wiki/Signed_number_representations">Signed number representation</see>
-        /// </summary>
-        public enum BinaryRepresentation
-        {
-            Unknown = 0,
-            NoSign = 1, 
-            OnesComplement = 2, 
-            SignedMagnitude = 4, 
-            TwosComplement = 6,
-            Excess = 8,
-            Base = 16,
-            Biased = 32,
-            ZigZag = 64,
-            Any = NoSign | OnesComplement | SignedMagnitude | TwosComplement | Excess | Base | Biased | ZigZag,
-            All = int.MaxValue
-        }
-
         #endregion
 
         #region Todo
@@ -234,21 +376,24 @@ namespace Media.Common
 
         #endregion
 
-        #region Statics
+        //Could be moved to BinaryMethods
 
         #region Abs
 
         public static int Abs(int value) { return Abs(ref value); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int Abs(ref int value) { long v = value; return(int)Abs(ref v); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long Abs(long value) { return Abs(ref value); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long Abs(ref long value)
         {
-            long mask = value >> BytesPerInteger * Binary.Septem;//28;
+            long mask = value >> 28;//BytesPerInteger * Binary.Septem;
 
             return (value + mask) ^ mask;
         }
@@ -404,6 +549,8 @@ namespace Media.Common
 
         #region Clamp
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
         public static byte Clamp(ref byte value, ref byte min, ref byte max)
         {
             return Binary.Min(Binary.Max(min, value), max);
@@ -415,6 +562,7 @@ namespace Media.Common
             return Clamp(ref value, ref min, ref max);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int Clamp(ref int value, ref int min, ref int max)
         {
             return Binary.Min(Binary.Max(ref min, ref value), max);
@@ -426,6 +574,7 @@ namespace Media.Common
             return Clamp(ref value, ref min, ref max);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long Clamp(ref long value, ref long min, ref long max)
         {
             return Binary.Min(Binary.Max(ref min, ref value), max);
@@ -444,6 +593,7 @@ namespace Media.Common
         /// <param name="min">The minimum value</param>
         /// <param name="max">The maximum value</param>
         /// <returns>The bound value</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static double Clamp(ref double value, ref double min, ref double max)
         {
             return BitConverter.Int64BitsToDouble(Binary.Min(Binary.Max(BitConverter.DoubleToInt64Bits(min), BitConverter.DoubleToInt64Bits(value)), BitConverter.DoubleToInt64Bits(max)));
@@ -460,9 +610,13 @@ namespace Media.Common
         #region IsPowerOfTwo
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
         public static bool IsPowerOfTwo(ref long x) { return Binary.Nihil == (x & (x - Binary.Ūnus)); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
         public static bool IsPowerOfTwo(ref int x) { return Binary.Nihil == (x & (x - Binary.Ūnus)); }
 
         public static bool IsPowerOfTwo(long x) { return IsPowerOfTwo(ref x); }
@@ -474,6 +628,8 @@ namespace Media.Common
         #region IsEven
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
         public static bool IsEven(ref int x) { return Binary.Nihil == (x & Binary.Ūnus); }
 
         public static bool IsEven(int x) { return IsEven(ref x); }
@@ -483,6 +639,7 @@ namespace Media.Common
         #region IsOdd
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsOdd(ref int x) { return Binary.Ūnus == (x & Binary.Ūnus); }
 
         public static bool IsOdd(int x) { return IsOdd(ref x); }
@@ -493,6 +650,7 @@ namespace Media.Common
         /// <param name="arg"></param>
         /// <returns>True if the value is negative, otherwise false</returns>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsNegative(ref int arg) { return (arg & SignMask) == SignMask; }
 
         public static bool IsNegative(int arg) { return IsNegative(ref arg); }
@@ -503,6 +661,7 @@ namespace Media.Common
         /// <param name="arg"></param>
         /// <returns>True if the value is negative, otherwise false</returns>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsNegative(ref long arg) { return (arg & SignMask) == SignMask; }
 
         public static bool IsNegative(long arg) { return IsNegative(ref arg); }
@@ -513,6 +672,7 @@ namespace Media.Common
         /// <param name="arg"></param>
         /// <returns>True if the value is positive, otherwise false</returns>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsPositive(ref int arg) { return (BitConverter.DoubleToInt64Bits(arg) & SignMask) != SignMask; }
 
         public static bool IsPositive(int arg) { return IsPositive(ref arg); }
@@ -523,12 +683,42 @@ namespace Media.Common
         /// <param name="arg"></param>
         /// <returns>True if the value is positive, otherwise false</returns>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsPositive(ref long arg) { return (BitConverter.DoubleToInt64Bits(arg) & SignMask) != SignMask; }
 
         public static bool IsPositive(long arg) { return IsPositive(ref arg); }
 
         #endregion
 
+        #region Sign
+
+        public static int Sign(int value) { return Sign(ref value); }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int Sign(ref int value)
+        {
+            return ((value > Binary.Nihil) ? Binary.Ūnus : Binary.Nihil) - ((value < Binary.Nihil) ? Binary.Ūnus : Binary.Nihil);
+
+            //Same as Math.Sign
+            //return value > 0 ? 1 : value < 0 ? -1 : 0;
+        }
+
+        public static int Sign(long value) { return Sign(ref value); }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int Sign(ref long value)
+        {
+            return ((value > Binary.Nihil) ? Binary.Ūnus : Binary.Nihil) - ((value < Binary.Nihil) ? Binary.Ūnus : Binary.Nihil);
+
+            //Same as Math.Sign
+            //return value > 0 ? 1 : value < 0 ? -1 : 0;
+        }
+
+        #endregion
+
+        //Could be moved to BinaryConversions
         #region Conversions
 
         #region BitsToBytes
@@ -631,152 +821,7 @@ namespace Media.Common
 
         #endregion
 
-        #region Sign
-
-        public static int Sign(int value) { return Sign(ref value); }
-
-        [CLSCompliant(false)]
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static int Sign(ref int value)
-        {
-            return ((value > Binary.Nihil) ? Binary.Ūnus : Binary.Nihil) - ((value < Binary.Nihil) ? Binary.Ūnus : Binary.Nihil);
-
-            //Same as Math.Sign
-            //return value > 0 ? 1 : value < 0 ? -1 : 0;
-        }
-
-        public static int Sign(long value) { return Sign(ref value); }
-
-        [CLSCompliant(false)]
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static int Sign(ref long value)
-        {
-            return ((value > Binary.Nihil) ? Binary.Ūnus : Binary.Nihil) - ((value < Binary.Nihil) ? Binary.Ūnus : Binary.Nihil);
-
-            //Same as Math.Sign
-            //return value > 0 ? 1 : value < 0 ? -1 : 0;
-        }
-
-        #endregion
-
-        //Could be moved to a new class especially since if it's not needed it's wasting space
-        //Same with almost everything except BitsToBytes and BytesToBits
-        //E.g Binary.Representations...
-        #region Binary Representations
-
-        public static int OnesComplement(int value) { return OnesComplement(ref value); }
-
-        [CLSCompliant(false)]
-        public static int OnesComplement(ref int value) { return (~value); }
-
-        public static int TwosComplement(int value) { return TwosComplement(ref value); }
-
-        [CLSCompliant(false)]
-        public static int TwosComplement(ref int value) { unchecked { return (~value + Binary.Ūnus); } }
-
-        public static int SignedMagnitude(int value) { int sign; return SignedMagnitude(ref value, out sign); }
-
-        [CLSCompliant(false)]
-        public static int SignedMagnitude(ref int value) { int sign; return SignedMagnitude(ref value, out sign); }
-
-        /// <summary>
-        /// Converts value to twos complement and returns the signed magnitude representation outputs the sign
-        /// </summary>
-        /// <param name="value"></param>
-        /// <param name="sign"></param>
-        /// <returns></returns>
-        [CLSCompliant(false)]
-        public static int SignedMagnitude(ref int value, out int sign)
-        {
-            unchecked
-            {
-
-                //If the sign is -1 then convert to twos complement
-                //if ((sign = Math.Sign(value)) == -Binary.Ūnus) value = TwosComplement(ref value);
-
-                if ((sign = Binary.Sign(value)) == -Binary.Ūnus) value = TwosComplement(ref value);
-
-                //if (IsNegative(ref value))
-                //{
-                //    sign = -Binary.Ūnus;
-
-                //    value = TwosComplement(ref value);
-                //}
-               
-                //Return the value multiplied by sign
-                return value * sign;
-            }
-        }
-
-        /// <summary>
-        /// Converts the given number in twos complement to signed magnitude representation
-        /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public static int TwosComplementToSignedMagnitude(ref int value)
-        {
-            unchecked
-            {
-                //Create a mask of the value holding the sign
-                int sign = (value >> Binary.TrīgintāŪnus); //SignMask
-
-                //Convert from TwosComplement to SignedMagnitude
-                return (((value + sign) ^ sign) | (int)(value & SignMask));
-            }
-        }
-
-        /// <summary>
-        /// Converts the given number in signed magnitude representation to twos complement.
-        /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public static long SignedMagnitudeToTwosComplement(ref int value)
-        {
-            unchecked
-            {
-                //Convert from SignedMagnitude to TwosComplement
-                return ((~(value & int.MaxValue)) + Binary.Ūnus) | (int)(value & SignMask);
-            }
-        }
-
-        /// <summary>
-        /// Indicates if the architecture utilizes two's complement binary representation
-        /// </summary>
-        /// <returns>True if two's complement is used, otherwise false</returns>
-        public static bool IsTwosComplement()
-        {
-            //return Convert.ToSByte(byte.MaxValue.ToString(Media.Common.Extensions.String.StringExtensions.HexadecimalFormat), Binary.Sēdecim) == -Binary.Ūnus;
-
-            return unchecked((sbyte)byte.MaxValue == -Media.Common.Binary.Ūnus);
-        }
-
-        /// <summary>
-        /// Indicates if the architecture utilizes one's complement binary representation
-        /// </summary>
-        /// <returns>True if ones's complement is used, otherwise false</returns>
-        public static bool IsOnesComplement()
-        {
-            //return Convert.ToSByte(sbyte.MaxValue.ToString(Media.Common.Extensions.String.StringExtensions.HexadecimalFormat), Binary.Sēdecim) == -Binary.Ūnus;
-
-            return unchecked(sbyte.MaxValue == -Media.Common.Binary.Ūnus);
-        }
-
-        /// <summary>
-        /// Indicates if the architecture utilizes sign and magnitude representation
-        /// </summary>
-        /// <returns>True if sign and magnitude representation is used, otherwise false</returns>
-        public static bool IsSignedMagnitude()
-        {
-            return unchecked(((Binary.Tres & -Binary.Ūnus) == Binary.Ūnus)); //&& false == IsTwosComplement
-
-            //e.g. (3 & -1) == 3, where as Media.Common.Binary.BitwiseAnd(-3, 1) == 1
-        }
-
-        //http://en.wikipedia.org/wiki/Signed_number_representations
-        //Excess, Base, Biased
-
-        #endregion
-
+        //Some could be moved to BinaryConversions
         #region Double Masks and Conversions
 
         /// <summary>
@@ -805,6 +850,7 @@ namespace Media.Common
         /// <param name="arg"></param>
         /// <returns>True if the value is negative, otherwise false</returns>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsNegative(ref double arg) { return (BitConverter.DoubleToInt64Bits(arg) & SignMask) == SignMask; }
 
         public static bool IsNegative(double arg) { return IsNegative(ref arg); }
@@ -815,6 +861,7 @@ namespace Media.Common
         /// <param name="arg"></param>
         /// <returns>True if the value is positive, otherwise false</returns>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsPositive(ref double arg) { return (BitConverter.DoubleToInt64Bits(arg) & SignMask) != SignMask; }
 
         public static bool IsPositive(double arg) { return IsPositive(ref arg); }
@@ -837,30 +884,30 @@ namespace Media.Common
 
         #endregion
 
+        //readonly ValueType
         /// <summary>
         /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture.
         /// </summary>
         public static readonly int MostSignificantBit = -1;
 
+
+        //readonly ValueType
         /// <summary>
         /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture.
         /// </summary>
         public static readonly int LeastSignificantBit = -1;
 
+        //readonly ValueType
         /// <summary>
         /// The <see cref="ByteOrder"/> of the current architecture
         /// </summary>
         public static readonly ByteOrder SystemByteOrder = ByteOrder.Unknown;
 
+        //readonly ValueType
         /// <summary>
         /// The <see cref="BitOrder"/> of the current architecture
         /// </summary>
         public static readonly BitOrder SystemBitOrder = BitOrder.Unknown;
-
-        /// <summary>
-        /// The <see cref="BinaryRepresentation"/> of the current architecture used for the <see cref="int"/> type.
-        /// </summary>
-        public static readonly BinaryRepresentation SystemBinaryRepresentation = BinaryRepresentation.Unknown;
 
         //Check byte, sbyte, short, ushort, uint?
 
@@ -878,7 +925,6 @@ namespace Media.Common
         {
             //ensure not already called.
             if (SystemBitOrder != BitOrder.Unknown ||
-                SystemBinaryRepresentation != BinaryRepresentation.Unknown ||
                 SystemByteOrder != ByteOrder.Unknown || 
                 BitsSetTable != null || 
                 BitsReverseTable != null) return;
@@ -887,41 +933,6 @@ namespace Media.Common
 
             unchecked
             {
-                #region Determine BinaryRepresentation
-
-                //Todo, branchless...
-
-                switch ((SystemBinaryRepresentation = Binary.Nihil != (Binary.Ūnus & -Binary.Ūnus) ?
-                            (Binary.Tres & -Binary.Ūnus) == Binary.Ūnus ? 
-                                        BinaryRepresentation.SignedMagnitude : BinaryRepresentation.TwosComplement
-                        : BinaryRepresentation.OnesComplement))
-                {
-                    case BinaryRepresentation.TwosComplement:
-                        {
-                            if (false == IsTwosComplement()) throw new InvalidOperationException("Did not correctly detect BinaryRepresentation");
-
-                            break;
-                        }
-                    case BinaryRepresentation.OnesComplement:
-                        {
-                            if (false == IsOnesComplement()) throw new InvalidOperationException("Did not correctly detect BinaryRepresentation");
-
-                            break;
-                        }
-                    case BinaryRepresentation.SignedMagnitude:
-                        {
-                            if (false == IsSignedMagnitude()) throw new InvalidOperationException("Did not correctly detect BinaryRepresentation");
-
-                            break;
-                        }
-                    default:
-                        {
-                            throw new NotSupportedException("Create an Issue for your Architecture to be supported.");
-                        }
-                }
-
-                #endregion
-
                 #region DetermineBitOrder and ByteOrder
 
                 //Don't use unsafe code because eventually .Net MF will be completely supported.
@@ -1033,150 +1044,7 @@ namespace Media.Common
 
         #endregion
 
-        #endregion
-
-        #region Maximum Values
-
-        /// <summary>
-        /// (000000)11 in Binary, Decimal 3
-        /// </summary>
-        public const byte TwoBitMaxValue = Binary.Tres;
-
-        /// <summary>
-        /// (00000)111 in Binary, Decimal 7
-        /// </summary>
-        public const byte ThreeBitMaxValue = Binary.Septem;
-
-        /// <summary>
-        /// (0000)1111 in Binary, Decimal 15
-        /// </summary>
-        public const byte FourBitMaxValue = Binary.Quīndecim;
-
-        /// <summary>
-        /// (000)11111 in Binary, Decimal 31
-        /// </summary>
-        public const byte FiveBitMaxValue = Binary.TrīgintāŪnus;
-
-        //63 for 6 bit
-
-        /// <summary>
-        /// An octet which represents a set of 8 bits with only the 0th  bit clear. (127 Decimal)
-        /// </summary>
-        /// <remarks>
-        /// 01111111 in Binary
-        /// </remarks>
-        public const byte SevenBitMaxValue = (byte)sbyte.MaxValue;
-
-        /// <summary>
-        /// 00000000 11111111 11111111 11111111 in binary
-        /// </summary>
-        public const int U24MaxValue = 16777215;
-
-        #endregion
-
-        #region Bit Sizes
-
-        /// <summary>
-        /// 16
-        /// </summary>
-        public const int DoubleBitSize = Binary.BitsPerByte * Duo;
-
-        /// <summary>
-        ///24
-        /// </summary>
-        public const int TripleBitSize = Binary.BitsPerByte * Tres;
-
-        /// <summary>
-        /// 32
-        /// </summary>
-        public const int QuadrupleBitSize = Binary.BitsPerByte * Quattuor;
-
-        /// <summary>
-        /// 64
-        /// </summary>
-        public const int OctupleBitSize = Binary.BitsPerByte * Binary.BitsPerByte;
-
-        /// <summary>
-        /// 128
-        /// </summary>
-        internal const int SedecimBitSize = Binary.BitsPerByte * DoubleBitSize;
-
-        /// <summary>
-        /// 256
-        /// </summary>
-        internal const int TrīgintāDuoBitSize = Binary.BitsPerByte * QuadrupleBitSize;
-
-        /// <summary>
-        /// The amount of bits available to the <see cref="byte"/> type.
-        /// </summary>
-        public const int BitsPerByte = Binary.Octo;
-
-        /// <summary>
-        /// The amount of bits available to the <see cref="short"/> type.
-        /// </summary>
-        public const int BitsPerShort = DoubleBitSize;
-
-        /// <summary>
-        /// The amount of bits available to the <see cref="int"/> type.
-        /// </summary>
-        public const int BitsPerInteger = QuadrupleBitSize;
-
-        /// <summary>
-        /// The amount of bits available to the <see cref="long"/> type.
-        /// </summary>
-        public const int BitsPerLong = OctupleBitSize;
-
-        /// <summary>
-        /// The amount of bits available to the <see cref="double"/> type.
-        /// </summary>
-        public const int BitsPerDouble = BitsPerLong;
-
-        /// <summary>
-        /// The amount of bits available to the <see cref="decimal"/> type.
-        /// </summary>
-        public const int BitsPerDecimal = SedecimBitSize;
-
-        #endregion
-
-        #region Type Sizes
-
-        /// <summary>
-        /// The size in bytes of values of the type <see cref="byte"/>
-        /// </summary>
-        public const int BytesPerByte = sizeof(byte);
-
-        /// <summary>
-        /// The size in bytes of values of the type <see cref="short"/>
-        /// </summary>
-        public const int BytesPerShort = sizeof(short);
-
-        /// <summary>
-        /// The size in bytes of values of the type <see cref="char"/>
-        /// </summary>
-        public const int BytesPerChar = sizeof(char);
-
-        /// <summary>
-        /// The size in bytes of values of the type <see cref="int"/>
-        /// </summary>
-        public const int BytesPerInteger = sizeof(int);
-
-        /// <summary>
-        /// The size in bytes of values of the type <see cref="long"/>
-        /// </summary>
-        public const int BytesPerLong = sizeof(long);
-
-        /// <summary>
-        /// The size in bytes of values of the type <see cref="double"/>
-        /// </summary>
-        public const int BytesPerDouble = sizeof(double);
-
-        /// <summary>
-        /// The size in bytes of values of the type <see cref="decimal"/>
-        /// </summary>
-        public const int BytesPerDecimal = sizeof(decimal);
-
-        #endregion
-
+        //Could be moved to BinaryMethods
         #region Bit Methods
 
         #region CountTrailing / CountLeading Zeros
@@ -1381,6 +1249,7 @@ namespace Media.Common
         /// <param name="b"></param>
         /// <returns></returns>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int BitsSet(ref byte b) { return BitsSetTable[b]; }
 
         public static int BitsSet(byte b) { return BitsSet(ref b); }
@@ -1391,16 +1260,19 @@ namespace Media.Common
         /// <param name="b"></param>
         /// <returns></returns>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int BitsUnSet(ref byte b) { return Binary.BitsPerByte - BitsSetTable[b]; }
 
         public static int BitsUnSet(byte b) { return BitsUnSet(ref b); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int BitsSet(ref int i) { return Binary.GetBytes(i).Sum(b => BitsSet(b)); }
 
         public static int BitsSet(int i) { return BitsSet(ref i); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int BitsUnSet(ref int i) { return QuadrupleBitSize - Binary.GetBytes(i).Sum(b => BitsSet(b)); }
 
         public static int BitsUnSet(int i) { return BitsUnSet(ref i); }
@@ -1618,96 +1490,6 @@ namespace Media.Common
             ClearBit(ref self[byteIndex], index);
 
             return self;
-        }
-
-        #endregion
-
-        #region Bitwise
-
-
-        /// <summary>
-        /// Converts the given numbers into equivalent binary representations
-        /// </summary>
-        /// <param name="left"></param>
-        /// <param name="right"></param>
-        /// <param name="format">The binary format to convert left and right to</param>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void BitwisePrepare(ref int left, ref int right, BinaryRepresentation format = BinaryRepresentation.NoSign)
-        {
-            switch (format)
-            {
-                case BinaryRepresentation.SignedMagnitude:
-                    {
-                        left = SignedMagnitude(ref left);
-
-                        right = SignedMagnitude(ref right);
-
-                        break;
-                    }
-                case BinaryRepresentation.TwosComplement:
-                    {
-                        left = TwosComplement(ref left);
-
-                        right = TwosComplement(ref right);
-
-                        break;
-                    }
-                case BinaryRepresentation.OnesComplement:
-                    {
-                        left = OnesComplement(ref left);
-
-                        right = OnesComplement(ref right);
-
-                        break;
-                    }
-                case BinaryRepresentation.NoSign:
-                    {
-                        left = (int)((uint)left);
-
-                        right = (int)((uint)right);
-
-                        return;
-                    }
-                default:
-                    {
-                        throw new NotSupportedException("Create an issue to have your format supported.");
-                    }
-            }
-        }
-
-        public static int BitwiseAnd(int left, int right)
-        {
-            BitwisePrepare(ref left, ref right);
-            
-            return (left & right);
-        }
-
-        public static int BitwiseOr(int left, int right)
-        {
-            BitwisePrepare(ref left, ref right);
-            
-            return (left | right);
-        }
-
-        public static int BitwiseXor(int left, int right)
-        {
-            BitwisePrepare(ref left, ref right);
-
-            return (left ^ right);
-        }
-
-        public static int BitwiseNand(int left, int right)
-        {
-            BitwisePrepare(ref left, ref right);
-
-            return ~(BitwiseAnd(left, right));
-        }
-
-        public static int BitwiseNor(int left, int right)
-        {
-            BitwisePrepare(ref left, ref right);
-
-            return ~(BitwiseOr(left, right));
         }
 
         #endregion
@@ -2398,50 +2180,8 @@ namespace Media.Common
 
         #endregion
 
-        #region GetBytes
-
-        //ref..
-
-        static byte[] GetBytes(Guid value, bool reverse = false)
-        {
-            byte[] result = value.ToByteArray();
-
-            if (reverse)
-            {
-                Array.Reverse(result, 0, 4);
-
-                Array.Reverse(result, 4, 2);
-
-                Array.Reverse(result, 6, 2);
-            }
-
-            return result;
-        }
-        public static byte[] GetBytes(short i, bool reverse = false)
-        {
-            byte[] result = new byte[Binary.BytesPerShort];
-            Write16(result, 0, reverse, i);
-            return result;
-        }
-
-        public static byte[] GetBytes(int i, bool reverse = false)
-        {
-            byte[] result = new byte[Binary.BytesPerInteger];
-            Write32(result, 0, reverse, i);
-            return result;
-        }
-
-        public static byte[] GetBytes(long i, bool reverse = false)
-        {
-            byte[] result = new byte[Binary.BytesPerLong];
-            Write64(result, 0, reverse, i);
-            return result;
-        }
-
-        #endregion
-
         #region Writing
-        
+
         static void WriteGuid(byte[] data, int offset, Guid value, bool reverse)
         {
             GetBytes(value, reverse).CopyTo(data, offset);
@@ -2499,7 +2239,7 @@ namespace Media.Common
             unchecked
             {
                 //While something remains
-                while(count/*--*/ > 0)
+                while (count/*--*/ > 0)
                 {
                     //Write the byte at the reversed index
                     buffer[index + --count] = (byte)(value);
@@ -2582,6 +2322,48 @@ namespace Media.Common
         }
 
         //double, decimal
+
+        #endregion
+
+        #region GetBytes
+
+        //ref..
+
+        static byte[] GetBytes(Guid value, bool reverse = false)
+        {
+            byte[] result = value.ToByteArray();
+
+            if (reverse)
+            {
+                Array.Reverse(result, 0, 4);
+
+                Array.Reverse(result, 4, 2);
+
+                Array.Reverse(result, 6, 2);
+            }
+
+            return result;
+        }
+        public static byte[] GetBytes(short i, bool reverse = false)
+        {
+            byte[] result = new byte[Binary.BytesPerShort];
+            Write16(result, 0, reverse, i);
+            return result;
+        }
+
+        public static byte[] GetBytes(int i, bool reverse = false)
+        {
+            byte[] result = new byte[Binary.BytesPerInteger];
+            Write32(result, 0, reverse, i);
+            return result;
+        }
+
+        public static byte[] GetBytes(long i, bool reverse = false)
+        {
+            byte[] result = new byte[Binary.BytesPerLong];
+            Write64(result, 0, reverse, i);
+            return result;
+        }
 
         #endregion
 
