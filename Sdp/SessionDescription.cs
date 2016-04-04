@@ -80,6 +80,8 @@ namespace Media.Sdp
 
         internal static string TrimLineValue(string value) { return string.IsNullOrWhiteSpace(value) ? value : value.Trim(); }
 
+        internal static System.Text.Encoding DefaultEncoding = System.Text.Encoding.UTF8;
+
         /// <summary>
         /// Parse a range line.
         /// </summary>
@@ -302,13 +304,16 @@ namespace Media.Sdp
                         }
                     default:
                         {
-                            //Assume seconds
-                            if (double.TryParse(token, out temp))
-                            {
-                                result = result.Add(TimeSpan.FromSeconds(temp));
-                            }
+                            ++tokenLength;
+                            goto case 's';
 
-                            continue;
+                            ////Assume seconds
+                            //if (double.TryParse(token, out temp))
+                            //{
+                            //    result = result.Add(TimeSpan.FromSeconds(temp));
+                            //}
+
+                            //continue;
                         }
                 }
             }
@@ -564,18 +569,18 @@ namespace Media.Sdp
         /// </summary>
         public bool UnderModification
         {
-            get { return false == m_Update.IsSet || m_UpdateTokenSource.IsCancellationRequested; }
+            get { return false == m_Update.IsSet || m_UpdateTokenSource.IsCancellationRequested; } //When requested may already be cancelled.
         }
 
         public SessionDescriptionLine ConnectionLine
         {
             get
             {
-                return Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionConnectionLine.ConnectionType);
+                return Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionConnectionLine.ConnectionType);
             }
             set
             {
-                if (value != null && value.Type != Sdp.Lines.SessionConnectionLine.ConnectionType)
+                if (value != null && value.m_Type != Sdp.Lines.SessionConnectionLine.ConnectionType)
                 {
                     throw new InvalidOperationException("The ConnectionList must be a ConnectionLine");
                 }
@@ -596,7 +601,7 @@ namespace Media.Sdp
         {
             get
             {
-                return Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith("range:", StringComparison.InvariantCultureIgnoreCase));
+                return Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(AttributeFields.Range, StringComparison.InvariantCultureIgnoreCase));
             }
             set
             {
@@ -616,7 +621,7 @@ namespace Media.Sdp
         {
             get
             {
-                return Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith("control:", StringComparison.InvariantCultureIgnoreCase));
+                return Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(AttributeFields.Control, StringComparison.InvariantCultureIgnoreCase));
             }
             set
             {
@@ -632,11 +637,16 @@ namespace Media.Sdp
             }
         }
 
+        public SessionDescriptionLine ToolLine
+        {
+            get { return Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(AttributeFields.Tool, StringComparison.InvariantCultureIgnoreCase)); }
+        }
+
         public IEnumerable<SessionDescriptionLine> AttributeLines
         {
             get
             {
-                return Lines.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType);
+                return Lines.Where(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType);
             }
         }
 
@@ -644,7 +654,7 @@ namespace Media.Sdp
         {
             get
             {
-                return Lines.Where(l => l.Type == Sdp.Lines.SessionBandwidthLine.BandwidthType);
+                return Lines.Where(l => l.m_Type == Sdp.Lines.SessionBandwidthLine.BandwidthType);
             }
         }
 
@@ -709,6 +719,8 @@ namespace Media.Sdp
 
             if (lines.Length < 3) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(lines, "Invalid Session Description, At least 3 lines should be found.");
 
+            //The order should be maintained as it was given in the contents.
+
             //Parse remaining optional entries
             for (int lineIndex = 0, endIndex = lines.Length; lineIndex < endIndex; /*Advancement of the loop controlled by the corrsponding Lines via ref*/)
             {
@@ -734,18 +746,19 @@ namespace Media.Sdp
                             m_NameLine = new Media.Sdp.Lines.SessionNameLine(lines, ref lineIndex);
                             continue;
                         }
-                    case TimeDescription.TimeDescriptionType:
+                    case Media.Sdp.Lines.SessionTimeDescriptionLine.TimeType:
                         {
                             m_TimeDescriptions.Add(new TimeDescription(lines, ref lineIndex));
                             continue;
                         }
-                    case MediaDescription.MediaDescriptionLineType:
+                    case Media.Sdp.Lines.SessionMediaDescriptionLine.MediaDescriptionType:
                         {
                             m_MediaDescriptions.Add(new MediaDescription(lines, ref lineIndex));
                             continue;
                         }
                     //case Media.Sdp.Lines.SessionAttributeLine.AttributeType:
                     //    {
+                                //Should check or charset or sdpland attribute and switch currentEncoding.
                     //        m_Lines.Add(new Media.Sdp.Lines.SessionAttributeLine(lines, ref lineIndex));
                     //        continue;
                     //    }
@@ -838,7 +851,7 @@ namespace Media.Sdp
 
             var token = BeginUpdate();
 
-            switch (line.Type)
+            switch (line.m_Type)
             {
                 case Sdp.Lines.SessionVersionLine.VersionType:
                     m_SessionVersionLine = new Lines.SessionVersionLine(line);
@@ -865,7 +878,7 @@ namespace Media.Sdp
 
             bool result = false;
 
-            switch (line.Type)
+            switch (line.m_Type)
             {
                 case Sdp.Lines.SessionVersionLine.VersionType:
                     if (line == m_SessionVersionLine)
@@ -1061,17 +1074,17 @@ namespace Media.Sdp
 
             if (m_NameLine != null) buffer.Append(m_NameLine.ToString());
 
-            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != Sdp.Lines.SessionBandwidthLine.BandwidthType && l.Type != Sdp.Lines.SessionAttributeLine.AttributeType))
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.m_Type != Sdp.Lines.SessionBandwidthLine.BandwidthType && l.m_Type != Sdp.Lines.SessionAttributeLine.AttributeType))
             {
                 buffer.Append(l.ToString());
             }
 
-            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type == Sdp.Lines.SessionBandwidthLine.BandwidthType))
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.m_Type == Sdp.Lines.SessionBandwidthLine.BandwidthType))
             {
                 buffer.Append(l.ToString());
             }
 
-            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType))
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType))
             {
                 buffer.Append(l.ToString());
             }

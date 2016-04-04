@@ -192,4 +192,6 @@ namespace Media.Common
 
         #endregion
     }
+
+    //TaggedExceptionExtensions...
 }

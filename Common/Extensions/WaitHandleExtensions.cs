@@ -42,9 +42,8 @@ namespace Media.Common.Extensions.WaitHandle
     {
         public static void TryWaitOnHandleAndDispose(ref System.Threading.WaitHandle handle)
         {
-
             if (handle == null) return;
-
+            
             try
             {
                 handle.WaitOne();
@@ -55,6 +54,7 @@ namespace Media.Common.Extensions.WaitHandle
             }
             catch (System.Exception ex)
             {
+                //Should just return? (At least document that it will throw and how to catch or ignore)
                 Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(handle, "An exception occured while waiting.", ex);
             }
             finally
@@ -68,6 +68,11 @@ namespace Media.Common.Extensions.WaitHandle
         public static bool TrySignalHandle(System.Threading.WaitHandle handle, int timeoutMsec = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, bool exitContext = false)
         {
             return System.Threading.WaitHandle.SignalAndWait(handle, handle, timeoutMsec, exitContext);
+        }
+
+        public static bool TrySignalHandle(System.Threading.WaitHandle handle, System.TimeSpan timeout, bool exitContext = false)
+        {
+            return System.Threading.WaitHandle.SignalAndWait(handle, handle, timeout, exitContext);
         }
     }
 }

@@ -41,5 +41,20 @@ namespace Media.Common.Extensions.Linq
     public static class LinqExtensions
     {
         public static System.Collections.Generic.IEnumerable<T> Yield<T>(this T t) { yield return t; }
+
+        public static System.Collections.Generic.IEnumerable<T> Concat<T>(this System.Collections.Generic.IEnumerable<T> a, T b)
+        {
+            return System.Linq.Enumerable.Concat(a, Yield(b));
+        }
+
+        public static System.Collections.Generic.IEnumerable<T> Prefix<T>(this System.Collections.Generic.IEnumerable<T> a, T b)
+        {
+            return System.Linq.Enumerable.Concat(Yield(b), a);
+        }
+
+        public static System.Collections.Generic.IEnumerable<T> Prefix<T>(this System.Collections.Generic.IEnumerable<T> a, System.Collections.Generic.IEnumerable<T> b)
+        {
+            return System.Linq.Enumerable.Concat(b, a);
+        }
     }
 }

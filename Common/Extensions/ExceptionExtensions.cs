@@ -127,7 +127,7 @@ namespace Media.Common.Extensions.Exception
         /// <param name="innerException">any <see cref="System.Exception"/> which is related to the exception being thrown</param>
         public static void TryRaiseTaggedException<T>(T tag, string message, System.Exception innerException = null) { new TaggedException<T>(tag, message ?? TaggedException<T>.DefaultExceptionTypeMessage<T>(), innerException).TryRaise(); }
 
-        //This is possibly the only one which would be useful here
+        //This is possibly the only one which would be useful here, the rest should be moved to the TaggedExceptionExtensions or ITaggedExceptionExtensions
 
         //http://stackoverflow.com/questions/3007608/resuming-execution-of-code-after-exception-is-thrown-and-caught
         //public static System.Exception ResumeOnError(Action action)

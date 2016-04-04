@@ -67,12 +67,6 @@ namespace Media.Sdp
          
          */       
 
-        #region Statics
-
-        public const char TimeDescriptionType = 't', RepeatTimeType = 'r';
-
-        #endregion
-
         #region Properties
 
         /// <summary>
@@ -137,11 +131,16 @@ namespace Media.Sdp
         /// </summary>
         public bool IsPermanent { get { return StartTime == 0 && StopTime == 0; } }
 
+        /// <summary>
+        /// Indicates if the <see cref="StartTime"/> is 0
+        /// </summary>
+        public bool Unbounded { get { return StartTime == 0; } }
+
         internal protected SessionDescriptionLine TimeDescriptionLine
         {
             get
             {
-                return new SessionDescriptionLine(TimeDescriptionType, SessionDescription.SpaceString){
+                return new SessionDescriptionLine(Media.Sdp.Lines.SessionTimeDescriptionLine.TimeType, SessionDescription.SpaceString){
                     ((ulong)StartTime).ToString(),
                     ((ulong)StopTime).ToString()
                 };
@@ -203,7 +202,7 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index++].Trim();
 
-            if (string.IsNullOrWhiteSpace(sdpLine) || sdpLine[0] != TimeDescriptionType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid Time Description");
+            if (string.IsNullOrWhiteSpace(sdpLine) || sdpLine[0] != Media.Sdp.Lines.SessionTimeDescriptionLine.TimeType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid Time Description");
 
             //Char 1 must always be '='...
 
@@ -294,7 +293,7 @@ namespace Media.Sdp
                 if (string.IsNullOrWhiteSpace(sdpLine)) continue;
 
                 //If we are not extracing repeat times then there is no more TimeDescription to parse
-                if (sdpLine[0] != RepeatTimeType) break;
+                if (sdpLine[0] != Media.Sdp.Lines.SessionRepeatTimeLine.RepeatType) break;
 
                 //Parse and add the repeat time
                 try
@@ -346,7 +345,7 @@ namespace Media.Sdp
             
             foreach (string repeatTime in RepeatTimes)
             {
-                builder.Append(RepeatTimeType);
+                builder.Append(Media.Sdp.Lines.SessionRepeatTimeLine.RepeatType);
                 builder.Append(Sdp.SessionDescription.EqualsSign);
                 builder.Append(repeatTime);
                 builder.Append(SessionDescription.NewLineString);
@@ -366,7 +365,7 @@ namespace Media.Sdp
 
             foreach (string repeatTime in RepeatTimes)
             {
-                yield return new SessionDescriptionLine(RepeatTimeType) { repeatTime };
+                yield return new SessionDescriptionLine(Media.Sdp.Lines.SessionRepeatTimeLine.RepeatType) { repeatTime };
             }
         }
 

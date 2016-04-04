@@ -77,6 +77,17 @@ namespace Media.Common
 
         //ConnectionTime
 
+        /// <summary>
+        /// Gets the <see cref="System.Net.NetworkInformation.NetworkInterface"/> which was used to create the TransportClient.
+        /// </summary>
+        public readonly System.Net.NetworkInformation.NetworkInterface NetworkInterface;
+
+        //Media.Sockets.Connection
+
+        //public readonly System.Collections.Generic.List<Common.IPacket> Outbound;
+
+        //SendThreads, ReceiveThreads
+
         #endregion
 
         #region Properties
@@ -99,9 +110,20 @@ namespace Media.Common
 
         public virtual void Disconnect() { }
 
+        //EnqueMessage
+
+        //SendMessge
+
         #endregion
 
         #region Constructor / Destructor
+
+        public TransportClient(System.Net.NetworkInformation.NetworkInterface networkInterface)
+        {
+            if (networkInterface == null) throw new System.ArgumentNullException();
+
+            NetworkInterface = networkInterface;
+        }
 
         ~TransportClient() { Dispose(); }
 

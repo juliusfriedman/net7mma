@@ -68,6 +68,8 @@
     <Compile Include="..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
+    <Compile Include="AttributeFields.cs" />
+    <Compile Include="LineGroup.cs" />
     <Compile Include="Lines.cs" />
     <Compile Include="MediaDescription.cs" />
     <Compile Include="MediaType.cs" />

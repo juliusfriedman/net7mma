@@ -88,7 +88,7 @@ namespace Media.Sdp
         //LinesByType etc...
 
         //Keep in mind that adding/removing or changing lines should change the version of the parent SessionDescription
-        List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
+        internal List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
 
         List<int> m_PayloadList = new List<int>();
 
@@ -282,6 +282,14 @@ namespace Media.Sdp
             m_Lines.RemoveAt(index);
         }
 
+        //Should have a have to get any RtpMap lines which are defined in the Payloadlist
+
+        //GetRtpMapLines
+
+        //GetAttributeLinesForPayloadType(int PayloadType){
+            // RtpMapLines.Where(l=> l.m_Parts[0].m_PayloadList
+        //}
+
         #endregion
 
         #region Overloads
@@ -327,13 +335,13 @@ namespace Media.Sdp
             buffer.Append(MediaDescriptionLine.ToString());
 
         LinesOnly:
-            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != Sdp.Lines.SessionBandwidthLine.BandwidthType && l.Type != Sdp.Lines.SessionAttributeLine.AttributeType))
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.m_Type != Sdp.Lines.SessionBandwidthLine.BandwidthType && l.m_Type != Sdp.Lines.SessionAttributeLine.AttributeType))
                 buffer.Append(l.ToString());
 
-            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type == Sdp.Lines.SessionBandwidthLine.BandwidthType))
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.m_Type == Sdp.Lines.SessionBandwidthLine.BandwidthType))
                 buffer.Append(l.ToString());
 
-            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType))
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType))
                 buffer.Append(l.ToString());
 
             return buffer.ToString();
@@ -357,29 +365,32 @@ namespace Media.Sdp
             }
         }
 
+        //Could all be extension methods.
+
         public IEnumerable<SessionDescriptionLine> AttributeLines
         {
             get
             {
-                return m_Lines.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType);
+                return m_Lines.Where(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType);
             }
         }
 
+        //Should be typed as Bandwidth Lines...
         public IEnumerable<SessionDescriptionLine> BandwidthLines
         {
             get
             {
-                return m_Lines.Where(l => l.Type == Sdp.Lines.SessionBandwidthLine.BandwidthType);
+                return m_Lines.Where(l => l.m_Type == Sdp.Lines.SessionBandwidthLine.BandwidthType);
             }
         }
 
-        public SessionDescriptionLine ConnectionLine { get { return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionConnectionLine.ConnectionType); } }
+        public SessionDescriptionLine ConnectionLine { get { return m_Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionConnectionLine.ConnectionType); } }
 
         public SessionDescriptionLine RtpMapLine
         {
             get
             {
-                return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith("rtpmap:", StringComparison.InvariantCultureIgnoreCase));
+                return m_Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(AttributeFields.RtpMap, StringComparison.InvariantCultureIgnoreCase));
             }
         }
        
@@ -387,24 +398,22 @@ namespace Media.Sdp
         {
             get
             {
-                return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith("fmtp:", StringComparison.InvariantCultureIgnoreCase));
+                return m_Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(AttributeFields.FormatType, StringComparison.InvariantCultureIgnoreCase));
             }
         }
 
         public SessionDescriptionLine RangeLine
         {
-            get { return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith("range:", StringComparison.InvariantCultureIgnoreCase)); }
+            get { return m_Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(AttributeFields.Range, StringComparison.InvariantCultureIgnoreCase)); }
         }
 
         public SessionDescriptionLine ControlLine
         {
             get
             {
-                return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith("control:", StringComparison.InvariantCultureIgnoreCase));
+                return m_Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(AttributeFields.Control, StringComparison.InvariantCultureIgnoreCase));
             }
         }
-
-        //Needs tool lines
 
         #endregion
 
@@ -451,7 +460,7 @@ namespace Media.Sdp
             //If there is a control line in the SDP it contains the URI used to setup and control the media
             if (controlLine != null)
             {
-                string controlPart = controlLine.Parts.Where(p => p.Contains("control")).FirstOrDefault();
+                string controlPart = controlLine.Parts.Where(p => p.Contains(AttributeFields.Control)).FirstOrDefault();
 
                 //If there is a controlPart in the controlLine
                 if (false == string.IsNullOrWhiteSpace(controlPart))
@@ -471,6 +480,8 @@ namespace Media.Sdp
                                                                                                     //string.Join(source.OriginalString, controlUri.OriginalString);
 
                     return new Uri(source.OriginalString.EndsWith(SessionDescription.ForwardSlashString) ? source.OriginalString + controlUri.OriginalString : string.Join(SessionDescription.ForwardSlashString, source.OriginalString, controlUri.OriginalString));
+
+                    //Todo, ensure that parameters have also been restored.
 
                     #region Explination
                     //I wonder if Mr./(Dr) Fielding is happy...
@@ -522,10 +533,7 @@ namespace Media.Sdp
             if (td == null) return true;
 
             //Unbound start and end ?
-            if (td.StartTime == 0
-                &&
-                td.StopTime == 0) return true;
-
+            if (td.IsPermanent) return true;
 
             //Notes multiple calls to UtcNow... (avoid with a within parameter)?
             try

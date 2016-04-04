@@ -380,7 +380,10 @@ namespace Media.Rtp
                     //Set to the default interval
                     reportSendingEvery = reportReceivingEvery = (int)DefaultReportInterval.TotalMilliseconds;
 
-                    //If any lines were parsed
+                    //Todo should be using the BandwidthLine type and IsDisabled property of instance
+                    //Then would have access to BandwidthTypeString on instance also.
+
+                    //If any bandwidth lines were parsed
                     if (Media.Sdp.Lines.SessionBandwidthLine.TryParseBandwidthDirectives(mediaDescription, out reportReceivingEvery, out reportSendingEvery, out asData))
                     {
                         //Determine if rtcp is disabled in the media description
@@ -436,11 +439,37 @@ namespace Media.Rtp
                 {
                     string type;
                     Media.Sdp.SessionDescription.TryParseRange(rangeInfo.m_Parts[0], out type, out tc.m_StartTime, out tc.m_EndTime);
-                }                
+                }
+
+                //https://www.ietf.org/rfc/rfc3605.txt
 
                 //rtcpAttribute indicates if RTCP should use a special port and not be dervied from the RtpPort algorithmically 
 
                 //"a=rtcp:" 
+
+                /*
+                 
+                  Example encodings could be:
+
+                    m=audio 49170 RTP/AVP 0
+                    a=rtcp:53020
+
+                    m=audio 49170 RTP/AVP 0
+                    a=rtcp:53020 IN IP4 126.16.64.4
+
+                    m=audio 49170 RTP/AVP 0
+                    a=rtcp:53020 IN IP6 2001:2345:6789:ABCD:EF01:2345:6789:ABCD
+                 
+                 */
+
+                var rtcpLine = mediaDescription.AttributeLines.Where(l => l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(Sdp.AttributeFields.Rtcp)).FirstOrDefault();
+
+                if (rtcpLine != null)
+                {
+                    //Todo...
+
+                    throw new NotImplementedException("Make a thread if you need rtcp AttributeField support immediately.");
+                }
 
                 //rtcp-mux is handled in the Initialize call
 
