@@ -139,7 +139,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool BitwiseExclusiveXor(bool left, bool right)
         {
-            return ((!left) && right) || (left && (!right));
+            return ((false == left) && right) || (left && (false == right));
         }
 
         #endregion

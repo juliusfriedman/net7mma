@@ -630,6 +630,80 @@ namespace Media
         /// </remarks>
         public class CommonHeaderBits : BaseDisposable, IEnumerable<byte>
         {
+
+            #region Notes
+
+            /*
+
+4. Byte Order, Alignment, and Time Format
+
+   All integer fields are carried in network byte order, that is, most
+   significant byte (octet) first.  This byte order is commonly known as
+   big-endian.  The transmission order is described in detail in [3].
+   Unless otherwise noted, numeric constants are in decimal (base 10).
+
+   All header data is aligned to its natural length, i.e., 16-bit fields
+   are aligned on even offsets, 32-bit fields are aligned at offsets
+   divisible by four, etc.  Octets designated as padding have the value
+   zero.
+
+   Wallclock time (absolute date and time) is represented using the
+   timestamp format of the Network Time Protocol (NTP), which is in
+   seconds relative to 0h UTC on 1 January 1900 [4].  The full
+   resolution NTP timestamp is a 64-bit unsigned fixed-point number with
+   the integer part in the first 32 bits and the fractional part in the
+   last 32 bits.  In some fields where a more compact representation is
+   appropriate, only the middle 32 bits are used; that is, the low 16
+   bits of the integer part and the high 16 bits of the fractional part.
+   The high 16 bits of the integer part must be determined
+   independently.
+
+   An implementation is not required to run the Network Time Protocol in
+   order to use RTP.  Other time sources, or none at all, may be used
+   (see the description of the NTP timestamp field in Section 6.4.1).
+   However, running NTP may be useful for synchronizing streams
+   transmitted from separate hosts.
+
+   The NTP timestamp will wrap around to zero some time in the year
+   2036, but for RTP purposes, only differences between pairs of NTP
+   timestamps are used.  So long as the pairs of timestamps can be
+   assumed to be within 68 years of each other, using modular arithmetic
+   for subtractions and comparisons makes the wraparound irrelevant.
+
+5. RTP Data Transfer Protocol
+
+5.1 RTP Fixed Header Fields
+
+   The RTP header has the following format:
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |V=2|P|X|  CC   |M|     PT      |       sequence number         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           timestamp                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |           synchronization source (SSRC) identifier            |
+   +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+   |            contributing source (CSRC) identifiers             |
+   |                             ....                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+             * 
+   The draft header had the following format:
+             *
+    V V P X C C C C M T T T T T T T S S S S S S S S S S S S S S S S (RTP 2 Header Comparison)
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |Ver| ChannelID |P|S|  format   |       sequence number         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |     timestamp (seconds)       |     timestamp (fraction)      |
+   +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+   | options ...                                                   |
+   +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+            */
+
+            #endregion
+
             #region Statics and Constants
 
             /// <summary>
@@ -780,6 +854,13 @@ namespace Media
                 }
             }
 
+            //Draft only
+            internal int Channel
+            {
+                get { return First8Bits & VersionMask; }
+                //set
+            }
+
             /// <summary>
             /// Gets or sets the Padding bit.
             /// </summary>
@@ -798,9 +879,10 @@ namespace Media
             }
 
             //Draft only
-            public bool OptionsPresent
+            internal bool OptionsPresent
             {
                 get { return (Last8Bits >> 7) > 0; }
+                //set
             }
 
             /// <summary>
@@ -857,7 +939,9 @@ namespace Media
                 //Contributing sources only exist in the highest half of the `leastSignificant` octet.
                 //Example 240 = 11110000 and would indicate 0 Contributing Sources etc.
                 //get { return Common.Binary.ReverseU8((byte)Common.Binary.ReadBitsWithShift(First8Bits, 0, 4, BitConverter.IsLittleEndian)); }
-                get { return BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 4)) : First8Bits << 4;} // Common.Binary.ReverseU8((byte)(First8Bits >> 4)); }
+                //get { return BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 4)) : First8Bits << 4;} // Common.Binary.ReverseU8((byte)(First8Bits >> 4)); }
+                get { return (First8Bits & Common.Binary.FourBitMaxValue); }
+                //get { return Common.Binary.ReadBitsMSB(m_Memory.Array, 4, 4); }
                 internal set
                 {
                     //If the value exceeds the highest value which can be stored in the bit field throw an overflow exception
@@ -868,7 +952,7 @@ namespace Media
                     //byte unsigned = BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value << 4);
 
                     //re pack the octet
-                    First8Bits = PackOctet(Version, Padding, Extension, BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value >> 4));
+                    First8Bits = PackOctet(Version, Padding, Extension, (byte)value);
                 }
             }
 
@@ -882,9 +966,10 @@ namespace Media
             }
 
             //Draft only
-            public bool EndOfSynchroniztionUnit
+            internal bool EndOfSynchroniztionUnit
             {
                 get { return (Last8Bits & 64) > 0; }
+                //set
             }
 
             /// <summary>
@@ -894,7 +979,7 @@ namespace Media
             {
                 //& Binary.SevenBitMaxValue may be faster
                 //get { return Last8Bits > 0 ? (byte)((Last8Bits << 1)) >> 1 : 0; }
-                get { return Last8Bits > 0 ? (byte)(Last8Bits & Binary.SevenBitMaxValue) : 0; }
+                get { return Last8Bits & Binary.SevenBitMaxValue; }
                 set
                 {
                     //Get an unsigned copy of the value to prevent 2 checks 
@@ -909,9 +994,10 @@ namespace Media
             }
 
             //Draft only
-            public int Format
+            internal int Format
             {
                 get { return (Last8Bits & VersionMask); }
+                //set
             }
 
             /// <summary>
@@ -1544,7 +1630,9 @@ namespace Media
 
         //RtpProfiles?  
 
-        //{ StaticProfiles, DynamicProfiles   }
+        //{ StaticProfiles, DynamicProfiles }
+
+        // Register, Unregister, Reassign
       
         #endregion
     }

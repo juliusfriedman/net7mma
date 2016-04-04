@@ -46,8 +46,8 @@ namespace Media.Sdp
     /// <summary>
     /// Low level class for dealing with Sdp lines with a format of 'X=V{st:sv0,sv1;svN}'    
     /// </summary>
-    /// <remarks>Should use byte[] and should have Encoding / Grammar as a property</remarks>
-    public class SessionDescriptionLine : IEnumerable<String>
+    /// <remarks>Should use byte[]</remarks>
+    public class SessionDescriptionLine : IEnumerable<String>//, IUpdateable
     {
         #region Statics
 
@@ -75,16 +75,20 @@ namespace Media.Sdp
             {
                 switch (type)
                 {
-                    case Media.Sdp.Lines.SessionVersionLine.VersionType: return new Media.Sdp.Lines.SessionVersionLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionOriginLine.OriginType: return new Media.Sdp.Lines.SessionOriginLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionNameLine.NameType: return new Media.Sdp.Lines.SessionNameLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionConnectionLine.ConnectionType: return new Media.Sdp.Lines.SessionConnectionLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionUriLine.LocationType: return new Media.Sdp.Lines.SessionUriLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionEmailLine.EmailType: return new Media.Sdp.Lines.SessionEmailLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionPhoneNumberLine.PhoneType: return new Media.Sdp.Lines.SessionPhoneNumberLine(sdpLines, ref index);
-                    case 'z': //TimeZone Information
-                    case Sdp.Lines.SessionAttributeLine.AttributeType: //Attribute
-                    case Sdp.Lines.SessionBandwidthLine.BandwidthType: //Bandwidth
+                    case Sdp.Lines.SessionVersionLine.VersionType: return new Sdp.Lines.SessionVersionLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionOriginLine.OriginType: return new Sdp.Lines.SessionOriginLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionNameLine.NameType: return new Sdp.Lines.SessionNameLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionConnectionLine.ConnectionType: return new Sdp.Lines.SessionConnectionLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionUriLine.UriType: return new Sdp.Lines.SessionUriLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionEmailLine.EmailType: return new Sdp.Lines.SessionEmailLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionPhoneNumberLine.PhoneType: return new Sdp.Lines.SessionPhoneNumberLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionTimeZoneLine.TimeZoneType: return new Sdp.Lines.SessionTimeZoneLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionInformationLine.InformationType: return new Sdp.Lines.SessionInformationLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionMediaDescriptionLine.MediaDescriptionType: return new Sdp.Lines.SessionMediaDescriptionLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionTimeDescriptionLine.TimeType: return new Sdp.Lines.SessionTimeDescriptionLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionRepeatTimeLine.RepeatType: return new Sdp.Lines.SessionRepeatTimeLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionAttributeLine.AttributeType: return new Sdp.Lines.SessionAttributeLine(sdpLines, ref index);
+                    case Sdp.Lines.SessionBandwidthLine.BandwidthType: return new Sdp.Lines.SessionBandwidthLine(sdpLines, ref index);
                     default:
                         {
                             ++index;
@@ -114,23 +118,54 @@ namespace Media.Sdp
             }
         }
 
+        static char[] char4 = new char[] { default(char), SessionDescription.EqualsSign, SessionDescription.NewLine, SessionDescription.LineFeed };
+
+        //Ugly but saves a little memory at the cost of contention.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        static int CalucateRequiredLength(Encoding enc, char type)
+        {
+            char4[0] = type;
+
+            return enc.GetByteCount(char4);
+        }
+
+        //ChangeType.
+
         #endregion
 
-        #region Readonly Fields
+        #region Fields
 
-        //readonly ValueType
-        public readonly char Type;
+        //[Common.Attributes.NotReadOnlyForEfficiency]
+        internal char m_Type;
 
         //array would allow easier parsing,
         internal readonly protected string m_Seperator = SessionDescription.SemiColon.ToString();
 
         internal readonly protected List<string> m_Parts;
 
+        internal readonly Encoding m_Encoding = SessionDescription.DefaultEncoding;
+
+        //bool m_AllowWhiteSpace, m_AssumedPart.
+
+        //IUpdateable, IUsable
+
         #endregion
 
         #region Properties
 
-        //Todo, Use Enumerable.
+        /// <summary>
+        /// Gets the Encoding of the line.
+        /// </summary>
+        Encoding Encoding { get { return m_Encoding; } }
+
+        /// <summary>
+        /// Gets the Type of the line.
+        /// </summary>
+        public char Type { get { return m_Type; } }
+        
+        /// <summary>
+        /// Gets the Parts of the line.
+        /// </summary>
         public IEnumerable<string> Parts { get { return m_Parts; } }
 
         /// <summary>
@@ -138,17 +173,53 @@ namespace Media.Sdp
         /// </summary>
         public int Length
         {
-            //Each part gets a type, =, all parts are joined with 'm_Seperator' and lines are ended with `\r\n\`.
-            get { return 2 + m_Parts.Sum(p => p.Length) + (m_Parts.Count > 0 ? m_Seperator.Length * m_Parts.Count - 1 : 0) + 2; }
-        }
+            get
+            {
+                //return 2 + m_Parts.Sum(p => p.Length) + (m_Parts.Count > 0 ? m_Seperator.Length * m_Parts.Count - 1 : 0) + 2;
+
+                int total = 0;
+
+                int seperatorSize = m_Encoding.GetByteCount(m_Seperator);
+
+                //Iterate the parts
+                foreach (string part in m_Parts)
+                {
+                    //If after the first part then add the seperator
+                    if (total > 0) total += seperatorSize;
+
+                    total += m_Encoding.GetByteCount(part);
+                }
+                                                                //Each part gets a type, =, all parts are joined with 'm_Seperator' and lines are ended with `\r\n\`.
+                //return total + m_Encoding.GetByteCount(new char[] { m_Type, SessionDescription.EqualsSign, SessionDescription.NewLine, SessionDescription.LineFeed });
+
+                return total + CalucateRequiredLength(m_Encoding, m_Type); ;
+
+            }
+        }        
+
+        //UnderModification
 
         #endregion
 
         #region Methods
 
-        internal string GetPart(int index) { return m_Parts.Count > index ? m_Parts[index] : string.Empty; }
+        //Not needed, could also add an action parameter to the interface to support any type of action (BeginUpdateWith) (EndUpdateFor)
 
-        internal void SetPart(int index, string value) { if (m_Parts.Count > index) m_Parts[index] = value; }
+        //BeginUpdate
+
+        //EndUpdate
+
+        internal string GetPart(int index)
+        {
+            return m_Parts.Count > index ? m_Parts[index] : string.Empty;
+        }
+
+        internal void SetPart(int index, string value)
+        {
+            if (value == null) value = string.Empty;
+
+            if (m_Parts.Count > index) m_Parts[index] = value;
+        }
 
         internal void EnsureParts(int count)
         {
@@ -176,11 +247,18 @@ namespace Media.Sdp
 
         #region Constructor
 
+        /// <summary>
+        /// Copies an existing instance
+        /// </summary>
+        /// <param name="other">The instance to copy.</param>
         public SessionDescriptionLine(SessionDescriptionLine other)
         {
             if (other == null) throw new ArgumentNullException();
 
-            Type = other.Type;
+            m_Encoding = other.m_Encoding;
+
+            //Copies ValueType
+            m_Type = other.m_Type;
 
             m_Seperator = other.m_Seperator;
 
@@ -196,8 +274,8 @@ namespace Media.Sdp
             m_Parts = new List<string>(partCount);
             
             EnsureParts(partCount);
-         
-            Type = type;
+
+            m_Type = type;
         }
 
         /// <summary>
@@ -226,73 +304,43 @@ namespace Media.Sdp
 
             //Validate the line.
 
+            //m_AllowWhiteSpace &&
             if (string.IsNullOrWhiteSpace(line)) throw new InvalidOperationException("line cannot be null or consist only of whitespace");
-            
+
+            //m_AssumedPart &&
             if (line.Length < 2 
                 || 
                 line[1] != SessionDescription.EqualsSign) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionDescriptionLine: \"" + line + "\"");
 
             if (false == string.IsNullOrEmpty(seperator)) m_Seperator = seperator;
 
-            //Assign the type
-            Type = char.ToLower(line[0]);
+            //Assign the type (move up with m_AssumedPart && above)
+            m_Type = char.ToLower(line[0]);
 
-            //Split the parts
+            //Split the parts (creates new string array)
             
             //a=<flag>|<name>|:<value> where value = {...,...,...;x;y;z}
 
-            m_Parts = new List<string>(line.Substring(2).Split(new string[] { m_Seperator }, StringSplitOptions.RemoveEmptyEntries));
+            m_Parts = new List<string>(line.Substring(2).Split(Common.Extensions.Object.ObjectExtensions.ToArray<string>(m_Seperator), StringSplitOptions.RemoveEmptyEntries));
             
             //m_Parts = new List<string>(line.Substring(2).Split(SessionDescription.SemiColonSplit));
         }
 
         public SessionDescriptionLine(string[] sdpLines, ref int index)
-            : this(sdpLines[++index]) { }
+            : this(sdpLines[index++]) { }
 
         public SessionDescriptionLine(string[] sdpLines, ref int index, string seperator, char expected, int partCount = 0)            
-            :this(sdpLines[++index], seperator)
+            :this(sdpLines[index++], seperator)
         {
-            if(Type != expected) throw new InvalidOperationException("Expected: " + Type + ", Found: " + Type);
+            if (m_Type != expected) throw new InvalidOperationException("Expected: " + expected + ", Found: " + m_Type);
 
             //Should have option to throw less parts than expected?
-            if (partCount > 0) EnsureParts(partCount);
+            EnsureParts(partCount);
         }
 
         [CLSCompliant(false)]
         public SessionDescriptionLine(string[] sdpLines, int index, string seperator, char expected, int partCount = 0)
             : this(sdpLines, ref index, seperator, expected, partCount) { }
-
-        //Description derivived type would allow for easier parsing of media and time descirptions, would implicitly be a line and inherit from the Line class...
-
-        ///Could also have it's own m_Lines and store itself in m_Lines... weird but would allow custom ordering...
-
-        //internal class DescriptionLine : SessionDescriptionLine, IEnumerable<SessionDescriptionLine>
-        //{
-        //    public DescriptionLine(char type, int partCount = 0)
-        //        : base(type, partCount)
-        //    {
-
-        //    }
-
-        //    public DescriptionLine(char type, int partCount = 0, string seperator = null)
-        //        : base(type, seperator, partCount)
-        //    {
-
-        //    }
-
-        //    //Could be overridden if not explicit and would allow other lines to be added.
-        //    IEnumerator<SessionDescriptionLine> IEnumerable<SessionDescriptionLine>.GetEnumerator()
-        //    {
-        //        return Common.Extensions.Linq.LinqExtensions.Yield(this).GetEnumerator();
-        //    }
-
-        //    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        //    {
-        //        return GetEnumerator();
-        //    }
-        //}
-
-        //Possibly have a Field concept which can be used to join multiple parts but retain a type?..
 
         #endregion
 
@@ -300,7 +348,7 @@ namespace Media.Sdp
 
         public override int GetHashCode()
         {
-            return Type ^ m_Parts.GetHashCode();
+            return m_Type ^ m_Parts.GetHashCode();
         }
 
         public override bool Equals(object obj)
@@ -311,9 +359,11 @@ namespace Media.Sdp
 
             SessionDescriptionLine other = obj as SessionDescriptionLine;
 
-            return other.Type == Type
+            return other.Encoding == m_Encoding
                 &&
-                other.m_Seperator == m_Seperator
+                other.m_Type == m_Type
+                &&
+                other.m_Seperator == m_Seperator                                
                 &&
                 other.Length == Length
                 && //Calling ToString without taking account case
@@ -334,10 +384,12 @@ namespace Media.Sdp
             {
                 result = new StringBuilder();
 
-                result.Append(Type);
+                result.Append(m_Type);
 
                 result.Append(SessionDescription.EqualsSign);
 
+                //Add all parts with seperator
+                //Could also loop parts and add seperator
                 result.Append(string.Join(m_Seperator, m_Parts));
 
                 result.Append(SessionDescription.NewLineString);
@@ -362,10 +414,55 @@ namespace Media.Sdp
 
         #endregion
 
+        //Could have ToString overload with (bool newLine) etc.
+
+        #region Prepare
+
+        public IEnumerable<string> Prepare(bool type, bool equals, bool parts, bool seperator, int partStart, int partCount, string partSeperator = null, bool newLine = true)
+        {
+            //Widens char to string
+
+            //Include the type if desired.
+            if(type) yield return m_Type.ToString();
+
+            //Inlcude the equals size is desired
+            if(equals) yield return SessionDescription.EqualsSign.ToString();
+
+            //Track the amount of parts output.
+            int count = 0;
+
+            //Iterate the parts
+            foreach (string part in m_Parts)
+            {
+                //Skip to desired part
+                if (--partStart >= 0) continue;
+
+                //Include the seperator only after the first part
+                if (count++ > 0 && seperator) yield return partSeperator ?? m_Seperator;
+
+                //return the part
+                yield return part;
+
+                //If more than the desired parts have been output stop
+                if (count > partCount) break;
+            }
+
+            //Include the newLine if desired.
+            if (newLine) yield return SessionDescription.NewLineString;
+        }
+
+
+        public IEnumerable<string> Prepare()
+        {
+            return Prepare(true, true, true, true, 0, m_Parts.Count, m_Seperator, true);
+        }
+
+        #endregion
+
         public IEnumerator<string> GetEnumerator()
         {
             //Widens char to string
-            yield return Type.ToString();
+            yield return m_Type.ToString();
 
             yield return SessionDescription.EqualsSign.ToString();
 

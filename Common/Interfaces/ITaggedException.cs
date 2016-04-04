@@ -21,4 +21,6 @@ namespace Media.Common
         /// </summary>
         Object Tag { get; }
     }
+
+    //ITaggedExceptionExtensions
 }

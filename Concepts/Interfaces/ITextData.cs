@@ -36,28 +36,28 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-namespace Media.Concepts
-{
-    /// <summary>
-    /// Defines properties common to objects which correspond to 'Text' data.
-    /// Could also be used like ITextView in VisualStudio Namespace.
-    /// </summary>
-    public interface ITextData /*View*/
-    {
-        /// <summary>
-        /// Gets the <see cref="System.Text.Encoding"/> associated with the text by default.
-        /// </summary>
-        System.Text.Encoding DefaultEncoding { get; }
+//namespace Media.Concepts
+//{
+//    /// <summary>
+//    /// Defines properties common to objects which correspond to 'Text' data.
+//    /// Could also be used like ITextView in VisualStudio Namespace.
+//    /// </summary>
+//    public interface ITextData /*View*/
+//    {
+//        /// <summary>
+//        /// Gets the <see cref="System.Text.Encoding"/> associated with the text by default.
+//        /// </summary>
+//        System.Text.Encoding DefaultEncoding { get; } //Encoding
 
-        /// <summary>
-        /// Gets the binary data associated with establishing a single 'line' in the text.
-        /// To obtain the size of the individual data constituents known as <see cref="char">characters</see> or <see cref="string">strings</see> see the appropraite method of <see cref="DefaultEncoding"/>.
-        /// </summary>
-        System.Collections.Generic.IEnumerable<byte> LineEnds { get; }
+//        /// <summary>
+//        /// Gets the binary data associated with establishing a single 'line' in the text.
+//        /// To obtain the size of the individual data constituents known as <see cref="char">characters</see> or <see cref="string">strings</see> see the appropraite method of <see cref="DefaultEncoding"/>.
+//        /// </summary>
+//        System.Collections.Generic.IEnumerable<byte> LineEnds { get; } //char in DefaultEncoding
 
-        /// <summary>
-        /// Gets the binary data associated with the text (including any <see cref="LineEnds"/> which may be present).
-        /// </summary>
-        System.Collections.Generic.IEnumerable<byte> Data { get; }
-    }
-}
+//        /// <summary>
+//        /// Gets the binary data associated with the text (including any <see cref="LineEnds"/> which may be present).
+//        /// </summary>
+//        System.Collections.Generic.IEnumerable<byte> Data { get; }
+//    }
+//}

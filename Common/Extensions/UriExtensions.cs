@@ -73,5 +73,9 @@ namespace Media.Common.Extensions.Uri
 
         public static bool TryParseUserInfo(System.Uri uri, out System.Net.NetworkCredential result) { return (result = ParseUserInfo(uri)) != null; }
 
+        //Would take source and all segment but not file and change to part.
+        //MakeRelativeTo
+        //CombineRelative
+
     }
 }

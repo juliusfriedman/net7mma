@@ -44,7 +44,7 @@ namespace Media.Sdp
         unknown = 0,
         audio,
         video,
-        //image?
+        image,//RFC6466 (T38) / rfc4145 / (rfc4751)
         text,
         timing,
         application,

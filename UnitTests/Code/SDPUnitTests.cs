@@ -274,6 +274,8 @@ public class SDPUnitTests
 r=604800 3600 0 90000
 r=7d 1h 0 25h";
 
+        //t=now 0 should be Permanent and Unbounded?
+
         string[] vector = testVector.Split(Media.Sdp.SessionDescription.NewLine, Media.Sdp.SessionDescription.LineFeed);
 
         int index = 0;
@@ -297,7 +299,7 @@ r=7d 1h 0 25h";
 
         double[] expectedParts = new double[] { 604800, 3600, 0, 90000 };
 
-        System.Diagnostics.Debug.Assert(line.RepeatLines.All(r => r.RepeatValues.SequenceEqual(expectedParts)), "Found unexpected RepeatLine.RepeatValues");
+        System.Diagnostics.Debug.Assert(line.RepeatLines.All(r => r.RepeatTimeSpan == expected && r.RepeatTimeValue == expected.TotalSeconds && r.RepeatValues.SequenceEqual(expectedParts)), "Found unexpected RepeatLine.RepeatValues");
 
         //3 months later 31 days per month
         System.Diagnostics.Debug.Assert((line.NtpStopDateTime - line.NtpStartDateTime).Days == 93, "Expected Days not found");
@@ -355,28 +357,28 @@ r=7d 1h 0 25h";
         ///
     }    
 
-    /// <summary>
-    /// Test the constructor
-    /// </summary>
-    public void ATestSessionDescriptionConstructor()
-    {
+    ///// <summary>
+    ///// Test the constructor
+    ///// </summary>
+    //public void ATestSessionDescriptionConstructor()
+    //{
 
-        Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+    //    Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
 
-        System.Diagnostics.Debug.Assert(false == string.IsNullOrEmpty(Media.Sdp.SessionDescription.NewLineString), "Media.Sdp.SessionDescription.NewLine Must not be Null or Empty.");
+    //    System.Diagnostics.Debug.Assert(false == string.IsNullOrEmpty(Media.Sdp.SessionDescription.NewLineString), "Media.Sdp.SessionDescription.NewLine Must not be Null or Empty.");
 
-        //Get the characters which make the NewLine string.
-        char[] newLineCharacters = Media.Sdp.SessionDescription.NewLineString.ToArray();
+    //    //Get the characters which make the NewLine string.
+    //    char[] newLineCharacters = Media.Sdp.SessionDescription.NewLineString.ToArray();
 
-        //Check for two characters
-        System.Diagnostics.Debug.Assert(2 == newLineCharacters.Length, "Media.Sdp.SessionDescription.NewLine Must Have 2 Characters");
+    //    //Check for two characters
+    //    System.Diagnostics.Debug.Assert(2 == newLineCharacters.Length, "Media.Sdp.SessionDescription.NewLine Must Have 2 Characters");
 
-        //Check for '\r'
-        System.Diagnostics.Debug.Assert('\r' == newLineCharacters[0], "Media.Sdp.SessionDescription.NewLine[0] Must Equal '\r'");
+    //    //Check for '\r'
+    //    System.Diagnostics.Debug.Assert(Media.Sdp.SessionDescription.NewLine == newLineCharacters[0], "Media.Sdp.SessionDescription.NewLine[0] Must Equal '\r'");
 
-        //Check for '\n'
-        System.Diagnostics.Debug.Assert('\n' == newLineCharacters[1], "Media.Sdp.SessionDescription.NewLine[0] Must Equal '\n'");
-    }
+    //    //Check for '\n'
+    //    System.Diagnostics.Debug.Assert(Media.Sdp.SessionDescription.LineFeed == newLineCharacters[1], "Media.Sdp.SessionDescription.NewLine[0] Must Equal '\n'");
+    //}
 
     public void ParseMediaDescriptionUnitTest()
     {
@@ -385,12 +387,21 @@ r=7d 1h 0 25h";
             a=rtpmap:97 L16/8000
             a=rtpmap:98 L16/11025/2";
 
+        //c=IN IP4 224.2.1.1/127/2
+         //m=video 49170/2 RTP/AVP 31
+
         using (var md = new Media.Sdp.MediaDescription(testVector))
         {
-            System.Diagnostics.Debug.Assert(md.Lines.Count() == 4, "MediaDescription must have 4 lines");
+            System.Diagnostics.Debug.Assert(md.Lines.Count() == 4, "MediaDescription must have 4 lines");//Including itself
 
             //CLR not assert correctly with == ....
             //md.MediaDescriptionLine.ToString() == "m=audio 49230 RTP/AVP 96 97 98"
+
+            System.Diagnostics.Debug.Assert(md.MediaType == Media.Sdp.MediaType.audio, "Unexpected MediaType");
+
+            System.Diagnostics.Debug.Assert(md.MediaPort == 49230, "Unexpected MediaPort");
+
+            System.Diagnostics.Debug.Assert(md.MediaProtocol == "RTP/AVP", "Unexpected MediaProtocol");
 
             System.Diagnostics.Debug.Assert(md.PayloadTypes.Count() == 3, "Could not read the Payload List");
 
@@ -402,6 +413,28 @@ r=7d 1h 0 25h";
 
             System.Diagnostics.Debug.Assert(string.Compare(md.MediaDescriptionLine.ToString(), "m=audio 49230 RTP/AVP 96 97 98\r\n") == 0, "Did not handle Payload List Correct");
 
+            System.Diagnostics.Debug.Assert(md.AttributeLines.Count() == 3, "Unexpected number of AttributeLines");
+
+            System.Diagnostics.Debug.Assert(md.m_Lines.Count == 3, "Unexpected m_Lines.Count");
+
+            Media.Sdp.Lines.SessionMediaDescriptionLine line = new Media.Sdp.Lines.SessionMediaDescriptionLine("m=audio 49230 RTP/AVP 96 97 98\r\n");
+
+            System.Diagnostics.Debug.Assert(line.PayloadTypes.SequenceEqual(md.PayloadTypes), "Could not read the Payload List");
+
+            System.Diagnostics.Debug.Assert(line.MediaType == Media.Sdp.MediaType.audio, "Unexpected MediaType");
+
+            System.Diagnostics.Debug.Assert(line.MediaPort == 49230, "Unexpected MediaPort");
+
+            System.Diagnostics.Debug.Assert(line.MediaProtocol == "RTP/AVP", "Unexpected MediaProtocol");
+
+            System.Diagnostics.Debug.Assert(false == line.HasPortRange, "Unexpected HasPortRange");
+
+            //System.Diagnostics.Debug.Assert(line.PortRange == 0, "Unexpected PortRange");
+
+            System.Diagnostics.Debug.Assert(string.Compare(md.MediaDescriptionLine.ToString(), line.ToString()) == 0, "Not string equal");
+
+            System.Diagnostics.Debug.Assert(md.MediaDescriptionLine == line, "Not Type Equals");
+            
         }
     }
 

@@ -1,5 +1,4 @@
-﻿#region Copyright
-/*
+﻿/*
 This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
  Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
@@ -34,36 +33,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-#endregion
-
-namespace Media.Sockets
-{
-    #region Connection
-
-    /// <summary>
-    /// Provides information on the capabilities of the Connection
-    /// </summary>
-    public class ConnectionCapabilities
-    {
-        //Long SupportedOperations
-        public bool SupportsSend;
-
-        public bool SupportsReceive;
-
-        public bool SupportsConnect;
-
-        public bool SupportsDisconnect;
-
-        //Multicast
-
-        //Protocols / Address Famalies
-
-        //Long Rates, int Min, Max?
-
-        public double MinimumRate;
-
-        public double MaximumRate;
-    }
-
-    #endregion
-}
+//namespace Media.Concepts.Interfaces
+//{
+//    interface IUsable : Common.IDisposed, Common.IUpdateable
+//    {
+//        //InUse => !UnderModification
+//    }
+//}

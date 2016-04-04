@@ -73,12 +73,14 @@ namespace Media.Common
         /// <summary>
         /// Determines if the IPacket can be modified.
         /// </summary>
-        bool IsReadOnly { get; }
+        bool IsReadOnly { get; } //Should be Seperate Interface
 
         /// <summary>
         /// The length in bytes of the packet
         /// </summary>
         long Length { get; }
+
+        //RawLength
 
         /// <summary>
         /// Completes the IPacket if IsComplete and Disposed is false.

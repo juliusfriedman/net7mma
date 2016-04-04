@@ -114,6 +114,7 @@ namespace Media.Rtcp
         /// </summary>
         internal byte[] Last6Bytes;
 
+        //Better name, the pointer is like + IntPtr.Size * 2 from there into the Rtti
         internal Common.MemorySegment PointerToLast6Bytes;
 
         #endregion
