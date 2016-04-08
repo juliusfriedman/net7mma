@@ -277,6 +277,26 @@ namespace Media.Common.Extensions.Socket
 
         public static void EnableLinger(System.Net.Sockets.Socket socket) { socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.DontLinger, false); }
 
+        public static System.Net.Sockets.LingerOption GetLingerOption(System.Net.Sockets.Socket socket)
+        {
+            //could be byte[] or something else socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.Linger);
+
+            byte [] value = socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.Linger, 8);
+
+            return new System.Net.Sockets.LingerOption(Common.Binary.ReadU32(value, 0, System.BitConverter.IsLittleEndian) > 0, 
+                (int)Common.Binary.ReadU32(value, 4, System.BitConverter.IsLittleEndian));
+        }
+
+        public static void SetLingerOption(System.Net.Sockets.Socket socket, System.Net.Sockets.LingerOption lingerOption)
+        {
+            socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.Linger, lingerOption);
+        }
+
+        public static void SetLingerOption(System.Net.Sockets.Socket socket, bool enable, int seconds)
+        {
+            SetLingerOption(socket, new System.Net.Sockets.LingerOption(enable, seconds));
+        }
+
         #endregion
 
         #region Retransmission
@@ -311,12 +331,16 @@ namespace Media.Common.Extensions.Socket
 
         public static void GetMaximumSegmentSize(System.Net.Sockets.Socket socket, out int result)
         {
-            result = (int)socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, (System.Net.Sockets.SocketOptionName)0x02);
+            System.Net.Sockets.SocketOptionName optionName = (System.Net.Sockets.SocketOptionName)(Common.Extensions.OperatingSystemExtensions.IsWindows ? 4 : 2);
+
+            result = (int)socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, optionName);
         }
 
         public static void SetMaximumSegmentSize(System.Net.Sockets.Socket socket, int size)
         {
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)0x02, size);
+            System.Net.Sockets.SocketOptionName optionName = (System.Net.Sockets.SocketOptionName)(Common.Extensions.OperatingSystemExtensions.IsWindows ? 4 : 2);
+
+            SetTcpOption(socket, optionName, size);
         }
 
         #endregion
@@ -438,11 +462,40 @@ namespace Media.Common.Extensions.Socket
 
         #endregion
 
+        #region UnicastPortReuse
+
+        //Notes 4.6 has ReuseUnicastPort
+
+        const int ReuseUnicastPort = 0x3007;
+
+        static readonly System.Net.Sockets.SocketOptionName ReuseUnicastPortOption = (System.Net.Sockets.SocketOptionName)ReuseUnicastPort;
+
+        public static void SetUnicastPortReuse(System.Net.Sockets.Socket socket, int value)
+        {
+            socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, ReuseUnicastPortOption, value);
+        }
+
+        public static void DisableUnicastPortReuse(System.Net.Sockets.Socket socket)
+        {
+            SetUnicastPortReuse(socket, 0);
+        }
+
+        public static void EnableUnicastPortReuse(System.Net.Sockets.Socket socket)
+        {
+            SetUnicastPortReuse(socket, 1);
+        }
+
+        #endregion
+
         #region NoSynRetries
+
+        const int NoSynRetries = 9;
+
+        static readonly System.Net.Sockets.SocketOptionName NoSynRetriesOption = (System.Net.Sockets.SocketOptionName)NoSynRetries;
 
         public static void SetTcpNoSynRetries(System.Net.Sockets.Socket socket, int amountInSeconds = 1)
         {
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)9, amountInSeconds);
+            SetTcpOption(socket, NoSynRetriesOption, amountInSeconds);
         }
 
         public static void DisableTcpNoSynRetries(System.Net.Sockets.Socket socket)
@@ -459,9 +512,13 @@ namespace Media.Common.Extensions.Socket
 
         #region Timestamp
 
+        const int Timestamp = 10;
+
+        static readonly System.Net.Sockets.SocketOptionName TimestampOption = (System.Net.Sockets.SocketOptionName)Timestamp;
+
         public static void SetTcpTimestamp(System.Net.Sockets.Socket socket, int value = 1)
         {
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)10, value);
+            SetTcpOption(socket, TimestampOption, value);
         }
 
         public static void DisableTcpTimestamp(System.Net.Sockets.Socket socket)
@@ -476,11 +533,45 @@ namespace Media.Common.Extensions.Socket
 
         #endregion
 
+        #region OffloadPreference
+
+        //Todo should be enum..
+        //public enum TcpOffloadPreference
+        //{
+        //    NoPreference = 0,
+        //    NotPreferred = 1,
+        //    Preferred = 2
+        //}
+
+        //
+        // Offload preferences supported.
+        //
+        //#define TCP_OFFLOAD_NO_PREFERENCE	0
+        public const int TcpOffloadNoPreference = 0;
+        //#define	TCP_OFFLOAD_NOT_PREFERRED	1
+        public const int TcpOffloadNotPreferred = 1;
+        //#define TCP_OFFLOAD_PREFERRED		2
+        public const int TcpOffloadPreferred = 2;
+
+        const int TcpOffloadPreference = 11;
+        static readonly System.Net.Sockets.SocketOptionName TcpOffloadPreferenceOption = (System.Net.Sockets.SocketOptionName)TcpOffloadPreference;
+
+
+        public static void SetTcpOffloadPreference(System.Net.Sockets.Socket socket, int value = TcpOffloadPreferred) // TcpOffloadPreference.NoPreference
+        {
+            SetTcpOption(socket, TcpOffloadPreferenceOption, value);
+        }
+
+        #endregion
+
         #region CongestionAlgorithm
+
+        const int TcpCongestionAlgorithm = 12;
+        static readonly System.Net.Sockets.SocketOptionName TcpCongestionAlgorithmOption = (System.Net.Sockets.SocketOptionName)TcpCongestionAlgorithm;
 
         public static void SetTcpCongestionAlgorithm(System.Net.Sockets.Socket socket, int value = 1)
         {
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)12, value);
+            SetTcpOption(socket, TcpCongestionAlgorithmOption, value);
         }
 
         public static void DisableTcpCongestionAlgorithm(System.Net.Sockets.Socket socket)
@@ -495,46 +586,22 @@ namespace Media.Common.Extensions.Socket
 
         #endregion
 
-        #region OffloadPreference
-
-        //
-        // Offload preferences supported.
-        //
-        //#define TCP_OFFLOAD_NO_PREFERENCE	0
-        public const int TcpOffloadNoPreference = 1;
-        //#define	TCP_OFFLOAD_NOT_PREFERRED	1
-        public const int TcpOffloadNotPreferred = 1;
-        //#define TCP_OFFLOAD_PREFERRED		2
-        public const int TcpOffloadPreferred = 2;
-
-        public static void SetTcpOffloadPreference(System.Net.Sockets.Socket socket, int value = TcpOffloadPreferred)
-        {
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)11, value);
-        }
-
-        #endregion
-
-        #region MaxSegmentSize
-
-        public static void SetTcpMaxSegmentSize(System.Net.Sockets.Socket socket, int valueInBytes)
-        {
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)4, valueInBytes);
-        }
-
-        #endregion
-
         #region DelayFinAck
 
         //#define WS_TCP_DELAY_FIN_ACK    13
+
+        const int DelayFinAck = 13;
+
+        static readonly System.Net.Sockets.SocketOptionName DelayFinAckOption = (System.Net.Sockets.SocketOptionName)DelayFinAck;
         
         public static void EnableTcpDelayFinAck(System.Net.Sockets.Socket socket)
         {
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)13, 1);
+            SetTcpOption(socket, DelayFinAckOption, 1);
         }
 
         public static void DisableTcpDelayFinAck(System.Net.Sockets.Socket socket)
         {
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)13, 0);
+            SetTcpOption(socket, DelayFinAckOption, 0);
         }
 
         #endregion

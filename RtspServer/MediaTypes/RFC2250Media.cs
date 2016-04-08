@@ -48,38 +48,38 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public RFC2250Frame() : base(32) { }
 
-            public MemoryStream Buffer { get; protected set; }
+            //public MemoryStream Buffer { get; protected set; }
 
             public virtual void Packetize(byte[] data)
             {
                 throw new NotImplementedException();
             }
 
-            public virtual void Depacketize()
-            {
-                throw new NotImplementedException();
-            }
+            //public virtual void Depacketize()
+            //{
+            //    throw new NotImplementedException();
+            //}
 
-            void DisposeBuffer()
-            {
-                if (Buffer != null)
-                {
-                    Buffer.Dispose();
-                    Buffer = null;
-                }
-            }
+            //void DisposeBuffer()
+            //{
+            //    if (Buffer != null)
+            //    {
+            //        Buffer.Dispose();
+            //        Buffer = null;
+            //    }
+            //}
 
-            public override void Dispose()
-            {
-                if (IsDisposed) return;
-                base.Dispose();
-                DisposeBuffer();
-            }
+            //public override void Dispose()
+            //{
+            //    if (IsDisposed) return;
+            //    base.Dispose();
+            //    DisposeBuffer();
+            //}
 
-            public override IEnumerable<byte> Assemble(bool useExtensions = false, int profileHeaderSize = ProfileHeaderSize)
-            {
-                return base.Assemble(useExtensions, profileHeaderSize);
-            }
+            //public override IEnumerable<byte> Assemble(bool useExtensions = false, int profileHeaderSize = ProfileHeaderSize)
+            //{
+            //    return base.Assemble(useExtensions, profileHeaderSize);
+            //}
         }        
 
         public RFC2250Media(int width, int height, string name, string directory = null, bool watch = true)

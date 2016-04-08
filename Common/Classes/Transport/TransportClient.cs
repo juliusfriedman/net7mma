@@ -1,8 +1,6 @@
 ﻿
 namespace Media.Common
 {
-    //Will provide the base classes for any type of client
-
     //TransportSession? => Id 
 
     //TransportContext => Thin wrapper. (GetChannelBinding, GetTlsTokenBindings)
@@ -26,6 +24,7 @@ namespace Media.Common
     //    private System.Security.Authentication.ExtendedProtection.ChannelBinding binding;
     //}
 
+    /// Will eventually provide the base classes for any type of client
     public class TransportClient : Common.BaseDisposable, Common.ISocketReference, Common.IThreadReference
     {
         #region ISocketReference

@@ -36,16 +36,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-#region Using Statements
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Media.Common;
-
-#endregion
-
 namespace Media.Common
 { 
     /// <summary>
@@ -62,7 +52,7 @@ namespace Media.Common
     /// It is not marked abstract because it would be useless.
     /// </summary>
     /// <typeparam name="T">The type data in the Tag property</typeparam>
-    public class TaggedException<T> : Exception, ITaggedException, IDisposed
+    public class TaggedException<T> : System.Exception, ITaggedException, IDisposed
     {
         #region Statics
 
@@ -94,7 +84,7 @@ namespace Media.Common
         /// <summary>
         /// <see cref="Exception.InnerException"/>.
         /// </summary>
-        Exception ITaggedException.InnerException
+        System.Exception ITaggedException.InnerException
         {
             get { return base.InnerException; }
         }
@@ -138,7 +128,7 @@ namespace Media.Common
         /// <param name="tag">The value to store.</param>
         /// <param name="message">The message realted to the exception</param>
         /// <param name="innerException">The exception which superceeds this exception</param>
-        public TaggedException(T tag, string message, Exception innerException)
+        public TaggedException(T tag, string message, System.Exception innerException)
             : base(message, innerException) { Tag = tag; }
 
 
@@ -155,7 +145,7 @@ namespace Media.Common
         /// <param name="message">The message realted to the exception, if not provided a default message will be used.</param>
         /// <param name="innerException">any <see cref="System.Exception"/> which is related to the exception being thrown</param>
         /// <param name="data">Any data which should be also stored with the exception</param>
-        public TaggedException(T tag, string message, Exception innerException, params object[] data)
+        public TaggedException(T tag, string message, System.Exception innerException, params object[] data)
             : this(tag, message, innerException)
         {
             //If given any data 
@@ -179,7 +169,7 @@ namespace Media.Common
         {
             if (@base.IsDisposed) return;
 
-            GC.SuppressFinalize(this);
+            System.GC.SuppressFinalize(this);
 
             @base.Dispose();
 
@@ -193,5 +183,74 @@ namespace Media.Common
         #endregion
     }
 
-    //TaggedExceptionExtensions...
+    /// <summary>
+    /// Much more useful before you could catch an exception only when it was a specific type.
+    /// Allows this functionality to be achieved lack thereof.
+    /// </summary>
+    public static class TaggedExceptionExtensions
+    {
+        /// <summary>
+        /// Raises the given <see cref="TaggedException"/>
+        /// </summary>
+        /// <typeparam name="T">The type related to the exception.</typeparam>
+        /// <param name="exception">The <see cref="System.Exception"/> which occured.</param>
+        public static void Raise<T>(this TaggedException<T> exception) { if (exception != null) throw exception; }
+
+        /// <summary>
+        /// Tries to <see cref="Raise"/> the given <see cref="TaggedException"/>
+        /// </summary>
+        /// <typeparam name="T">The type related to the exception.</typeparam>
+        /// <param name="exception">The <see cref="System.Exception"/> which occured.</param>
+
+        public static void TryRaise<T>(this TaggedException<T> exception) //storeData
+        {
+            try { exception.Raise(); }
+            catch { /*hide*/ }
+        }
+
+        /// <summary>
+        /// Raises the given <see cref="TaggedException"/>
+        /// </summary>
+        /// <typeparam name="T">The type related to the exception.</typeparam>
+        /// <param name="exception">The <see cref="System.Exception"/> which occured.</param>
+        /// <param name="breakForResume">Indicates if the function should attach the debugger.</param>
+        public static void RaiseAndAttachIfUnhandled<T>(this TaggedException<T> exception, bool breakForResume = true)
+        {
+            if (false == breakForResume)
+            {
+                exception.TryRaise();
+
+                return;
+            }
+
+            //Raise the exception
+            try { exception.Raise(); }
+            catch //Handle it
+            {
+                //If the debugger is not attached and it cannot be then return
+                if (false == Common.Extensions.Debug.DebugExtensions.Attach()) return;
+
+                //Break if still attached
+                Common.Extensions.Debug.DebugExtensions.BreakIfAttached();
+            }
+        }
+
+        /// <summary>
+        /// Raises an <see cref="Common.Exception"/> on the calling thread.
+        /// </summary>
+        /// <typeparam name="T">The type of the exception to raise.</typeparam>
+        /// <param name="tag">The element related to the exception</param>
+        /// <param name="message">The message realted to the exception, if not provided a default message will be used.</param>
+        /// <param name="innerException">any <see cref="System.Exception"/> which is related to the exception being thrown</param>
+        public static void RaiseTaggedException<T>(T tag, string message, System.Exception innerException = null) { new TaggedException<T>(tag, message ?? TaggedException<T>.DefaultExceptionTypeMessage<T>(), innerException).Raise(); }
+
+        /// <summary>
+        /// Tries to raises an <see cref="Common.Exception"/> on the calling thread and if the exception is not handled it will be discared.
+        /// </summary>
+        /// <typeparam name="T">The type of the exception to raise.</typeparam>
+        /// <param name="tag">The element related to the exception</param>
+        /// <param name="message">The message realted to the exception, if not provided a default message will be used.</param>
+        /// <param name="innerException">any <see cref="System.Exception"/> which is related to the exception being thrown</param>
+        public static void TryRaiseTaggedException<T>(T tag, string message, System.Exception innerException = null) { new TaggedException<T>(tag, message ?? TaggedException<T>.DefaultExceptionTypeMessage<T>(), innerException).TryRaise(); }
+    }
 }

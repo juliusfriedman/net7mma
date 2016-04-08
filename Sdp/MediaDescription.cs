@@ -212,13 +212,13 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index++].Trim();
 
-            if (false == sdpLine.StartsWith("m=")) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid Media Description");
+            if (false == sdpLine.StartsWith("m=")) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid Media Description");
 
             sdpLine = sdpLine.Replace("m=", string.Empty);
 
             string[] parts = sdpLine.Split(SessionDescription.SpaceSplit, 4);
 
-            if (parts.Length != 4) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid Media Description");
+            if (parts.Length != 4) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid Media Description");
 
             try
             {
@@ -243,6 +243,8 @@ namespace Media.Sdp
             for (int e = sdpLines.Length; index < e; )
             {
                 string line = sdpLines[index];
+
+                //NullOrEmptyOrWhiteSpace...
 
                 if (line.StartsWith("m="))
                 {
@@ -275,6 +277,11 @@ namespace Media.Sdp
         public bool Remove(SessionDescriptionLine line)
         {
             return m_Lines.Remove(line);
+        }
+
+        internal void Insert(int index, SessionDescriptionLine line)
+        {
+            m_Lines.Insert(index, line);
         }
 
         public void RemoveLine(int index)
@@ -415,6 +422,22 @@ namespace Media.Sdp
             }
         }
 
+        public SessionDescriptionLine SsrcLine
+        {
+            get
+            {
+                return m_Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(AttributeFields.SynchronizationSourceIdentifier, StringComparison.InvariantCultureIgnoreCase));
+            }
+        }
+
+        public SessionDescriptionLine RtcpLine
+        {
+            get
+            {
+                return m_Lines.FirstOrDefault(l => l.m_Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(AttributeFields.Rtcp, StringComparison.InvariantCultureIgnoreCase));
+            }
+        }
+
         #endregion
 
         #region Lines
@@ -459,8 +482,9 @@ namespace Media.Sdp
 
             //If there is a control line in the SDP it contains the URI used to setup and control the media
             if (controlLine != null)
-            {
-                string controlPart = controlLine.Parts.Where(p => p.Contains(AttributeFields.Control)).FirstOrDefault();
+            {  
+                                                                //Was using Contains...
+                string controlPart = controlLine.Parts.Where(p => p.StartsWith(AttributeFields.Control)).FirstOrDefault();
 
                 //If there is a controlPart in the controlLine
                 if (false == string.IsNullOrWhiteSpace(controlPart))

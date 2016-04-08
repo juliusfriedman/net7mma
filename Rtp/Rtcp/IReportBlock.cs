@@ -26,6 +26,8 @@ namespace Media.Rtcp
         /// The octets [of Size] which correspond to the binary data contained in the instance.
         /// </summary>
         IEnumerable<byte> BlockData { get; }
+
+        //Todo Segment properties.
     }
 
     #endregion

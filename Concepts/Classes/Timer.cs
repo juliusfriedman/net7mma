@@ -83,8 +83,11 @@ namespace Media.Concepts.Classes
             System.Threading.Thread Event = new System.Threading.Thread(new System.Threading.ThreadStart(() =>
             {
                 System.Threading.Thread.BeginCriticalRegion();
+
                 long sample;
+
             AfterSample:
+
                 try
                 {
                 Top:
@@ -93,17 +96,17 @@ namespace Media.Concepts.Classes
                     while (m_Enabled && Producer.Count >= 1)
                     {
                         sample = Producer.Last.Value;
-                        
+
                         Producer.RemoveLast();
 
-                         Tick(ref sample);
+                        Tick(ref sample);
                     }
 
                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
 
                     if (false == m_Enabled) return;
 
-                    while (m_Enabled && Producer.Count == 0) if(m_Counter.IsAlive) m_Counter.Join(0);  //++m_Ops;
+                    while (m_Enabled && Producer.Count == 0) if (m_Counter.IsAlive) m_Counter.Join(0);  //++m_Ops;
 
                     goto Top;
                 }
@@ -154,7 +157,7 @@ namespace Media.Concepts.Classes
                                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
                                 }
 
-                                if(Event != null && Event.IsAlive) Event.Join(m_Frequency);
+                                if (Event != null && Event.IsAlive) Event.Join(m_Frequency);
 
                                 goto Start;
                             }
@@ -174,6 +177,8 @@ namespace Media.Concepts.Classes
 
         public Timer(System.TimeSpan frequency)
         {
+            m_Frequency = frequency;
+
             Producer = new System.Collections.Generic.LinkedList<long>();
 
             m_Counter = new System.Threading.Thread(new System.Threading.ThreadStart(Count))
@@ -191,7 +196,7 @@ namespace Media.Concepts.Classes
         {
             if (m_Enabled) return;
 
-            m_Enabled = true;
+            Change(m_Frequency, System.TimeSpan.Zero);
 
             m_Counter.Start();
 

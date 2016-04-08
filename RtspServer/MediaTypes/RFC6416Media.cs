@@ -54,13 +54,27 @@ namespace Media.Rtsp.Server.MediaTypes
     {
         public class RFC6416Frame : Rtp.RtpFrame
         {
+
+            #region Static
+
+            static readonly Common.MemorySegment StartCodePrefixSegment = new Common.MemorySegment(Media.Containers.Mpeg.StartCodes.StartCodePrefix, false);
+
+            public static Common.MemorySegment CreatePrefixedStartCodeSegment(byte byteCode)
+            {
+                return new Common.MemorySegment(new byte[] { 0x00, 0x00, 0x01, byteCode });
+            }
+
+            #endregion
+
+            #region Constructor
+
             public RFC6416Frame(byte payloadType) : base(payloadType) { }
 
             public RFC6416Frame(Rtp.RtpFrame existing) : base(existing) { }
 
-            public RFC6416Frame(RFC6416Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
+            public RFC6416Frame(RFC6416Frame f) : base(f, true, true) { }
 
-            public System.IO.MemoryStream Buffer { get; set; }
+            #endregion
 
             public void Packetize(byte[] nal, int mtu = 1500)
             {
@@ -83,17 +97,18 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (offset + mtu > nalLength) marker = true;
                     
                         //Add the packet
-                        Add(new Rtp.RtpPacket(2, false, false, marker, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal));
+                        Add(new Rtp.RtpPacket(2, false, false, marker, PayloadType, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal));
 
                         //Move the offset
                         offset += mtu;
                     }
                 } //Should check for first byte to be 1 - 23?
-                else Add(new Rtp.RtpPacket(2, false, false, true, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal));
+                else Add(new Rtp.RtpPacket(2, false, false, true, PayloadType, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal));
             }
 
-            //Should the ObjectType be allowed to be given? 3 or 5 for Audio?
+            //Should the ObjectType be allowed to be given...? 3 or 5 for Audio?
 
+            //No longer needed
             /// <summary>
             /// Write the required prerequesite data to the Buffer along with the Video Frame.
             /// </summary>
@@ -112,29 +127,45 @@ namespace Media.Rtsp.Server.MediaTypes
                   145: MPEG-4 Visual Advanced Real Time Simple Profile/Level 1
                  */
 
-                
-
-                Buffer = new MemoryStream(Media.Containers.Mpeg.StartCodes.Prefix. //00 00 01
+                m_Buffer = new MemoryStream(Media.Containers.Mpeg.StartCodes.StartCodePrefix. //00 00 01
                     Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.Mpeg4.StartCodes.VisualObjectSequence)).
                     Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(profileLevelId)). // B0 XX (ID)
-                    Concat(Media.Containers.Mpeg.StartCodes.Prefix).Concat(Assemble()).ToArray()); // 00 00 01 XX (DATA)
+                    Concat(Media.Containers.Mpeg.StartCodes.StartCodePrefix).Concat(Assemble()).ToArray()); // 00 00 01 XX (DATA)
             }
 
-            internal void DisposeBuffer()
+            public virtual void ProcessPacket(Rtp.RtpPacket packet, byte profileLevelId = 1)
             {
-                if (Buffer != null)
-                {
-                    Buffer.Dispose();
-                    Buffer = null;
-                }
+                int addIndex = Depacketized.Count > 0 ? Depacketized.Keys.Last() : 0;
+
+                Depacketized.Add(addIndex++, CreatePrefixedStartCodeSegment(Media.Codecs.Video.Mpeg4.StartCodes.VisualObjectSequence));
+
+                Depacketized.Add(addIndex++, new Common.MemorySegment(new byte[] { profileLevelId }));
+
+                Depacketized.Add(addIndex++, StartCodePrefixSegment);
+
+                Depacketized.Add(addIndex++, packet.PayloadDataSegment);
             }
 
-            public override void Dispose()
+            public override void Depacketize(Rtp.RtpPacket packet)
             {
-                if (IsDisposed) return;
-                base.Dispose();
-                DisposeBuffer();
+                ProcessPacket(packet, 1);
             }
+
+            //internal void DisposeBuffer()
+            //{
+            //    if (Buffer != null)
+            //    {
+            //        Buffer.Dispose();
+            //        Buffer = null;
+            //    }
+            //}
+
+            //public override void Dispose()
+            //{
+            //    if (IsDisposed) return;
+            //    base.Dispose();
+            //    DisposeBuffer();
+            //}
         }
 
         #region Constructor

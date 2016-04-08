@@ -33,16 +33,34 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-//namespace Media.Concepts.Interfaces
-//{
-//    public interface IUsable : Common.IDisposed, Common.IUpdateable
-//    {
-//        //InUse => !UnderModification
-//    }
+namespace Media.Concepts.Interfaces
+{
+    //Relative as IsReadOnly can potentially change from time to time?
 
-//    public static class IUsableExtensions
-//    {
-//        public static bool InUse(this IUsable usable) { return false == Common.IUpdateableExtensions.UnderModification(usable); }
-//    }
+    /// <summary>
+    /// Represents an interface which can indicate if the instance has any ability to be modified
+    /// </summary>
+    public interface IReadOnly
+    {
+        /// <summary>
+        /// Indicates if the instance currently has any ability to be modified.
+        /// </summary>
+        bool IsReadOnly { get; }
+    }
 
-//}
+    //Absolute as this would indicate that if IsReadOnly or another propety was implemented that it may not be able to be changed
+    //Generic version?
+
+    /// <summary>
+    /// Represents an interface which can indicate if the instance has the ability to change value
+    /// </summary>
+    public interface IMutable
+    {
+        /// <summary>
+        /// Gets a value which indicates if the instance can change value.
+        /// </summary>
+        bool Mutable { get; }
+    }
+
+    //IMutable => true (IReadOnly implies that IsReadOnly can change)
+}

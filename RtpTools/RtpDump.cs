@@ -213,7 +213,7 @@ namespace Media.RtpTools.RtpDump
             return;
 
         Invalid:
-                Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Binary header is invalid.");
+                Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Binary header is invalid.");
 
         }
 
@@ -256,7 +256,7 @@ namespace Media.RtpTools.RtpDump
                 if (m_Reader.BaseStream.Position == 0) ReadFileHeader();
                 
                 //If no format can be determined then raise a DumpReader type exception with the following message.
-                if (m_Format == FileFormat.Unknown) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Unable to determine format!");
+                if (m_Format == FileFormat.Unknown) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Unable to determine format!");
 
                 int offsetsCount = m_Offsets.Count;
 
@@ -332,15 +332,15 @@ namespace Media.RtpTools.RtpDump
                             //Read the entry.
                             return ReadToolEntry();
                         }
-                        else Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(unexpectedData, "Encountered a Binary file header when already parsed the header. The Tag property contains the data unexpected.");
+                        else Media.Common.TaggedExceptionExtensions.RaiseTaggedException(unexpectedData, "Encountered a Binary file header when already parsed the header. The Tag property contains the data unexpected.");
                     }
-                    else if (unexpectedData != null) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(entry, "Unexpected data found while parsing a Text format. See the Tag property of the InnerException", new Common.TaggedException<byte[]>(unexpectedData));
+                    else if (unexpectedData != null) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(entry, "Unexpected data found while parsing a Text format. See the Tag property of the InnerException", new Common.TaggedException<byte[]>(unexpectedData));
                 }                    
 
                 //Call determine format so item has the correct format (Header [or Payload])
                 if (foundFormat == FileFormat.Unknown)
                 {
-                    Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(entry, "Unknown format");
+                    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(entry, "Unknown format");
                 }
 
                 return entry;
@@ -675,7 +675,7 @@ namespace Media.RtpTools.RtpDump
 
                         //Ensure the format of the writer matches the reader, if not throw an exception so it can be handled appropriately.
                         //The exception will be of type `DumpReader`
-                        if (reader.m_Format != m_Format) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(reader, "Format of writer does not match reader, Expected: " + m_Format + " Found: " + reader.m_Format);
+                        if (reader.m_Format != m_Format) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(reader, "Format of writer does not match reader, Expected: " + m_Format + " Found: " + reader.m_Format);
 
                         //Copy the file header from the reader if present, otherwise the file will have no header when written.
                         m_FileHeader = reader.m_FileHeader;
@@ -684,7 +684,7 @@ namespace Media.RtpTools.RtpDump
 
                         //Check for the header to be present on existing files if the format has a header. (only Binary)
                         //The exception will be of type `DumpReader`
-                        if (m_FileHeader == null && m_Format.HasFileHeader()) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(reader, "Did not find the expected Binary file header.");
+                        if (m_FileHeader == null && m_Format.HasFileHeader()) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(reader, "Did not find the expected Binary file header.");
 
                         //If not present use the start time indicated in the first entry...
                         if (m_Start == null) m_Start = startTime ?? reader.m_StartTime;
@@ -692,7 +692,7 @@ namespace Media.RtpTools.RtpDump
                 }
                 catch (Exception ex)//Only catch exceptions which are unexpected and raise a generic DumpWriter exception
                 {
-                    Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "An unexpected exception occured while reading the existing information present in the stream. See InnerException for more details.", ex);
+                    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "An unexpected exception occured while reading the existing information present in the stream. See InnerException for more details.", ex);
                 }                
             }
         }

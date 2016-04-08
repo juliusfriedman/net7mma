@@ -40,4 +40,16 @@ namespace Media.Common.Loggers
             finally { Console.ForegroundColor = previous; }
         }
     }
+
+    //Todo, sometimes the color most be changed differently depending on Platform
+    //public static class ConsoleLoggerExtensions
+    //{
+    //    public static void WriteString(string toWrite, ConsoleColor color)
+    //    {
+    //        if (Common.Extensions.OperatingSystemExtensions.IsMac)
+    //        {
+    //            //https://github.com/dotnet/cli/blob/ac4c6702d5d345dc9c397f80290f105fedebe98b/scripts/Microsoft.DotNet.Cli.Build.Framework/AnsiColorExtensions.cs
+    //        }
+    //    }
+    //}
 }

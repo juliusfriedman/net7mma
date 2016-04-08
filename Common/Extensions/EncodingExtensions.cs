@@ -44,7 +44,26 @@ namespace Media.Common.Extensions.Encoding
     [CLSCompliant(true)]
     public static class EncodingExtensions
     {
-        public static char[] EmptyChar = new char[0];
+        public static readonly char[] EmptyChar = new char[0];
+
+        #region GetByteCount
+
+        /// <summary>
+        /// Allows a call to <see cref="Encoding.GetByteCount"/> with only 1 char, e.g. (GetByteCount('/0'))
+        /// Uses the Default encoding if none was provided.
+        /// </summary>
+        /// <param name="encoding"></param>
+        /// <param name="chars"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int GetByteCount(this System.Text.Encoding encoding, params char[] chars)
+        {
+            if (encoding == null) encoding = System.Text.Encoding.Default;
+
+            return encoding.GetByteCount(chars);
+        }
+
+        #endregion
 
         #region Number Extraction
 

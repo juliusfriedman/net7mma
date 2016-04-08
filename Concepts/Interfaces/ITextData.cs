@@ -36,6 +36,21 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
+namespace Media.Concepts
+{
+    //Notes 4.6 has 
+    //System.FormattableString
+
+    public interface ITextLineInfo
+    {
+        int LineNumber { get; }
+
+        int Position { get; }
+
+        bool HasLineInfo();
+    }
+}
+
 //namespace Media.Concepts
 //{
 //    /// <summary>

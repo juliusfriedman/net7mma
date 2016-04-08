@@ -52,7 +52,7 @@ namespace Media.Rtsp
     /// </summary>
     public sealed class RtspHeaders
     {
-
+        //Already defined in HttpHeaders.
         internal const char HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Comma = (char)Common.ASCII.Comma;
 
         internal static string[] TimeSplit = new string[] { HyphenSign.ToString(), SemiColon.ToString() };
@@ -393,7 +393,7 @@ namespace Media.Rtsp
                                 if (false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out ssrc) &&
                                     false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out ssrc))
                                 {
-                                    Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
+                                    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
                                 }
 
                                 continue;
@@ -699,7 +699,7 @@ namespace Media.Rtsp
                                     if (false == uint.TryParse(ssrcPart, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out id) &&
                                         false == uint.TryParse(ssrcPart, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out id))
                                     {
-                                        Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
+                                        Media.Common.TaggedExceptionExtensions.RaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
                                     }
 
                                     ssrc = (int)id;

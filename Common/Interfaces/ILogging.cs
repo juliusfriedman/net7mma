@@ -48,7 +48,7 @@ namespace Media.Common
     /// <summary>
     /// Defines a common interface to support logging.
     /// </summary>
-    public interface ILogging : IDisposable
+    public interface ILogging : IDisposed
     {
         /// <summary>
         /// Writes a message to the log.
@@ -68,14 +68,14 @@ namespace Media.Common
     {
         public static void Log(this ILogging log, string message)
         {
-            if (log == null) return;
+            if (IDisposedExtensions.IsNullOrDisposed(log)) return;
 
             log.Log(message);
         }
 
         public static void LogException(this ILogging log, System.Exception exception)
         {
-            if (log == null || exception == null) return;
+            if (IDisposedExtensions.IsNullOrDisposed(log) || exception == null) return;
 
             log.LogException(exception);
         }

@@ -62,6 +62,7 @@
   <ItemGroup>
     <Compile Include="Classes\EventArgsEx.cs" />
     <Compile Include="Classes\Disposables\LifetimeDisposable.cs" />
+    <Compile Include="Classes\PacketBase.cs" />
     <Compile Include="Classes\Transport\TransportClient.cs" />
     <Compile Include="Classes\Transport\TransportMessageBase.cs" />
     <Compile Include="Classes\Text\ASCII.cs" />

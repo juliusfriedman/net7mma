@@ -55,7 +55,7 @@ namespace Media.Common.Extensions.WaitHandle
             catch (System.Exception ex)
             {
                 //Should just return? (At least document that it will throw and how to catch or ignore)
-                Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(handle, "An exception occured while waiting.", ex);
+                Media.Common.TaggedExceptionExtensions.TryRaiseTaggedException(handle, "An exception occured while waiting.", ex);
             }
             finally
             {

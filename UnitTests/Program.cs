@@ -976,7 +976,7 @@ namespace Media.UnitTests
                             else
                             {
                                 ++totalFrames;
-                                Console.ForegroundColor = ConsoleColor.Blue; Console.WriteLine("\tGot a RTPFrame(" + rtpFrame.PayloadTypeByte + ") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
+                                Console.ForegroundColor = ConsoleColor.Blue; Console.WriteLine("\tGot a RTPFrame(" + rtpFrame.PayloadType + ") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
 
                             //A RtpFrame may be changed many times by a RtpClient
@@ -1405,7 +1405,7 @@ namespace Media.UnitTests
                                 //All done with the client
                                 client.StopPlaying();
 
-                                if (client.MessagesReceived == messagesRecievedPrior) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(client, "Sending In Play Failed");//Must get a response to at least one of these
+                                if (client.MessagesReceived == messagesRecievedPrior) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(client, "Sending In Play Failed");//Must get a response to at least one of these
                                 else Console.WriteLine("Sending Requests In Play Success");
                             }
                             catch (Exception ex)
@@ -1928,18 +1928,20 @@ namespace Media.UnitTests
                                 Console.WriteLine("Data remaining in next packet = " + remainingInNextPacket);
 
                                 //Depending on the format of the audio you may required this function to create a header which should precede the data in the buffer when going to a decoder.
-                                byte[] header = Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame.CreateADTSHeader(2, 11, 1, (int)profileFrame.Buffer.Length);
+                                byte[] header = Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame.CreateADTSHeader(2, 11, 1, (int)profileFrame.m_Buffer.Length);
 
                                 //Write the header
                                 fs.Write(header, 0, header.Length);
 
                                 //Write the data in the buffer to the stream directly
-                                profileFrame.Buffer.CopyTo(fs);
+                                profileFrame.m_Buffer.CopyTo(fs);
                             }
                         }
                     }
                 }
             }
+
+            //if(false == System.IO.File.ReadAllBytes("goodTest.aac").SequenceEqual(System.IO.File.ReadAllBytes(outputFileName))) throw new Exception("Unexpected Output");
 
             //Delete the test file.
             if (System.IO.File.Exists(outputFileName)) System.IO.File.Delete(outputFileName);
@@ -1959,6 +1961,12 @@ namespace Media.UnitTests
                     //Packet 100 (Marker)
                     Media.Common.Extensions.String.StringExtensions.HexStringToBytes("80e1006400057e40449ad77a7c45a27f2678955f39c8fd52eadedd9b8a3ff5a5e279fd5bccfa98d7dc02d7d455b3303416c5db693fdd93df8c14e445fdb912d915a14d83201d115deefbdce4ee6e7aff9af4e4a17ff25da866352b5ed6defd66fd4798183790bfc73cff274d813e54b1d7477937c10dd7fcb6fb434741505ab00dfd9a4b3f853effbbd8e484cd67be897e6c91796115452542e75d55b8bbba6f29f88ff98bdc79b8989fdb7a4b81eb445c7be4f701d97552a6a5bdfd5f0e92594ebd53f4481b744ce2edc6351e8c9b5fd0ebeaaf64dd7ebe1985349c744dc6e96ec812bd953eeb883bd863b5c2d55ee40fbdf3e4f7234b6e5ca8dd10fdfab7dcf1e0b3fed65f51e6902a557f9cb2bbed1977cebc282999f6bcc4f7ea99b7315b5d2bfdc923578dae17ea26a9cfc4ce071d724baf6babdcf8d111e91e739f386987615b55f3b178cdb79bb953aa736ce9"),
                 };
+
+
+            //8 Packets
+            //Packets 598 FUA AStart IDR
+            //Packets 599 - 604 FU      //6      
+            //Packets 605 FUA AEnd
 
 
             //The data from the packets given above will be placed into this file after depacketization
@@ -2015,7 +2023,7 @@ namespace Media.UnitTests
 
                     //If there is not a sps or pps in band and this is the first frame given to a decoder then it needs to contain a SPS and PPS
                     //This is typically retrieved from the SessionDescription or CodecPrivateData but only the very first time.
-                    if (/*false == m_InitializedStream && */ profileFrame.ContainedUnitTypes.Any(nalType => nalType == Media.Codecs.Video.H264.NalUnitType.SequenceParameterSet || nalType == Media.Codecs.Video.H264.NalUnitType.PictureParameterSet) /*false == profileFrame.ContainsSequenceParameterSet || false == profileFrame.ContainsPictureParameterSet*/)
+                    if (/*false == m_InitializedStream && */ false == profileFrame.ContainedUnitTypes.Any(nalType => nalType == Media.Codecs.Video.H264.NalUnitType.SequenceParameterSet || nalType == Media.Codecs.Video.H264.NalUnitType.PictureParameterSet) /*false == profileFrame.ContainsSequenceParameterSet || false == profileFrame.ContainsPictureParameterSet*/)
                     {
                         //From the MediaDescription.FmtpLine from the SessionDescription which describes the media.
                         Media.Sdp.SessionDescriptionLine fmtp = new Sdp.SessionDescriptionLine("a=fmtp:97 packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==");
@@ -2046,7 +2054,7 @@ namespace Media.UnitTests
                             fs.WriteByte(0);
 
                             //Write the start code
-                            fs.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+                            fs.Write(Media.Codecs.Video.H264.NalUnitType.StartCodePrefix, 0, 3);
 
                             //Write the SPS
                             fs.Write(sps, 0, sps.Length);
@@ -2059,7 +2067,7 @@ namespace Media.UnitTests
                             fs.WriteByte(0);
 
                             //Write the start code
-                            fs.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+                            fs.Write(Media.Codecs.Video.H264.NalUnitType.StartCodePrefix, 0, 3);
 
                             //Write the PPS
                             fs.Write(pps, 0, pps.Length);
@@ -2073,6 +2081,9 @@ namespace Media.UnitTests
                     profileFrame.Buffer.CopyTo(fs);
                 }
             }
+
+            //One byte less, weird because the extra byte 0xa is not supposed to be there... something fs is adding?
+            //if(false == System.IO.File.ReadAllBytes("goodTest.h264").SequenceEqual(System.IO.File.ReadAllBytes(outputFileName))) throw new Exception("Unexpected Output");
 
             //Check for the test file and delete it.
             if (System.IO.File.Exists(outputFileName)) System.IO.File.Delete(outputFileName);

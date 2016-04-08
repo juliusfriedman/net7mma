@@ -154,6 +154,8 @@ namespace Media.Rtcp
             get { return false == IsDisposed && HasReports ? ReportBlock.ReportBlockSize * Header.BlockCount : 0; }
         }
 
+        //Todo Segment properties.
+
         /// <summary>
         /// Retrieves the segment of data which corresponds to all <see cref="ReportBlock"/>'s contained in the RtcpReport.
         /// </summary>
@@ -227,6 +229,8 @@ namespace Media.Rtcp
         }
 
         #endregion
+
+        //public abstract int AssignedPayloadType { get; }
 
         #region Instance Methods       
 

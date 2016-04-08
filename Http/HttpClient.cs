@@ -16,7 +16,6 @@ namespace Media.Http
 
     public class HttpClient : Common.BaseDisposable, Common.ISocketReference
     {
-
         #region Constants and Statics
 
         //Todo use SocketConfiguration
@@ -481,7 +480,7 @@ namespace Media.Http
                 }
                 catch (Exception ex)
                 {
-                    Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Could not resolve host from the given location. See InnerException.", ex);
+                    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Could not resolve host from the given location. See InnerException.", ex);
 
                     throw;
                 }
@@ -724,6 +723,13 @@ namespace Media.Http
             Connect();
         }
 
+        #region SendHttpMessage / SendChunkedMessage
+
+        /// <summary>
+        /// Transmits the given HttpMessage and returns the response.
+        /// </summary>
+        /// <param name="message"></param>
+        /// <returns></returns>
         public HttpMessage SendHttpMessage(HttpMessage message)
         {
             SocketError error;
@@ -1309,7 +1315,12 @@ namespace Media.Http
             }//Unchecked
         }
 
-        public HttpMessage SendChunkedMessage(HttpMessage message)
+        /// <summary>
+        /// Sets the TransferEncoding header to 'chunked' and calls <see cref="SendHttpMessage"/>
+        /// </summary>
+        /// <param name="message"></param>
+        /// <returns></returns>
+        public HttpMessage SendChunkedHttpMessage(HttpMessage message)
         {
             //Ensure 1.1
             if(message.Version < 1.1) message.Version = 1.1;
@@ -1324,6 +1335,9 @@ namespace Media.Http
             return SendHttpMessage(message);
         }
 
+        #endregion
+
+        #region SendMethods
 
         public HttpMessage SendOptions(Uri location = null)
         {
@@ -1381,6 +1395,16 @@ namespace Media.Http
             }
         }
 
+        //SendGet
+
+        //SendPost
+
+        //
+
+        #endregion
+
+        #region Transmit Helpers
+
         int SendChunkedBody(HttpMessage message, out SocketError error, int chunkSize)
         {
             error = SocketError.Success;
@@ -1432,7 +1456,7 @@ namespace Media.Http
 
             //Send 0 Chunk to complete
 
-            //Create the 0 length ChunkHeader
+            //Create the 0 length ChunkHeader (00, 00, 00, 00)
             ChunkHeader = message.ContentEncoding.GetBytes(0.ToString("X") + Environment.NewLine);
 
             //Keep track of what will be sent
@@ -1447,14 +1471,19 @@ namespace Media.Http
             //Update the total
             totalSent += justSent;
 
+            #region Overlap of functionality
+
             //Check for Trailer and send trailer
 
-            string trailer = message.GetHeader(HttpHeaders.Trailer);
+            //Already done in SendMessage,  this is not part of this function...
+            //string trailer = message.GetHeader(HttpHeaders.Trailer);
 
-            if (false == string.IsNullOrWhiteSpace(trailer) && false == message.ContainsHeader(trailer))
-            {
-                //Send Trailer header(s)...
-            }
+            //if (false == string.IsNullOrWhiteSpace(trailer) && false == message.ContainsHeader(trailer))
+            //{
+            //    //Send Trailer header(s)...
+            //}
+
+            #endregion
 
             return totalSent;
         }
@@ -1515,6 +1544,8 @@ namespace Media.Http
 
         //SendFiles... etc
 
+        #endregion
+
         /// <summary>
         /// Uses the given request to Authenticate the RtspClient when challenged.
         /// </summary>
@@ -1569,7 +1600,7 @@ namespace Media.Http
                 {
                     algorithm = algorithm.Trim();
                     if (string.Compare(algorithm.Substring(9), "MD5", true) == 0) algorithm = "MD5";
-                    else Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(response, "See the response in the Tag.", new NotSupportedException("The algorithm indicated in the authenticate header is not supported at this time. Create an issue for support."));
+                    else Media.Common.TaggedExceptionExtensions.RaiseTaggedException(response, "See the response in the Tag.", new NotSupportedException("The algorithm indicated in the authenticate header is not supported at this time. Create an issue for support."));
                 }
 
                 string username = baseParts.Where(p => p.StartsWith("username", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();

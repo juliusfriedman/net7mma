@@ -202,7 +202,7 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index++].Trim();
 
-            if (string.IsNullOrWhiteSpace(sdpLine) || sdpLine[0] != Media.Sdp.Lines.SessionTimeDescriptionLine.TimeType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid Time Description");
+            if (string.IsNullOrWhiteSpace(sdpLine) || sdpLine[0] != Media.Sdp.Lines.SessionTimeDescriptionLine.TimeType) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid Time Description");
 
             //Char 1 must always be '='...
 
@@ -303,7 +303,7 @@ namespace Media.Sdp
                 }
                 catch (Exception ex)
                 {
-                    Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid Repeat Time", ex);
+                    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid Repeat Time", ex);
                 }
             }
 

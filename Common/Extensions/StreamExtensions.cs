@@ -479,7 +479,7 @@ namespace Media.Common.Extensions.Stream
             }
             catch (System.Exception ex)
             {
-                Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(result, ex.Message, ex); 
+                Media.Common.TaggedExceptionExtensions.TryRaiseTaggedException(result, ex.Message, ex); 
                 
                 return false;
             }
@@ -505,11 +505,13 @@ namespace Media.Common.Extensions.Stream
             }
             catch (System.Exception ex)
             {
-                Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(result, ex.Message, ex);
+                Media.Common.TaggedExceptionExtensions.TryRaiseTaggedException(result, ex.Message, ex);
 
                 return false;
             }
         }
+
+        //Useful for Ftp and other types not supported by HttpClient.
 
         public static System.IO.Stream WebClientDownload(System.Uri location, System.Net.NetworkCredential credential = null)
         {
@@ -529,7 +531,7 @@ namespace Media.Common.Extensions.Stream
             }
             catch (System.Exception ex)
             {
-                Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(result, ex.Message, ex);
+                Media.Common.TaggedExceptionExtensions.TryRaiseTaggedException(result, ex.Message, ex);
 
                 return false;
             }

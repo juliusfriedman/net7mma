@@ -125,9 +125,9 @@ namespace Media.Ntp
         }
 
         /// <summary>
-        /// The seconds difference between NTP Time and Unix Time.
+        /// The seconds difference in seconds between NTP Time and Unix Time.
         /// </summary>
-        public const long NtpDifferenceUnix = 2208988800;
+        public const long NtpUnixDifferenceSeconds = 2208988800;
 
         //When the First Epoch will wrap (The real Y2k)
         public static System.DateTime UtcEpoch2036 = new System.DateTime(2036, 2, 7, 6, 28, 16, System.DateTimeKind.Utc);

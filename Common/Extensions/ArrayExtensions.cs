@@ -40,16 +40,28 @@ namespace Media.Common.Extensions.Array
 {
     public static class ArrayExtensions
     {
+        //Can be set via reflection
+        readonly static System.Array EmptyArray = new object[0];
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsNullOrEmpty(this System.Array a, out long longLength) { return (longLength = (a ?? EmptyArray).LongLength) == 0; }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsNullOrEmpty(this System.Array a, out int length) { return (length = (a ?? EmptyArray).Length) == 0; }
+
+        //ThreadLocal<long>
+        //[System.ThreadStatic]
         static long longLength;
 
-        public static bool IsNullOrEmpty(this System.Array a, out long longLength)
-        {
-            return (longLength = (a ?? Common.MemorySegment.EmptyBytes).LongLength) == 0;
-        }
+        public static bool IsNullOrEmpty(this System.Array a) { return IsNullOrEmpty(a, out ArrayExtensions.longLength); }
 
-        public static bool IsNullOrEmpty(this System.Array a)
-        {
-            return IsNullOrEmpty(a, out longLength);
-        }
+        //4.6 Has System.Array.Empty<T>
+
+        //ArrayHelpers
+        //Insert
+        //InsertRange
+        //Add
+        //AddRange
+
     }
 }

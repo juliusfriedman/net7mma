@@ -121,7 +121,7 @@ namespace Media.Containers.Mpeg
             byte[] identifier = PacketizedElementaryStreamReader.ReadIdentifier(this);
 
             //Check for sync
-            if (Common.Binary.ReadU24(identifier, 0, false == BitConverter.IsLittleEndian) != Common.Binary.ReadU24(Mpeg.StartCodes.Prefix, 0, false == BitConverter.IsLittleEndian)) throw new InvalidOperationException("Cannot Find StartCode Prefix.");
+            if (Common.Binary.ReadU24(identifier, 0, false == BitConverter.IsLittleEndian) != Common.Binary.ReadU24(Mpeg.StartCodes.StartCodePrefix, 0, false == BitConverter.IsLittleEndian)) throw new InvalidOperationException("Cannot Find StartCode Prefix.");
 
             int length = 0, lengthSize = PacketizedElementaryStreamReader.LengthSize;
 
