@@ -74,7 +74,7 @@ namespace Media.Common.Extensions.String
 
             if (length > length - start) throw new System.ArgumentOutOfRangeException("length");
 
-            System.Collections.Generic.List<byte> result = new System.Collections.Generic.List<byte>(length / 2);
+            System.Collections.Generic.List<byte> result = new System.Collections.Generic.List<byte>(length >> 1); // / 2
             
             //Dont check the results for overflow
             unchecked

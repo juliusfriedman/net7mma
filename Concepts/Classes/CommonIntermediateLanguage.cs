@@ -89,20 +89,38 @@ namespace Media.Concepts.Classes
             #endregion
         }
 
-        //Could possibly avoid pinning using the addresss
+        //Could possibly avoid pinning using the addresss but already have the unsafe variants
 
         public static void Initblk(byte[] array, byte what, int length)
         {
-            System.Runtime.InteropServices.GCHandle gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(array, System.Runtime.InteropServices.GCHandleType.Pinned);
-            InitblkDelegate(gcHandle.AddrOfPinnedObject(), what, length);
-            gcHandle.Free();
+            System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
+
+            try
+            {
+                gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(array, System.Runtime.InteropServices.GCHandleType.Pinned);
+
+                InitblkDelegate(gcHandle.AddrOfPinnedObject(), what, length);
+            }
+            finally
+            {
+                if(gcHandle.IsAllocated) gcHandle.Free();
+            }
         }
 
         public static void Initblk(byte[] array, int offset, byte what, int length)
         {
-            System.Runtime.InteropServices.GCHandle gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(array, System.Runtime.InteropServices.GCHandleType.Pinned);
-            InitblkDelegate(gcHandle.AddrOfPinnedObject() + offset, what, length);
-            gcHandle.Free();
+            System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
+
+            try
+            {
+                gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(array, System.Runtime.InteropServices.GCHandleType.Pinned);
+
+                InitblkDelegate(gcHandle.AddrOfPinnedObject() + offset, what, length);
+            }
+            finally
+            {
+                if (gcHandle.IsAllocated) gcHandle.Free();
+            }
         }
 
         [System.CLSCompliant(false)]
@@ -113,29 +131,56 @@ namespace Media.Concepts.Classes
 
         public static void Cpyblk(byte[] src, byte[] dst, int length)
         {
-            System.Runtime.InteropServices.GCHandle srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
-            System.Runtime.InteropServices.GCHandle dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
-            CpyblkDelegate(dstHandle.AddrOfPinnedObject(), srcHandle.AddrOfPinnedObject(), length);
-            srcHandle.Free();
-            dstHandle.Free();
+            System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
+            System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
+
+            try
+            {
+                srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
+                dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
+                CpyblkDelegate(dstHandle.AddrOfPinnedObject(), srcHandle.AddrOfPinnedObject(), length);
+            }
+            finally
+            {
+                if (srcHandle.IsAllocated) srcHandle.Free();
+                if (dstHandle.IsAllocated) dstHandle.Free();
+            }
         }
 
         public static void Cpyblk(byte[] src, byte[] dst, int offset, int length)
         {
-            System.Runtime.InteropServices.GCHandle srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
-            System.Runtime.InteropServices.GCHandle dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
-            CpyblkDelegate(dstHandle.AddrOfPinnedObject(), srcHandle.AddrOfPinnedObject() + offset, length);
-            srcHandle.Free();
-            dstHandle.Free();
+            System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
+            System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
+
+            try
+            {
+                srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
+                dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
+                CpyblkDelegate(dstHandle.AddrOfPinnedObject(), srcHandle.AddrOfPinnedObject() + offset, length);
+            }
+            finally
+            {
+                if (srcHandle.IsAllocated) srcHandle.Free();
+                if (dstHandle.IsAllocated) dstHandle.Free();
+            }
         }
 
         public static void Cpyblk(byte[] src, int srcOffset, byte[] dst, int dstOffset, int length)
         {
-            System.Runtime.InteropServices.GCHandle srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
-            System.Runtime.InteropServices.GCHandle dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
-            CpyblkDelegate(dstHandle.AddrOfPinnedObject() + srcOffset, srcHandle.AddrOfPinnedObject() + dstOffset, length);
-            srcHandle.Free();
-            dstHandle.Free();
+            System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
+            System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
+
+            try
+            {
+                srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
+                dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
+                CpyblkDelegate(dstHandle.AddrOfPinnedObject() + srcOffset, srcHandle.AddrOfPinnedObject() + dstOffset, length);
+            }
+            finally
+            {
+                if (srcHandle.IsAllocated) srcHandle.Free();
+                if (dstHandle.IsAllocated) dstHandle.Free();
+            }
         }
 
         [System.CLSCompliant(false)]
@@ -144,16 +189,20 @@ namespace Media.Concepts.Classes
             CpyblkDelegate((System.IntPtr)dst, (System.IntPtr)src, len);
         }
 
+        //Note that 4.6 Has System.Buffer.MemoryCopy 
+            //=>Internal Memove and Memcopy uses optomized copy impl which can be replicated for other types also.
+            //https://github.com/dotnet/corefx/issues/493
+
         //Todo, offsets
         //Remember that offsets are based on sizeof(T)
-        public static void Cpyblk<T>(T[] src, T[] dst, int length)
-        {
-            System.Runtime.InteropServices.GCHandle srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
-            System.Runtime.InteropServices.GCHandle dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
-            CpyblkDelegate(dstHandle.AddrOfPinnedObject(), srcHandle.AddrOfPinnedObject(), length);
-            srcHandle.Free();
-            dstHandle.Free();
-        }
+        //public static void Cpyblk<T>(T[] src, T[] dst, int length)
+        //{
+        //    System.Runtime.InteropServices.GCHandle srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
+        //    System.Runtime.InteropServices.GCHandle dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
+        //    CpyblkDelegate(dstHandle.AddrOfPinnedObject(), srcHandle.AddrOfPinnedObject(), length);
+        //    srcHandle.Free();
+        //    dstHandle.Free();
+        //}
 
 
         //internal static void UsageTest()

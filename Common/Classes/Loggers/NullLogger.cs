@@ -11,6 +11,10 @@ namespace Media.Common.Loggers
     /// </summary>
     public class NullLogger : BaseLogger
     {
+        public static readonly NullLogger Default = new NullLogger(false);
+
+        public NullLogger(bool shouldDispose) : base(shouldDispose) { }
+
         public override void Log(string message) { }
 
         public override void LogException(Exception ex) { }

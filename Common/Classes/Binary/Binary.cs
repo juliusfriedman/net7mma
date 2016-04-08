@@ -723,6 +723,8 @@ namespace Media.Common
 
         #region BitsToBytes
 
+        //Align
+
         public static int BitsToBytes(int bitCount, int bitsPerByte = Binary.BitsPerByte) { return (int)BitsToBytes((uint)bitCount, (uint) bitsPerByte); }
 
         [CLSCompliant(false)]
@@ -1380,7 +1382,7 @@ namespace Media.Common
             {
                 case byte.MinValue: return false;
                 case byte.MaxValue: return true;
-                default: return unchecked((source | (Binary.SedecimBitSize >> index)) != Binary.Nihil);
+                default: return unchecked((source = (byte)(source | (Binary.SedecimBitSize >> index))) != Binary.Nihil);
             }
         }
 
@@ -1531,8 +1533,14 @@ namespace Media.Common
             }
         }
 
+        public static long ReadBitsMSB(byte bits, int bitOffset, int bitCount)
+        {
+            return (long)ReadBitsMSB(Common.Extensions.Object.ObjectExtensions.ToArray<byte>(bits), bitOffset, bitCount);
+        }
+
         [CLSCompliant(false)]
-        public static ulong ReadBitsMSB(byte[] bytes, int bitOffset, int bitCount)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static ulong ReadBitsMSB(byte[] bytes, int bitOffset, int bitCount) //ref/out byteOffset
         {
             if (bytes == null || bitCount <= 0) return Binary.Nihil;
 
@@ -1561,15 +1569,23 @@ namespace Media.Common
         }
 
         [CLSCompliant(false)]
-        public static ulong ReadBitsMSB(byte[] bytes, ref int bitOffset, int bitCount)
+        public static ulong ReadBitsMSB(byte[] bytes, ref int bitOffset, int bitCount) 
         {
             ulong result = ReadBitsMSB(bytes, bitOffset, bitCount);
+
             bitOffset += bitCount;
+
             return result;
         }
 
+        public static long ReadBitsLSB(byte bits, int bitOffset, int bitCount)
+        {
+            return (long)ReadBitsLSB(Common.Extensions.Object.ObjectExtensions.ToArray<byte>(bits), bitOffset, bitCount);
+        }
+
         [CLSCompliant(false)]
-        public static ulong ReadBitsLSB(byte[] bytes, int bitOffset, int bitCount)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static ulong ReadBitsLSB(byte[] bytes, int bitOffset, int bitCount) //ref byteOffset
         {
             if (bytes == null || bitCount <= 0) return Binary.Nihil;
 
@@ -1589,6 +1605,8 @@ namespace Media.Common
                 //(source index) Always <= 7, then increases for each iteration
                 bitIndex = index & Binary.Septem;
 
+                //byteOffset = Math.DivRem(index, 8, out bitIndex);
+
                 //(destination index) increases
                 position = index - bitOffset;
 
@@ -1603,7 +1621,9 @@ namespace Media.Common
         public static ulong ReadBitsLSB(byte[] bytes, ref int bitOffset, int bitCount)
         {
             ulong result = ReadBitsLSB(bytes, bitOffset, bitCount);
+            
             bitOffset += bitCount;
+
             return result;
         }
 
@@ -1634,6 +1654,7 @@ namespace Media.Common
         //ByteOrder overloads?
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void WriteBitsLSB(byte[] bytes, int bitOffset, ulong value, int bitCount)
         {
             if (bytes == null || bitCount <= 0) return;
@@ -1654,6 +1675,8 @@ namespace Media.Common
                 
                 bitIndex = index & Binary.Septem;
 
+                //byteOffset = Math.DivRem(index, 8, out bitIndex);
+
                 if (bitValue)
                 {
                     bytes[byteOffset] |= (byte)(Binary.Ūnus << bitIndex);
@@ -1669,10 +1692,12 @@ namespace Media.Common
         public static void WriteBitsLSB(byte[] bytes, ref int bitOffset, ulong value, int bitCount)
         {
             WriteBitsLSB(bytes, bitOffset, value, bitCount);
+
             bitOffset += bitCount;
         }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void WriteBitsMSB(byte[] bytes, int bitOffset, ulong value, int bitCount)
         {
             if (bytes == null || bitCount <= 0) return;
@@ -1708,6 +1733,7 @@ namespace Media.Common
         public static void WriteBitsMSB(byte[] bytes, ref int bitOffset, ulong value, int bitCount)
         {
             WriteBitsMSB(bytes, bitOffset, value, bitCount);
+
             bitOffset += bitCount;
         }
 
@@ -2061,7 +2087,9 @@ namespace Media.Common
         public static ushort ReadU16(IEnumerable<byte> buffer, ref int index, bool reverse)
         {
             ushort value = (ushort)Binary.ReadInteger(buffer, index, Binary.BytesPerShort, reverse);
+
             index += Binary.BytesPerShort;
+            
             return value;
         }
 
@@ -2074,7 +2102,9 @@ namespace Media.Common
         public static short Read16(IEnumerable<byte> buffer, ref int index, bool reverse)
         {
             short value = (short)Binary.ReadInteger(buffer, index, Binary.BytesPerShort, reverse);
+
             index += Binary.BytesPerShort;
+
             return value;
         }
 
@@ -2095,7 +2125,9 @@ namespace Media.Common
         public static uint ReadU24(IEnumerable<byte> buffer, ref int index, bool reverse)
         {
             uint value = (uint)Binary.ReadInteger(buffer, index, Binary.Tres, reverse);
-            index += Binary.Tres;
+            
+            index += Binary.Three;
+            
             return value;
         }
 
@@ -2108,7 +2140,9 @@ namespace Media.Common
         public static int Read24(IEnumerable<byte> buffer, ref int index, bool reverse)
         {
             int value = (int)Binary.ReadInteger(buffer, index, Binary.Tres, reverse);
-            index += Binary.Tres;
+            
+            index += Binary.Three;
+
             return value;
         }
 
@@ -2132,7 +2166,9 @@ namespace Media.Common
         public static uint ReadU32(IEnumerable<byte> buffer, ref int index, bool reverse)
         {
             uint value = (uint)Binary.ReadInteger(buffer, index, Binary.BytesPerInteger, reverse);
+
             index += Binary.BytesPerInteger;
+
             return value;
         }
 
@@ -2145,7 +2181,9 @@ namespace Media.Common
         public static int Read32(IEnumerable<byte> buffer, ref int index, bool reverse)
         {
             int value = (int)Binary.ReadInteger(buffer, index, Binary.BytesPerInteger, reverse);
+
             index += Binary.BytesPerInteger;
+
             return value;
         }
 
@@ -2159,7 +2197,9 @@ namespace Media.Common
         public static ulong ReadU64(IEnumerable<byte> buffer, ref int index, bool reverse)
         {
             ulong value = (ulong)Binary.ReadInteger(buffer, index, Binary.BytesPerLong, reverse);
+
             index += Binary.BytesPerLong;
+
             return value;
         }
 
@@ -2172,7 +2212,9 @@ namespace Media.Common
         public static long Read64(IEnumerable<byte> buffer, ref int index, bool reverse)
         {
             long value = Binary.ReadInteger(buffer, index, Binary.BytesPerLong, reverse);
+
             index += Binary.BytesPerLong;
+
             return value;
         }
 

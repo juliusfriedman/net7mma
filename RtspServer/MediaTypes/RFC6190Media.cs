@@ -54,11 +54,18 @@ namespace Media.Rtsp.Server.MediaTypes
     {
         public class RFC6190Frame : RFC6184Media.RFC6184Frame
         {
+
+            #region Constrcutor
+
             public RFC6190Frame(byte payloadType) : base(payloadType) { }
 
             public RFC6190Frame(Rtp.RtpFrame existing) : base(existing) { }
 
-            public RFC6190Frame(RFC6184Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
+            public RFC6190Frame(RFC6184Frame f) : base(f) { }
+
+            public RFC6190Frame(RFC6190Frame f) : base(f) { }
+
+            #endregion
 
             protected internal override void ProcessPacket(Rtp.RtpPacket packet, bool ignoreForbiddenZeroBit = true, bool fullStartCodes = false)
             {

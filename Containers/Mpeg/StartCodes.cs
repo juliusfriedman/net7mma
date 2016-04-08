@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+//Should be in VideoElementaryStream or MPEG
+
 namespace Media.Containers.Mpeg
 {
     /// <summary>
@@ -14,7 +16,7 @@ namespace Media.Containers.Mpeg
         /// <summary>
         /// Syncwords are determined using 4 bytes, the first 3 of which are always 0x000001
         /// </summary>
-        public static byte[] Prefix = new byte[] { 0x00, 0x00, 0x01 };
+        public static byte[] StartCodePrefix = new byte[] { 0x00, 0x00, 0x01 };
 
         public static bool IsReserved(byte b)
         {

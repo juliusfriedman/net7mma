@@ -55,26 +55,7 @@ namespace Media.Rtcp
     /// </summary>
     public class RtcpPacket : BaseDisposable, IPacket, ICloneable
     {
-        #region Constants and Statics
-
-        static Type RtcpPacketType = typeof(RtcpPacket);
-
-        /// <summary>
-        /// The property which defines the name in which derivations of this type will utilize to specify their known PayloadType.
-        /// The field must be static / const and must add it's type to the InstanceMap if it wishes to be known.
-        /// </summary>
-        const string PayloadTypeField = "PayloadType";      
-
-        /// <summary>
-        /// Maps the PayloadType field to the implementation which best represents it.
-        /// Derived instance which can be instantied are found in this collection after <see cref="MapDerivedImplementations"/> is called.
-        /// </summary>
-        internal protected static Dictionary<byte, Type> ImplementationMap = new Dictionary<byte, Type>();
-
-        /// <summary>
-        /// Provides a collection of abstractions which dervive from RtcpPacket, e.g. RtcpReport.
-        /// </summary>
-        internal protected static HashSet<Type> Abstractions = new HashSet<Type>();
+        #region Statics
 
         /// <summary>
         /// Parses all RtcpPackets contained in the array using the given paramters.
@@ -146,11 +127,6 @@ namespace Media.Rtcp
             //Done parsing
             yield break;
         }
-
-        /// <summary>
-        /// Builds the <see cref="ImplementationMap"/> from all loaded types
-        /// </summary>
-        static RtcpPacket() { MapDerivedImplementations(); }
 
         #endregion
 
@@ -412,6 +388,8 @@ namespace Media.Rtcp
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
         public int PaddingOctets { get { return IsDisposed || Header.Padding == false ? 0 : Media.RFC3550.ReadPadding(Payload.Array, Payload.Offset + Payload.Count - 1, 1); } }
+
+        //Todo Segment properties.
 
         /// <summary>
         /// The length in bytes of this RtcpPacket including the <see cref="Header">Rtcp Header</see> and any <see cref="PaddingOctets"/>.
@@ -730,6 +708,30 @@ namespace Media.Rtcp
         
         #region Expansion
 
+        static Type RtcpPacketType = typeof(RtcpPacket);
+
+        /// <summary>
+        /// The property which defines the name in which derivations of this type will utilize to specify their known PayloadType.
+        /// The field must be static / const and must add it's type to the InstanceMap if it wishes to be known.
+        /// </summary>
+        const string PayloadTypeField = "PayloadType";
+
+        /// <summary>
+        /// Maps the PayloadType field to the implementation which best represents it.
+        /// Derived instance which can be instantied are found in this collection after <see cref="MapDerivedImplementations"/> is called.
+        /// </summary>
+        internal protected static Dictionary<byte, Type> ImplementationMap = new Dictionary<byte, Type>();
+
+        /// <summary>
+        /// Provides a collection of abstractions which dervive from RtcpPacket, e.g. RtcpReport.
+        /// </summary>
+        internal protected static HashSet<Type> Abstractions = new HashSet<Type>();
+
+        /// <summary>
+        /// Builds the <see cref="ImplementationMap"/> from all loaded types
+        /// </summary>
+        static RtcpPacket() { MapDerivedImplementations(); }
+
         /// <summary>
         /// Returns all derived types of RtcpPacket in which the types are Abstract.
         /// </summary>
@@ -780,7 +782,8 @@ namespace Media.Rtcp
                     //If the derivedType is an abstraction then add to the AbstractionBag and continue
                     if(derivedType.IsAbstract)
                     {
-                        Abstractions.Add(derivedType);                            
+                        Abstractions.Add(derivedType);            
+                
                         continue;
                     }
 

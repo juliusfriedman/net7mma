@@ -674,7 +674,7 @@ namespace Media.Rtsp
                 }
                 catch (Exception ex)
                 {
-                    Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Could not resolve host from the given location. See InnerException.", ex);
+                    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Could not resolve host from the given location. See InnerException.", ex);
 
                     throw;
                 }
@@ -1861,7 +1861,7 @@ namespace Media.Rtsp
             //Send describe if we need a session description
             if (SessionDescription == null) using (var describe = SendDescribe())
                 {
-                    if (describe == null || describe.RtspStatusCode != RtspStatusCode.OK) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(describe, "Describe Response was null or not OK. See Tag."); 
+                    if (describe == null || describe.RtspStatusCode != RtspStatusCode.OK) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(describe, "Describe Response was null or not OK. See Tag."); 
                     
                     describe.IsPersistent = false;
                 }
@@ -2434,7 +2434,7 @@ namespace Media.Rtsp
                 {
                     algorithm = algorithm.Trim();
                     if (string.Compare(algorithm.Substring(9), "MD5", true) == 0) algorithm = "MD5";
-                    else Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(response, "See the response in the Tag.", new NotSupportedException("The algorithm indicated in the authenticate header is not supported at this time. Create an issue for support."));
+                    else Media.Common.TaggedExceptionExtensions.RaiseTaggedException(response, "See the response in the Tag.", new NotSupportedException("The algorithm indicated in the authenticate header is not supported at this time. Create an issue for support."));
                 }
 
                 string username = baseParts.Where(p => p.StartsWith("username", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
@@ -3261,7 +3261,7 @@ namespace Media.Rtsp
                         }
                     }
                 }
-                else if (false == IsPlaying) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Unable to get options, See InnerException.", new Common.TaggedException<RtspMessage>(response, "See Tag for Response."));
+                else if (false == IsPlaying) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Unable to get options, See InnerException.", new Common.TaggedException<RtspMessage>(response, "See Tag for Response."));
 
                 options.IsPersistent = false;
 
@@ -3308,10 +3308,10 @@ namespace Media.Rtsp
                     //Handle no response
                     //If the remote end point is just sending Interleaved Binary Data out of no where it is possible to continue without a SessionDescription
 
-                    if (response == null) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(describe, "Unable to describe media, no response to DESCRIBE request. The request is in the Tag property.");
+                    if (response == null) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(describe, "Unable to describe media, no response to DESCRIBE request. The request is in the Tag property.");
 
                     //Hanlde NotFound
-                    if (response.RtspStatusCode == RtspStatusCode.NotFound) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(describe, "Unable to describe media, NotFound. The response is in the Tag property.");
+                    if (response.RtspStatusCode == RtspStatusCode.NotFound) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(describe, "Unable to describe media, NotFound. The response is in the Tag property.");
 
                     if (false == response.IsComplete)
                     {
@@ -3373,7 +3373,7 @@ namespace Media.Rtsp
                                 //Try to make it absolute and if not try to raise an exception
                                 if (false == Uri.TryCreate(CurrentLocation, baseUri, out baseUri))
                                 {
-                                    Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(contentBase, "See Tag. Can't parse ContentBase header.");
+                                    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(contentBase, "See Tag. Can't parse ContentBase header.");
                                 }
                             }
 
@@ -3433,11 +3433,11 @@ namespace Media.Rtsp
                     //Handle MultipleChoice for Moved or ContentType...
                     if (response.RtspStatusCode >= RtspStatusCode.MultipleChoices && false == string.IsNullOrEmpty(contentType) && string.Compare(contentType.TrimStart(), Sdp.SessionDescription.MimeType, true) != 0)
                     {
-                        Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(response.RtspStatusCode, "Unable to describe media. The StatusCode is in the Tag property.");
+                        Media.Common.TaggedExceptionExtensions.RaiseTaggedException(response.RtspStatusCode, "Unable to describe media. The StatusCode is in the Tag property.");
                     }
                     else if (string.IsNullOrWhiteSpace(response.Body))
                     {
-                        Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Unable to describe media, Missing Session Description");
+                        Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Unable to describe media, Missing Session Description");
                     }
 
                     #region MS-RTSP
@@ -3471,9 +3471,9 @@ namespace Media.Rtsp
             }
             catch (Common.TaggedException<SessionDescription> sde)
             {
-                Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Unable to describe media, Session Description Exception Occured.", sde);
+                Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Unable to describe media, Session Description Exception Occured.", sde);
             }
-            catch (Exception ex) { if (ex is Media.Common.ITaggedException) throw ex; Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "An error occured", ex); }
+            catch (Exception ex) { if (ex is Media.Common.ITaggedException) throw ex; Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "An error occured", ex); }
 
             //Return the response
             return response;
@@ -3792,7 +3792,7 @@ namespace Media.Rtsp
                         //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort                        
                         int openPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp, 10000, true);
 
-                        if (openPort == -1) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Could not find open Udp Port");
+                        if (openPort == -1) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Could not find open Udp Port");
                         //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
                         //{
                         //    Media.Common.Extensions.Exceptions.ExceptionExtensions.CreateAndRaiseException(this, "Found Udp Port > MaximumUdp. Found: " + openPort);
@@ -3842,14 +3842,14 @@ namespace Media.Rtsp
                             response == null ||
                             response.MessageType != RtspMessageType.Response)
                     {
-                        if (IsPlaying) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "No response to SETUP." + (false == SupportedMethods.Contains(RtspMethod.SETUP.ToString()) ? " The server may not support SETUP." : string.Empty));
+                        if (IsPlaying) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "No response to SETUP." + (false == SupportedMethods.Contains(RtspMethod.SETUP.ToString()) ? " The server may not support SETUP." : string.Empty));
                         else
                         {
                             //Handle host dropping the connection
                             if (error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset)
                             {
                                 if (AutomaticallyReconnect) Reconnect();
-                                else Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Connection Aborted or Reset and AutomaticallyReconnect is false.");
+                                else Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Connection Aborted or Reset and AutomaticallyReconnect is false.");
                             }
 
                             //make another request if we didn't already try.
@@ -3930,7 +3930,7 @@ namespace Media.Rtsp
                                 goto Setup;
                             }
 
-                            //Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(response.StatusCode, "Unable to setup media. The status code is in the Tag property.");
+                            //Media.Common.TaggedExceptionExtensions.RaiseTaggedException(response.StatusCode, "Unable to setup media. The status code is in the Tag property.");
 
                             //Return the response given
                             return response;
@@ -3955,12 +3955,12 @@ namespace Media.Rtsp
                             if (maximumPacketSize > m_Buffer.Count)
                             {
                                 //Try to allow processing
-                                Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(maximumPacketSize, "Media Requires a Larger Buffer. (See Tag for value)");
+                                Media.Common.TaggedExceptionExtensions.RaiseTaggedException(maximumPacketSize, "Media Requires a Larger Buffer. (See Tag for value)");
                             }
                         }
                         catch (Exception ex)
                         {
-                            Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(response, "BlockSize of the response needs consideration. (See Tag for response)", ex);
+                            Media.Common.TaggedExceptionExtensions.RaiseTaggedException(response, "BlockSize of the response needs consideration. (See Tag for response)", ex);
                         }
                     }
 
@@ -3991,7 +3991,7 @@ namespace Media.Rtsp
                         false == RtspHeaders.TryParseTransportHeader(session.TransportHeader,
                         out remoteSsrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
                         out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast))
-                            Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Cannot setup media, Invalid Transport Header in Rtsp Response: " + session.TransportHeader);
+                            Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Cannot setup media, Invalid Transport Header in Rtsp Response: " + session.TransportHeader);
                     }
 
                     //If the server returns a channel which is already in use
@@ -4174,7 +4174,7 @@ namespace Media.Rtsp
             }
             catch (Exception ex)
             {
-                Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Unable to setup media. See InnerException", ex);
+                Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Unable to setup media. See InnerException", ex);
             }
 
         //Setup for Interleaved connection

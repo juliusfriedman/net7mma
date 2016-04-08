@@ -73,7 +73,7 @@ namespace Media.Concepts.Classes
             try { OnDispose(false); }
             catch (System.Exception ex)
             {
-                Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, ex.Message, ex);
+                Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, ex.Message, ex);
             }
         }
 

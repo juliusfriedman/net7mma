@@ -399,12 +399,7 @@ namespace Media.Http
         public HttpStatusCode HttpStatusCode
         {
             get { return (HttpStatusCode)m_StatusCode; }
-            set
-            {
-                m_StatusCode = (int)value;
-
-                if (false == CanHaveBody) m_Body = string.Empty;
-            }
+            set { StatusCode = (int)value; }
         }
 
 
@@ -515,6 +510,7 @@ namespace Media.Http
             }
         }
 
+        //Todo, should be binary
         /// <summary>
         /// The body of the HttpMessage
         /// </summary>
@@ -1322,7 +1318,7 @@ namespace Media.Http
                 System.Text.EncodingInfo requested = System.Text.Encoding.GetEncodings().FirstOrDefault(e => string.Compare(e.Name, contentEncoding, false, System.Globalization.CultureInfo.InvariantCulture) == 0);
 
                 if (requested != null) contentDecoder = requested.GetEncoding();
-                else if (true == raiseWhenNotFound) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(contentEncoding, "The given message was encoded in a Encoding which is not present on this system and no fallback encoding was acceptible to decode the message. The tag has been set the value of the requested encoding");
+                else if (true == raiseWhenNotFound) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(contentEncoding, "The given message was encoded in a Encoding which is not present on this system and no fallback encoding was acceptible to decode the message. The tag has been set the value of the requested encoding");
                 else contentDecoder = System.Text.Encoding.Default;
             }
 

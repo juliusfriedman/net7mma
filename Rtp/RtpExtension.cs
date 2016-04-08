@@ -96,6 +96,8 @@ namespace Media.Rtp
             protected set { if (IsDisposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian, (ushort)value); }
         }
 
+        //Todo Segment properties.
+
         /// <summary>
         /// Gets the binary data of the RtpExtension.
         /// Note that the data may not be complete, <see cref="RtpExtension.IsComplete"/>
@@ -173,6 +175,7 @@ namespace Media.Rtp
             //Calulcate the amount of ContributingSourceListOctets
             int sourceListOctets = rtpPacket.ContributingSourceListOctets;
 
+            //Check for the Extension bit, should probably just have empty properties in this case.
             if (false == rtpPacket.Header.Extension)
                 throw new ArgumentException("rtpPacket", "Does not have the Extension bit set in the RtpHeader.");
             else if (rtpPacket.Payload.Count - sourceListOctets < MinimumSize)

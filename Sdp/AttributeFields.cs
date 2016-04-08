@@ -36,9 +36,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Sdp
 {
-    //Maybe better in a Parameters class...
+    //Maybe useful to have a Parameters class which is a subclass of ParametersBase to achieve the ability to register and remove grammar.
+    //public sealed class Parameters{
+
     public sealed class AttributeFields
     {
+        AttributeFields() { }
+
         #region NestedTypes
 
         //Would be useful for meta programming where certain attributes can appear
@@ -62,7 +66,7 @@ namespace Media.Sdp
 
         #endregion
 
-        #region RFC3605
+        #region RFC3605 https://tools.ietf.org/html/rfc3605
 
         //Media Level only
         public const string Rtcp = "rtcp";
@@ -202,6 +206,31 @@ namespace Media.Sdp
 
         #endregion
 
+        #region RFC5576 https://tools.ietf.org/html/rfc5576 
+
+        //@ 4.1 Media Level only
+
+        //a=ssrc:<ssrc-id> <attribute>
+        //a=ssrc:<ssrc-id> <attribute>:<value>
+
+        public const string SynchronizationSourceIdentifier = "ssrc";
+
+        //@ 4.2 Session Level only
+        //a=ssrc-group:<semantics> <ssrc-id> ...
+
+        public const string SynchronizationSourceIdentifierGroup = "ssrc-group";
+
+        //Source Level only
+
+        public const string CName = "cname"; //Canonical name
+
+        public const string PreviousSynchronizationSourceIdentifier = "previous-ssrc"; //previous-ssrc
+
+        //@ 6.3
+        // a=ssrc:<ssrc> fmtp:<format> <format specific parameters>
+
+        #endregion
+
         #region Others
         /* http://www.iana.org/assignments/sdp-parameters/sdp-parameters.xhtml#sdp-parameters-1
                 att-field (both session and media level)	record	[RFC-ietf-siprec-protocol-18]
@@ -213,4 +242,9 @@ namespace Media.Sdp
     }            
 
     //ProtoFields...
+    //udp: denotes an unspecified protocol running over UDP.
+    //RTP/AVP
+    //RTP/SAVP
+
+    //}
 }

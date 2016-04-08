@@ -717,7 +717,7 @@ namespace Media.Sdp
         {
             string[] lines = sdpContents.Split(SessionDescription.CRLFSplit, StringSplitOptions.RemoveEmptyEntries);
 
-            if (lines.Length < 3) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(lines, "Invalid Session Description, At least 3 lines should be found.");
+            if (lines.Length < 3) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(lines, "Invalid Session Description, At least 3 lines should be found.");
 
             //The order should be maintained as it was given in the contents.
 

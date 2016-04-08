@@ -126,6 +126,55 @@ namespace Media.Codecs.Image.Jpeg
         public const byte Prefix = 0xff;
     }
 
+    public static class JpegMarkerExtensions
+    {
+        public static byte[] CreateJFIFHeader()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public static byte[] CreateJFXXHeader()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public static byte[] CreateStartOfFrameMarker()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public static byte[] CreateHuffmanTableMarker(byte[] codeLens, byte[] symbols, int tableNo, int tableClass)
+        {
+            int symbolsLength = symbols.Length;
+            
+            byte[] result = new byte[5 + codeLens.Length + symbolsLength];
+            
+            result[0] = Media.Codecs.Image.Jpeg.Markers.Prefix;
+            
+            result[1] = Media.Codecs.Image.Jpeg.Markers.HuffmanTable;
+
+            //Length
+            Common.Binary.Write16(result, 2, System.BitConverter.IsLittleEndian, (ushort)(3 + codeLens.Length + symbols.Length));
+
+            result[4] = (byte)((tableClass << 4) | tableNo); //Id
+
+            //Data
+            codeLens.CopyTo(result, 5); 
+            
+            symbols.CopyTo(result, 5 + symbolsLength + 1);
+
+            return result;
+        }
+
+        [System.CLSCompliant(false)]
+        public static byte[] CreateDataRestartIntervalMarker(ushort dri)
+        {
+            return new byte[] { Media.Codecs.Image.Jpeg.Markers.Prefix, Media.Codecs.Image.Jpeg.Markers.DataRestartInterval, 0x00, 0x04, (byte)(dri >> 8), (byte)(dri) };
+        }
+
+        public static byte[] CreateDataRestartIntervalMarker(int dri) { return CreateDataRestartIntervalMarker((ushort)dri); }
+    }
+
     //Todo Should be moved to JpegReader in Container or JpegReader should use this?
     //JfifReader..
 }

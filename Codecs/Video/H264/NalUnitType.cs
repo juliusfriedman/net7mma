@@ -8,7 +8,8 @@ namespace Media.Codecs.Video.H264
 {
     public static class NalUnitType
     {
-        public static byte[] StartCode = new byte[] { 0x00, 0x00, 0x01 };
+        //Mpeg start codes
+        public static byte[] StartCodePrefix = new byte[] { 0x00, 0x00, 0x01 };
 
         public const byte Unknown = 0;
 

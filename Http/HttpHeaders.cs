@@ -69,8 +69,10 @@ namespace Media.Http
         public const string Server = "Server";
         public const string Speed = "Speed";
         public const string Supported = "Supported";
-        //http://greenbytes.de/tech/webdav/rfc2616.html#header.te
-        public const string TE = "TE";
+        
+        //https://www.ietf.org/rfc/rfc2616.txt @ 14.39 TE
+        public const string TE = "TE"; //Extension Transfer Encodings..
+
         public const string TerminateReason = "Terminate-Reason";
         public const string Transport = "Transport";
         public const string Trailer = "Trailer";
@@ -80,7 +82,7 @@ namespace Media.Http
         public const string Via = "Via";
         public const string WWWAuthenticate = "WWW-Authenticate";
 
-        private HttpHeaders() { }
+        HttpHeaders() { }
 
         /// <summary>
         /// Creates a RFCXXX range string
@@ -107,6 +109,7 @@ namespace Media.Http
 
         public static string DigestAuthorizationHeader(Encoding encoding, HttpMethod method, Uri location, System.Net.NetworkCredential credential, string qopPart = null, string ncPart = null, string nOncePart = null, string cnOncePart = null, string opaquePart = null, bool rfc2069 = false, string algorithmPart = null, string bodyPart = null) { return AuthorizationHeader(encoding, method, location, System.Net.AuthenticationSchemes.Digest, credential, qopPart, ncPart, nOncePart, cnOncePart, opaquePart, rfc2069, algorithmPart, bodyPart); }
 
+        //string method
         internal static string AuthorizationHeader(Encoding encoding, HttpMethod method, Uri location, System.Net.AuthenticationSchemes scheme, System.Net.NetworkCredential credential, string qopPart = null, string ncPart = null, string nOncePart = null, string cnOncePart = null, string opaquePart = null, bool rfc2069 = false, string algorithmPart = null, string bodyPart = null)
         {
             if (scheme != System.Net.AuthenticationSchemes.Basic && scheme != System.Net.AuthenticationSchemes.Digest) throw new ArgumentException("Must be either None, Basic or Digest", "scheme");
@@ -200,6 +203,21 @@ namespace Media.Http
 
 
         //GetHeaderValues
+
+        //Todo, Most parse header functions could be changed to use a ParseHeader function which gives an array of values which can then be parsed further.
+        //Create header would do the reverse.
+
+        //internal static string CreateHeader(string key, string value) => key + ':' + CreateHeaderValue(";", value);
+
+        //internal static string CreateHeaderValue(string sep, params string[] values)
+        //{
+        //    return string.Join(sep, values);
+        //}
+
+        //Something like this for the reverse
+        //string[] ParseHeaderValues(string delemit, string source) => source.Split(delemit);
+
+        //string[] ParseHeaderValues(int count) => source.Split(delemit, count);
 
     }
 }

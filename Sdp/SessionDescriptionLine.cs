@@ -118,16 +118,16 @@ namespace Media.Sdp
             }
         }
 
-        static char[] char4 = new char[] { default(char), SessionDescription.EqualsSign, SessionDescription.NewLine, SessionDescription.LineFeed };
+        //static char[] char4 = new char[] { default(char), SessionDescription.EqualsSign, SessionDescription.NewLine, SessionDescription.LineFeed };
 
-        //Ugly but saves a little memory at the cost of contention.
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        static int CalucateRequiredLength(Encoding enc, char type)
-        {
-            char4[0] = type;
+        ////Ugly but saves a little memory at the cost of contention.
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        //static int CalucateRequiredLength(Encoding enc, char type)
+        //{            
+        //    char4[0] = type;
 
-            return enc.GetByteCount(char4);
-        }
+        //    return enc.GetByteCount(char4);
+        //}
 
         //ChangeType.
 
@@ -169,6 +169,11 @@ namespace Media.Sdp
         public IEnumerable<string> Parts { get { return m_Parts; } }
 
         /// <summary>
+        /// Gets the known Count of <see cref="Parts"/>
+        /// </summary>
+        public int PartsCount { get { return m_Parts.Count; } }
+
+        /// <summary>
         /// Calculates the length in bytes of this line.
         /// </summary>
         public int Length
@@ -190,9 +195,12 @@ namespace Media.Sdp
                     total += m_Encoding.GetByteCount(part);
                 }
                                                                 //Each part gets a type, =, all parts are joined with 'm_Seperator' and lines are ended with `\r\n\`.
-                //return total + m_Encoding.GetByteCount(new char[] { m_Type, SessionDescription.EqualsSign, SessionDescription.NewLine, SessionDescription.LineFeed });
+                //return total + m_Encoding.GetByteCount(new char[] { m_Type, SessionDescription.EqualsSign, SessionDescription.NewLine, SessionDescription.LineFeed });                
 
-                return total + CalucateRequiredLength(m_Encoding, m_Type); ;
+                //Sorta efficiently as the array creation is implicit
+                return total + Common.Extensions.Encoding.EncodingExtensions.GetByteCount(m_Encoding, m_Type, SessionDescription.EqualsSign, SessionDescription.NewLine, SessionDescription.LineFeed);
+
+                //return total + CalucateRequiredLength(m_Encoding, m_Type); ;
 
             }
         }        
@@ -209,11 +217,24 @@ namespace Media.Sdp
 
         //EndUpdate
 
+        //Inline
+
+        /// <summary>
+        /// Gets the part with the specified index.
+        /// </summary>
+        /// <param name="index">The index</param>
+        /// <returns>String.Empty if the result was out of range, otherwise the value at the specified index.</returns>
         internal string GetPart(int index)
         {
             return m_Parts.Count > index ? m_Parts[index] : string.Empty;
         }
 
+        //Inline
+        /// <summary>
+        /// Gets the part at the specified index. If the value is null then String.Empty is used instead.
+        /// </summary>
+        /// <param name="index">The index</param>
+        /// <param name="value">The value</param>
         internal void SetPart(int index, string value)
         {
             if (value == null) value = string.Empty;
@@ -230,16 +251,19 @@ namespace Media.Sdp
 
         internal void Insert(int index, string part)
         {
+            //ArrayHelpers
             m_Parts.Insert(index, part);
         }
 
         internal void Add(string part)
         {
+            //ArrayHelpers
             m_Parts.Add(part);
         }
 
         internal void RemoveAt(int index)
         {
+            //ArrayHelpers
             m_Parts.RemoveAt(index);
         }
 
@@ -299,7 +323,7 @@ namespace Media.Sdp
         /// <param name="line">The line from a SessionDescription</param>
         public SessionDescriptionLine(string line, string seperator = null)
         {
-            //Trim the line
+            //Trim the line (Trim Line Value)?
             line = line.Trim();
 
             //Validate the line.
@@ -310,7 +334,7 @@ namespace Media.Sdp
             //m_AssumedPart &&
             if (line.Length < 2 
                 || 
-                line[1] != SessionDescription.EqualsSign) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionDescriptionLine: \"" + line + "\"");
+                line[1] != SessionDescription.EqualsSign) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid SessionDescriptionLine: \"" + line + "\"");
 
             if (false == string.IsNullOrEmpty(seperator)) m_Seperator = seperator;
 

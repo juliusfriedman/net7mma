@@ -349,6 +349,9 @@ namespace Media.RtpTools
             {33, new PayloadDescription() {EncodingName = "MP2T", Clockrate = 90000, Channel = 0, PayloadType = 33 } },
             {34, new PayloadDescription() {EncodingName = "H263", Clockrate = 90000, Channel = 0, PayloadType = 34 } },
             //35 - 71 unassigned.
+            //72-76 Reserved for RTCP conflict avoidance	
+            //77 - 95 Unassigned
+            //96 - 127 Dynamic
         };
 
         #endregion

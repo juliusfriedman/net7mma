@@ -40,24 +40,43 @@ namespace Media.Common.Extensions.Object
 {
     public static class ObjectExtensions
     {
-        public static System.Array ToArray(object o)
-        {
-            return _ToArray(o);
-        }
+        /// <summary>
+        /// Returns the given object in an array, e.g. ToArray(this)
+        /// </summary>
+        /// <param name="o"></param>
+        /// <returns></returns>
+        //public static System.Array ToArray(object o)
+        //{
+        //    return ToArray(o);
+        //}
 
-        internal static System.Array _ToArray(params object[] array)
-        {
-            return array;
-        }
+        /// <summary>
+        /// Returns the given objects in an array, e.g. ToArray(this, that, another)
+        /// </summary>
+        /// <param name="array"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static System.Array ToArray(params object[] array) { return array; }
 
-        public static T[] ToArray<T>(T t)
-        {
-            return _ToArray<T>(t);
-        }
+        /// <summary>
+        /// Returns the given type of object in an array, e.g. ToArray(T)
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="t"></param>
+        /// <returns></returns>
+        //public static T[] ToArray<T>(T t)
+        //{
+        //    return ToArray<T>(t);
+        //}
 
-        internal static T[] _ToArray<T>(params T[] tArray)
-        {
-            return tArray;
-        }
+        /// <summary>
+        /// Returns the given type of objects in an array, e.g. ToArray(a, b, c)
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="tArray"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static T[] ToArray<T>(params T[] tArray) { return tArray; }
+        
     }
 }

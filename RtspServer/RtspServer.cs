@@ -395,7 +395,7 @@ namespace Media.Rtsp
             Exception any;
             if (false == Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryAdd(m_RequestHandlers, method, handler, out any))
             {
-                try { Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Custom Handler already registered", any); }
+                try { Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Custom Handler already registered", any); }
                 catch (Exception ex) { if (Logger != null) Logger.LogException(ex); }
                 return false;
             }
@@ -407,7 +407,7 @@ namespace Media.Rtsp
             Exception any;
             if (false == Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryRemove(m_RequestHandlers, method, out any))
             {
-                try { Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Custom Handler already removed", any); }
+                try { Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Custom Handler already removed", any); }
                 catch (Exception ex) { if (Logger != null) Logger.LogException(ex); }
                 return false;
             }

@@ -43,7 +43,7 @@ namespace Media.Common.Extensions.Generic.Dictionary
 
     public static class DictionaryExtensions
     {
-        public static bool TryAdd<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, TValue value, out Exception any)
+        public static bool TryAdd<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, ref TKey key, ref TValue value, out Exception any)
         {
             any = null;
 
@@ -69,7 +69,9 @@ namespace Media.Common.Extensions.Generic.Dictionary
             }
         }
 
-        public static bool TryRemove<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, out Exception any)
+        public static bool TryAdd<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, TValue value, out Exception any) { return TryAdd(dictionary, ref key, ref value, out any); }
+
+        public static bool TryRemove<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, ref TKey key, out Exception any)
         {
             any = null;
 
@@ -88,7 +90,7 @@ namespace Media.Common.Extensions.Generic.Dictionary
             }
         }
 
-        public static bool TryRemove<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, out TValue value, out Exception any)
+        public static bool TryRemove<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, ref TKey key, out TValue value, out Exception any)
         {
             any = null;
 
@@ -114,6 +116,27 @@ namespace Media.Common.Extensions.Generic.Dictionary
                 //Indicate if a failure occured
                 return false;
             }
+        }
+
+        public static bool TryRemove<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, out Exception any) { return TryRemove(dictionary, ref key, out any); }
+
+        public static bool TryRemove<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, ref TKey key)
+        {
+            Exception any; 
+            
+            return TryRemove(dictionary, ref key, out any);
+        }
+
+        public static bool TryRemove<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, out TValue value) { return TryRemove(dictionary, ref key, out value); }
+        
+        public static bool TryRemove<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, out TValue value, out Exception any)
+        { return TryRemove(dictionary, ref key, out value, out any); }
+
+        public static bool TryRemove<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, ref TKey key, out TValue value)
+        {
+            Exception ex;
+
+            return TryRemove(dictionary, key, out value, out ex);
         }
     }
 }

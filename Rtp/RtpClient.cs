@@ -246,9 +246,15 @@ namespace Media.Rtp
 
             IPAddress remoteIp = IPAddress.Parse(connectionLine.IPAddress), localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
 
-            RtpClient participant = new RtpClient(sharedMemory, incomingEvents);
+            RtpClient client = new RtpClient(sharedMemory, incomingEvents);
 
             byte lastChannel = 0;
+
+            //Todo, check for session level ssrc 
+            if (remoteSsrc == 0)
+            {
+                //Sdp.SessionDescriptionLine ssrcLine = sessionDescription.SsrcGroupLine; // SsrcLine @ the session level could imply Group
+            }
 
             //For each MediaDescription in the SessionDescription
             foreach (Media.Sdp.MediaDescription md in sessionDescription.MediaDescriptions)
@@ -263,16 +269,16 @@ namespace Media.Rtp
                 //Try to add the context
                 try
                 {
-                    participant.AddContext(tc);
+                    client.AddContext(tc);
                 }
                 catch (Exception ex)
                 {
-                    Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(tc, "See Tag, Could not add the created TransportContext.", ex);
+                    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(tc, "See Tag, Could not add the created TransportContext.", ex);
                 }
             }
 
             //Return the participant
-            return participant;
+            return client;
         }
 
         #endregion
@@ -365,6 +371,28 @@ namespace Media.Rtp
 
                 //If no localIp was given determine based on the remoteIp
                 if(localIp == null) localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
+
+                //If no remoteSsrc was given then check for one
+                if (remoteSsrc == 0)
+                {
+                    //Check for SSRC Attribute Line on the Media Description
+                    //a=ssrc:<ssrc-id> <attribute>
+                    //a=ssrc:<ssrc-id> <attribute>:<value>
+
+                    Sdp.SessionDescriptionLine ssrcLine = mediaDescription.SsrcLine;
+
+                    //To use typed line
+
+                    if (ssrcLine != null)
+                    {
+                        string part = ssrcLine.GetPart(1);
+
+                        if (false == string.IsNullOrWhiteSpace(part))
+                        {
+                            remoteSsrc = part[0] == '-' ? (int)uint.Parse(part) : int.Parse(part);
+                        }
+                    }
+                }
 
                 //Create the context
                 TransportContext tc = new TransportContext(dataChannel, controlChannel, RFC3550.Random32(Media.Rtcp.SourceDescriptionReport.PayloadType), mediaDescription,
@@ -462,7 +490,7 @@ namespace Media.Rtp
                  
                  */
 
-                var rtcpLine = mediaDescription.AttributeLines.Where(l => l.m_Parts.Count > 0 && l.m_Parts[0].StartsWith(Sdp.AttributeFields.Rtcp)).FirstOrDefault();
+                Sdp.SessionDescriptionLine rtcpLine = mediaDescription.RtcpLine;
 
                 if (rtcpLine != null)
                 {
@@ -474,6 +502,13 @@ namespace Media.Rtp
                 //rtcp-mux is handled in the Initialize call
 
                 //tc.ConfigureSocket = given;
+
+                //Todo, should verify ports against PortRange when HasPortRange == true.
+
+                //if (mediaDescription.PortRange.HasValue) //mediaDescription.HasPortRange
+                //{
+
+                //}
 
                 //Handle connect
                 if (connect)
@@ -1516,7 +1551,7 @@ namespace Media.Rtp
             {
                 if (IsDisposed || IsActive) return;
 
-                if (localRtp.Address.AddressFamily != remoteRtp.Address.AddressFamily) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
+                if (localRtp.Address.AddressFamily != remoteRtp.Address.AddressFamily) Media.Common.TaggedExceptionExtensions.RaiseTaggedException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
                 else if (punchHole) punchHole = false == Media.Common.Extensions.IPAddress.IPAddressExtensions.IsOnIntranet(remoteRtp.Address); //Only punch a hole if the remoteIp is not on the LAN by default.
                 
                 //Erase previously set values on the TransportContext.
@@ -3066,13 +3101,13 @@ namespace Media.Rtp
                         //If checking the data channel
                         if (checkDataChannel && c.DataChannel == context.DataChannel || c.ControlChannel == context.DataChannel)
                         {
-                            Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(c, "Requested Data Channel is already in use by the context in the Tag");
+                            Media.Common.TaggedExceptionExtensions.RaiseTaggedException(c, "Requested Data Channel is already in use by the context in the Tag");
                         }
 
                         //if checking the control channel
                         if (checkControlChannel && c.ControlChannel == context.ControlChannel || c.DataChannel == context.ControlChannel)
                         {
-                            Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(c, "Requested Control Channel is already in use by the context in the Tag");
+                            Media.Common.TaggedExceptionExtensions.RaiseTaggedException(c, "Requested Control Channel is already in use by the context in the Tag");
                         }
 
                     }
@@ -3083,7 +3118,7 @@ namespace Media.Rtp
                     if (checkLocalIdentity && c.SynchronizationSourceIdentifier == context.SynchronizationSourceIdentifier &&
                         c.MediaDescription.PayloadTypes.Any(pt=>context.MediaDescription.PayloadTypes.Contains(pt)))
                     {
-                            Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(c, "Requested Local SSRC is already in use by the context in the Tag");
+                            Media.Common.TaggedExceptionExtensions.RaiseTaggedException(c, "Requested Local SSRC is already in use by the context in the Tag");
                     }
 
                     //if chekcking remote identifier (and it has been defined)
@@ -3091,7 +3126,7 @@ namespace Media.Rtp
                         c.RemoteSynchronizationSourceIdentifier == context.RemoteSynchronizationSourceIdentifier &&
                         c.MediaDescription.PayloadTypes.Any(pt => context.MediaDescription.PayloadTypes.Contains(pt)))
                     {
-                        Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(c, "Requested Remote SSRC is already in use by the context in the Tag");
+                        Media.Common.TaggedExceptionExtensions.RaiseTaggedException(c, "Requested Remote SSRC is already in use by the context in the Tag");
                     }
                 }
 
@@ -3607,7 +3642,7 @@ namespace Media.Rtp
         {
             if (IDisposedExtensions.IsNullOrDisposed(frame)) return null; 
             
-            return GetContextBySourceId(frame.SynchronizationSourceIdentifier) ?? GetContextByPayloadType(frame.PayloadTypeByte);
+            return GetContextBySourceId(frame.SynchronizationSourceIdentifier) ?? GetContextByPayloadType(frame.PayloadType);
         }
 
         /// <summary>
@@ -3692,7 +3727,7 @@ namespace Media.Rtp
             if (transportContext == null) return 0;
             
             //Ensure not sending too large of a packet
-            if (packet.Length > transportContext.MaximumPacketSize) Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(transportContext, "See Tag. The given packet must be smaller than the value in the transportContext.MaximumPacketSize.");
+            if (packet.Length > transportContext.MaximumPacketSize) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(transportContext, "See Tag. The given packet must be smaller than the value in the transportContext.MaximumPacketSize.");
 
             //How many bytes were sent
             int sent = 0;

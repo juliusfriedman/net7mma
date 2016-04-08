@@ -40,10 +40,16 @@ namespace Media.Common.Extensions.NetworkInterface
 {
     public static class NetworkInterfaceExtensions
     {
-
+        /// <summary>
+        /// Gets the first <see cref="System.Net.NetworkInformation.NetworkInterface"/> which has the given address bound.
+        /// </summary>
+        /// <param name="localAddress">The address which should be bound to the interface.</param>
+        /// <returns>The <see cref="System.Net.NetworkInformation.NetworkInterface"/> associated with the address or the default if none were found.</returns>
         public static System.Net.NetworkInformation.NetworkInterface GetNetworkInterface(System.Net.IPAddress localAddress)
         {
             if (localAddress == null) throw new System.ArgumentNullException();
+
+            bool isMulticast = Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(localAddress);
 
             //Iterate all NetworkInterfaves
             foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
@@ -52,7 +58,7 @@ namespace Media.Common.Extensions.NetworkInterface
                 if (networkInterface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
 
                 //Check for the Multicast Address to be bound on the networkInterface
-                if (Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(localAddress))
+                if (isMulticast)
                 {
                     if (false == networkInterface.SupportsMulticast) continue;
 

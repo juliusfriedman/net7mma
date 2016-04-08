@@ -37,6 +37,9 @@ namespace Media.Concepts.Classes
 {
     public sealed class Bitwise
     {
+
+        Bitwise() { }
+
         #region Bitwise
 
         /// <summary>

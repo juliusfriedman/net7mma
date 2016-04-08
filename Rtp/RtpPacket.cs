@@ -169,18 +169,12 @@ namespace Media.Rtp
             get { return IsDisposed ? 0 : RtpHeader.Length + Payload.Count; }
         }
 
-        /// <summary>
-        /// Gets the data in the Payload which does not belong to the ContributingSourceList or RtpExtension or Padding.
-        /// The data if present usually contains data related to signal codification,
-        /// the coding of which can be determined by a combination of the PayloadType and SDP information which was used to being the participation 
-        /// which resulted in the transfer of this RtpPacket instance.
-        /// </summary>
-        public IEnumerable<byte> PayloadData
+        internal protected Common.MemorySegment PayloadDataSegment
         {
             get
             {
                 //Proably don't have to check...
-                if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.EmptyBytes;
+                if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.Empty;
 
                 int nonPayloadOctets = HeaderOctets, padding = PaddingOctets;
 
@@ -190,7 +184,15 @@ namespace Media.Rtp
             }
         }
 
-        public IEnumerable<byte> PaddingData
+        /// <summary>
+        /// Gets the data in the Payload which does not belong to the ContributingSourceList or RtpExtension or Padding.
+        /// The data if present usually contains data related to signal codification,
+        /// the coding of which can be determined by a combination of the PayloadType and SDP information which was used to being the participation 
+        /// which resulted in the transfer of this RtpPacket instance.
+        /// </summary>
+        public IEnumerable<byte> PayloadData { get { return PayloadDataSegment; } }
+
+        internal protected Common.MemorySegment PaddingDataSegment 
         {
             get
             {
@@ -207,6 +209,8 @@ namespace Media.Rtp
                 //for (int  p = PaddingOctets, e = Payload.Count, i = e - p; i < e; ++i) yield return Payload[i];
             }
         }
+
+        public IEnumerable<byte> PaddingData { get { return PaddingDataSegment; } }
 
         /// <summary>
         /// Copies the given octets to the Payload before any Padding and calls <see cref="SetLengthInWordsMinusOne"/>.
@@ -592,13 +596,14 @@ namespace Media.Rtp
             }
         }
 
-        //internal byte[] GetAllocatedBytes()
-        //{
-        //    if (Header.First16Bits.m_Memory.Array == Header.PointerToLast10Bytes.Array &&
-        //       Header.PointerToLast10Bytes.Array == Payload.Array) return Payload.Array;
+        //ensure to use correct offset which is lower of all offsets, length if given with Length
+        ////internal byte[] GetAllocatedBytes()
+        ////{
+        ////    if (Header.First16Bits.m_Memory.Array == Header.PointerToLast10Bytes.Array &&
+        ////       Header.PointerToLast10Bytes.Array == Payload.Array) return Payload.Array;
 
-        //    return Prepare().ToArray();
-        //}
+        ////    return Prepare().ToArray();
+        ////}
 
         /// <summary>
         /// Provides a sample implementation of what would be required to complete a RtpPacket that has the IsComplete property False.

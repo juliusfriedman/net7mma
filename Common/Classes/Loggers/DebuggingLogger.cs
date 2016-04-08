@@ -8,6 +8,7 @@ namespace Media.Common.Loggers
 {
     public class DebuggingLogger : BaseLogger
     {
+
         internal static void CoreWrite(string message)
         {
             if (string.IsNullOrWhiteSpace(message)) return;

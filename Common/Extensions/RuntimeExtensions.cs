@@ -87,5 +87,7 @@ namespace Media.Common.Extensions
 
         //System.Reflection.Assembly.GetExecutingAssembly().ImageRuntimeVersion
         //NetVersion http://www.codeproject.com/Tips/135964/Get-NET-Framework-version
+
+        ////https://github.com/dotnet/cli/blob/ac4c6702d5d345dc9c397f80290f105fedebe98b/scripts/Microsoft.DotNet.Cli.Build.Framework/CurrentPlatform.cs
     }
 }

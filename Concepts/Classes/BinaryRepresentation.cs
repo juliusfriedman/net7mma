@@ -221,6 +221,8 @@ namespace Media.Concepts.Classes
             #endregion
         }
 
+        BinaryRepresentations() { }
+
         #endregion
     }
 }

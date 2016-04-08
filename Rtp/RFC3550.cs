@@ -186,7 +186,7 @@ namespace Media
             if (hasSourceDescription && false == hasCName) throw new InvalidOperationException("A Compound RtcpPacket must have a SourceDescriptionReport with a SourceDescriptionChunk with a CName item.");
 
             //Determine if padding is required
-            int paddingAmount = totalLength % 4;
+            int paddingAmount = totalLength & 3; // totalLength % 4;
 
             //Add the padding to the last packet
             if(paddingAmount > 0)
@@ -198,31 +198,80 @@ namespace Media
                  * 
                  * 
                  It is possible this logic could be it's own function, SetPadding(...)
-                 
-                 Padding is only performed here on the RtpClient for now.
-                 
                  * 
                  * 
                  */
 
-                //If the last packet was already padded
+                //If the last packet was already padded (but still needs this padding)
                 if (last.Padding)
                 {
-                    //Obtain the amount of octets in the packet pertaining to padding
-                    int existingPadding = last.PaddingOctets;
+                    //Obtain the amount of octets in the packet pertaining to padding (Maybe 0)
+                    int existingPaddingAmount = last.PaddingOctets;
 
-                    //If there is existingPadding or this amount would result in padding which is greater then can be stored in an 8 bit value truncate the remaining padding.
-                    if (existingPadding > 0 || existingPadding + paddingAmount > byte.MaxValue) paddingAmount -= existingPadding;
-
-                    //If there is any padding to add
-                    if (paddingAmount > 0)
+                    //Determine how to handle adding the padding.
+                    switch (existingPaddingAmount)
                     {
-                        //Add the required padding
-                        last.AddBytesToPayload(CreatePadding(paddingAmount), 0, paddingAmount);
+                        case byte.MaxValue: break; //Can't add anymore padding
+                        case byte.MinValue://0
+                            {
+                                //Add the required padding
+                                last.AddBytesToPayload(CreatePadding(paddingAmount), 0, paddingAmount);
 
-                        //Summinze the previous padding
-                        last.Payload.Array[last.Payload.Offset + last.Payload.Count] += (byte)(existingPadding);
+                                break;
+                            }
+                        default: //1 - 254
+                            {
+                                
+                                //Calulcate how much padding would be present in total
+                                int totalPadding = existingPaddingAmount + paddingAmount;
+
+                                //if this value exceeds or is equal the maximum
+                                if (totalPadding >= byte.MaxValue)
+                                {
+                                    //Calulcate the new amount of padding needed
+                                    paddingAmount = byte.MaxValue - existingPaddingAmount;
+
+                                    //Could omit this step as padding would be assumed to be all 0's
+                                    //Set the previous count of padding to 0
+                                    last.Payload[last.Payload.Offset + last.Payload.Count - 1] = 0;
+
+                                    //Create and add the required amount of padding (Could add overload for this)
+                                    last.AddBytesToPayload(CreatePadding(paddingAmount), 0, paddingAmount);
+
+                                    //Set the value manually to the maximum  (Could add overload for this)
+                                    last.Payload[last.Payload.Offset + last.Payload.Count - 1] = byte.MaxValue;
+                                }
+                                else // < 255
+                                {
+                                    //Could omit this step as padding would be assumed to be all 0's
+                                    //Set the previous count of padding to 0
+                                    last.Payload[last.Payload.Offset + last.Payload.Count - 1] = 0;
+
+                                    //Add the required padding.
+                                    last.AddBytesToPayload(CreatePadding(paddingAmount), 0, paddingAmount);
+
+                                    //Set the value manually to the totalPadding  (Could add overload for this)
+                                    last.Payload[last.Payload.Offset + last.Payload.Count - 1] = (byte)totalPadding;
+                                }
+
+                                break;
+                            }
                     }
+
+                    //////If there is existingPadding or this amount would result in padding which is greater then can be stored in an 8 bit value truncate the remaining padding.
+                    ////if (existingPadding > 0 || existingPadding + paddingAmount > byte.MaxValue) paddingAmount -= existingPadding;
+
+                    //////If there is any padding to add
+                    ////if (paddingAmount > 0)
+                    ////{
+                    ////    //int offset = last.Payload.Count;
+
+                    ////    //Add the required padding
+                    ////    last.AddBytesToPayload(CreatePadding(paddingAmount), 0, paddingAmount);
+
+                    ////    //Summize the previous padding (leaves it inplace) but adds the amount to the value at the end of the payload
+                    ////    last.Payload.Array[last.Payload.Offset + last.Payload.Count] += (byte)(existingPadding);
+                    ////}
                 }
                 else
                 {
@@ -300,7 +349,7 @@ namespace Media
                     if (false == hasCName && currentPacket.BlockCount > 0) using (SourceDescriptionReport asReport = new SourceDescriptionReport(currentPacket, false)) if ((hasCName = asReport.HasCName)) break;
                 }
 
-                if (hasSourceDescription && false == hasCName) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(currentPacket, "Invalid compound data, Source Description report did not have a CName SourceDescriptionItem.");
+                if (hasSourceDescription && false == hasCName) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(currentPacket, "Invalid compound data, Source Description report did not have a CName SourceDescriptionItem.");
 
                 yield return currentPacket;
             }
@@ -375,7 +424,7 @@ namespace Media
         /// </summary>
         /// <param name="amount">The amount of padding to create</param>
         /// <returns>The seqeuence containing indicated padding</returns>
-        public static IEnumerable<byte> CreatePadding(int amount)
+        public static IEnumerable<byte> CreatePadding(int amount) //int? codeAmount
         {
             if (amount <= 0) return Enumerable.Empty<byte>();
             if (amount > byte.MaxValue) Common.Binary.CreateOverflowException("amount", amount, byte.MinValue.ToString(), byte.MaxValue.ToString());
@@ -769,6 +818,8 @@ namespace Media
                 return PacketOctet(version, remainingBits);
             }
 
+            //Should ensure remainingBits in BigEndian...
+
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public static byte PacketOctet(int version, byte remainingBits)
             {
@@ -832,6 +883,7 @@ namespace Media
             {
                 //Only 1 shift is required to read the version and it shouldn't matter about the endian
                 get { return First8Bits >> 6; } //BitConverter.IsLittleEndian ? First8Bits >> 6 : First8Bits << 6; }
+                //get { return (int)Common.Binary.ReadBitsMSB(m_Memory.Array, Common.Binary.BitsToBytes(m_Memory.Offset), 2); }
                 set
                 {
                     //Get a unsigned copy to prevent two checks, the value is only 5 bits and must be aligned to this boundary in the octet
@@ -909,6 +961,7 @@ namespace Media
                 //Example 255 & 244 = 31 which is the Maximum value which is able to be stored in this field.
                 //Where 255 = byte.MaxValue
                 get { return (byte)(First8Bits & Common.Binary.FiveBitMaxValue); } // BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 3)) : Common.Binary.ReverseU8((byte)(First8Bits >> 3)); }
+                //get { return (int)Common.Binary.ReadBitsMSB(m_Memory.Array, Common.Binary.BytesToBits(m_Memory.Offset) + 3, 5); }
                 set
                 {
                     if (value > Binary.FiveBitMaxValue)
@@ -941,7 +994,7 @@ namespace Media
                 //get { return Common.Binary.ReverseU8((byte)Common.Binary.ReadBitsWithShift(First8Bits, 0, 4, BitConverter.IsLittleEndian)); }
                 //get { return BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 4)) : First8Bits << 4;} // Common.Binary.ReverseU8((byte)(First8Bits >> 4)); }
                 get { return (First8Bits & Common.Binary.FourBitMaxValue); }
-                //get { return Common.Binary.ReadBitsMSB(m_Memory.Array, 4, 4); }
+                //get { return (int)Common.Binary.ReadBitsMSB(m_Memory.Array, Common.Binary.BytesToBits(m_Memory.Offset) + 4, 4); }
                 internal set
                 {
                     //If the value exceeds the highest value which can be stored in the bit field throw an overflow exception
@@ -980,6 +1033,7 @@ namespace Media
                 //& Binary.SevenBitMaxValue may be faster
                 //get { return Last8Bits > 0 ? (byte)((Last8Bits << 1)) >> 1 : 0; }
                 get { return Last8Bits & Binary.SevenBitMaxValue; }
+                //get { return (int)Common.Binary.ReadBitsMSB(m_Memory.Array, Common.Binary.BytesToBits(m_Memory.Offset + 1) + 1, 7); }
                 set
                 {
                     //Get an unsigned copy of the value to prevent 2 checks 
@@ -1613,6 +1667,8 @@ namespace Media
         //    //readonly ValueType
         //    readonly long ClockRate;
         //}
+
+        //Something like H.264 would have the Sps and Pps as properties availble through a derived FormatLine.
 
         ////public class RtpAudioProfile : RtpProfile
         ////{
