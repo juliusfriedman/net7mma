@@ -178,7 +178,7 @@ namespace Media.Rtp
         internal int m_LowestSequenceNumber = -1, m_HighestSequenceNumber = -1;
 
         /// <summary>
-        /// Useful for depacketization
+        /// Useful for depacketization..
         /// </summary>
         internal protected System.IO.MemoryStream m_Buffer;
 
@@ -321,7 +321,11 @@ namespace Media.Rtp
         /// </summary>
         public virtual bool IsComplete
         {
-            get { return false == IsDisposed && HasMarker && false == IsMissingPackets; }
+            get
+            {                                                           //previously checked multiple times if count was <= 2, now only once when count == 1
+                //Count is checked in IsMissingPackets also..
+                return false == IsDisposed && false == IsMissingPackets && HasMarker;
+            }
         }
 
         //Todo, for Rtcp feedback one would need the sequence numbers of the missing packets...
@@ -329,22 +333,24 @@ namespace Media.Rtp
 
         /// <summary>
         /// Indicates if all contained packets are sequential up the Highest Sequence Number contained in the RtpFrame. (If at least 2 packets are contained)
-        /// If only 1 or 2 packets are contained then <see cref="HasMarker"/> is also checked.
+        /// If only 3 or more packets are contained then <see cref="HasMarker"/> is also checked.
         /// </summary>
         public bool IsMissingPackets
         {
             get
             {
-                switch (Packets.Count)
+                int count = Count;
+
+                switch (count)
                 {
                     //No packets
                     case 0: return true;
                     //Single packet, only missing if there is no marker (Should not be checked)?
-                    case 1: return false == HasMarker; //Could handle as case 0
+                    case 1: return false; //return false == HasMarker; //Could handle as case 0
                     //Skip the range check for 2 packets but ensure a marker is present.
-                    case 2: if (false == ((short)(m_LowestSequenceNumber - m_HighestSequenceNumber) != -1)) return true; goto case 1; //Could skip the goto
+                    case 2: return ((short)(m_LowestSequenceNumber - m_HighestSequenceNumber) != -1);
                     //2 or more packets, cache the m_LowestSequenceNumber and check all packets to be sequential starting at offset 1
-                    default: RtpPacket p; for (int nextSeq = m_LowestSequenceNumber == ushort.MaxValue ? ushort.MinValue : m_LowestSequenceNumber + 1, i = 1, e = Count; i < e; ++i)
+                    default: RtpPacket p; for (int nextSeq = m_LowestSequenceNumber == ushort.MaxValue ? ushort.MinValue : m_LowestSequenceNumber + 1, i = 1; i < count; ++i)
                         {
                             //Scope the packet
                             p = Packets[i];
@@ -606,7 +612,7 @@ namespace Media.Rtp
                 //If there was already a marker packet in the frame then this is an exception
                 if (false == allowPacketsAfterMarker && hasMarker) throw new InvalidOperationException("Cannot have more than one marker packet in the same RtpFrame.");
 
-                //Marker packet must always be last
+                //Marker packet SHOULD always be last
                 Packets.Add(packet);
 
                 //It is the highest sequence number
@@ -1293,16 +1299,46 @@ namespace Media.Rtp
     //Common.BaseDisposable.SetShouldDispose(frame, false, false);
     //JitterBuffer.Add(frame);
 
+    //Could also be used by the RtpPacketRecieved event when not using FrameChangedEvents.
+
     //public class RtpJitterBuffer : Common.BaseDisposable
     //{
     //    //PayloadType, Frames for PayloadType
     //    readonly Common.Collections.Generic.ConcurrentThesaurus<int, RtpFrame> Frames = new Common.Collections.Generic.ConcurrentThesaurus<int, RtpFrame>();
+
+    //    //Properties to track for max, Memory, Packets, Time etc.
 
     //    public RtpJitterBuffer(bool shouldDispose) : base(shouldDispose) { }
 
     //    public void Add(RtpFrame frame) { Add(frame.PayloadType, frame); }
 
     //    public void Add(int payloadType, RtpFrame frame) { Frames.Add(payloadType, frame); }
+
+    //    public void Add(RtpPacket packet) { Add(packet.PayloadType, packet); }
+
+    //    public void Add(int payloadType, RtpPacket packet)
+    //    {
+    //        IEnumerable<RtpFrame> frames;
+
+    //        //Use the given payloadType to get frames
+    //        if (TryGetFrames(payloadType, out frames))
+    //        {
+    //            //loop the frames found
+    //            foreach (RtpFrame frame in frames)
+    //            {
+    //                //if the timestamp is eqaul try to add the packet
+    //                if(frame.Timestamp == packet.Timestamp)
+    //                {
+    //                    //Try to add the packet and if added break.
+    //                    if (frame.TryAdd(packet)) break;
+
+    //                    //frame.Add(packet);
+    //                }
+    //            }
+    //        }
+    //    }
+
+    //    public bool TryGetFrames(int payloadType, out IEnumerable<RtpFrame> frames) { return Frames.TryGetValue(payloadType, out frames); }
 
     //    public void Clear()
     //    {
@@ -1403,8 +1439,10 @@ namespace Media.UnitTests
 
                 if (frame.Count != 1) throw new Exception("Frame must have 1 packet");
 
-                //The frame must be missing packets
-                if (false == frame.IsMissingPackets) throw new Exception("Frame is not missing packets");
+                //The frame must be missing packets if there is no marker....
+                //if (false == frame.IsMissingPackets) throw new Exception("Frame is not missing packets");
+
+                if (frame.IsComplete) throw new Exception("Frame cannot be Complete without marker");
 
                 //Add marker packet with seq = 4
                 frame.Add(new Media.Rtp.RtpPacket(2, false, false, Media.Common.MemorySegment.EmptyBytes)
