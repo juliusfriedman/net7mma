@@ -2477,6 +2477,7 @@ namespace Media.Rtp
                 //If a CurrentFrame was not allocated
                 if (transportContext.CurrentFrame == null)
                 {
+                    //Todo, Clone
                     //make a frame with the copy of the packet
                     transportContext.CurrentFrame = new RtpFrame(new RtpPacket(packet.Prepare().ToArray(), 0));
 
@@ -2490,6 +2491,8 @@ namespace Media.Rtp
                 else if (false == IDisposedExtensions.IsNullOrDisposed(transportContext.LastFrame) &&
                     packetTimestamp == transportContext.LastFrame.Timestamp)
                 {
+
+                    //Todo, Clone
                     //If the packet was added to the frame
                     if (transportContext.LastFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0), true))
                     {
@@ -2507,6 +2510,11 @@ namespace Media.Rtp
                         }
 
                     }
+                    else
+                    {
+                        //Could jump to case log
+                        Common.ILoggingExtensions.Log(Logger, InternalId + "HandleFrameChanges => transportContext.LastFrame@TryAdd failed, RecieveSequenceNumber = " + transportContext.RecieveSequenceNumber + ", Timestamp = " + packetTimestamp + ". HasMarker = " + transportContext.LastFrame.HasMarker);
+                    }
                     
                     //Nothing else to do
                     return;
@@ -2515,14 +2523,15 @@ namespace Media.Rtp
                 else if (false == IDisposedExtensions.IsNullOrDisposed(transportContext.CurrentFrame) && 
                     packetTimestamp != transportContext.CurrentFrame.Timestamp)
                 {
-
+                    //We already set to the value of packet.SequenceNumber in UpdateSequenceNumber.
                     //Before cycling packets check the packets sequence number.
-                    int pseq = packet.SequenceNumber;
+                    int pseq = transportContext.RecieveSequenceNumber; //packet.SequenceNumber;
 
                     //Only allow newer timestamps but wrapping should be allowed.
                     //When the timestamp wraps and the sequence number is not in order this is a re-ordered packet.
                     if (packetTimestamp < transportContext.CurrentFrame.Timestamp && pseq < transportContext.CurrentFrame.LowestSequenceNumber)
                     {
+                        //Could jump to case log
                         Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleFrameChanges Ignored SequenceNumber " + pseq + " @ " + packetTimestamp + ". Current Timestamp =" + transportContext.CurrentFrame.Timestamp + ", Current LowestSequenceNumber = " + transportContext.CurrentFrame.LowestSequenceNumber);
 
                         return;
@@ -2553,6 +2562,7 @@ namespace Media.Rtp
                 else if (false == IDisposedExtensions.IsNullOrDisposed(transportContext.CurrentFrame) &&
                    packetTimestamp == transportContext.CurrentFrame.Timestamp)
                 {
+                    //Todo, Clone
                     //If the packet was added to the frame
                     if (transportContext.CurrentFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0), true))
                     {
@@ -2570,6 +2580,11 @@ namespace Media.Rtp
                             transportContext.LastFrame = null;
                         }
 
+                    }
+                    else
+                    {
+                        //Could jump to case log
+                        Common.ILoggingExtensions.Log(Logger, InternalId + "HandleFrameChanges => transportContext.CurrentFrame@TryAdd failed, RecieveSequenceNumber = " + transportContext.RecieveSequenceNumber + ", Timestamp = " + packetTimestamp + ". HasMarker = " + transportContext.CurrentFrame.HasMarker);
                     }
 
                     return;
@@ -2715,6 +2730,8 @@ namespace Media.Rtp
             RtpPacketHandler action = RtpPacketReceieved;
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
+            //Should give reference to packet so that if the reference is disposed the packet will live on.
 
             foreach (RtpPacketHandler handler in action.GetInvocationList())
             {

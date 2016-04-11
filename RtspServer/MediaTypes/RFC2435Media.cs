@@ -60,6 +60,16 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             #region Statics
 
+            //Since the Frame type is overridden it only makes sense to adhere to some type of underlying interface which can also optionally provide the information about the profile.
+
+            //This can be done via explicit interface implementation to keep the exposed implementation minimal.
+
+            //e.g. IRFC2435Frame could inherit IRtpFrame and add certain fields.
+
+            //A frame when looked at as a frame would have the API it has now 
+            //When looked at as a IRtpProfileInformation it can have additional information
+
+
             //Probably not the final API as it smells like Java too much
             internal protected static class ProfileHeaderInformation //: RtpFrame.ProfileHeaderInformation
             {
@@ -1767,6 +1777,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
             #region Methods
 
+            //This will essentially provide only the data in the payload, the q tables are never returned.
+            //This is useful for if the tables are already known or not needed.
+
             public override Common.MemorySegment Assemble(Rtp.RtpPacket packet, bool useExtensions = false, int profileHeaderSize = 0)
             {
                 int offset = packet.Payload.Offset + packet.HeaderOctets;
@@ -1817,7 +1830,11 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Payload starts at the offset of the first PayloadOctet within the Payload segment after the sourceList or extensions.
                 int offset = packet.Payload.Offset + packet.HeaderOctets,
                     padding = packet.PaddingOctets,
-                    end = (packet.Payload.Count - padding);
+                    end = (packet.Payload.Count - padding),
+                    count = end - offset;
+
+                //Need 8 bytes.
+                if (count < 8) throw new InvalidOperationException("Invalid packet.");
 
                 //if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
 
@@ -1830,6 +1847,9 @@ namespace Media.Rtsp.Server.MediaTypes
                 TypeSpecific = (packet.Payload.Array[offset++]);
 
                 FragmentOffset = Common.Binary.ReadU24(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(uint)(packet.Payload.Array[offset++] << 16 | packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
+
+                //Already contained.
+                if (Depacketized.ContainsKey((int)FragmentOffset)) return;
 
                 #region RFC2435 -  The Type Field
 
@@ -1960,6 +1980,9 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Restart Interval 64 - 127
                 if (Type > 63 && Type < 128) //Might not need to check Type < 128 but done because of the above statement
                 {
+
+                    if ((count = end - offset) < 4) throw new InvalidOperationException("Invalid packet.");
+
                     /*
                        This header MUST be present immediately after the main JPEG header
                        when using types 64-127.  It provides the additional information
@@ -2014,6 +2037,8 @@ namespace Media.Rtsp.Server.MediaTypes
                         |                              ...                              |
                         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                          */
+
+                        if ((count = end - offset) < 4) throw new InvalidOperationException("Invalid packet.");
 
                         //This can be used to determine incorrectly parsing this data for a RFC2035 packet which does not include a table when the quality is >= 100                            
                         if ((packet.Payload.Array[offset]) != 0)
@@ -2097,7 +2122,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Potentially make instance level properties for the tables so they can be accessed again easily.
 
                     //Generate the JPEG Header after reading or generating the QTables
-                    //Ensure always at the first index of the Depacketized list.
+                    //Ensure always at the first index of the Depacketized list. (FragmentOffset - 1)
                     Depacketized.Add(-1, new Common.MemorySegment(CreateJPEGHeaders(TypeSpecific, Type, Width, Height, tables, PrecisionTable, RestartInterval)));
 
                     //Can't just add the tables because there is no other place to override to insert the header.
@@ -2109,19 +2134,33 @@ namespace Media.Rtsp.Server.MediaTypes
                     //tables = null;
                 }
 
-                //Add the data which is depacketized
+                //We may need to inspect the last bytes of the memory added.
+                Common.MemorySegment depacketized;
 
-                Common.MemorySegment added = new Common.MemorySegment(packet.Payload.Array, offset, Common.Binary.Max(0, (packet.Payload.Count - padding) - offset));
-
-                Depacketized.Add((int)FragmentOffset, added);
-
-                if (packet.SequenceNumber == m_HighestSequenceNumber && packet.Marker)
+                //If there is no more data in the payload then the data which needs to be checked in already in the Depacketized list.
+                if ((count = end - offset) > 0)
                 {
-                    //Check for EOI
-                    if (added.Array[added.Count - 2] != Media.Codecs.Image.Jpeg.Markers.EndOfInformation)
-                        Depacketized.Add(Depacketized.Count, EndOfInformationMarkerSegment);
+                    //Get the last value added, which may be equal to the value we just inserted if FragmentOffset was 0.
+                    depacketized = Depacketized.Values.Last();
+                }
+                else
+                {
+                    //Store the added segment to check for the EOI
+                    depacketized = new Common.MemorySegment(packet.Payload.Array, offset, Common.Binary.Max(0, end - offset));
+
+                    //Add the data which is depacketized
+                    Depacketized.Add((int)FragmentOffset, depacketized);
                 }
 
+                //When the marker is present it indicates it is the last packet related to the frame.
+                if (/*packet.SequenceNumber == m_HighestSequenceNumber &&*/ packet.Marker)
+                {
+                    //Check for EOI and if note present Add it at the FragmentOffset + 1
+                    if (depacketized.Array[depacketized.Count - 2] != Media.Codecs.Image.Jpeg.Markers.EndOfInformation)
+                        Depacketized.Add((int)(FragmentOffset + 1), EndOfInformationMarkerSegment);
+                }
+
+                //memory = null;
             }
 
             //Allow a PrepareBuffer with tables
@@ -2521,10 +2560,10 @@ namespace Media.Rtsp.Server.MediaTypes
             }
 
             //Todo, design see the base class notes
-            protected internal override void RemoveAt(int index, bool disposeBuffer = true)
-            {
-                base.RemoveAt(index, disposeBuffer);
-            }
+            //protected internal override void RemoveAt(int index, bool disposeBuffer = true)
+            //{
+            //    base.RemoveAt(index, disposeBuffer);
+            //}
 
             #endregion
 

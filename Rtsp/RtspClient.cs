@@ -2023,6 +2023,27 @@ namespace Media.Rtsp
             //if (m_RtpProtocol == ProtocolType.Udp) DisconnectSocket();
         }
 
+        //Params?
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public void StopPlaying(MediaDescription mediaDescription, bool force = false)
+        {
+            //If the media was playing
+            if (false == force && PlayingMedia.Contains(mediaDescription))
+            {
+                using (RtspMessage resposne = SendTeardown(mediaDescription, false, force)) ;
+            }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public void StopPlaying(IEnumerable<MediaDescription> mediaDescriptions, bool force = false)
+        {
+            foreach (MediaDescription mediaDescription in mediaDescriptions) 
+                StopPlaying(mediaDescription, force);
+        }
+
+        //Params?
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public void StopPlaying(bool disconnectSocket = true)
         {

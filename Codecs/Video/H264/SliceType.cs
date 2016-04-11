@@ -28,9 +28,14 @@ namespace Media.Codecs.Video.H264
 
         public const byte SIAlt = 0x09;
 
-        public const byte Undefinied = 0x10;
+        public const byte Undefined = 0x0A;
 
-        public static bool IsIntra(byte sliceType)
+        /// <summary>
+        /// Determines if the given sliceType is a key type.
+        /// </summary>
+        /// <param name="sliceType"></param>
+        /// <returns></returns>
+        public static bool IsIntra(ref byte sliceType)
         {
             switch (sliceType)
             {
@@ -42,5 +47,8 @@ namespace Media.Codecs.Video.H264
                 default: return false;
             }
         }
+
+        [CLSCompliant(false)]
+        public static bool IsIntra(byte sliceType) { return IsIntra(ref sliceType); }
     }
 }
