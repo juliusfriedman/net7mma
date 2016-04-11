@@ -2583,7 +2583,7 @@ namespace Media.Rtp
                     }
                     else
                     {
-                        //Could jump to case log
+                        //Could jump to case log but would need to know current frame, nameof won't work here because the indirection
                         Common.ILoggingExtensions.Log(Logger, InternalId + "HandleFrameChanges => transportContext.CurrentFrame@TryAdd failed, RecieveSequenceNumber = " + transportContext.RecieveSequenceNumber + ", Timestamp = " + packetTimestamp + ". HasMarker = " + transportContext.CurrentFrame.HasMarker);
                     }
 

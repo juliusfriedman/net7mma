@@ -1832,6 +1832,9 @@ namespace Media.Rtsp.Server.MediaTypes
                     padding = packet.PaddingOctets,
                     end = (packet.Payload.Count - padding),
                     count = end - offset;
+                
+                
+                            //ProfileHeaderInformation.MinimumProfileHeaderSize
 
                 //Need 8 bytes.
                 if (count < 8) throw new InvalidOperationException("Invalid packet.");
@@ -1839,6 +1842,9 @@ namespace Media.Rtsp.Server.MediaTypes
                 //if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
 
                 Common.MemorySegment tables;
+
+                //We will depacketize something and may need to inspect the last bytes of the memory added.
+                Common.MemorySegment depacketized = null;
 
                 //Decode RtpJpeg Header
 
@@ -1981,6 +1987,8 @@ namespace Media.Rtsp.Server.MediaTypes
                 if (Type > 63 && Type < 128) //Might not need to check Type < 128 but done because of the above statement
                 {
 
+                                                 //ProfileHeaderInformation.DataRestartIntervalHeaderSize
+
                     if ((count = end - offset) < 4) throw new InvalidOperationException("Invalid packet.");
 
                     /*
@@ -2037,6 +2045,8 @@ namespace Media.Rtsp.Server.MediaTypes
                         |                              ...                              |
                         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                          */
+
+                                                    //ProfileHeaderInformation.QuantizationTableHeaderSize
 
                         if ((count = end - offset) < 4) throw new InvalidOperationException("Invalid packet.");
 
@@ -2121,32 +2131,26 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     //Potentially make instance level properties for the tables so they can be accessed again easily.
 
+                    depacketized = new Common.MemorySegment(CreateJPEGHeaders(TypeSpecific, Type, Width, Height, tables, PrecisionTable, RestartInterval));
+
                     //Generate the JPEG Header after reading or generating the QTables
                     //Ensure always at the first index of the Depacketized list. (FragmentOffset - 1)
-                    Depacketized.Add(-1, new Common.MemorySegment(CreateJPEGHeaders(TypeSpecific, Type, Width, Height, tables, PrecisionTable, RestartInterval)));
+                    Depacketized.Add(-1, depacketized);
 
-                    //Can't just add the tables because there is no other place to override to insert the header.
-                    //Add the tables which were depacketized.
-                    //Depacketized.Add(Depacketized.Count, tables);
-
-                    //Dispose tables, no longer needed.
                     //tables.Dispose();
                     //tables = null;
-                }
+                }                
 
-                //We may need to inspect the last bytes of the memory added.
-                Common.MemorySegment depacketized;
-
-                //If there is no more data in the payload then the data which needs to be checked in already in the Depacketized list.
-                if ((count = end - offset) > 0)
+                //If there is no more data in the payload then the data which needs to be checked in already in the Depacketized list or assigned.
+                if ((count = end - offset) == 0)
                 {
-                    //Get the last value added, which may be equal to the value we just inserted if FragmentOffset was 0.
-                    depacketized = Depacketized.Values.Last();
+                    //Get the last value added if depacketized was not already assigned.
+                    if(depacketized == null) depacketized = Depacketized.Values.Last();
                 }
-                else
+                else //There is more data
                 {
                     //Store the added segment to check for the EOI
-                    depacketized = new Common.MemorySegment(packet.Payload.Array, offset, Common.Binary.Max(0, end - offset));
+                    depacketized = new Common.MemorySegment(packet.Payload.Array, offset, count);
 
                     //Add the data which is depacketized
                     Depacketized.Add((int)FragmentOffset, depacketized);

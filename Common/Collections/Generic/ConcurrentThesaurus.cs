@@ -47,6 +47,16 @@ using System.Linq;//ILookup
 
 namespace Media.Common.Collections.Generic
 {
+
+    //internal class DictionaryRefTryGetValue<TKey, TValue> : Dictionary<TKey, TValue>
+    //{
+    //    //needs to have/get access to the private's of the dictionary....
+    //    internal bool TryGetValue(ref TKey key, out TValue value)
+    //    {
+    //        return base.TryGetValue(key, out value);
+    //    }
+    //}
+
     #region ConcurrentThesaurus
 
     /// <summary>
@@ -61,6 +71,12 @@ namespace Media.Common.Collections.Generic
     /// </remarks>
     public class ConcurrentThesaurus<TKey, TValue> : ILookup<TKey, TValue>, ICollection<TKey>
     {
+        #region Static
+
+        static TValue NoValue = default(TValue);
+
+        #endregion
+
         #region Properties
 
         Dictionary<TKey, IList<TValue>> Dictionary = new Dictionary<TKey, IList<TValue>>();
@@ -81,7 +97,7 @@ namespace Media.Common.Collections.Generic
         public bool ContainsKey(TKey key)
         {
             return Dictionary.ContainsKey(key);
-        }
+        }        
 
         /// <summary>
         /// 
@@ -89,7 +105,7 @@ namespace Media.Common.Collections.Generic
         /// <param name="key"></param>
         public void Add(TKey key)
         {
-            if (false == CoreAdd(key, default(TValue), null, false, true))
+            if (false == CoreAdd(ref key, ref NoValue, null, false, true))
             {
                 //throw new ArgumentException("The given key was already present in the dictionary");
             }
@@ -102,13 +118,29 @@ namespace Media.Common.Collections.Generic
         /// <param name="value"></param>
         public void Add(TKey key, TValue value)
         {
+            //IList<TValue> Predicates;
+
+            ////Attempt to get the value
+            //bool hadValue = Dictionary.TryGetValue(key, out Predicates);
+
+            ////Add the value
+            //if (false == CoreAdd(ref key, ref value, Predicates, hadValue, false))
+            //{
+            //    //throw new ArgumentException("The given key was already present in the dictionary");
+            //}
+
+            AddRef(ref key, ref value);
+        }
+
+        internal void AddRef(ref TKey key, ref TValue value)
+        {
             IList<TValue> Predicates;
 
             //Attempt to get the value
             bool hadValue = Dictionary.TryGetValue(key, out Predicates);
 
             //Add the value
-            if (false == CoreAdd(key, value, Predicates, hadValue, false))
+            if (false == CoreAdd(ref key, ref value, Predicates, hadValue, false))
             {
                 //throw new ArgumentException("The given key was already present in the dictionary");
             }
@@ -133,10 +165,25 @@ namespace Media.Common.Collections.Generic
         /// <returns></returns>
         public bool Remove(TKey key, out IEnumerable<TValue> values)
         {
+            //Exception any;
+            //IList<TValue> list;
+            //bool result = Dictionary.TryRemove(ref key, out list, out any);
+            //values = list;
+            //return result;
+
+            return RemoveRef(ref key, out values);
+        }
+
+        internal bool RemoveRef(ref TKey key, out IEnumerable<TValue> values)
+        {
             Exception any;
+            
             IList<TValue> list;
-            bool result = Dictionary.TryRemove(key, out list, out any);
+            
+            bool result = Dictionary.TryRemove(ref key, out list, out any);
+            
             values = list;
+
             return result;
         }
 
@@ -150,9 +197,22 @@ namespace Media.Common.Collections.Generic
         /// <returns></returns>
         public bool TryGetValue(TKey key, out IEnumerable<TValue> results)
         {
+            //IList<TValue> values;
+            //bool result = Dictionary.TryGetValue(key, out values);
+            //results = values;
+            //return result;
+            return TryGetValueRef(ref key, out results);
+        }
+
+        internal bool TryGetValueRef(ref TKey key, out IEnumerable<TValue> results)
+        {
             IList<TValue> values;
+
+            //Can't really avoid the non ref here without subclassing Dictionary. (See DictionaryRefTryGetValue above)
             bool result = Dictionary.TryGetValue(key, out values);
+
             results = values;
+
             return result;
         }
 
@@ -165,7 +225,7 @@ namespace Media.Common.Collections.Generic
         /// <param name="inDictionary"></param>
         /// <param name="allocteOnly"></param>
         /// <returns></returns>
-        internal bool CoreAdd(TKey key, TValue value, IList<TValue> predicates, bool inDictionary, bool allocteOnly)
+        internal bool CoreAdd(ref TKey key, ref TValue value, IList<TValue> predicates, bool inDictionary, bool allocteOnly)
         {
             //If the predicates for the key are null then create them with the given value
             if (allocteOnly) predicates = new List<TValue>();
@@ -175,7 +235,7 @@ namespace Media.Common.Collections.Generic
             Exception any;
 
             //Add the value if not already in the dictionary
-            return false == inDictionary ? Dictionary.TryAdd(key, predicates, out any) : true;
+            return false == inDictionary ? Dictionary.TryAdd(ref key, ref predicates, out any) : true;
         }
 
         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
