@@ -576,11 +576,17 @@ namespace Media.Rtsp.Server.MediaTypes
 
                         #endregion
 
+
+                        
+
                         //Interleaving is applied
-                        if (auIndex == 0)
-                        {
-                            auIndex = Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 1;
-                        }
+                        //if (auIndex == 0)
+                        //{
+                        //    auIndex = rtp.Timestamp - rtp.SequenceNumber; //Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 1;
+                        //}
+
+                        //Add to the index the known key such that packets with the same auIndex will not interfere with eachother.
+                        auIndex += rtp.Timestamp - rtp.SequenceNumber;
 
                         #region CTSDeltaLength
 

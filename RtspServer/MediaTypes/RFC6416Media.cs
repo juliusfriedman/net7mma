@@ -135,13 +135,37 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public virtual void ProcessPacket(Rtp.RtpPacket packet, byte profileLevelId = 1)
             {
-                int addIndex = Depacketized.Count > 0 ? Depacketized.Keys.Last() : 0;
+                int addIndex = packet.Timestamp - packet.SequenceNumber; // Depacketized.Count > 0 ? Depacketized.Keys.Last() : 0;
 
+                //byte[] t = new byte[] { profileLevelId, Media.Codecs.Video.Mpeg4.StartCodes.VisualObjectSequence };
+
+                //Common.MemorySegment a = new Common.MemorySegment(t, 0, 1);
+
+                //Common.MemorySegment b = new Common.MemorySegment(t, 1, 1);
+
+                //Creates 4 byte array each time with the first 3 bytes being the same, would need a way to combine MemorySegments for this to be any more efficient.
                 Depacketized.Add(addIndex++, CreatePrefixedStartCodeSegment(Media.Codecs.Video.Mpeg4.StartCodes.VisualObjectSequence));
 
+                //Depacketized.Add(addIndex++, StartCodePrefixSegment);
+
+                //Depacketized.Add(addIndex++, b);
+
+                //Or
+
+                //Depacketized.Add(addIndex++, StartCodePrefixSegment);
+
+                //Depacketized.Add(addIndex++, new Common.MemorySegment(new byte[] { Media.Codecs.Video.Mpeg4.StartCodes.VisualObjectSequence }));
+                
+                //What a waste, 4 bytes + to describe 1
                 Depacketized.Add(addIndex++, new Common.MemorySegment(new byte[] { profileLevelId }));
 
                 Depacketized.Add(addIndex++, StartCodePrefixSegment);
+
+                // or
+
+                //Depacketized.Add(addIndex++, a);
+
+                //Depacketized.Add(addIndex++, StartCodePrefixSegment);
 
                 Depacketized.Add(addIndex++, packet.PayloadDataSegment);
             }

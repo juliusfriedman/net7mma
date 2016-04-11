@@ -49,6 +49,8 @@ namespace Media.Rtp
 
         #region Static
 
+        //Todo, could just as well be an extension to RtpFrame.
+        //This also will appear in derived types for no reason.
         /// <summary>
         /// Assembles a single packet by skipping any ContributingSourceListOctets and optionally Extensions and a certain profile header. 
         /// </summary>
@@ -143,7 +145,7 @@ namespace Media.Rtp
         /// <summary>
         /// After a single RtpPacket is <see cref="Depacketize">depacketized</see> it will be placed into this list with the appropriate index.
         /// </summary>
-        internal readonly System.Collections.Generic.SortedList<int, Common.MemorySegment> Depacketized;
+        internal readonly SortedList<int, Common.MemorySegment> Depacketized;
 
         #endregion
 
@@ -374,6 +376,7 @@ namespace Media.Rtp
         {
             //get { return Packets.Count == 0 ? false : Packets[Packets.Count - 1].Marker; }
             //If multiple markers packets are stored this must be enforced here also
+            //MarkerPackets.Count > 0
             get { return /*Packets.Count == 0 ? false : */ m_PayloadType > 127; }
         }
 
@@ -457,6 +460,10 @@ namespace Media.Rtp
         }
 
         //Todo, additional byte[] overloads to packetize data with
+
+        //Could also provide delegated actions for use with logic to prevent having to subclass but type safetype is sacraficed somewhat as 
+        //The semantics of each instance cannot easily be traced without knowing what to expect from each delegation
+        //This requires the use of interfaces to properly 'do'.
 
         /// <summary>
         /// Creates an instance and if the packet is not null assigns properties from the given packet and optionally adds the packet to the list of stored packets.
@@ -548,7 +555,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="packet">The RtpPacket to Add</param>
         /// <param name="allowPacketsAfterMarker">Indicates if the packet shouldbe allowed even if the packet's sequence number is greater than or equal to <see cref="HighestSequenceNumber"/> and <see cref="IsComplete"/> is true.</param>
-        public void Add(RtpPacket packet, bool allowPacketsAfterMarker = false, bool allowDuplicates = false)
+        public void Add(RtpPacket packet, bool allowPacketsAfterMarker = true, bool allowDuplicates = false)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
@@ -645,7 +652,7 @@ namespace Media.Rtp
         /// <summary>
         /// Calls <see cref="Add"/> and indicates if the operations was a success
         /// </summary>
-        public bool TryAdd(RtpPacket packet, bool allowPacketsAfterMarker = false, bool allowDuplicates = false)
+        public bool TryAdd(RtpPacket packet, bool allowPacketsAfterMarker = true, bool allowDuplicates = false)
         {
             try { Add(packet, allowPacketsAfterMarker, allowDuplicates); return true; }
             catch { return false; }            
@@ -658,10 +665,15 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if the RtpFrame contains a RtpPacket
         /// </summary>
-        /// <param name="sequenceNumber">The RtpPacket to check</param>
+        /// <param name="packet">The RtpPacket to check</param>
         /// <returns>True if the packet is contained, otherwise false.</returns>
         public bool Contains(RtpPacket packet) { return Packets.Contains(packet); }
 
+        /// <summary>
+        /// Indicates if the RtpFrame contains a RtpPacket
+        /// </summary>
+        /// <param name="sequenceNumber">The RtpPacket to check</param>
+        /// <returns>True if the packet is contained, otherwise false.</returns>
         public bool Contains(int sequenceNumber) { return IndexOf(sequenceNumber) >= 0; }
 
         /// <summary>
@@ -759,17 +771,49 @@ namespace Media.Rtp
             switch (--count)
             {
                 case 0: m_LowestSequenceNumber = m_HighestSequenceNumber = -1; goto CheckMarker;
-                case 1: m_LowestSequenceNumber = m_HighestSequenceNumber = Packets[0].SequenceNumber; goto CheckMarker;
+                    //Only 1 packet remains, saves a count - 1 and an array access.
+                case 1:
+                    {
+                        //m_LowestSequenceNumber = m_HighestSequenceNumber = Packets[0].SequenceNumber; 
+                        
+                        //If this was at 0 then remap 0 to 1
+                        if (sequenceNumber == m_LowestSequenceNumber) m_LowestSequenceNumber = m_HighestSequenceNumber;
+
+                        //Remap 1 to 0
+                        m_HighestSequenceNumber = m_LowestSequenceNumber;
+
+                        goto CheckMarker;
+
+                    }
                 //only 2 packets is really default also but this saves a count - 1 instruction
-                case 2: m_LowestSequenceNumber = Packets[0].SequenceNumber; m_HighestSequenceNumber = Packets[1].SequenceNumber; goto CheckMarker;
+                    //It also saves one access to the array when possible.
+                case 2:
+                    {
+                        switch (i)
+                        {
+                            case 0://(sequenceNumber == m_LowestSequenceNumber)
+                                {
+                                    m_LowestSequenceNumber = Packets[0].SequenceNumber;
+                                    break;
+                                }
+                            case 1: break; //Index 1 when there was 3 packets cannot effect the lowest or highest but may have a marker if multiple marker packets are stored.
+                            case 2://(sequenceNumber == m_HighestSequenceNumber)
+                                {
+                                    m_HighestSequenceNumber = Packets[1].SequenceNumber;
+                                    break;
+                                }
+                        }
+
+                        goto CheckMarker;
+                    }
                 default:
                     {
-                        //Skip the access of the array for all cases but when the sequence was == to the m_LowestSequenceNumber
+                        //Skip the access of the array for all cases but when the sequence was == to the m_LowestSequenceNumber (i == 0)
                         if (sequenceNumber == m_LowestSequenceNumber)
                         {
                             m_LowestSequenceNumber = Packets[0].SequenceNumber; //First
                         }
-                        else if (sequenceNumber == m_HighestSequenceNumber)//Otherise if was == to the m_HighestSequenceNumber
+                        else if (sequenceNumber == m_HighestSequenceNumber)//Otherise if was == to the m_HighestSequenceNumber (i >= count)
                         {
                             m_HighestSequenceNumber = Packets[count - 1].SequenceNumber; //Last
                         }
@@ -782,17 +826,25 @@ namespace Media.Rtp
             //Check for marker when i >= count and unset marker bit if present. (Todo, if AllowMultipleMarkers this needs to be counted)
             if (i >= count && p.Marker) m_PayloadType &= Common.Binary.SevenBitMaxValue;
 
+            //Just remove
+            //MarkerPackets.Remove(i);
+
             return p;            //Notes, i contains the offset where p was stored.
         }
 
-        //Inline
-        //disposeBuffer could determined by ShouldDispose or more correclty a readonly field which derived types can easily set in the construtor.
-        internal protected virtual void RemoveAt(int index, bool disposeBuffer = false)
-        {
-            Packets.RemoveAt(index);
+        
+        ////More realistically this doesn't need to be done at all.
+        ////Once a packet is removed it's removed, if the buffer is not diposed who cares?
+        ////Who can access RemoveAt anyway? the protected or derived members...
+        ////No one else is calling RemoveAt, not even this implementation.
+        ////Inline
+        ////disposeBuffer could determined by ShouldDispose or more correclty a readonly field which derived types can easily set in the construtor.
+        //internal protected virtual void RemoveAt(int index, bool disposeBuffer = false)
+        //{
+        //    Packets.RemoveAt(index);
 
-            if (disposeBuffer) DisposeBuffer();
-        }
+        //    if (disposeBuffer) DisposeBuffer();
+        //}
 
         /// <summary>
         /// Empties the RtpFrame by clearing the underlying List of contained RtpPackets
@@ -833,6 +885,13 @@ namespace Media.Rtp
             foreach (RtpPacket p in Packets) p.Dispose();
         }
 
+        //Notes, Assemble terminology is backwards, should be Disassemble
+        //This also has no place in the API unless forcefully made up, e.g. ProcessPacket could be Assemble
+
+        //The differences currently are related to the types of return which are hard to maintain and understand
+        //Assemble a packet means to take a rtp packet and get the data which is needed for the decoder
+        //sometimes the extensions are needed, most of the time there is only the need to skip the csrc list if present
+
         /// <summary>
         /// Calls <see cref="RtpFrame.AssemblePacket"/>
         /// </summary>
@@ -846,7 +905,7 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Assembles the RtpFrame into a byte[] by combining the ExtensionBytes and Payload of all contained RtpPackets into a single byte array (excluding the RtpHeader)
+        /// Assembles the RtpFrame into a IEnumerable by use of concatenation, the ExtensionBytes and Payload of all contained RtpPackets into a single sequence (excluding the RtpHeader)
         /// <see cref="RtpFrame.AssemblePacket"/>
         /// </summary>
         /// <returns>The byte array containing the assembled frame</returns>
@@ -856,8 +915,9 @@ namespace Media.Rtp
             IEnumerable<byte> sequence = Common.MemorySegment.Empty;
 
             //Iterate the packets (if packets are added or removed this logic is interrupted)
-            foreach (RtpPacket packet in Packets)
-                sequence = sequence.Concat(RtpFrame.AssemblePacket(packet, useExtensions, profileHeaderSize)); //Use the static functionality by default
+                                                            //Use the static functionality by default RtpFrame.AssemblePacket(packet, useExtensions, profileHeaderSize)
+            foreach (RtpPacket packet in Packets) sequence = sequence.Concat(Assemble(packet, useExtensions, profileHeaderSize));
+                 
 
             //Return the result
             return sequence;
@@ -876,13 +936,12 @@ namespace Media.Rtp
         /// Depacketizes all contained packets if possible.
         /// </summary>
         /// <param name="allowIncomplete">Determines if <see cref="IsComplete"/> must be true</param>
-        public virtual void Depacketize(bool allowIncomplete) //bool needMarker
+        public virtual void Depacketize(bool allowIncomplete) //bool needMarker, int markerCountNeeded
         {
             //May allow incomplete packets.
             if (false == allowIncomplete && false == IsComplete) return;
 
-            foreach (RtpPacket packet in Packets)
-                Depacketize(packet);
+            foreach (RtpPacket packet in Packets) Depacketize(packet);
 
             //PrepareBuffer must be called to access the buffer.
         }
@@ -897,13 +956,17 @@ namespace Media.Rtp
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-            //Needs to keep order of packets such that the earlier and later packets can be added togeter without fragmentation.
-
-            //Read the property
-            int headerOctets = packet.HeaderOctets;
-
             //Add the data of the packet which is at the end of the extension and csrc until the padding.
-            Depacketized.Add(Depacketized.Count, new Common.MemorySegment(packet.Payload.Array, (packet.Payload.Offset + headerOctets), packet.Payload.Count - (headerOctets + packet.PaddingOctets)));
+            
+            //Must / should also be able to determine if packet was previously depacketized.
+                            //packet.SequenceNumber
+
+            //This will fail if packets are added out of order, a standard function to generate the key should be used.
+            //(packet.Timestamp - packet.SequenceNumber,
+                                                 //Assemble(packet, false, 0));
+            Depacketized.Add(Depacketized.Count, packet.PayloadDataSegment);//new Common.MemorySegment(packet.Payload.Array, (packet.Payload.Offset + headerOctets), packet.Payload.Count - (headerOctets + packet.PaddingOctets)));
+
+            
 
             //Write the packet payload starting at the end of the extension and csrc until the padding
             //Buffer.Write(packet.Payload.Array, packet.Payload.Offset + headerOctets, packet.Payload.Count - (headerOctets + packet.PaddingOctets));
@@ -969,12 +1032,323 @@ namespace Media.Rtp
             }
         }
 
-
         //Registration ....
         //Otherwise there is no standard code for obtaining a Derived type besides using IsSubClassOf.
         //Then would still be unable to tell what profile it supports if using Dynamic..
 
     }
+
+    #region Todo IRtpFrame
+
+    //Where this is probably going
+    //Would be something like the facade pattern.
+    //public interface IRtpFrame
+    //{
+
+    //}
+
+    #endregion
+
+    #region To be implemented via RtpFrame
+
+    //Doesn't need to inerhit but can although it looks weird.
+    //Could just compose the frame in a member and add all the stuff related to packetization here.
+    //RFC3550 could define a Framing (DePacketization) (Packetizer) which used the assemble methodology.
+    //Would also be aware of various SDP parameters and PayloadType implementation..
+    //public class Framing //Depacketization //Packetization //Packetizer //: RtpFrame
+    //{
+    //    #region Depacketization
+
+    //    //Could be out or Ref on  Depacketize.
+    //    internal protected RtpFrame Frame;
+
+    //    //public virtual bool HasVariableSizeHeader { get; protected set; }
+
+    //    //public virtual int HeaderSize {get; protected set; 
+
+    //    //public virtual bool UsesExtensions { get; protected set; }
+
+    //    public virtual int GetPacketKey(RtpPacket packet) { return packet.Timestamp - packet.SequenceNumber; }
+
+    //    //public Func<RtpPacket, int> KeyGenerator;
+
+    //    //delegate int KeyGenerator(RtpPacket packet);
+
+    //    //public Func<bool> HasMarkerLogic;
+
+    //    //delegate bool HasMarkerDelegate();
+
+    //    //Could be out of ref on Depacketize
+    //    //SortedMemory(should be keyed by sequence number by default but would require a Ushort comparer)
+    //    internal protected SortedList<int, Common.MemorySegment> Segments; //Or Packetized // Packets
+
+    //    //not needed if not stored.
+    //    /// <summary>
+    //    /// Indicates if there are any segments allocated
+    //    /// </summary>
+    //    public bool HasSegments { get { return Segments.Count > 0; } }
+
+    //    /// <summary>
+    //    /// Creates a MemoryStream from the <see cref="Segments"/> of data depacketized.
+    //    /// </summary>
+    //    /// <returns></returns>
+    //    public System.IO.MemoryStream PrepareBuffer()
+    //    {
+    //        System.IO.MemoryStream result = new System.IO.MemoryStream(Segments.Values.Sum(d => d.Count));
+
+    //        foreach (var pair in Segments)
+    //        {
+    //            Common.MemorySegment value = pair.Value;
+
+    //            result.Write(value.Array, value.Offset, value.Count);
+    //        }
+
+    //        return result;
+    //    }
+
+    //    /// <summary>
+    //    /// Depacketize's the frame with the default options.
+    //    /// </summary>
+    //    public virtual void Depacketize() { Depacketize(true); } //RtpFrame frame (what), SortedList<int, Common.MemorySegment> Segments (where)
+
+    //    /// <summary>
+    //    /// Depacketizes the payload segment of Frame
+    //    /// </summary>
+    //    public void Depacketize(bool allowIncomplete) //RtpFrame Frame (what), SortedList<int, Common.MemorySegment> Segments (where)
+    //    {
+    //        //Ensure the Frame is not null
+    //        if (Common.IDisposedExtensions.IsNullOrDisposed(Frame)) return;
+
+    //        //Check IsComplete if required
+    //        if (false == allowIncomplete && false == Frame.IsComplete) return;
+
+    //        //Iterate packet's in Frame
+    //        foreach (RtpPacket packet in Frame)
+    //        {
+    //            //Depacketize the packet
+    //            Depacketize(packet);
+    //        }
+    //    }
+
+    //    /// <summary>
+    //    /// Calls <see cref="Depacketize"/> in parallel
+    //    /// </summary>
+    //    /// <param name="allowIncomplete"></param>
+    //    public void ParallelDepacketize(bool allowIncomplete) //RtpFrame frame (what), SortedList<int, Common.MemorySegment> Segments (where)
+    //    {
+    //        //Ensure the Frame is not null
+    //        if (Common.IDisposedExtensions.IsNullOrDisposed(Frame)) return;
+
+    //        //Check IsComplete if required
+    //        if (false == allowIncomplete && false == Frame.IsComplete) return;
+
+    //        //In parallel Depacketize each packet.
+    //        ParallelEnumerable.ForAll(Frame.AsParallel(), Depacketize);
+    //    }
+
+    //    /// <summary>
+    //    /// Depacketize a single packet
+    //    /// </summary>
+    //    /// <param name="packet"></param>
+    //    public virtual void Depacketize(RtpPacket packet) //SortedList<int, Common.MemorySegment> Segments (where)
+    //    {
+    //        //Calulcate the key
+    //        int key = GetPacketKey(packet);
+
+    //        //Save for previously Depacketized packets
+    //        if (Segments.ContainsKey(key)) return;
+
+    //        //Add the data in the PayloadDataSegment.
+    //        Segments.Add(key, packet.PayloadDataSegment);
+    //    }
+
+    //    #endregion
+
+    //    #region Packetization
+
+    //    /// <summary>
+    //    /// Packetizes the sourceData to a RtpFrame.
+    //    /// </summary>
+    //    public virtual RtpFrame Packetize(byte[] sourceData, int offset, int count, int bytesPerPayload, int sequenceNumber, int timeStamp, int ssrc, int payloadType, bool setMarker = true)
+    //    {
+    //        RtpFrame result = new RtpFrame();
+
+    //        bool marker = false;
+
+    //        while (count > 0)
+    //        {
+    //            //Subtract for consumed bytes and compare to bytesPerPayload
+    //            if ((count -= bytesPerPayload) <= bytesPerPayload)
+    //            {
+    //                bytesPerPayload = count;
+
+    //                marker = setMarker;
+    //            }
+
+    //            //Move the offset
+    //            offset += bytesPerPayload;
+
+    //            //Add the packet created from the sourceData at the offset, increase the sequence number.
+    //            result.Add(new RtpPacket(new RtpHeader(2, false, false, marker, payloadType, 0, ssrc, sequenceNumber++, timeStamp), 
+    //                new Common.MemorySegment(sourceData, offset, bytesPerPayload)));
+    //        }
+
+    //        return result;
+    //    }
+
+    //    #endregion
+
+    //    #region Repacketization
+
+    //    //Should return frame, this would imply that both frames would exist for ashort period of time.
+    //    //Otherwise have an inplace option.
+    //    /// <summary>
+    //    /// Repacketizes the payload segment of Frame according to the given options.
+    //    /// </summary>
+    //    /// <param name="bytesPerPayload"></param>
+    //    public virtual void Repacketize(RtpFrame frame, int bytesPerPayload) // bool inPlace
+    //    {
+    //        RtpPacket current = null;
+
+    //        foreach (RtpPacket packet in frame)
+    //        {
+    //            if (packet.Length > bytesPerPayload)
+    //            {
+    //                //split
+    //            }
+    //            else
+    //            {
+    //                //join
+
+    //                if (current == null) current = packet;
+    //                else
+    //                {
+
+    //                    if (current.Length + packet.Length > bytesPerPayload)
+    //                    {
+    //                        //split
+    //                    }
+    //                    else
+    //                    {
+    //                        //join
+    //                    }
+
+    //                }
+    //            }
+    //        }
+
+    //        //hard to modify frame in place...
+
+    //        //Better to take a new frame and populate and swap and replace.
+
+    //        int currentSize = 0;
+
+    //        for (int i = 0, e = frame.Count; i < e; ++i)
+    //        {
+    //            current = frame[i];
+
+    //            int currentLength = current.Length;
+
+    //            if (currentSize + currentLength > bytesPerPayload)
+    //            {
+    //                //Split
+
+    //                //Add a packet with bytesPerPayload from current 
+
+    //                //Add a packet with currentLength - bytesPerPayload
+
+    //                //Increas index 
+    //                ++i;
+    //            }
+    //            else
+    //            {
+    //                //Remove current (reset for index again)
+    //                Frame.Packets.RemoveAt(i--);
+
+    //                //Join
+    //                currentSize += current.Length;
+
+    //                //Make a new packet and combine.
+
+    //                continue;
+    //            }
+    //        }
+
+
+    //        return;
+    //    }
+
+    //    #endregion
+
+    //    //Dispose();
+    //}
+
+    #endregion
+
+    #region To be used outside of the RtpClient
+
+    //Useful for holding onto frame for longer than one cycle.
+    //Could be used from the application during the FrameChangedEvent when 'final' is set to true.
+    //E.g. when final == true, =>
+    //Common.BaseDisposable.SetShouldDispose(frame, false, false);
+    //JitterBuffer.Add(frame);
+
+    //public class RtpJitterBuffer : Common.BaseDisposable
+    //{
+    //    //PayloadType, Frames for PayloadType
+    //    readonly Common.Collections.Generic.ConcurrentThesaurus<int, RtpFrame> Frames = new Common.Collections.Generic.ConcurrentThesaurus<int, RtpFrame>();
+
+    //    public RtpJitterBuffer(bool shouldDispose) : base(shouldDispose) { }
+
+    //    public void Add(RtpFrame frame) { Add(frame.PayloadType, frame); }
+
+    //    public void Add(int payloadType, RtpFrame frame) { Frames.Add(payloadType, frame); }
+
+    //    public void Clear()
+    //    {
+    //        //Enumerate an array of contained keys
+    //        foreach (int Key in Frames.Keys.ToArray())
+    //        {
+    //            //Store the frames at the key
+    //            IEnumerable<RtpFrame> frames;
+
+    //            //if removed from the ConcurrentThesaurus
+    //            if (Frames.Remove(Key, out frames))
+    //            {
+    //                //Loop the frames contined at the key
+    //                foreach (RtpFrame frame in frames)
+    //                {
+    //                    //Ensure the frame should be disposed.
+
+    //                    //Can't set the property if not derived
+    //                    //frame.ShouldDispose = true;
+
+    //                    //Set ShouldDispose through the base class.
+    //                    Common.BaseDisposable.SetShouldDispose(frame, true, true);
+
+    //                    //Dispose the frame (already done with above call)
+    //                    frame.Dispose();
+
+    //                    //could also just call frame.Clear();
+    //                }
+    //            }
+    //        }
+    //    }
+
+    //    public override void Dispose()
+    //    {
+    //        base.Dispose();
+
+    //        if (ShouldDispose)
+    //        {
+    //            Clear();
+    //        }
+    //    }
+    //}
+
+    #endregion
+
+    #region Other concepts thought up but not used.
 
     //Since it does not inherit the frame this does not work very well.
     //Could have MultiMarkerFrame be dervived but Add is not virtual / overloadable.
@@ -999,6 +1373,8 @@ namespace Media.Rtp
     //{
     //    //public static RtpFrame CreateTypedFrame => Depacketize
     //}
+
+    #endregion
 
 }
 
@@ -1198,7 +1574,7 @@ namespace Media.UnitTests
                     frame.Add(new Media.Rtp.RtpPacket(2, false, false, Media.Common.MemorySegment.EmptyBytes)
                     {
                         SequenceNumber = 1
-                    });
+                    }, false);
 
                     throw new Exception("Should not be allowed to add packet");
                 }

@@ -169,6 +169,9 @@ namespace Media.Rtp
             get { return IsDisposed ? 0 : RtpHeader.Length + Payload.Count; }
         }
 
+        /// <summary>
+        /// <see cref="PayloadData"/>
+        /// </summary>
         internal protected Common.MemorySegment PayloadDataSegment
         {
             get

@@ -13,6 +13,8 @@ namespace Media.Codecs.Video.H264
 
         public const byte Unknown = 0;
 
+        //IsVideoCodingLayer => True
+
         public const byte CodedSlice = 1;
 
         public const byte DataPartitionA = 2;
@@ -22,6 +24,8 @@ namespace Media.Codecs.Video.H264
         public const byte DataPartitionC = 4;
 
         public const byte InstantaneousDecoderRefresh = 5;
+
+        //NonVideoCodingLayer
 
         public const byte SupplementalEncoderInformation = 6;
 
@@ -66,8 +70,44 @@ namespace Media.Codecs.Video.H264
 
         public const byte Reserved = 31;
 
-        public static bool IsReserved(byte type) { return type == Reserved || type >= 16 && type <= 18 || type >= 22 && type <= 23; }
+        public static bool IsReserved(ref byte nalType)
+        {
+
+            switch (nalType)
+            {
+                case Reserved:
+                //nalType >= 16 && nalType <= 18
+                case 16:
+                case 17:
+                case 18:
+                //nalType >= 22 && nalType <= 23
+                case 22:
+                case 23:
+                    return true;
+                default: return false;
+            }
+
+            //return nalType == Reserved || nalType >= 16 && nalType <= 18 || nalType >= 22 && nalType <= 23;
+        }
+
+        [CLSCompliant(false)]
+        public static bool IsReserved(byte nalType) { return IsReserved(ref nalType); }
 
         public const byte NonInterleavedMultiTimeAggregation = Reserved;
+
+        public static bool IsSlice(ref byte nalType)
+        {
+            switch (nalType)
+            {
+                case CodedSlice:
+                case DataPartitionA:
+                case InstantaneousDecoderRefresh:
+                    return true;
+                default: return false;
+            }
+        }
+
+        [CLSCompliant(false)]
+        public static bool IsSlice(byte nalType) { return IsSlice(ref nalType); }
     }
 }

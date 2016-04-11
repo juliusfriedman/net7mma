@@ -63,6 +63,7 @@
     <Compile Include="ContentInterpretationType.cs" />
     <Compile Include="FramePackingArrangementType.cs" />
     <Compile Include="NalReader.cs" />
+    <Compile Include="NalUnitPriority.cs" />
     <Compile Include="NalUnitSubType.cs" />
     <Compile Include="NalUnitType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -61,15 +61,17 @@ namespace Media.Common
         //Not really needed
         public static bool IsNullOrDisposed(BaseDisposable toCheck) { return IDisposedExtensions.IsNullOrDisposed(toCheck); }
        
-        internal static void SetShouldDisposeIfSenderIsBaseDisposable(object sender, EventArgs e)
+        internal protected static void SetShouldDisposeIfSenderIsBaseDisposable(object sender, EventArgs e)
         {
-            if (sender != null && sender is BaseDisposable) SetShouldDispose((sender as BaseDisposable), true);
+            if (sender != null && sender is BaseDisposable) SetShouldDispose((sender as BaseDisposable), true, true);
         }
 
-        internal static void SetShouldDispose(BaseDisposable toDispose, bool dispose = false)
+        internal protected static void SetShouldDispose(BaseDisposable toDispose, bool value, bool dispose = false)
         {
             if (IDisposedExtensions.IsNullOrDisposed(toDispose)) return;
-            toDispose.ShouldDispose = true;
+
+            toDispose.ShouldDispose = value;
+
             if (dispose) toDispose.Dispose();
         }
 
