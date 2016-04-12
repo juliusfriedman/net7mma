@@ -972,9 +972,19 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Todo, 
                     //Get type slice type from the slice header.
 
-                    byte sliceType = nalType;
+                    //This logic is also useful for reading the frame number which is needed to determine full or short start codes
 
-                    if (Media.Codecs.Video.H264.SliceType.IsIntra(sliceType)) return true;
+                    /* https://code.mythtv.org/doxygen/H264Parser_8cpp_source.html
+                    slice_type specifies the coding type of the slice according to
+                    Table 7-6.   e.g. P, B, I, SP, SI
+ 
+                    When nal_unit_type is equal to 5 (IDR picture), slice_type shall
+                    be equal to 2, 4, 7, or 9 (I or SI)
+                    */
+
+                    byte sliceType = nalType; // = get_ue_golomb_31(gb);
+
+                    if (Media.Codecs.Video.H264.SliceType.IsIntra(ref sliceType)) return true;
                 }
             }
 

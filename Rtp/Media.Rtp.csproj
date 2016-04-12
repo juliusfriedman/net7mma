@@ -69,6 +69,7 @@
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
     <Compile Include="Conference.cs" />
+    <Compile Include="JitterBuffer.cs" />
     <Compile Include="Mixer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RFC3550.cs" />

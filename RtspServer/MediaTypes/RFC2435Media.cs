@@ -1854,8 +1854,13 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 FragmentOffset = Common.Binary.ReadU24(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(uint)(packet.Payload.Array[offset++] << 16 | packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
 
+                //May not provide the correct order when sequenceNumber approaches ushort.MaxValue...
+                int packetKey = packet.Timestamp - packet.SequenceNumber;
+
+                packetKey += (int)FragmentOffset;
+
                 //Already contained.
-                if (Depacketized.ContainsKey((int)FragmentOffset)) return;
+                if (Depacketized.ContainsKey(packetKey)) return;
 
                 #region RFC2435 -  The Type Field
 
@@ -2018,7 +2023,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 //2) Allow for the SubSampling to be indicated in that same field when not 1x1
                 // 2a) For CMYK or RGB one would also need to provide additional data such as Huffman tables and count (the same for Quantization information)
                 //Could keep TotalFragmentOffset rather than local to not check the buffer position
-                if (FragmentOffset == 0 && m_Buffer.Position == 0)
+                if (FragmentOffset == 0 && Depacketized.Count == 0)
                 {
 
                     //RFC2435 http://tools.ietf.org/search/rfc2435#section-3.1.8
@@ -2135,36 +2140,34 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     //Generate the JPEG Header after reading or generating the QTables
                     //Ensure always at the first index of the Depacketized list. (FragmentOffset - 1)
-                    Depacketized.Add(-1, depacketized);
+                    Depacketized.Add(packetKey - 1, depacketized);
 
                     //tables.Dispose();
                     //tables = null;
                 }                
 
                 //If there is no more data in the payload then the data which needs to be checked in already in the Depacketized list or assigned.
-                if ((count = end - offset) == 0)
-                {
-                    //Get the last value added if depacketized was not already assigned.
-                    if(depacketized == null) depacketized = Depacketized.Values.Last();
-                }
-                else //There is more data
+                if ((count = end - offset) > 0)
                 {
                     //Store the added segment to check for the EOI
                     depacketized = new Common.MemorySegment(packet.Payload.Array, offset, count);
 
                     //Add the data which is depacketized
-                    Depacketized.Add((int)FragmentOffset, depacketized);
+                    Depacketized.Add(packetKey++, depacketized);
                 }
 
                 //When the marker is present it indicates it is the last packet related to the frame.
                 if (/*packet.SequenceNumber == m_HighestSequenceNumber &&*/ packet.Marker)
                 {
+                    //Get the last value added if depacketized was not already assigned.
+                    if (depacketized == null) depacketized = Depacketized.Values.Last();
+
                     //Check for EOI and if note present Add it at the FragmentOffset + 1
                     if (depacketized.Array[depacketized.Count - 2] != Media.Codecs.Image.Jpeg.Markers.EndOfInformation)
-                        Depacketized.Add((int)(FragmentOffset + 1), EndOfInformationMarkerSegment);
+                        Depacketized.Add(packetKey, EndOfInformationMarkerSegment);
                 }
 
-                //memory = null;
+                //depacketized = null;
             }
 
             //Allow a PrepareBuffer with tables
@@ -2183,361 +2186,12 @@ namespace Media.Rtsp.Server.MediaTypes
             /// </summary>
             public virtual void  PrepareBuffer(bool allowLegacyPackets = false, bool allowIncomplete = false, bool useRfcQuantizer = false) //clamp, maxQ, psychoVisual
             {
-
                 if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
                 else if (false == allowIncomplete && false == IsComplete) throw new ArgumentException("This Frame not Complete");
 
-                /*
-                 * 
-                 * 3.1.  JPEG header
-                   Each packet contains a special JPEG header which immediately follows
-                   the RTP header.  The first 8 bytes of this header, called the "main
-                   JPEG header", are as follows:
+                foreach (Rtp.RtpPacket packet in Packets) ProcessPacket(packet, allowLegacyPackets, useRfcQuantizer);
 
-                    0                   1                   2                   3
-                    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-                   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                   | Type-specific |              Fragment Offset                  |
-                   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                   |      Type     |       Q       |     Width     |     Height    |
-                   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                 * 
-                 All fields in this header except for the Fragment Offset field MUST
-                 remain the same in all packets that correspond to the same JPEG
-                 frame.
-
-                 A Restart Marker header and/or Quantization Table header may follow this header, depending on the values of the Type and Q fields.                 
-                 */
-
-                byte TypeSpecific, Type, Quality,
-                //A byte which is bit mapped, each bit indicates 16 bit coeffecients for the table .
-                PrecisionTable = 0;
-
-                uint FragmentOffset, Width, Height;
-
-                ushort RestartInterval = 0, RestartCount;
-
-                Common.MemorySegment tables = null;
-
-                //Remove buffer if previously used
-                DisposeBuffer();
-
-                m_Buffer = new System.IO.MemoryStream();
-
-                //Loop each packet
-                foreach (Rtp.RtpPacket packet in Packets)
-                {
-
-                    //Payload starts at the offset of the first PayloadOctet within the Payload segment after the sourceList or extensions.
-                    int offset = packet.Payload.Offset + packet.HeaderOctets, 
-                        padding = packet.PaddingOctets, 
-                        end = (packet.Payload.Count - padding);
-
-                    //if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
-
-                    //Decode RtpJpeg Header
-
-                    //Should verify values after first packet....
-
-                    TypeSpecific = (packet.Payload.Array[offset++]);
-
-                    FragmentOffset = Common.Binary.ReadU24(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(uint)(packet.Payload.Array[offset++] << 16 | packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
-
-                    #region RFC2435 -  The Type Field
-
-                    /*
-                     4.1.  The Type Field
-
-   The Type field defines the abbreviated table-specification and
-   additional JFIF-style parameters not defined by JPEG, since they are
-   not present in the body of the transmitted JPEG data.
-
-   Three ranges of the type field are currently defined. Types 0-63 are
-   reserved as fixed, well-known mappings to be defined by this document
-   and future revisions of this document. Types 64-127 are the same as
-   types 0-63, except that restart markers are present in the JPEG data
-   and a Restart Marker header appears immediately following the main
-   JPEG header. Types 128-255 are free to be dynamically defined by a
-   session setup protocol (which is beyond the scope of this document).
-
-   Of the first group of fixed mappings, types 0 and 1 are currently
-   defined, along with the corresponding types 64 and 65 that indicate
-   the presence of restart markers.  They correspond to an abbreviated
-   table-specification indicating the "Baseline DCT sequential" mode,
-   8-bit samples, square pixels, three components in the YUV color
-   space, standard Huffman tables as defined in [1, Annex K.3], and a
-   single interleaved scan with a scan component selector indicating
-   components 1, 2, and 3 in that order.  The Y, U, and V color planes
-   correspond to component numbers 1, 2, and 3, respectively.  Component
-   1 (i.e., the luminance plane) uses Huffman table number 0 and
-   quantization table number 0 (defined below) and components 2 and 3
-   (i.e., the chrominance planes) use Huffman table number 1 and
-   quantization table number 1 (defined below).
-
-   Type numbers 2-5 are reserved and SHOULD NOT be used.  Applications
-   based on previous versions of this document (RFC 2035) should be
-   updated to indicate the presence of restart markers with type 64 or
-   65 and the Restart Marker header.
-
-   The two RTP/JPEG types currently defined are described below:
-
-                            horizontal   vertical   Quantization
-           types  component samp. fact. samp. fact. table number
-         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-         |       |  1 (Y)  |     2     |     1     |     0     |
-         | 0, 64 |  2 (U)  |     1     |     1     |     1     |
-         |       |  3 (V)  |     1     |     1     |     1     |
-         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-         |       |  1 (Y)  |     2     |     2     |     0     |
-         | 1, 65 |  2 (U)  |     1     |     1     |     1     |
-         |       |  3 (V)  |     1     |     1     |     1     |
-         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-   These sampling factors indicate that the chrominance components of
-   type 0 video is downsampled horizontally by 2 (often called 4:2:2)
-   while the chrominance components of type 1 video are downsampled both
-   horizontally and vertically by 2 (often called 4:2:0).
-
-   Types 0 and 1 can be used to carry both progressively scanned and
-   interlaced image data.  This is encoded using the Type-specific field
-   in the main JPEG header.  The following values are defined:
-
-      0 : Image is progressively scanned.  On a computer monitor, it can
-          be displayed as-is at the specified width and height.
-
-      1 : Image is an odd field of an interlaced video signal.  The
-          height specified in the main JPEG header is half of the height
-          of the entire displayed image.  This field should be de-
-          interlaced with the even field following it such that lines
-          from each of the images alternate.  Corresponding lines from
-          the even field should appear just above those same lines from
-          the odd field.
-
-      2 : Image is an even field of an interlaced video signal.
-
-      3 : Image is a single field from an interlaced video signal, but
-          it should be displayed full frame as if it were received as
-          both the odd & even fields of the frame.  On a computer
-          monitor, each line in the image should be displayed twice,
-          doubling the height of the image.
-                     */
-
-                    #endregion
-
-                    Type = (packet.Payload.Array[offset++]);
-
-                    //Check for a RtpJpeg Type of less than 5 used in RFC2035 for which RFC2435 is the errata
-                    if (false == allowLegacyPackets && 
-                        Type >= 2 && Type <= 5)
-                    {
-                        //Should allow for 2035 decoding seperately
-                        throw new InvalidOperationException("Type numbers 2-5 are reserved and SHOULD NOT be used.  Applications based on RFC 2035 should be updated to indicate the presence of restart markers with type 64 or 65 and the Restart Marker header.");
-                    }
-
-                    Quality = packet.Payload.Array[offset++];
-
-                    if (Quality == 0) throw new InvalidOperationException("Quality == 0 is reserved.");
-
-                    //Should round?
-
-                    //Should use 256 ..with 8 modulo? 227x149 is a good example and is in the jpeg reference
-
-                    Width = (ushort)(packet.Payload.Array[offset++] * 8);// in 8 pixel multiples
-
-                    //0 values are not specified in the rfc
-                    if (Width == 0) Width = MaxWidth;
-
-                    Height = (ushort)(packet.Payload.Array[offset++] * 8);// in 8 pixel multiples
-
-                    //0 values are not specified in the rfc
-                    if (Height == 0) Height = MaxHeight;
-
-                    //It is worth noting you can send higher resolution pictures may be sent and these values will simply be ignored in such cases or the receiver will have to know to use a 
-                    //divisor other than 8 to obtain the values when decoding
-
-
-                    /*
-                     3.1.3.  Type: 8 bits
-
-                       The type field specifies the information that would otherwise be
-                       present in a JPEG abbreviated table-specification as well as the
-                       additional JFIF-style parameters not defined by JPEG.  Types 0-63 are
-                       reserved as fixed, well-known mappings to be defined by this document
-                       and future revisions of this document.  Types 64-127 are the same as
-                       types 0-63, except that restart markers are present in the JPEG data
-                       and a Restart Marker header appears immediately following the main
-                       JPEG header.  Types 128-255 are free to be dynamically defined by a
-                       session setup protocol (which is beyond the scope of this document).
-                     */
-                    //Restart Interval 64 - 127
-                    if (Type > 63 && Type < 128) //Might not need to check Type < 128 but done because of the above statement
-                    {
-                        /*
-                           This header MUST be present immediately after the main JPEG header
-                           when using types 64-127.  It provides the additional information
-                           required to properly decode a data stream containing restart markers.
-
-                            0                   1                   2                   3
-                            0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-                           +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                           |       Restart Interval        |F|L|       Restart Count       |
-                           +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                         */
-                        RestartInterval = Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian);//(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
-
-                        //Discard first and last bits...
-                        RestartCount = (ushort)(Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian) & 0x3FFF); //((packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]) & 0x3fff);
-                    }
-
-                    // A Q value of 255 denotes that the  quantization table mapping is dynamic and can change on every frame.
-                    // Decoders MUST NOT depend on any previous version of the tables, and need to reload these tables on every frame.
-
-                    //I check for the buffer position to be 0 because on large images which exceed the size allowed FragmentOffset wraps.
-                    //Due to my 'updates' [which will soon be seperated from the RFC2435 implementation into another e.g. a new RFC or seperate class.]
-                    //One cannot use the TypeSpecific field because it's not valid and I have also allowed for TypeSpecific to be set from the StartOfFrame marker to allow:
-                        //1) Correct component numbering when component numbers do not start at 0 or use non incremental indexes.
-                        //2) Allow for the SubSampling to be indicated in that same field when not 1x1
-                        // 2a) For CMYK or RGB one would also need to provide additional data such as Huffman tables and count (the same for Quantization information)
-                    //Could keep TotalFragmentOffset rather than local to not check the buffer position
-                    if (FragmentOffset == 0 && m_Buffer.Position == 0)
-                    {
-
-                        //RFC2435 http://tools.ietf.org/search/rfc2435#section-3.1.8
-                        //3.1.8.  Quantization Table header
-                        /*
-                         This header MUST be present after the main JPEG header (and after the
-                            Restart Marker header, if present) when using Q values 128-255.  It
-                            provides a way to specify the quantization tables associated with
-                            this Q value in-band.
-                         */
-                        if (Quality == 0) throw new InvalidOperationException("(Q)uality = 0 is Reserved.");
-                        else if (Quality >= (allowLegacyPackets ? 100 : 128)) //RFC2035 uses 0->100 where RFC2435 uses 0 ->127 but values 100 - 127 are not specified in the algorithm provided and should possiblly use the alternate quantization tables
-                        {
-
-                            /* http://tools.ietf.org/search/rfc2435#section-3.1.8
-                             * Quantization Table Header
-                             * -------------------------
-                             0                   1                   2                   3
-                             0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                            |      MBZ      |   Precision   |             Length            |
-                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                            |                    Quantization Table Data                    |
-                            |                              ...                              |
-                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                             */
-
-                            //This can be used to determine incorrectly parsing this data for a RFC2035 packet which does not include a table when the quality is >= 100                            
-                            if ((packet.Payload.Array[offset]) != 0)
-                            {
-                                //Sometimes helpful in determining this...
-                                //useRfcQuantizer = Quality > 100;
-
-                                //offset not moved into what would be the payload
-
-                                //create default tables.
-                                tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer)); //clamp, maxQ, psycovisual
-                            }
-                            else
-                            {
-                                //MBZ was just read and is 0
-                                ++offset;
-
-                                //Read the PrecisionTable (notes below)
-                                PrecisionTable = (packet.Payload.Array[offset++]);
-
-                                #region RFC2435 Length Field
-
-                                /*
-                                 
-                                    The Length field is set to the length in bytes of the quantization
-                                    table data to follow.  The Length field MAY be set to zero to
-                                    indicate that no quantization table data is included in this frame.
-                                    See section 4.2 for more information.  If the Length field in a
-                                    received packet is larger than the remaining number of bytes, the
-                                    packet MUST be discarded.
-
-                                    When table data is included, the number of tables present depends on
-                                    the JPEG type field.  For example, type 0 uses two tables (one for
-                                    the luminance component and one shared by the chrominance
-                                    components).  Each table is an array of 64 values given in zig-zag
-                                    order, identical to the format used in a JFIF DQT marker segment.
-
-                             * PrecisionTable *
-                             
-                                    For each quantization table present, a bit in the Precision field
-                                    specifies the size of the coefficients in that table.  If the bit is
-                                    zero, the coefficients are 8 bits yielding a table length of 64
-                                    bytes.  If the bit is one, the coefficients are 16 bits for a table
-                                    length of 128 bytes.  For 16 bit tables, the coefficients are
-                                    presented in network byte order.  The rightmost bit in the Precision
-                                    field (bit 15 in the diagram above) corresponds to the first table
-                                    and each additional table uses the next bit to the left.  Bits beyond
-                                    those corresponding to the tables needed by the type in use MUST be
-                                    ignored.
-                                 
-                                 */
-
-                                #endregion
-
-                                //Length of all tables
-                                ushort Length = Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
-
-                                //If there is Table Data Read it from the payload, Length should never be larger than 128 * tableCount
-                                if (Length == 0 && Quality == byte.MaxValue/* && false == allowQualityLengthException*/) throw new InvalidOperationException("RtpPackets MUST NOT contain Q = 255 and Length = 0.");
-                                else if (Length == 0 || Length > end - offset)
-                                {
-                                    //If the indicated length is greater than that of the packet taking into account the offset and padding
-                                    //Or
-                                    //The length is 0
-
-                                    //Use default tables
-                                    tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer));
-
-                                    continue; // The packet must be discarded
-                                }                                
-
-                                //Copy the tables present
-                                tables = new Common.MemorySegment(packet.Payload.Array, offset, (int)Length);
-
-                                offset += (int)Length;
-                            }
-                        }
-                        else // Create them from the given Quality parameter
-                        {
-                            tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer));
-                        }
-
-                        //Potentially make instance level properties for the tables so they can be accessed again easily.
-
-                        //Write the JFIF Header after reading or generating the QTables
-                        byte[] header = CreateJPEGHeaders(TypeSpecific, Type, Width, Height, tables, PrecisionTable, RestartInterval);
-                        m_Buffer.Write(header, 0, header.Length);
-
-                        //Dispose tables, no longer needed.
-                        tables.Dispose();
-                        tables = null;
-                    }
-
-                    //Write the Payload data from the offset to the count in the payload minus the offset + any padding, preventing values less than 0
-                    m_Buffer.Write(packet.Payload.Array, offset, Common.Binary.Max(0, (packet.Payload.Count - padding) - offset));
-                }
-
-
-                //Check for EOI Marker and write if not found
-                if (m_Buffer.Position == m_Buffer.Length)
-                {
-                    //Backup one byte
-                    m_Buffer.Seek(-1, System.IO.SeekOrigin.Current);
-
-                    //Check for the EOI Marker and if not found
-                    if (m_Buffer.ReadByte() != Media.Codecs.Image.Jpeg.Markers.EndOfInformation)
-                    {
-                        //Write it
-                        m_Buffer.WriteByte(Media.Codecs.Image.Jpeg.Markers.Prefix);
-                        m_Buffer.WriteByte(Media.Codecs.Image.Jpeg.Markers.EndOfInformation);
-                    }
-                }                
+                base.PrepareBuffer();
             }
 
             /// <summary>

@@ -142,6 +142,9 @@ namespace Media.Common.Extensions.IPAddress
         {
             if (ipAddress == null) return false;
 
+            //Todo, optomize if called many times.
+            //byte[] addressBytes;
+
             switch (ipAddress.AddressFamily)
             {
                 case System.Net.Sockets.AddressFamily.InterNetwork:
@@ -161,10 +164,12 @@ namespace Media.Common.Extensions.IPAddress
                         //Check for a ipv6 multicast address
                         if (ipAddress.IsIPv6Multicast) return true;
 
+                        //could use out overload and check in place or pass out to MapToIpv4...
+
                         //Check if mapped to v6 from v4 and unmap
-                        if (ipAddress.IsIPv4MappedToIPv6)
+                        if(IPAddressExtensions.IsIPv4MappedToIPv6(ipAddress)) //(ipAddress.IsIPv4MappedToIPv6)
                         {
-                            ipAddress = ipAddress.MapToIPv4();
+                            ipAddress = IPAddressExtensions.MapToIPv4(ipAddress); //ipAddress.MapToIPv4();
 
                             //handle as v4
                             goto case System.Net.Sockets.AddressFamily.InterNetwork;
@@ -174,6 +179,72 @@ namespace Media.Common.Extensions.IPAddress
                     }
                 default: return false;
             }
+        }
+
+        //Only provided because implementation is potentilly missing, these methods get a copy of the bytes and as a result are less efficient than the built in methods.
+
+        public static bool IsIPv4MappedToIPv6(this System.Net.IPAddress addr)
+        {
+            byte[] allocated; 
+            
+            return IsIPv4MappedToIPv6(addr, out allocated);
+        }
+
+        internal static bool IsIPv4MappedToIPv6(this System.Net.IPAddress addr, out byte[] addrBytes)
+        {
+            addrBytes = null;
+
+            //This is only present because it's not in all version of the framework.
+            //If the compilation assumes it's present and it's not then this could be problematic.
+            //To avoid that just duplicate the logic.
+            if (addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) return false;
+
+            //Makes a copy of the bytes contained in the address
+            //The only way to avoid this would be to derive from IPAddress and replicate everything.
+
+            //Can't use Address since it only works for v4 addresses
+
+            //80 bits, 16 bits, 32 bits
+            addrBytes = addr.GetAddressBytes();
+
+            //First 32 bits must be 0 when mapped.
+            if (Common.Binary.ReadInteger(addrBytes, 0, 4, System.BitConverter.IsLittleEndian) != 0) return false;
+            
+            //0xff when mapped
+            return Common.Binary.ReadU16(addrBytes, 10, System.BitConverter.IsLittleEndian) == ushort.MaxValue;
+        }
+
+        //could give array when already have it to maximize efficiency.
+
+        //Could check for method on type at runtime and if present store the location and call with the instance via reflection...
+
+        public static System.Net.IPAddress MapToIPv4(this System.Net.IPAddress addr) 
+        {
+            if (addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) throw new System.ArgumentException("Must pass an IPv6 address to MapToIPv4");
+
+            return MapToIPv4(addr.GetAddressBytes());
+        }
+
+        internal static System.Net.IPAddress MapToIPv4(byte[] addrBytes)
+        {
+            return new System.Net.IPAddress(Common.Binary.ReadU32(addrBytes, 12, false));
+        }
+
+        public static System.Net.IPAddress MapToIPv6(this System.Net.IPAddress addr)
+        {
+            if (addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) throw new System.ArgumentException("Must pass an IPv4 address to MapToIPv6");
+
+            //ip v6 raw address
+            byte[] addressBytes = new byte[16];
+
+            //Set mapped from ipv4 bytes
+            Common.Binary.Write16(addressBytes, 10, System.BitConverter.IsLittleEndian, ushort.MaxValue);
+
+            //Set address
+            addr.GetAddressBytes().CopyTo(addressBytes, 12);
+
+            //Return the result of creating the address from the bytes.
+            return new System.Net.IPAddress(addressBytes);
         }
     }
 }
