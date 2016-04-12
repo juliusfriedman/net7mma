@@ -73,7 +73,7 @@ namespace Media.Common.Collections.Generic
     {
         #region Static
 
-        static TValue NoValue = default(TValue);
+        static TValue DefaultValue = default(TValue);
 
         #endregion
 
@@ -105,7 +105,7 @@ namespace Media.Common.Collections.Generic
         /// <param name="key"></param>
         public void Add(TKey key)
         {
-            if (false == CoreAdd(ref key, ref NoValue, null, false, true))
+            if (false == CoreAdd(ref key, ref DefaultValue, null, false, true))
             {
                 //throw new ArgumentException("The given key was already present in the dictionary");
             }
@@ -129,10 +129,11 @@ namespace Media.Common.Collections.Generic
             //    //throw new ArgumentException("The given key was already present in the dictionary");
             //}
 
-            AddRef(ref key, ref value);
+            Add(ref key, ref value);
         }
 
-        internal void AddRef(ref TKey key, ref TValue value)
+        [CLSCompliant(false)]
+        public void Add(ref TKey key, ref TValue value)
         {
             IList<TValue> Predicates;
 
@@ -154,6 +155,7 @@ namespace Media.Common.Collections.Generic
         public bool Remove(TKey key)
         {
             IEnumerable<TValue> removed;
+
             return Remove(key, out removed);
         }
 
@@ -171,10 +173,11 @@ namespace Media.Common.Collections.Generic
             //values = list;
             //return result;
 
-            return RemoveRef(ref key, out values);
+            return Remove(ref key, out values);
         }
 
-        internal bool RemoveRef(ref TKey key, out IEnumerable<TValue> values)
+        [CLSCompliant(false)]
+        public bool Remove(ref TKey key, out IEnumerable<TValue> values)
         {
             Exception any;
             
@@ -201,10 +204,11 @@ namespace Media.Common.Collections.Generic
             //bool result = Dictionary.TryGetValue(key, out values);
             //results = values;
             //return result;
-            return TryGetValueRef(ref key, out results);
+            return TryGetValue(ref key, out results);
         }
 
-        internal bool TryGetValueRef(ref TKey key, out IEnumerable<TValue> results)
+        [CLSCompliant(false)]
+        public bool TryGetValue(ref TKey key, out IEnumerable<TValue> results)
         {
             IList<TValue> values;
 
@@ -223,13 +227,13 @@ namespace Media.Common.Collections.Generic
         /// <param name="value"></param>
         /// <param name="predicates"></param>
         /// <param name="inDictionary"></param>
-        /// <param name="allocteOnly"></param>
+        /// <param name="allocateOnly"></param>
         /// <returns></returns>
-        internal bool CoreAdd(ref TKey key, ref TValue value, IList<TValue> predicates, bool inDictionary, bool allocteOnly)
+        internal bool CoreAdd(ref TKey key, ref TValue value, IList<TValue> predicates, bool inDictionary, bool allocateOnly)
         {
             //If the predicates for the key are null then create them with the given value
-            if (allocteOnly) predicates = new List<TValue>();
-            else if (predicates == null) predicates = new List<TValue>() { value };
+            if (allocateOnly) predicates = new List<TValue>();
+            else if (predicates == null) predicates = new List<TValue>() { value }; //value may be DefaultValue which maybe null
             else predicates.Add(value);//Othewise add the value to the predicates which is a reference to the key
 
             Exception any;
