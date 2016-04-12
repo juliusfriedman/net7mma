@@ -2926,6 +2926,8 @@ namespace Media.UnitTests
 
                     f = null;
 
+                    //should set start sequence number and ensure that contents are equal even when sequence wraps.
+
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization With Quant Tables)
                     f = new Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame(jpegStream, 100);
 

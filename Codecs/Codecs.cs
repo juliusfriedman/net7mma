@@ -14,6 +14,7 @@ namespace Media.Codec
 
     public sealed class Codecs
     {
+        //Pattern for registering.
         static readonly HashSet<Media.Codec.Interfaces.ICodec> m_RegisteredCodecs = new HashSet<Interfaces.ICodec>();
 
         public static IEnumerable<Media.Codec.Interfaces.ICodec> GetAllCodecs()

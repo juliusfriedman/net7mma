@@ -302,13 +302,13 @@ namespace Media.Rtp
         /// <param name="header">The existing RtpHeader</param>
         /// <param name="payload">The data contained in the payload</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtpPacket(RtpHeader header, MemorySegment payload, bool ownsHeader = true)
+        public RtpPacket(RtpHeader header, MemorySegment payload, bool shouldDispose = true)
         {
             if (header == null) throw new ArgumentNullException("header");
 
             Header = header;
 
-            ShouldDispose = m_OwnsHeader = ownsHeader;
+            ShouldDispose = m_OwnsHeader = shouldDispose;
 
             Payload = payload;
         }
