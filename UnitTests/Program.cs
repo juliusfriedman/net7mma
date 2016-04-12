@@ -2935,6 +2935,8 @@ a=appversion:1.0");
         static void TestCodec()
         {
             //Other types from Codec
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RFC2361UnitTests), TypeOfVoid);
+
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MediaBufferUnitTests), TypeOfVoid);
         }
 
@@ -2956,7 +2958,7 @@ a=appversion:1.0");
 
         static void CreateInstanceAndInvokeAllMethodsWithReturnType(Type instanceType, Type returnType, bool writeNames = true)
         {
-            Object typedInstance = Activator.CreateInstance(instanceType);
+            Object typedInstance = instanceType.IsAbstract ? null : Activator.CreateInstance(instanceType);
 
             //Write the name if desired
             if (writeNames) writeInfo("Testing Type: " + instanceType.Name);

@@ -344,12 +344,13 @@ namespace Media.Rtp
 
             PointerToLast10Bytes = new Common.MemorySegment(memory.Array, memory.Offset + RFC3550.CommonHeaderBits.Size, Binary.Clamp(memory.Count - RFC3550.CommonHeaderBits.Size, 0, 10));
         }
-        
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtpHeader(int version, bool padding, bool extension)
+        public RtpHeader(int version, bool padding, bool extension, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             First16Bits = new Media.RFC3550.CommonHeaderBits(version, padding, extension);
-            
+
             //Allocate space for the other 10 octets
             Last10Bytes = new byte[10];
 
@@ -363,8 +364,8 @@ namespace Media.Rtp
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtpHeader(int version, bool padding, bool extension, bool marker, int payloadTypeBits, int contributingSourceCount, int ssrc, int sequenceNumber, int timestamp)
-            :this(version, padding, extension)
+        public RtpHeader(int version, bool padding, bool extension, bool marker, int payloadTypeBits, int contributingSourceCount, int ssrc, int sequenceNumber, int timestamp, bool shouldDispose = true)
+            :this(version, padding, extension, shouldDispose)
         {
             //Set the marker bit
             Marker = marker;

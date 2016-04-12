@@ -940,6 +940,8 @@ namespace Media.Rtp
         /// </summary>
         internal protected void DisposeAllPackets()
         {
+            //System.Linq.ParallelEnumerable.ForAll(Packets.AsParallel(), (t) => t.Dispose());
+
             //Dispose all packets...
             foreach (RtpPacket p in Packets) p.Dispose();
         }
@@ -1025,7 +1027,7 @@ namespace Media.Rtp
             //(packet.Timestamp - packet.SequenceNumber,
                                                  //Assemble(packet, false, 0));
 
-            //Could copy the data here but would increase memory usage.
+            //Could copy the data here but would increase memory usage, should have option and should track option so removing may be able to ignore.
 
             Depacketized.Add(Depacketized.Count, packet.PayloadDataSegment);//new Common.MemorySegment(packet.Payload.Array, (packet.Payload.Offset + headerOctets), packet.Payload.Count - (headerOctets + packet.PaddingOctets)));
 
@@ -1647,14 +1649,42 @@ namespace Media.UnitTests
                 //Write out
                 //Console.WriteLine(string.Join(",", frame.Select(p => p.SequenceNumber).ToArray()));
 
-                //Verify the order
-                for (int i = 0; i < 10; ++i)
+                //Add marker packet with seq = 65535
+                frame.Add(new Media.Rtp.RtpPacket(2, false, false, Media.Common.MemorySegment.EmptyBytes)
                 {
-                    if (frame.Packets[i].SequenceNumber != i + 1) throw new Exception("Invalid order");
-                }
+                    SequenceNumber = ushort.MaxValue
+                });
+
+                //The frame MUST be missing packets.
+                if (false == frame.IsMissingPackets) throw new Exception("Frame is missing packets");
+
+                //Add marker packet with seq = 65534
+                frame.Add(new Media.Rtp.RtpPacket(2, false, false, Media.Common.MemorySegment.EmptyBytes)
+                {
+                    SequenceNumber = ushort.MaxValue - 1
+                });                
+
+                //The frame MUST be missing packets.
+                if (false == frame.IsMissingPackets) throw new Exception("Frame is missing packets");
+
+                //Add marker packet with seq = 0
+                frame.Add(new Media.Rtp.RtpPacket(2, false, false, Media.Common.MemorySegment.EmptyBytes)
+                {
+                    SequenceNumber = ushort.MinValue
+                });
 
                 //The frame cannot be missing packets.
                 if (frame.IsMissingPackets) throw new Exception("Frame is missing packets");
+
+                //Verify the order
+                for (int nextSeq = 65534, i = 0; i < 13; ++i)
+                {
+                    if (frame.Packets[i].SequenceNumber != nextSeq) throw new Exception("Invalid order");
+
+                    nextSeq = nextSeq == ushort.MaxValue ? 0 : nextSeq + 1;
+                }
+
+                
             }
         }
 
