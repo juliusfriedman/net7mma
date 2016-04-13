@@ -1472,7 +1472,7 @@ namespace Media.UnitTests
             
             if (string.Compare(mode, "\"PLAY\"") != 0) throw new Exception("mode");
 
-            testVector = @"Transport: RTP/AVP;multicast;destination=232.248.50.1;source=10.0.57.24;server_port=18888-18889;ttl=255";
+            testVector = @"Transport: RTP/AVP;multicast;destination=232.248.50.1;source=10.0.57.24;port=18888-18889;ttl=255";
 
             if (false == Media.Rtsp.RtspHeaders.TryParseTransportHeader(testVector, out ssrc, out sourceIp, out rtpServerPort, out rtcpServerPort, out rtpClientPort, out rtcpClientPort, out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast, out destinationIp, out ttl))
             {
@@ -1483,10 +1483,14 @@ namespace Media.UnitTests
 
             //Warning where as it should be client_port.
 
-            //this example uses 'port'
+            //this example uses 'port' to specify both client and server.
             if (rtpServerPort != 18888) throw new Exception("rtpClientPort");
 
             if (rtcpServerPort != 18889) throw new Exception("rtcpClientPort");
+
+            if (rtpClientPort != 18888) throw new Exception("rtpClientPort");
+
+            if (rtcpClientPort != 18889) throw new Exception("rtcpClientPort");
 
             if (sourceIp.ToString() != "10.0.57.24") throw new Exception("sourceIp");
 
