@@ -321,7 +321,7 @@ namespace Media.Sdp
         /// Parses and creates a SessionDescriptionLine from the given line
         /// </summary>
         /// <param name="line">The line from a SessionDescription</param>
-        public SessionDescriptionLine(string line, string seperator = null)
+        public SessionDescriptionLine(string line, string seperator = null, int partCount = -1)
         {
             //Trim the line (Trim Line Value)?
             line = line.Trim();
@@ -345,8 +345,13 @@ namespace Media.Sdp
             
             //a=<flag>|<name>|:<value> where value = {...,...,...;x;y;z}
 
-            m_Parts = new List<string>(line.Substring(2).Split(Common.Extensions.Object.ObjectExtensions.ToArray<string>(m_Seperator), StringSplitOptions.RemoveEmptyEntries));
-            
+            if (partCount > 0)
+                m_Parts = new List<string>(line.Substring(2).Split(Common.Extensions.Object.ObjectExtensions.ToArray<string>(m_Seperator), partCount, StringSplitOptions.RemoveEmptyEntries));
+            else
+                m_Parts = new List<string>(line.Substring(2).Split(Common.Extensions.Object.ObjectExtensions.ToArray<string>(m_Seperator), StringSplitOptions.RemoveEmptyEntries));
+
+            EnsureParts(partCount);
+
             //m_Parts = new List<string>(line.Substring(2).Split(SessionDescription.SemiColonSplit));
         }
 

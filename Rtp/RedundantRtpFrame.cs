@@ -3,7 +3,7 @@
     /// <summary>
     /// Provides support for depacketization and packetization of RFC2198 format packets.
     /// </summary>
-    public static class RFC2198
+    public static class RFC2198 // RFC6354
     {
         /// <summary>
         /// Given a packet using the redundant audio format, the expanded rtp packets are derived from the contents.
@@ -70,6 +70,8 @@
 
             int tempPayloadType, tempTimestamp, tempBlockLen;
 
+            bool marker = packet.Marker;
+
             //Start at the offset in bits of the end of header.
             if(headersContained > 0) for (int headOffset = startOffset, i = 0, bitOffset = Common.Binary.BytesToBits(ref headOffset); i < headersContained; ++i)
             {
@@ -89,7 +91,7 @@
                 Common.MemorySegment payload = new Common.MemorySegment(packet.Payload.Array, Common.Binary.BitsToBytes(ref bitOffset), tempBlockLen, shouldDispose);
 
                 //Create the header
-                Rtp.RtpHeader header = new RtpHeader(packet.Version, false, false, packet.Marker, tempPayloadType, 0, packet.SynchronizationSourceIdentifier, 
+                Rtp.RtpHeader header = new RtpHeader(packet.Version, false, false, marker, tempPayloadType, 0, packet.SynchronizationSourceIdentifier, 
                     packet.SequenceNumber, 
                     packet.Timestamp + tempTimestamp, 
                     shouldDispose);
@@ -116,7 +118,7 @@
             tempPayload = new Common.MemorySegment(packet.Payload.Array, endHeaders, remaining, shouldDispose);
 
             //Create the header
-            tempHeader = new RtpHeader(packet.Version, false, false, packet.Marker, tempPayloadType, 0, packet.SynchronizationSourceIdentifier,
+            tempHeader = new RtpHeader(packet.Version, false, false, marker, tempPayloadType, 0, packet.SynchronizationSourceIdentifier,
                 packet.SequenceNumber,
                 packet.Timestamp,
                 shouldDispose);
@@ -128,24 +130,31 @@
             yield return tempResult;
         }
 
+        //Should return an Enumerable<RtpPacket> and should ask for bytesPerPayload.
         /// <summary>
         /// Given many packets a single packet is made in accordance with RFC2198
         /// </summary>
         /// <param name="packets"></param>
         /// <returns></returns>
-        public static RtpPacket Packetize(RtpPacket[] packets)
+        public static RtpPacket Packetize(RtpPacket[] packets) //todo needs a timestamp of the packet created...
         {
-            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(packets)) return null;
-
             //Make one packet with the data of all packets
             //Must also include headers which is 4 * packets.Length + 1
 
-            int packetsLength = packets.Length;
+            int packetsLength;
+
+            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(packets, out packetsLength)) return null;
+
+            //4 byte headers are only needed if there are more than 1 packet.
+            int headersNeeded = packetsLength - 1;
+
+            //Calulcate the size of the single packet we will need.
+            int size = RtpHeader.Length + ((4 * headersNeeded) + 1);
 
             //Create the packet with the known length
-            RtpPacket result = new RtpPacket(new byte[RtpHeader.Length + 4 * packetsLength - (packetsLength * RtpHeader.Length) + 1], 0);
+            RtpPacket result = new RtpPacket(new byte[size], 0); //RtpHeader.Length + 4 * packetsLength - (packetsLength * RtpHeader.Length) + 1
 
-            int offset = 0;
+            int bitOffset = 0;
 
             int packetIndex = 0;
 
@@ -153,29 +162,53 @@
 
             RtpPacket packet;
 
+            int payloadDataOffset = (4 * headersNeeded) + 1;
+
+            int blockLen;
+
             //For all but the last packet write a full header
-            for (int e = packetsLength - 1; packetIndex < e; ++packetIndex)
+            for (int e = headersNeeded; packetIndex < e; ++packetIndex)
             {
                 packet = packets[packetIndex];
 
-                Common.Binary.WriteBitsMSB(result.Payload.Array, ref offset, (ulong)packet.PayloadType, 7);
+                //csrc Extensions and padding included...
+                blockLen = packet.Payload.Count;
 
-                Common.Binary.WriteBitsMSB(result.Payload.Array, ref offset, (ulong)packet.Timestamp, 14);
+                //Write the payloadType
+                Common.Binary.WriteBitsMSB(result.Payload.Array, ref bitOffset, (ulong)packet.PayloadType, 7);
 
-                Common.Binary.WriteBitsMSB(result.Payload.Array, ref offset, (ulong)packet.PayloadDataSegment.Count, 10);
+                //Should be offset from timestamp
+                Common.Binary.WriteBitsMSB(result.Payload.Array, ref bitOffset, (ulong)packet.Timestamp, 14);
+
+                //Write the BlockLength
+                Common.Binary.WriteBitsMSB(result.Payload.Array, ref bitOffset, (ulong)blockLen, 10);
+
+                //Copy the data
+                System.Array.Copy(packet.Payload.Array, packet.Payload.Offset, result.Payload.Array, payloadDataOffset, blockLen);
+
+                //Move the payloadDataOffset for the block of data just copied.
+                payloadDataOffset += blockLen;
 
                 //If the marker was not already found check for it
                 if (false == marker && packet.Marker) marker = true;
             }
 
-            //Write the last header
+            //Write the last header (1 byte with (F)irst bit set and PayloadType
+            
+            //Get the packet
             packet = packets[packetIndex];
 
+            //Could just write 0x80 | PayloadType at payloadStart - 1
+            //result.Payload.Array[payloadStart - 1] = (byte)(0x80 | packet.PayloadType);
+
             //Set the (F)irst bit
-            Common.Binary.WriteBitsMSB(result.Payload.Array, ref offset, (ulong)1, 1);
+            Common.Binary.WriteBitsMSB(result.Payload.Array, ref bitOffset, (ulong)1, 1);
 
             //Write the payloadType
-            Common.Binary.WriteBitsMSB(result.Payload.Array, ref offset, (ulong)packets[packetIndex].PayloadType, 7);
+            Common.Binary.WriteBitsMSB(result.Payload.Array, ref bitOffset, (ulong)packets[packetIndex].PayloadType, 7);
+
+            //Copy the data
+            System.Array.Copy(packet.Payload.Array, packet.Payload.Offset, result.Payload.Array, payloadDataOffset, packet.Payload.Count);
 
             //Set the Timestamp
             result.Timestamp = packet.Timestamp;
@@ -193,10 +226,115 @@
     }
 
     /// <summary>
-    /// Todo, should hanlde the RtpFrame API needs for the case of RFC2198 by using the logic above..
+    /// Provides an implementation of the packetization and depacketization described in <see href="https://tools.ietf.org/html/rfc2198">RFC2198</see>
     /// </summary>
     public class RedundantRtpFrame : RtpFrame
     {
+        //Would need a place to put the data for each payloadType
+        //This implies the Depacketized needs a KeyType as the Key so that it can reflect multiple payload types..
+        //This could also be handled by using methods which can take a RtpHeader and the Depacketized data and creating the packets out of the Depacketized data when needed.
 
+        //This would be used to store packets for the individual packets in the stream.
+        //JitterBuffer j = new JitterBuffer(true);
+
+        public override void Depacketize(RtpPacket packet)
+        {
+            //Get all subordinate packets in the packet
+            foreach (RtpPacket subordinate in RFC2198.GetPackets(packet, false))
+            {
+                //Todo, needs a way to construct a RtpFrame via the codec / PayloadType
+                //RtpFrame complete;
+
+                ////If the frame is complete then...
+                //if (j.Add(subordinate.PayloadType, subordinate, out complete))
+                //{
+                //    //It needs to be handled by it's own frame types logic.
+                //}
+
+                //For now just call Depacketize with the subordinate
+                    //Whoever reads the data in those depacketized packets would use the GetPackets( overload ) which keeps this efficent.
+                base.Depacketize(subordinate);
+            }
+        }
+
+    }
+
+    //Could also do something like this where the Packetize and Depacketize are left to the IRtpFrame but the profile information still contains the other relevant data.
+    public interface IRtpProfileInformation
+    {
+        //int CalulcateProfileHeaderSize();
+
+        bool HasVariableProfileHeaderSize { get; }
+
+        int MinimumHeaderSize { get; }
+
+        int MaximumHeaderSize { get; }
+    }
+
+    //Testing..
+    public static class IRtpProfileInformationExtensions
+    {
+        public static bool IsValidPacket(this IRtpProfileInformation profileInfomation, RtpPacket packet)
+        {
+            if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return false;
+
+            Common.MemorySegment packetData = packet.PayloadDataSegment;
+
+            return packetData.Count > profileInfomation.MinimumHeaderSize && packetData.Count > profileInfomation.MaximumHeaderSize;
+        }
+    }
+
+    //Not really useful except for the methods which could be static.(As shown above)
+    public class RtpProfileHeaderBase : IRtpProfileInformation
+    {
+        public virtual bool IsValidPacket(RtpPacket packet)
+        {
+            return IRtpProfileInformationExtensions.IsValidPacket(this, packet);
+        }
+
+        public virtual bool HasVariableProfileHeaderSize
+        {
+            get;
+            protected set;
+        }
+
+        public virtual int MinimumHeaderSize
+        {
+            get;
+            protected set;
+        }
+
+        public virtual int MaximumHeaderSize
+        {
+            get;
+            protected set;
+        }
+    }
+
+    /// <summary>
+    /// Each instance would only need to define a class or specify a class which adhered to the profile
+    /// </summary>
+    public sealed class ProfileHeaderInformation : IRtpProfileInformation //doesn't have to be sealed.
+    {
+        internal const bool HasVariableProfileHeaderSize = true;
+
+        public static int MinimumHeaderSize = 1;
+
+        public static int MaximumHeaderSize = 4;
+
+        bool IRtpProfileInformation.HasVariableProfileHeaderSize
+        {
+            get { return HasVariableProfileHeaderSize; }
+        }
+
+        int IRtpProfileInformation.MinimumHeaderSize
+        {
+            get { return MinimumHeaderSize; }
+        }
+
+        int IRtpProfileInformation.MaximumHeaderSize
+        {
+            get { return MaximumHeaderSize; }
+        }
     }
 }

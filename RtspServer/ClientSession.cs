@@ -910,13 +910,15 @@ namespace Media.Rtsp//.Server
             int clientRtpPort = -1, clientRtcpPort = -1, serverRtpPort = -1, serverRtcpPort = -1, localSsrc = 0, remoteSsrc = 0;
 
             //Cache this to prevent having to go to get it every time down the line
-            IPAddress sourceIp = IPAddress.Any;
+            IPAddress sourceIp = IPAddress.Any, destinationIp = sourceIp;
 
             string mode;
 
             bool unicast, multicast, interleaved, multiplexing;
 
             byte dataChannel = 0, controlChannel = 1;
+
+            int ttl;
 
             //Get the transport header
             string transportHeader = request[RtspHeaders.Transport];
@@ -926,7 +928,7 @@ namespace Media.Rtsp//.Server
                 false == (transportHeader.Contains("RTP")) ||
                 false == RtspHeaders.TryParseTransportHeader(transportHeader,
                     out localSsrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
-                    out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast))
+                    out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast, out destinationIp, out ttl))
             {
                 return CreateRtspResponse(request, RtspStatusCode.BadRequest, null, "Invalid Transport Header");
             }

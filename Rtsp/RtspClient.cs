@@ -3731,13 +3731,15 @@ namespace Media.Rtsp
                         remoteSsrc = 0;
 
                     //Cache this to prevent having to go to get it every time down the line
-                    IPAddress sourceIp = IPAddress.Any, localIp = ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address;
+                    IPAddress sourceIp = IPAddress.Any, localIp = ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, destinationIp = sourceIp;
 
                     string mode;
 
                     bool multicast = false, interleaved = m_RtpProtocol == ProtocolType.Tcp;
 
                     byte dataChannel = 0, controlChannel = 1;
+
+                    int ttl = 255;
 
                     //8? should be determine by rtcp enabled and the type of packets, rtcp 4, rtp 12
                     int minimumPacketSize = 8, maximumPacketSize = (ushort)m_Buffer.Count;
@@ -4011,7 +4013,7 @@ namespace Media.Rtsp
                         ||
                         false == RtspHeaders.TryParseTransportHeader(session.TransportHeader,
                         out remoteSsrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
-                        out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast))
+                        out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast, out destinationIp, out ttl))
                             Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Cannot setup media, Invalid Transport Header in Rtsp Response: " + session.TransportHeader);
                     }
 
@@ -4062,7 +4064,7 @@ namespace Media.Rtsp
                         if (created == null || created.IsDisposed)
                         {
                             //Create the context if required.. (Will be created with Sdp Address)
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, destinationIp);
 
                             //Set the identity to what we indicated to the server.
                             created.SynchronizationSourceIdentifier = localSsrc;
@@ -4154,13 +4156,20 @@ namespace Media.Rtsp
                                                                 //OrderBy(c=>c.ControlChannel - c.DataChannel) to get the highest, then would need to determine if at max and could wrap... e.g. getAvailableContextNumber()
                             RtpClient.TransportContext lastContext = availableContexts.LastOrDefault();
 
-                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
-                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
+                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, destinationIp);
+                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, destinationIp);
                         }
 
                         created.ContextMemory = m_RtpClient.m_Buffer;
 
                         created.Initialize(localIp, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+
+                        if (Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(destinationIp))
+                        {
+                            Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtpSocket, destinationIp, ttl);
+
+                            if(created.RtcpSocket.Handle != created.RtpSocket.Handle) Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtcpSocket, destinationIp, ttl);
+                        }
 
                         //No longer need the temporary sockets
                         

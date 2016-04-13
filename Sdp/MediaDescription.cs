@@ -229,7 +229,7 @@ namespace Media.Sdp
                 MediaType = Sdp.MediaType.unknown;
             }
 
-            var mediaPorts = SessionDescription.TrimLineValue(parts[1]).Split(SessionDescription.SlashSplit, 2);
+            var mediaPorts = SessionDescription.TrimLineValue(parts[1]).Split(SessionDescription.ForwardSlashSplit, 2);
 
             MediaPort = int.Parse(SessionDescription.TrimLineValue(mediaPorts[0]), System.Globalization.CultureInfo.InvariantCulture);
 

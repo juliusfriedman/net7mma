@@ -419,6 +419,8 @@ r=7d 1h 0 25h";
 
             Media.Sdp.Lines.SessionMediaDescriptionLine line = new Media.Sdp.Lines.SessionMediaDescriptionLine("m=audio 49230 RTP/AVP 96 97 98\r\n");
 
+            System.Diagnostics.Debug.Assert(line.PayloadTypes.Count() == md.PayloadTypes.Count(), "PayloadTypes Count doesn't match");
+
             System.Diagnostics.Debug.Assert(line.PayloadTypes.SequenceEqual(md.PayloadTypes), "Could not read the Payload List");
 
             System.Diagnostics.Debug.Assert(line.MediaType == Media.Sdp.MediaType.audio, "Unexpected MediaType");
@@ -497,6 +499,68 @@ r=7d 1h 0 25h";
                 System.Diagnostics.Debug.Assert(mediaDescription.ToString() == string.Format("m={0} {1} RTP/AVP {2}\r\n", mediaType, mediaPort, mediaFormat), "Did not output correct result");
             }
         }
+    }
+
+    public void ParseMulticastSDPUnitTest()
+    {
+        string testVector = @"v=0
+o=- 1459753417444873 1 IN IP4 10.0.57.24
+s=Session streamed by ""testMPEG4VideoStreamer""
+i=test.m4e
+t=0 0
+a=tool:LIVE555 Streaming Media v2016.04.01
+a=type:broadcast
+a=control:*
+a=source-filter: incl IN IP4 * 10.0.57.24
+a=rtcp-unicast: reflection
+a=range:npt=0-
+a=x-qt-text-nam:Session streamed by ""testMPEG4VideoStreamer""
+a=x-qt-text-inf:test.m4e
+m=video 18888 RTP/AVP 96
+c=IN IP4 232.248.50.1/255
+b=AS:500
+a=rtpmap:96 MP4V-ES/90000
+a=fmtp:96 profile-level-id=3;config=000001B003000001B509000001000000012000C8888007D05040F14103
+a=control:track1
+";
+
+        using (Media.Sdp.SessionDescription sdp = new Media.Sdp.SessionDescription(testVector))
+        {
+            System.Diagnostics.Debug.Assert(string.Compare(sdp.ToString(), testVector) == 0, "Unexpected ToString");
+
+            foreach (Media.Sdp.MediaDescription md in sdp.MediaDescriptions)
+            {
+                Media.Sdp.Lines.SessionConnectionLine cLine = new Media.Sdp.Lines.SessionConnectionLine(md.ConnectionLine);
+
+                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionAddressType, Media.Sdp.Lines.SessionConnectionLine.InConnectionToken) == 0, "Unexpected ConnectionAddressType");
+
+                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionNetworkType, Media.Sdp.Lines.SessionConnectionLine.IP4) == 0, "Unexpected ConnectionNetworkType");
+
+                //Todo
+                //IPAddress name of property is wrong.
+                System.Diagnostics.Debug.Assert(string.Compare(cLine.IPAddress, "232.248.50.1") == 0, "Unexpected IPAddress");
+
+                System.Diagnostics.Debug.Assert(Media.Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(System.Net.IPAddress.Parse(cLine.IPAddress)), "Must be a IsMulticast");
+
+                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionAddress, "232.248.50.1/255") == 0, "Unexpected ConnectionAddress");
+
+                System.Diagnostics.Debug.Assert(false == cLine.Ports.HasValue, "Unexpected Ports.HasValue");
+
+                //Must be parsed from ConnectionParts
+
+                //System.Diagnostics.Debug.Assert(cLine.Hops.HasValue, "Unexpected Hops.HasValue");
+
+                //System.Diagnostics.Debug.Assert(cLine.Hops.Value != 255, "Unexpected Hops.Value");
+
+                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionParts.First(), "232.248.50.1") == 0, "Unexpected ConnectionParts");
+
+                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionParts.Last(), "255") == 0, "Unexpected ConnectionParts");
+
+                System.Diagnostics.Debug.Assert(string.Compare(sdp.ToString(), @"c=IN IP4 232.248.50.1/255") == 0, "Unexpected cLine ToString");
+            }
+
+        }
+
     }
 
     public void CreateSessionDescriptionUnitTest()

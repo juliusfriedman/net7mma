@@ -310,6 +310,7 @@ namespace Media.Sdp
             {
                 get
                 {
+                    //ConnectionParts.Count > 0
                     return ConnectionAddress.Contains((char)Common.ASCII.ForwardSlash);
                 }
             }
@@ -330,7 +331,7 @@ namespace Media.Sdp
 
                     if (string.IsNullOrWhiteSpace(ConnectionAddress)) return Enumerable.Empty<string>();
 
-                    return m_ConnectionParts = ConnectionAddress.Split(SessionDescription.SlashSplit, 3);
+                    return m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
                 }
             }
 
@@ -344,7 +345,7 @@ namespace Media.Sdp
                 {
                     if (string.IsNullOrWhiteSpace(ConnectionAddress)) return null;
 
-                    if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.SlashSplit, 3);
+                    if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
 
                     //Should verify that the string contains a . and is not shorter/longer than x, y...
                     return m_ConnectionParts[0];
@@ -352,6 +353,8 @@ namespace Media.Sdp
             }
 
             //HasHops
+
+            //Should only be present if ConnectionAddress contains a Multicast address.
 
             /// <summary>
             /// Todo, should not be nullable.
@@ -362,7 +365,7 @@ namespace Media.Sdp
                 {
                     if (string.IsNullOrWhiteSpace(ConnectionAddress)) return null;
 
-                    if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.SlashSplit, 3);
+                    if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
 
                     if (m_ConnectionParts.Length > 2)
                     {
@@ -384,7 +387,7 @@ namespace Media.Sdp
                 {
                     if (string.IsNullOrWhiteSpace(ConnectionAddress)) return null;
 
-                    if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.SlashSplit, 3);
+                    if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
 
                     if (m_ConnectionParts.Length > 2) //Todo ensure not accidentally giving Hops... should proably be 3
                     {
@@ -1393,7 +1396,7 @@ namespace Media.Sdp
 
             //internal...
             public SessionMediaDescriptionLine(string text)
-                : base(text, SessionDescription.SpaceString)
+                : base(text, SessionDescription.SpaceString, 4)
             {
                 if (m_Type != MediaDescriptionType) throw new InvalidOperationException("Not a SessionMediaDescriptionLine line");
             }
@@ -1425,7 +1428,7 @@ namespace Media.Sdp
             #region Constructor
 
             public SessionTimeDescriptionLine()
-                : base(TimeType, SessionDescription.SpaceString)
+                : base(TimeType, SessionDescription.SpaceString, 2)
             {
 
             }
@@ -1455,14 +1458,14 @@ namespace Media.Sdp
             }
 
             public SessionTimeDescriptionLine(string[] sdpLines, ref int index)
-                : base(sdpLines, ref index, SessionDescription.SpaceString, TimeType, 4)
+                : base(sdpLines, ref index, SessionDescription.SpaceString, TimeType, 2)
             {
                 
             }
 
             //internal...
             public SessionTimeDescriptionLine(string text)
-                : base(text, SessionDescription.SpaceString)
+                : base(text, SessionDescription.SpaceString, 2) //Should provide a max split count
             {
                 if (m_Type != TimeType) throw new InvalidOperationException("Not a SessionTimeDescriptionLine line");
             }

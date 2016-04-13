@@ -42,6 +42,8 @@ using System.Threading.Tasks;
 
 namespace Media.Rtp
 {
+    //Could be moved to RtpTools.
+
     /// <summary>
     /// Will mix two rtp streams into a single stream with totally new timestamps
     /// </summary>

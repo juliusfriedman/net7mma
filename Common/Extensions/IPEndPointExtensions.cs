@@ -46,6 +46,8 @@ namespace Media.Common.Extensions.IPEndPoint
 
         public static readonly System.Net.IPEndPoint Any = new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0);
 
+        public static bool IsMulticast(this System.Net.IPEndPoint endPoint) { return Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(endPoint.Address); }
+
         public static System.Uri ToUri(this System.Net.IPEndPoint endPoint, string scheme = null)
         {
             if (endPoint == null) throw new System.ArgumentNullException();                
