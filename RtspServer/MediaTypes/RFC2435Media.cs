@@ -1795,6 +1795,9 @@ namespace Media.Rtsp.Server.MediaTypes
             //Todo
             public void ProcessPacket(Rtp.RtpPacket packet, bool rfc2035Quality = false, bool useRfcQuantizer = false) //Should give tables here and should have option to check for EOI
             {
+
+                if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
                 //Depacketize the single packet to Depacketized.
 
                 /*
@@ -1854,10 +1857,12 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 FragmentOffset = Common.Binary.ReadU24(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(uint)(packet.Payload.Array[offset++] << 16 | packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
 
-                //May not provide the correct order when sequenceNumber approaches ushort.MaxValue...
-                int packetKey = packet.Timestamp - packet.SequenceNumber;
+                //Todo, should preserve order even when FragmentOffset and Sequence Number wraps.
+                                                                                            //May not provide the correct order when sequenceNumber approaches ushort.MaxValue...
+                int packetKey = Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 0; //packet.Timestamp - packet.SequenceNumber;
 
-                packetKey += (int)FragmentOffset;
+                //If fragment offset wraps this packet will not be able to be added.
+                //packetKey += (int)FragmentOffset;
 
                 //Already contained.
                 if (Depacketized.ContainsKey(packetKey)) return;

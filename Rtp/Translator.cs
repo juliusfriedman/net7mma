@@ -42,6 +42,7 @@ using System.Threading.Tasks;
 
 namespace Media.Rtp
 {
+    //Could move to RtpTools.
     public class Translator
     {
         //Takes packets from one version and converts them to another?

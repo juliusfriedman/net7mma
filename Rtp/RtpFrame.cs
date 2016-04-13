@@ -130,6 +130,25 @@ namespace Media.Rtp
         /// </summary>
         internal readonly protected List<RtpPacket> Packets;
 
+        internal protected class PacketKey
+        {
+            internal readonly RtpPacket Key;
+
+            internal readonly IList<Common.MemorySegment> Depacketized;
+
+            public PacketKey(RtpPacket key)
+            {
+                if (Common.IDisposedExtensions.IsNullOrDisposed(key)) throw new ArgumentNullException();
+
+                Key = key;
+
+                Depacketized = new System.Collections.Generic.List<Common.MemorySegment>();
+            }
+        }
+
+        //todo, replace Packets with PacketList...
+        internal readonly protected List<PacketKey> PacketList;
+
         //Could use List if Add is replaced with Insert and index given by something like => Abs(Clamp(n, 0, Min(n - count) + Max(n - count))) or IndexOf(n)
         /// <summary>
         /// After a single RtpPacket is <see cref="Depacketize">depacketized</see> it will be placed into this list with the appropriate index.
@@ -1002,6 +1021,21 @@ namespace Media.Rtp
             //May allow incomplete packets.
             if (false == allowIncomplete && false == IsComplete) return;
 
+            //This should proably provide the index to Depacketize otherwise the order cannot be preserved.
+
+            //for (int i = 0, e = Count; i < e; ++i)
+            //{
+            //    RtpPacket p = Packets[i];
+
+            //    Depacketize(p, i);
+            //}
+
+            //If so then Depacketized should be a list just like Packets so their index numbers match.
+
+            //The other way would be to make Packets a list of class PacketKey { RtpPacket packet; List<MemorySegment> Depacketized;  }
+
+            //When depacketizing the list KeyItem would implicitly be in the same order as the packets.
+
             //Iterate all packets contained and depacketize
             foreach (RtpPacket packet in Packets) Depacketize(packet);
 
@@ -1220,6 +1254,8 @@ namespace Media.Rtp
 
     //    //Extension or static?
     //    //CreateMemoryStream() //from GetDepacketizedSegments
+
+    //Should also implement or have a getter for the RtpProfile to which it corresponds...
 
     //}
 

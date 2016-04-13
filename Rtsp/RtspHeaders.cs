@@ -399,6 +399,10 @@ namespace Media.Rtsp
                                     Media.Common.TaggedExceptionExtensions.RaiseTaggedException(ttl, "See Tag. Cannot Parse a ttl datum as given.");
                                 }
 
+                                //Could just clamp.
+                                if (ttl < byte.MinValue || ttl > byte.MinValue) 
+                                    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(ttl, "See Tag. Invalid ttl datum as given.");
+
                                 continue;
                             }
                         case "ssrc":

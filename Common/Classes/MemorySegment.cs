@@ -34,7 +34,8 @@ namespace Media.Common
 
         public byte[] Array { get { return m_Array; } /* protected set { m_Array = value; } */ }
 
-        public MemorySegment(byte[] reference, bool shouldDispose = true)  : base()
+        public MemorySegment(byte[] reference, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             if (reference == null) throw new ArgumentNullException("reference");
             
@@ -43,8 +44,6 @@ namespace Media.Common
             m_Length = m_Array.LongLength;
 
             //ByteOrder = Binary.SystemEndian;
-
-            ShouldDispose = shouldDispose;
         }
 
         public MemorySegment(byte[] reference, int offset, bool shouldDispose = true)

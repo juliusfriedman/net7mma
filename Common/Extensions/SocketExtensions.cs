@@ -328,6 +328,14 @@ namespace Media.Common.Extensions.Socket
 
                     //socket.MulticastLoopback = false;
 
+                    ////Try to specify the multicast adapter to use.
+                    //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP,
+                    //        System.Net.Sockets.SocketOptionName.MulticastInterface,
+                    //        Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(socket).GetIPProperties().GetIPv4Properties().Index);
+
+                    //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.AddMembership,
+                    //                        new System.Net.Sockets.MulticastOption(toJoin, System.Net.IPAddress.NetworkToHostOrder(Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(socket).GetIPProperties().GetIPv4Properties().Index)));
+
                     socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
 
                     break;
@@ -336,6 +344,14 @@ namespace Media.Common.Extensions.Socket
                                             new System.Net.Sockets.IPv6MulticastOption(toJoin));
                     
                     //socket.MulticastLoopback = false;
+
+                    ////Try to specify the multicast adapter to use.
+                    //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6,
+                    //        System.Net.Sockets.SocketOptionName.MulticastInterface,
+                    //        Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(socket).GetIPProperties().GetIPv6Properties().Index);
+
+                    //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.AddMembership,
+                    //                        new System.Net.Sockets.IPv6MulticastOption(toJoin, System.Net.IPAddress.NetworkToHostOrder(Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(socket).GetIPProperties().GetIPv6Properties().Index)));
 
                     socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
 
@@ -358,15 +374,21 @@ namespace Media.Common.Extensions.Socket
             {
                 case System.Net.Sockets.AddressFamily.InterNetwork:
                     {
-                        socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, 
-                            System.Net.Sockets.SocketOptionName.MulticastInterface,
-                            interfaceIndex);
+                        //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastInterface, interfaceIndex);
+
+                        socket.SetSocketOption(
+                            System.Net.Sockets.SocketOptionLevel.IP,
+                            System.Net.Sockets.SocketOptionName.AddMembership,
+                            new System.Net.Sockets.MulticastOption(toJoin, interfaceIndex));
 
                         socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
 
                         return;
                     }
                 case System.Net.Sockets.AddressFamily.InterNetworkV6:
+
+                    //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.MulticastInterface, interfaceIndex);
+
                     socket.SetSocketOption(
                         System.Net.Sockets.SocketOptionLevel.IPv6,
                         System.Net.Sockets.SocketOptionName.AddMembership,

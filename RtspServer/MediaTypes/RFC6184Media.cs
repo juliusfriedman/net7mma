@@ -383,9 +383,11 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="isIdr"></param>
             internal protected virtual void ProcessPacket(Rtp.RtpPacket packet, bool ignoreForbiddenZeroBit = true, bool fullStartCodes = false)
             {
+                //Prevent NRE
+                if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-                //Ensure the no matter when the packet is processed that it will have the same order.
-                int packetKey = packet.Timestamp - packet.SequenceNumber;
+                                                                                         //Ensure the no matter when the packet is processed that it will have the same order.
+                int packetKey = Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 0; //packet.Timestamp - packet.SequenceNumber;
 
                 //Already contained.
                 if (Depacketized.ContainsKey(packetKey)) return;
