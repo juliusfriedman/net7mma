@@ -4024,7 +4024,10 @@ namespace Media.Rtsp
                     //Care should be taken that the SDP is not directing us to connect to some unknown resource....
 
                     //Just incase the source datum was not given
-                    if (sourceIp == IPAddress.Any) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
+                    if (sourceIp.Equals(IPAddress.Any)) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
+
+                    //If multicast was given check the destination address and if was not specified use the sourceIp.
+                    if (multicast && destinationIp.Equals(IPAddress.Any)) destinationIp = sourceIp;
 
                     //Create the context (determine if the session rangeLine may also be given here, if it gets parsed once it doesn't need to be parsed again)
                     RtpClient.TransportContext created = null;
@@ -4063,8 +4066,10 @@ namespace Media.Rtsp
                         //If a context was not already created
                         if (created == null || created.IsDisposed)
                         {
+                            //Todo, should still be sourceIp...
+
                             //Create the context if required.. (Will be created with Sdp Address)
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, destinationIp);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
 
                             //Set the identity to what we indicated to the server.
                             created.SynchronizationSourceIdentifier = localSsrc;
@@ -4091,7 +4096,7 @@ namespace Media.Rtsp
                         if (IPAddress.Equals(sourceIp, ((IPEndPoint)m_RemoteRtsp).Address) ||
                             Media.Common.Extensions.IPAddress.IPAddressExtensions.IsOnIntranet(sourceIp))
                         {
-                            //Create from the existing socket
+                            //Create from the existing socket (may need reuse port)
                             created.Initialize(m_RtspSocket, m_RtspSocket);
 
                             //Test using a new socket
@@ -4102,8 +4107,18 @@ namespace Media.Rtsp
                         }
                         else
                         {
+                            //maybe multicast...
+
                             //Create a new socket's
-                            created.Initialize(Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(sourceIp.AddressFamily), sourceIp, serverRtpPort); //Might have to come from source string?
+                            created.Initialize( multicast ?  Media.Common.Extensions.Socket.SocketExtensions.GetFirstMulticastIPAddress(sourceIp.AddressFamily) : Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(sourceIp.AddressFamily), 
+                                sourceIp, serverRtpPort); //Might have to come from source string?
+
+                            if (multicast)
+                            {
+                                Media.Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtpSocket, destinationIp, ttl);
+
+                                if (created.RtcpSocket.Handle != created.RtpSocket.Handle) Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtcpSocket, destinationIp, ttl);
+                            }
 
                             //When the RtspClient is disposed that socket will also be disposed.
                         }
@@ -4156,15 +4171,23 @@ namespace Media.Rtsp
                                                                 //OrderBy(c=>c.ControlChannel - c.DataChannel) to get the highest, then would need to determine if at max and could wrap... e.g. getAvailableContextNumber()
                             RtpClient.TransportContext lastContext = availableContexts.LastOrDefault();
 
-                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, destinationIp);
-                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, destinationIp);
+                            //Todo, destinationIp should still be sourceIp.
+
+                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
+                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
                         }
 
                         created.ContextMemory = m_RtpClient.m_Buffer;
 
                         created.Initialize(localIp, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
 
-                        if (Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(destinationIp))
+                        //Todo, if the desitionIp is not equal to the sourceIp must also be handled (addressFamily also)
+
+                        if (multicast
+                            &&
+                            // && false == sourceIp.Equals(destinationIp) 
+                            //&& 
+                            Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(destinationIp))
                         {
                             Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtpSocket, destinationIp, ttl);
 

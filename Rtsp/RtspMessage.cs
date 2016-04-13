@@ -1436,6 +1436,65 @@ namespace Media.UnitTests
            
         }
 
+        //Should be in RtspHeaders..
+        public void TestParseTransportHeader()
+        {
+
+            string testVector = @"Transport: RTP/AVP/UDP;unicast;client_port=10000-10001;mode=""PLAY""";
+
+            //Transport: RTP/AVP;multicast;destination=232.248.50.1;source=10.0.57.24;port=18888-18889;ttl=255
+
+            int ssrc, ttl,
+                rtpServerPort, rtcpServerPort,
+                rtpClientPort, rtcpClientPort;
+
+            bool unicast, multicast,
+                interleaved;
+
+            byte dataChannel, controlChannel;
+
+            System.Net.IPAddress sourceIp, destinationIp;
+
+            //never give protocol, some weird client or server may have this wonderful datum at random places.
+            string protocol,
+                mode;
+
+            if (false == Media.Rtsp.RtspHeaders.TryParseTransportHeader(testVector, out ssrc, out sourceIp, out rtpServerPort, out rtcpServerPort, out rtpClientPort, out rtcpClientPort, out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast, out destinationIp, out ttl))
+            {
+                throw new Exception("Unexpected TryParseTransportHeader result");
+            }
+
+            if (false == unicast) throw new Exception("unicast");
+
+            if (rtpClientPort != 10000) throw new Exception("rtpClientPort");
+
+            if (rtcpClientPort != 10001) throw new Exception("rtcpClientPort");
+            
+            if (string.Compare(mode, "\"PLAY\"") != 0) throw new Exception("mode");
+
+            testVector = @"Transport: RTP/AVP;multicast;destination=232.248.50.1;source=10.0.57.24;server_port=18888-18889;ttl=255";
+
+            if (false == Media.Rtsp.RtspHeaders.TryParseTransportHeader(testVector, out ssrc, out sourceIp, out rtpServerPort, out rtcpServerPort, out rtpClientPort, out rtcpClientPort, out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast, out destinationIp, out ttl))
+            {
+                throw new Exception("Unexpected TryParseTransportHeader result");
+            }
+
+            if (false == multicast) throw new Exception("multicast");
+
+            //Warning where as it should be client_port.
+
+            //this example uses 'port'
+            if (rtpServerPort != 18888) throw new Exception("rtpClientPort");
+
+            if (rtcpServerPort != 18889) throw new Exception("rtcpClientPort");
+
+            if (sourceIp.ToString() != "10.0.57.24") throw new Exception("sourceIp");
+
+            if (destinationIp.ToString() != "232.248.50.1") throw new Exception("sourceIp");
+
+            if (ttl != 255) throw new Exception("ttl");
+        }
+
         public void TestCompleteFrom()
         {
             using (Media.Rtsp.RtspMessage message = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response))

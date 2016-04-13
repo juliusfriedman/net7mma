@@ -292,6 +292,8 @@ namespace Media.Rtsp
 
             //Should also given tokens for profile e.g. SAVP or RAW etc.
 
+            //it should always be the first value...
+
             ssrc = ttl = 0;
             source = destination = System.Net.IPAddress.Any;
             serverRtpPort = serverRtcpPort = clientRtpPort = clientRtcpPort = 0;
@@ -365,27 +367,37 @@ namespace Media.Rtsp
                         //The header may indicate the the destination address is different from that of the connection's address
                         case "destination":
                             {
-                                //string destinationPart = subParts[1];
+                                string destinationPart = subParts[1];
 
-                                ////Ensure not empty
-                                //if (string.IsNullOrWhiteSpace(destinationPart)) continue;
+                                //Ensure not empty
+                                if (string.IsNullOrWhiteSpace(destinationPart)) continue;
 
-                                ////Attempt to parse the token as an IPAddress
-                                //if (false == System.Net.IPAddress.TryParse(destinationPart, out destination))
-                                //{
-                                //    //new Uri(sourcePart).HostNameType == UriHostNameType.Dns
+                                //Attempt to parse the token as an IPAddress
+                                if (false == System.Net.IPAddress.TryParse(destinationPart, out destination))
+                                {
+                                    //new Uri(sourcePart).HostNameType == UriHostNameType.Dns
 
-                                //    //Get the host entry
-                                //    //var hostEntry = System.Net.Dns.GetHostEntry(sourcePart);
+                                    //Get the host entry
+                                    //var hostEntry = System.Net.Dns.GetHostEntry(sourcePart);
 
-                                //    //Should either return the hostEntry or require an address family.
+                                    //Should either return the hostEntry or require an address family.
 
-                                //    //hostEntry.AddressList.FirstOrDefault(e=>e.AddressFamily == connectionAddressType...)
+                                    //hostEntry.AddressList.FirstOrDefault(e=>e.AddressFamily == connectionAddressType...)
 
-                                //    //Could work around by always providing the v6 address if possible...
+                                    //Could work around by always providing the v6 address if possible...
 
-                                //    destination = System.Net.Dns.GetHostEntry(destinationPart).AddressList.First();
-                                //}
+                                    //Todo, this can fail and may take a long time.
+                                    destination = System.Net.Dns.GetHostEntry(destinationPart).AddressList.First();
+                                }
+
+                                continue;
+                            }
+                        case "ttl":
+                            {
+                                if (false == int.TryParse(subParts[1].Trim(), out ttl))
+                                {
+                                    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(ttl, "See Tag. Cannot Parse a ttl datum as given.");
+                                }
 
                                 continue;
                             }
@@ -400,6 +412,23 @@ namespace Media.Rtsp
                                 }
 
                                 continue;
+                            }
+                        //This parameter provides the RTP/RTCP port pair for a multicastsession. It is specified as a range, e.g., port=3456-3457.
+                        case "port":
+                            {
+                                string[] multicastPorts = subParts[1].Split(HyphenSign);
+
+                                int multicastPortsLength = multicastPorts.Length;
+
+                                if (multicastPortsLength > 0)
+                                {
+                                    clientRtpPort = serverRtpPort = int.Parse(multicastPorts[0], System.Globalization.CultureInfo.InvariantCulture);
+                                    if (multicastPortsLength > 1) clientRtcpPort = serverRtcpPort = int.Parse(multicastPorts[1], System.Globalization.CultureInfo.InvariantCulture);
+                                    else clientRtcpPort = clientRtpPort; //multiplexing
+                                }
+
+                                continue;
+          
                             }
                         case "client_port":
                             {
