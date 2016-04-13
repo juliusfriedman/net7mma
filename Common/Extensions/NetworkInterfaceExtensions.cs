@@ -143,7 +143,7 @@ namespace Media.Common.Extensions.NetworkInterface
             //Filter interfaces which are not usable.
             if (networkInterface == null || 
                 false == networkInterface.SupportsMulticast ||
-                networkInterface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up)// The interface is not up
+                networkInterface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up)// The interface is not up (should probably ignore...?)
             {
                 return System.Net.IPAddress.None;
             }
@@ -161,7 +161,7 @@ namespace Media.Common.Extensions.NetworkInterface
                 if (multicastIpInfo.Address.AddressFamily == addressFamily) return multicastIpInfo.Address;
             }
 
-            //Indicate no multivast IPAddress was found
+            //Indicate no multicast IPAddress was found
             return System.Net.IPAddress.None;
         }
 

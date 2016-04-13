@@ -232,6 +232,15 @@ namespace Media.Common.Extensions.Socket
 
         public static System.Net.IPAddress GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily addressFamily)
         {
+            System.Net.NetworkInformation.NetworkInterface networkInterface;
+
+            return GetFirstUnicastIPAddress(addressFamily, out networkInterface);
+        }
+
+        public static System.Net.IPAddress GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily addressFamily, out System.Net.NetworkInformation.NetworkInterface networkInterface)
+        {
+            networkInterface = null;
+
             //Check for a supported AddressFamily
             switch (addressFamily)
             {
@@ -242,13 +251,57 @@ namespace Media.Common.Extensions.Socket
                         if (false == System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable()) return addressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? System.Net.IPAddress.Loopback : System.Net.IPAddress.IPv6Loopback;
 
                         //Iterate for each Network Interface available.
-                        foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                        foreach (System.Net.NetworkInformation.NetworkInterface foundInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
                         {
                             //Get the first GetFirstUnicastIPAddress bound to the networkInterface
-                            System.Net.IPAddress result = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetFirstUnicastIPAddress(networkInterface, addressFamily);
+                            System.Net.IPAddress result = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetFirstUnicastIPAddress(foundInterface, addressFamily);
 
                             //If the result is not null and the result is not System.Net.IPAddress.None
-                            if (result != null && false == Equals(result, System.Net.IPAddress.None)) return result;
+                            if (result != null && false == Equals(result, System.Net.IPAddress.None))
+                            {
+                                networkInterface = foundInterface;
+
+                                return result;
+                            }
+                        }
+
+                        //Could not find an IP.
+                        return System.Net.IPAddress.None;
+                    }
+                default: throw new System.NotSupportedException("Only InterNetwork or InterNetworkV6 is supported.");
+            }
+        }
+
+        public static System.Net.IPAddress GetFirstMulticastIPAddress(System.Net.Sockets.AddressFamily addressFamily, out System.Net.NetworkInformation.NetworkInterface networkInterface)
+        {
+            networkInterface = null;
+
+            //Check for a supported AddressFamily
+            switch (addressFamily)
+            {
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    {
+                        //If there is no network available use the Loopback adapter.
+                        if (false == System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable()) return addressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? System.Net.IPAddress.Loopback : System.Net.IPAddress.IPv6Loopback;
+
+                        //Iterate for each Network Interface available.
+                        foreach (System.Net.NetworkInformation.NetworkInterface foundInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                        {
+                            //Get the first GetFirstMulticastIPAddress bound to the Interface
+
+                            //Notes that you may have to make a Socket.IO Control to determine what network Interface to use in some cases or bind on IPAddress.Any / IPAddress.V6Any
+                            //https://github.com/conferencexp/conferencexp/blob/master/MSR.LST.Net.Rtp/NetworkingBasics/utility.cs
+
+                            System.Net.IPAddress result = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetFirstMulticastIPAddress(foundInterface, addressFamily);
+
+                            //If the result is not null and the result is not System.Net.IPAddress.None
+                            if (result != null && false == Equals(result, System.Net.IPAddress.None))
+                            {
+                                networkInterface = foundInterface;
+
+                                return result;
+                            }
                         }
 
                         //Could not find an IP.
@@ -260,34 +313,9 @@ namespace Media.Common.Extensions.Socket
 
         public static System.Net.IPAddress GetFirstMulticastIPAddress(System.Net.Sockets.AddressFamily addressFamily)
         {
-            //Check for a supported AddressFamily
-            switch (addressFamily)
-            {
-                case System.Net.Sockets.AddressFamily.InterNetwork:
-                case System.Net.Sockets.AddressFamily.InterNetworkV6:
-                    {
-                        //If there is no network available use the Loopback adapter.
-                        if (false == System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable()) return addressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? System.Net.IPAddress.Loopback : System.Net.IPAddress.IPv6Loopback;
+            System.Net.NetworkInformation.NetworkInterface networkInterface;
 
-                        //Iterate for each Network Interface available.
-                        foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
-                        {
-                            //Get the first GetFirstMulticastIPAddress bound to the networkInterface
-
-                            //Notes that you may have to make a Socket.IO Control to determine what network Interface to use in some cases or bind on IPAddress.Any / IPAddress.V6Any
-                            //https://github.com/conferencexp/conferencexp/blob/master/MSR.LST.Net.Rtp/NetworkingBasics/utility.cs
-
-                            System.Net.IPAddress result = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetFirstMulticastIPAddress(networkInterface, addressFamily);
-
-                            //If the result is not null and the result is not System.Net.IPAddress.None
-                            if (result != null && false == Equals(result, System.Net.IPAddress.None)) return result;
-                        }
-
-                        //Could not find an IP.
-                        return System.Net.IPAddress.None;
-                    }
-                default: throw new System.NotSupportedException("Only InterNetwork or InterNetworkV6 is supported.");
-            }
+            return GetFirstMulticastIPAddress(addressFamily, out networkInterface);
         }
 
         public static void JoinMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toJoin, int ttl)
@@ -297,7 +325,8 @@ namespace Media.Common.Extensions.Socket
                 case System.Net.Sockets.AddressFamily.InterNetwork:
                     socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.AddMembership,
                                             new System.Net.Sockets.MulticastOption(toJoin));
-                    socket.MulticastLoopback = false;
+
+                    //socket.MulticastLoopback = false;
 
                     socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
 
@@ -305,7 +334,8 @@ namespace Media.Common.Extensions.Socket
                 case System.Net.Sockets.AddressFamily.InterNetworkV6:
                     socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.AddMembership,
                                             new System.Net.Sockets.IPv6MulticastOption(toJoin));
-                    socket.MulticastLoopback = false;
+                    
+                    //socket.MulticastLoopback = false;
 
                     socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
 
@@ -313,16 +343,37 @@ namespace Media.Common.Extensions.Socket
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <param name="toJoin"></param>
+        /// <param name="interfaceIndex">expected as given from the NetworkInterface in Host byte order. (In some cases it can return -1 or throw an exception)</param>
+        /// <param name="ttl"></param>
         public static void JoinMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toJoin, int interfaceIndex, int ttl)
         {
+            //if (interfaceIndex == -1) throw new System.InvalidOperationException();
+
             switch (toJoin.AddressFamily)
             {
-                case System.Net.Sockets.AddressFamily.InterNetwork: throw new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.OperationNotSupported);
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                    {
+                        socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, 
+                            System.Net.Sockets.SocketOptionName.MulticastInterface,
+                            interfaceIndex);
+
+                        socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
+
+                        return;
+                    }
                 case System.Net.Sockets.AddressFamily.InterNetworkV6:
                     socket.SetSocketOption(
                         System.Net.Sockets.SocketOptionLevel.IPv6,
                         System.Net.Sockets.SocketOptionName.AddMembership,
                         new System.Net.Sockets.IPv6MulticastOption(toJoin, interfaceIndex));
+
+                    socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
+
                     return;
             }
         }
@@ -334,12 +385,16 @@ namespace Media.Common.Extensions.Socket
                 case System.Net.Sockets.AddressFamily.InterNetwork:
                     socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.DropMembership,
                                             new System.Net.Sockets.MulticastOption(toDrop));
-                    socket.MulticastLoopback = false;
+
+                    //socket.MulticastLoopback = false;
+
                     return;
                 case System.Net.Sockets.AddressFamily.InterNetworkV6:
                     socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.DropMembership,
                                             new System.Net.Sockets.IPv6MulticastOption(toDrop));
-                    socket.MulticastLoopback = false;
+
+                    //socket.MulticastLoopback = false;
+
                     return;
             }
         }
@@ -348,12 +403,21 @@ namespace Media.Common.Extensions.Socket
         {
             switch (toDrop.AddressFamily)
             {
-                case System.Net.Sockets.AddressFamily.InterNetwork: throw new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.OperationNotSupported);
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                    {
+                        socket.SetSocketOption(
+                        System.Net.Sockets.SocketOptionLevel.IP,
+                        System.Net.Sockets.SocketOptionName.DropMembership,
+                        new System.Net.Sockets.MulticastOption(toDrop, interfaceIndex));
+
+                        return;
+                    }
                 case System.Net.Sockets.AddressFamily.InterNetworkV6:
                     socket.SetSocketOption(
                         System.Net.Sockets.SocketOptionLevel.IPv6,
                         System.Net.Sockets.SocketOptionName.DropMembership,
                         new System.Net.Sockets.IPv6MulticastOption(toDrop, interfaceIndex));
+
                     return;
             }
         }

@@ -355,23 +355,27 @@ namespace Media.Rtp
                 {
                     Sdp.SessionDescriptionLine cLine = mediaDescription.ConnectionLine;
 
-                    if (cLine == null)
-                    {
-                        cLine = sessionDescription.ConnectionLine;
-                    }
+                    //Try the sesion level if the media level doesn't have one
+                    if (cLine == null) cLine = sessionDescription.ConnectionLine;
 
                     //Attempt to parse the IP, if failed then throw an exception.
                     if (cLine == null
                         ||
                         false == IPAddress.TryParse(new Sdp.Lines.SessionConnectionLine(cLine).IPAddress, out remoteIp)) throw new InvalidOperationException("Cannot determine remoteIp from ConnectionLine");
-                }
+                }                
 
                 bool multiCast = Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(remoteIp);
 
                 //If no localIp was given determine based on the remoteIp
                 if (localIp == null) localIp = multiCast ? Media.Common.Extensions.Socket.SocketExtensions.GetFirstMulticastIPAddress(remoteIp.AddressFamily) : Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
 
+                //The localIp and remoteIp should be on the same network otherwise they will need to be mapped or routed.
+                //In most cases this can be mapped.
+                if (localIp.AddressFamily != remoteIp.AddressFamily) throw new InvalidOperationException("local and remote address family must match, please create an issue and supply a capture.");
+
                 //Todo, need TTL here.
+
+                //Should also probably store the network interface.
 
                 int ttl = 255;
 
@@ -1825,10 +1829,15 @@ namespace Media.Rtp
 
                 if (LeaveOpen)
                 {
+                    //Maybe should drop multicast group....
+
                     RtpSocket = RtcpSocket = null;
                 }
                 else
                 {
+
+                    //Maybe should drop multicast groups...
+
                     //For Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
                     if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle) RtcpSocket.Close();
 
