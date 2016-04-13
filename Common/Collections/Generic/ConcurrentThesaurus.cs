@@ -79,6 +79,8 @@ namespace Media.Common.Collections.Generic
 
         #region Properties
 
+        //Todo, allow the IList type to be specified or changed internally.
+
         Dictionary<TKey, IList<TValue>> Dictionary = new Dictionary<TKey, IList<TValue>>();
 
         System.Collections.ICollection Collection { get { return ((System.Collections.ICollection)Dictionary); } }
@@ -138,9 +140,17 @@ namespace Media.Common.Collections.Generic
             IList<TValue> Predicates;
 
             //Attempt to get the value
-            bool hadValue = Dictionary.TryGetValue(key, out Predicates);
+            bool hadValue = TryGetValueList(ref key, out Predicates);
 
-            //Add the value
+            //Skip CoreAdd because the value list is local
+            if (hadValue)
+            {
+                Predicates.Add(value);
+
+                return;
+            }
+
+            //Add the new key and value
             if (false == CoreAdd(ref key, ref value, Predicates, hadValue, false))
             {
                 //throw new ArgumentException("The given key was already present in the dictionary");
@@ -207,13 +217,24 @@ namespace Media.Common.Collections.Generic
             return TryGetValue(ref key, out results);
         }
 
+        /// <summary>
+        /// Gets the <see cref="IList"/> assoicated with the key which can be modified directly.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="list"></param>
+        /// <returns></returns>
+        public bool TryGetValueList(ref TKey key, out IList<TValue> list)
+        {
+            //Can't really avoid the non ref here without subclassing Dictionary. (See DictionaryRefTryGetValue above)
+            return Dictionary.TryGetValue(key, out list);
+        }
+
         [CLSCompliant(false)]
         public bool TryGetValue(ref TKey key, out IEnumerable<TValue> results)
         {
             IList<TValue> values;
 
-            //Can't really avoid the non ref here without subclassing Dictionary. (See DictionaryRefTryGetValue above)
-            bool result = Dictionary.TryGetValue(key, out values);
+            bool result = TryGetValueList(ref key, out values);
 
             results = values;
 

@@ -258,6 +258,106 @@ namespace Media.Common.Extensions.Socket
             }
         }
 
+        public static System.Net.IPAddress GetFirstMulticastIPAddress(System.Net.Sockets.AddressFamily addressFamily)
+        {
+            //Check for a supported AddressFamily
+            switch (addressFamily)
+            {
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    {
+                        //If there is no network available use the Loopback adapter.
+                        if (false == System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable()) return addressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? System.Net.IPAddress.Loopback : System.Net.IPAddress.IPv6Loopback;
+
+                        //Iterate for each Network Interface available.
+                        foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                        {
+                            //Get the first GetFirstMulticastIPAddress bound to the networkInterface
+
+                            //Notes that you may have to make a Socket.IO Control to determine what network Interface to use in some cases or bind on IPAddress.Any / IPAddress.V6Any
+                            //https://github.com/conferencexp/conferencexp/blob/master/MSR.LST.Net.Rtp/NetworkingBasics/utility.cs
+
+                            System.Net.IPAddress result = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetFirstMulticastIPAddress(networkInterface, addressFamily);
+
+                            //If the result is not null and the result is not System.Net.IPAddress.None
+                            if (result != null && false == Equals(result, System.Net.IPAddress.None)) return result;
+                        }
+
+                        //Could not find an IP.
+                        return System.Net.IPAddress.None;
+                    }
+                default: throw new System.NotSupportedException("Only InterNetwork or InterNetworkV6 is supported.");
+            }
+        }
+
+        public static void JoinMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toJoin, int ttl)
+        {
+            switch (toJoin.AddressFamily)
+            {
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                    socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.AddMembership,
+                                            new System.Net.Sockets.MulticastOption(toJoin));
+                    socket.MulticastLoopback = false;
+
+                    socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
+
+                    break;
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.AddMembership,
+                                            new System.Net.Sockets.IPv6MulticastOption(toJoin));
+                    socket.MulticastLoopback = false;
+
+                    socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
+
+                    break;
+            }
+        }
+
+        public static void JoinMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toJoin, int interfaceIndex, int ttl)
+        {
+            switch (toJoin.AddressFamily)
+            {
+                case System.Net.Sockets.AddressFamily.InterNetwork: throw new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.OperationNotSupported);
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    socket.SetSocketOption(
+                        System.Net.Sockets.SocketOptionLevel.IPv6,
+                        System.Net.Sockets.SocketOptionName.AddMembership,
+                        new System.Net.Sockets.IPv6MulticastOption(toJoin, interfaceIndex));
+                    return;
+            }
+        }
+
+        static void LeaveMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toDrop)
+        {
+            switch (toDrop.AddressFamily)
+            {
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                    socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.DropMembership,
+                                            new System.Net.Sockets.MulticastOption(toDrop));
+                    socket.MulticastLoopback = false;
+                    return;
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.DropMembership,
+                                            new System.Net.Sockets.IPv6MulticastOption(toDrop));
+                    socket.MulticastLoopback = false;
+                    return;
+            }
+        }
+
+        static void LeaveMulticastGroup(this System.Net.Sockets.Socket socket, int interfaceIndex, System.Net.IPAddress toDrop)
+        {
+            switch (toDrop.AddressFamily)
+            {
+                case System.Net.Sockets.AddressFamily.InterNetwork: throw new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.OperationNotSupported);
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    socket.SetSocketOption(
+                        System.Net.Sockets.SocketOptionLevel.IPv6,
+                        System.Net.Sockets.SocketOptionName.DropMembership,
+                        new System.Net.Sockets.IPv6MulticastOption(toDrop, interfaceIndex));
+                    return;
+            }
+        }
+
         //Should also have a TrySetSocketOption
 
         //Should ensure that the correct options are being set, these are all verified as windows options but Linux or Mac may not have them

@@ -315,23 +315,7 @@ namespace Media.Rtp
 
                     //Tell the network stack what we send and receive has an order
                     socket.DontFragment = true;
-                }
-
-                //if (localIp.IsMulticast()){
-                //switch (localIp.AddressFamily)
-                //{
-                //    case AddressFamily.InterNetwork:
-                //            socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership,
-                //                                    new MulticastOption(localIp));
-                          //socket.MulticastLoopback = false;
-                //        break;
-                //    case AddressFamily.InterNetworkV6:
-                //            socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.AddMembership,
-                //                                    new IPv6MulticastOption(localIp));
-                          //socket.MulticastLoopback = false;
-                //        break;
-                //}
-                //}
+                }                
 
                 //Don't buffer sending
                 socket.SendBufferSize = 0;
@@ -367,10 +351,29 @@ namespace Media.Rtp
                 if (sessionDescription == null && (localIp == null || remoteIp == null)) throw new InvalidOperationException("Must have a sessionDescription or the localIp and remoteIp cannot be established.");
 
                 //If no remoteIp was given attempt to parse it from the sdp
-                if (remoteIp == null && false == IPAddress.TryParse(new Sdp.Lines.SessionConnectionLine(sessionDescription.ConnectionLine).IPAddress, out remoteIp)) throw new InvalidOperationException("Cannot determine remoteIp from ConnectionLine");
+                if (remoteIp == null)
+                {
+                    Sdp.SessionDescriptionLine cLine = mediaDescription.ConnectionLine;
+
+                    if (cLine == null)
+                    {
+                        cLine = sessionDescription.ConnectionLine;
+                    }
+
+                    //Attempt to parse the IP, if failed then throw an exception.
+                    if (cLine == null
+                        ||
+                        false == IPAddress.TryParse(new Sdp.Lines.SessionConnectionLine(cLine).IPAddress, out remoteIp)) throw new InvalidOperationException("Cannot determine remoteIp from ConnectionLine");
+                }
+
+                bool multiCast = Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(remoteIp);
 
                 //If no localIp was given determine based on the remoteIp
-                if(localIp == null) localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
+                if (localIp == null) localIp = multiCast ? Media.Common.Extensions.Socket.SocketExtensions.GetFirstMulticastIPAddress(remoteIp.AddressFamily) : Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
+
+                //Todo, need TTL here.
+
+                int ttl = 255;
 
                 //If no remoteSsrc was given then check for one
                 if (remoteSsrc == 0)
@@ -542,6 +545,9 @@ namespace Media.Rtp
                     {
                         tc.Initialize(localIp, remoteIp, rtpPort ?? mediaDescription.MediaPort);
                     }
+
+                    //Needs ttl here.
+                    if(multiCast) Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(tc.RtpSocket, remoteIp, ttl);
                 }
 
                 //Return the context created
@@ -1547,7 +1553,7 @@ namespace Media.Rtp
                 Initialize(new IPEndPoint(localIp, localRtpPort), new IPEndPoint(remoteIp, remoteRtpPort), new IPEndPoint(localIp, localRtcpPort), new IPEndPoint(remoteIp, remoteRtcpPort), punchHole);
             }
 
-            public void Initialize(IPEndPoint localRtp, IPEndPoint remoteRtp, IPEndPoint localRtcp, IPEndPoint remoteRtcp, bool punchHole = true)
+            public void Initialize(IPEndPoint localRtp, IPEndPoint remoteRtp, IPEndPoint localRtcp, IPEndPoint remoteRtcp, bool punchHole = true, int ttl = 255)
             {
                 if (IsDisposed || IsActive) return;
 
@@ -1566,7 +1572,7 @@ namespace Media.Rtp
                     RtpSocket = new Socket(localRtp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
 
                     //Configure it
-                    ConfigureRtpSocket(RtpSocket);
+                    ConfigureSocket(RtpSocket);
 
                     //Apply the send and receive timeout based on the ReceiveInterval
                     RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;  
@@ -1576,7 +1582,13 @@ namespace Media.Rtp
                     
                     //Assign the RemoteRtp EndPoint and Bind the socket to that EndPoint
                     RtpSocket.Connect(RemoteRtp = remoteRtp);
-                    
+
+                    ////Handle Multicast joining (Might need to track interface)
+                    //if (Common.Extensions.IPEndPoint.IPEndPointExtensions.IsMulticast(remoteRtp))
+                    //{
+                    //    Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(RtpSocket, remoteRtp.Address, ttl);
+                    //}
+
                     //Determine if holepunch is required
                     if (punchHole)
                     {
@@ -1602,7 +1614,7 @@ namespace Media.Rtp
                         RtcpSocket = new Socket(localRtp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
 
                         //Configure it
-                        ConfigureRtpSocket(RtcpSocket);
+                        ConfigureSocket(RtcpSocket);
 
                         //Apply the send and receive timeout based on the ReceiveInterval
                         RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;
@@ -1612,6 +1624,12 @@ namespace Media.Rtp
 
                         //Assign the RemoteRtcp EndPoint and Bind the socket to that EndPoint
                         RtcpSocket.Connect(RemoteRtcp = remoteRtcp);
+
+                        ////Handle Multicast joining (Might need to track interface)
+                        //if (Common.Extensions.IPEndPoint.IPEndPointExtensions.IsMulticast(remoteRtcp))
+                        //{
+                        //    Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(RtcpSocket, remoteRtcp.Address, ttl);
+                        //}
 
                         if (punchHole)
                         {

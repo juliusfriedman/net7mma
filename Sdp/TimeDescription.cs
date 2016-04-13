@@ -210,7 +210,8 @@ namespace Media.Sdp
 
             //https://net7mma.codeplex.com/workitem/17032
 
-            //The OP advised he was recieving a SDP with "now" ... not sure why this is not standard.
+            //The OP advised he was recieving a SDP with "now" ... not sure why this is not standard, the grammer seems to only allow seconds.
+            //Now should be parsed as 0 because it should fail parsing as a double.
 
             //Additionally he might have been talking about the Range header in which case "now" is handled propertly.
 

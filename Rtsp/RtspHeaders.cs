@@ -275,15 +275,16 @@ namespace Media.Rtsp
 
         //TryParseAuthorizationHeader
 
+        //Could just make a function to extract the tokens and values and then parse them as needed.
+
         //Values should be nullable...?
-        //destination
-        public static bool TryParseTransportHeader(string value, out int ssrc, //todo, reorder and add destination
+        public static bool TryParseTransportHeader(string value, out int ssrc, 
             out System.Net.IPAddress source, 
             out int serverRtpPort, out int serverRtcpPort, 
             out int clientRtpPort, out int clientRtcpPort, 
             out bool interleaved, out byte dataChannel, out byte controlChannel, 
             out string mode, 
-            out bool unicast, out bool multicast)
+            out bool unicast, out bool multicast, out System.Net.IPAddress destination, out int ttl)
         {
             if (string.IsNullOrWhiteSpace(value)) throw new InvalidOperationException("value cannot be null or whitespace.");
 
@@ -291,8 +292,8 @@ namespace Media.Rtsp
 
             //Should also given tokens for profile e.g. SAVP or RAW etc.
 
-            ssrc = 0;
-            source = System.Net.IPAddress.Any;
+            ssrc = ttl = 0;
+            source = destination = System.Net.IPAddress.Any;
             serverRtpPort = serverRtcpPort = clientRtpPort = clientRtcpPort = 0;
             dataChannel = 0;
             controlChannel = 1;
@@ -354,6 +355,8 @@ namespace Media.Rtsp
 
                                     //Could work around by always providing the v6 address if possible...
 
+
+                                    //Todo, this can fail and may take a long time.
                                     source = System.Net.Dns.GetHostEntry(sourcePart).AddressList.First();
                                 }
 

@@ -20,6 +20,10 @@
         //Todo
         //Properties to track for max, Memory, Packets, Time etc.
 
+        //MediaDescription for each payloadType which is known about...
+
+        //readonly System.Collections.Generic.Dictionary<int, Sdp.MediaDescription> MediaDescriptionDictionary = new System.Collections.Generic.Dictionary<int, Sdp.MediaDescription>();
+
         #region Constructor
 
         public JitterBuffer(bool shouldDispose) : base(shouldDispose) { }
@@ -65,25 +69,25 @@
         }
 
         /// <summary>
-        /// Adds the given packet to the contained frames and returns if the add results in completion of a RtpFrame.
+        /// Adds the given packet to the contained frames and provides the frame which was added to.
         /// </summary>
         /// <param name="payloadType">The payloadType to use for the add operation</param>
         /// <param name="packet">The packet to add</param>
         /// <param name="addedTo">The frame which the packet was added to.</param>
-        /// <returns>True if <paramref name="addedTo"/> is complete, otherwise false.</returns>
+        /// <returns>True if <paramref name="addedTo"/> is complete (it is no longer contained), otherwise false.</returns>
         public bool Add(int payloadType, RtpPacket packet, out RtpFrame addedTo)
         {
             addedTo = null;
 
             if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return false;
 
-            System.Collections.Generic.IEnumerable<RtpFrame> frames;
+            System.Collections.Generic.IList<RtpFrame> framesList;
 
             //Use the given payloadType to get frames
-            if (Frames.TryGetValue(payloadType, out frames))
+            if (Frames.TryGetValueList(ref payloadType, out framesList))
             {
                 //loop the frames found
-                foreach (RtpFrame frame in frames)
+                foreach (RtpFrame frame in framesList)
                 {
                     //if the timestamp is eqaul try to add the packet
                     if (frame.Timestamp == packet.Timestamp)
@@ -93,7 +97,15 @@
                         {
                             addedTo = frame;
 
-                            return frame.IsComplete;
+                            //If the add results in completion
+                            if (frame.IsComplete)
+                            {
+                                //Remove the frame
+                                framesList.Remove(frame);
+
+                                //Return true
+                                return true;
+                            }
                         }
                     }
                 }
@@ -101,9 +113,9 @@
                 //Must add a new frame to frames.
                 addedTo = new RtpFrame(packet);
 
-                Frames.Add(ref payloadType, ref addedTo);
+                if (addedTo.IsComplete) return true;
 
-                return addedTo.IsComplete;
+                Frames.Add(ref payloadType, ref addedTo);
             }
 
             return false;

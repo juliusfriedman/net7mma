@@ -73,7 +73,7 @@ namespace Media.Sdp
             NewLineString = CarriageReturnString + LineFeedString;
 
         internal static char[] SpaceSplit = new char[] { Space },
-            SlashSplit = new char[] { ForwardSlash },
+            ForwardSlashSplit = new char[] { ForwardSlash },
             SemiColonSplit = new char[] { SemiColon };
                              //CRSPlit, LFSplit...
         internal static string[] ColonSplit = new string[] { Colon.ToString() }, CRLFSplit = new string[] { NewLineString };
