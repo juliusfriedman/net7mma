@@ -21,9 +21,16 @@ namespace Media.Common
         public CommonDisposable(bool shouldDispose) : base(shouldDispose) { }
     }
 
+    //Provides a way to derermine how many classes hold a reference if the API was used.
     //public class ReferenceCountingDisposable : CommonDisposable
     //{
     //    int m_ReferenceCount;
+    //}
+
+    //Provide an event around Dispose
+    //public class EventingDisposable : CommonDisposable
+    //{
+    //    Action DiposeEvent; // event Disposed;
     //}
     
 }

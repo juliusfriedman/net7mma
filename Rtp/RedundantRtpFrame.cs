@@ -1,5 +1,7 @@
 ﻿namespace Media.Rtp
 {
+    //Todo, determine if this belongs in another assembly once the ProfileInformation aspect is complete.
+
     /// <summary>
     /// Provides support for depacketization and packetization of RFC2198 format packets.
     /// </summary>
@@ -345,12 +347,41 @@
 
         public RFC2198ProfileHeaderInformation()
         {
+            //Can override them here.
             HasVariableProfileHeaderSize = ProfileHeaderInformation.HasVariableProfileHeaderSize;
 
             MinimumHeaderSize = ProfileHeaderInformation.MinimumHeaderSize;
 
             MaximumHeaderSize = ProfileHeaderInformation.MaximumHeaderSize;
         }
+
+        //Don't really need to override this, especially since the interface calls may turn out different especially considering how they are implemented...
+        public override bool IsValidPacket(RtpPacket packet)
+        {
+            return base.IsValidPacket(packet);
+        }
+
+        //Don't really need to override these at this level...
+
+        public override bool HasVariableProfileHeaderSize
+        {
+            get { return base.HasVariableProfileHeaderSize; }
+            protected set { base.HasVariableProfileHeaderSize = value; }
+        }
+
+        public override int MinimumHeaderSize
+        {
+            get { return base.MinimumHeaderSize; }
+            protected set { base.MinimumHeaderSize = value; }
+        }
+
+        public override int MaximumHeaderSize
+        {
+            get { return base.MaximumHeaderSize; }
+            protected set { base.MaximumHeaderSize = value; }
+        }
+
+        // Explicit overrides for the interface...
 
         bool IRtpProfileInformation.HasVariableProfileHeaderSize
         {

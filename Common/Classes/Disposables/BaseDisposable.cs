@@ -66,13 +66,13 @@ namespace Media.Common
             if (sender != null && sender is BaseDisposable) SetShouldDispose((sender as BaseDisposable), true, true);
         }
 
-        internal protected static void SetShouldDispose(BaseDisposable toDispose, bool value, bool dispose = false)
+        internal protected static void SetShouldDispose(BaseDisposable toDispose, bool value, bool callDispose = false)
         {
             if (IDisposedExtensions.IsNullOrDisposed(toDispose)) return;
 
             toDispose.ShouldDispose = value;
 
-            if (dispose) toDispose.Dispose();
+            if (callDispose) toDispose.Dispose();
         }
 
         #endregion
@@ -94,6 +94,8 @@ namespace Media.Common
         protected BaseDisposable()
         {
             //ShouldDispose is false
+
+            //This is not really needed at this level.
 
 #if DEBUG
             //http://stackoverflow.com/questions/18033100/unload-event-for-the-default-application-domain

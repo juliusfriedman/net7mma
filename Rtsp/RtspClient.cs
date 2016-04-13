@@ -3740,17 +3740,16 @@ namespace Media.Rtsp
 
                     string mode;
 
+                    //Todo, check the MediaDescription ConnectionLine for the ConnectionAddress to have a Multicast address
                     bool multicast = false, interleaved = m_RtpProtocol == ProtocolType.Tcp;
 
                     byte dataChannel = 0, controlChannel = 1;
 
+                    //Todo, get this from the connection address.
                     int ttl = 255;
 
                     //8? should be determine by rtcp enabled and the type of packets, rtcp 4, rtp 12
                     int minimumPacketSize = 8, maximumPacketSize = (ushort)m_Buffer.Count;
-
-                    //Todo Determine if Unicast or Multicast from mediaDescription ....?
-                    string connectionType = unicast ? "unicast;" : "multicast";
 
                     //12.7 Blocksize
                     /*
@@ -3815,33 +3814,37 @@ namespace Media.Rtsp
                         //Is probably Ip, set to Udp
                         m_RtpProtocol = ProtocolType.Udp;
 
-                        //Could send 0 to have server pick port?                        
-
-                        //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort                        
-                        int openPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp, 10000, true);
-
-                        if (openPort == -1) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Could not find open Udp Port");
-                        //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
-                        //{
-                        //    Media.Common.Extensions.Exceptions.ExceptionExtensions.CreateAndRaiseException(this, "Found Udp Port > MaximumUdp. Found: " + openPort);
-                        //}    
-
-                        rtpTemp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtpPort = openPort);
-
-                        //Check for muxing of rtp and rtcp on the same physical port
-                        if (mediaDescription.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts.Any(p => p.ToLowerInvariant() == "rtcp-mux")).Any())
+                        //If multicast then the port doesn't have to be reserved, may need reuse port.
+                        if (false == multicast)
                         {
-                            //Might not 'need' it
-                            needsRtcp = multiplexing = true;
+                            //Could send 0 to have server pick port?                        
 
-                            //Use the same port
-                            clientRtcpPort = clientRtpPort;
-                        }
-                        else if (needsRtcp)
-                        {
-                            //Should probably check for open port again...
+                            //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort                        
+                            int openPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp, 10000, true);
 
-                            rtcpTemp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, (clientRtcpPort = (openPort == ushort.MaxValue || openPort == 0 ? openPort : openPort + 1)));
+                            if (openPort == -1) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Could not find open Udp Port");
+                            //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
+                            //{
+                            //    Media.Common.Extensions.Exceptions.ExceptionExtensions.CreateAndRaiseException(this, "Found Udp Port > MaximumUdp. Found: " + openPort);
+                            //}    
+
+                            rtpTemp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtpPort = openPort);
+
+                            //Check for muxing of rtp and rtcp on the same physical port
+                            if (mediaDescription.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts.Any(p => p.ToLowerInvariant() == "rtcp-mux")).Any())
+                            {
+                                //Might not 'need' it
+                                needsRtcp = multiplexing = true;
+
+                                //Use the same port
+                                clientRtcpPort = clientRtpPort;
+                            }
+                            else if (needsRtcp)
+                            {
+                                //Should probably check for open port again...
+
+                                rtcpTemp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, (clientRtcpPort = (openPort == ushort.MaxValue || openPort == 0 ? openPort : openPort + 1)));
+                            }
                         }
                         
                         //Supposedly
@@ -3850,7 +3853,7 @@ namespace Media.Rtsp
 
 
                         //Should allow a Rtcp only setup? would be a different profile...
-                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/UDP", localSsrc != 0 ? localSsrc : (int?)null, null, clientRtpPort, (needsRtcp ? (int?)(clientRtcpPort) : null), null, null, true, false, null, false, 0, 0, RtspMethod.PLAY.ToString()));
+                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/UDP", localSsrc != 0 ? localSsrc : (int?)null, null, clientRtpPort, (needsRtcp ? (int?)(clientRtcpPort) : null), null, null, false == multicast, multicast, null, false, 0, 0, RtspMethod.PLAY.ToString()));
                     }
                     else throw new NotSupportedException("The required Transport is not yet supported.");
 
@@ -4028,8 +4031,8 @@ namespace Media.Rtsp
                     //Todo
                     //Care should be taken that the SDP is not directing us to connect to some unknown resource....
 
-                    //Just incase the source datum was not given
-                    if (sourceIp.Equals(IPAddress.Any) || sourceIp.Equals(IPAddress.IPv6Any)) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
+                    //Just incase the source datum was not given, only for unicast connections.
+                    if (false == multicast && sourceIp.Equals(IPAddress.Any) || sourceIp.Equals(IPAddress.IPv6Any)) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
 
                     //If multicast was given check the destination address and if was not specified use the sourceIp.
                     if (multicast && (destinationIp.Equals(IPAddress.Any) || destinationIp.Equals(IPAddress.IPv6Any))) destinationIp = sourceIp;
