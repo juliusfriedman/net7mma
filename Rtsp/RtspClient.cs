@@ -3730,8 +3730,13 @@ namespace Media.Rtsp
                         localSsrc = 0,//RFC3550.Random32(),  
                         remoteSsrc = 0;
 
+                    //Should check this.
+                    //m_RtspSocket.LocalEndPoint.AddressFamily != AddressFamily.InterNetwork && m_RtspSocket.LocalEndPoint.AddressFamily != AddressFamily.InterNetworkV6
+
                     //Cache this to prevent having to go to get it every time down the line
-                    IPAddress sourceIp = IPAddress.Any, localIp = ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, destinationIp = sourceIp;
+                    IPAddress localIp = ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, 
+                        sourceIp = localIp.AddressFamily == AddressFamily.InterNetwork ? IPAddress.Any : IPAddress.IPv6Any, //Todo, may not be Internetwork...
+                        destinationIp = sourceIp;
 
                     string mode;
 
@@ -4024,10 +4029,10 @@ namespace Media.Rtsp
                     //Care should be taken that the SDP is not directing us to connect to some unknown resource....
 
                     //Just incase the source datum was not given
-                    if (sourceIp.Equals(IPAddress.Any)) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
+                    if (sourceIp.Equals(IPAddress.Any) || sourceIp.Equals(IPAddress.IPv6Any)) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
 
                     //If multicast was given check the destination address and if was not specified use the sourceIp.
-                    if (multicast && destinationIp.Equals(IPAddress.Any)) destinationIp = sourceIp;
+                    if (multicast && (destinationIp.Equals(IPAddress.Any) || destinationIp.Equals(IPAddress.IPv6Any))) destinationIp = sourceIp;
 
                     //Create the context (determine if the session rangeLine may also be given here, if it gets parsed once it doesn't need to be parsed again)
                     RtpClient.TransportContext created = null;

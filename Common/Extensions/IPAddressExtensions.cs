@@ -142,22 +142,15 @@ namespace Media.Common.Extensions.IPAddress
         {
             if (ipAddress == null) return false;
 
-            //Todo, optomize if called many times.
-            //byte[] addressBytes;
+            byte[] addressBytes;
 
             switch (ipAddress.AddressFamily)
             {
                 case System.Net.Sockets.AddressFamily.InterNetwork:
                     {
-                        byte highIP = ipAddress.GetAddressBytes()[0];
+                        byte highIP = (byte)(ipAddress.Address & byte.MaxValue); // ipAddress.GetAddressBytes()[0];
 
-                        if (highIP < 224 || highIP > 239)
-                        {
-                            return false;
-                        }
-
-                        //Is a multicast address
-                        return true;
+                        return highIP >= 223 && highIP <= 230;
                     }
                 case System.Net.Sockets.AddressFamily.InterNetworkV6:
                     {
@@ -167,9 +160,9 @@ namespace Media.Common.Extensions.IPAddress
                         //could use out overload and check in place or pass out to MapToIpv4...
 
                         //Check if mapped to v6 from v4 and unmap
-                        if(IPAddressExtensions.IsIPv4MappedToIPv6(ipAddress)) //(ipAddress.IsIPv4MappedToIPv6)
+                        if (IPAddressExtensions.IsIPv4MappedToIPv6(ipAddress, out addressBytes)) //(ipAddress.IsIPv4MappedToIPv6)
                         {
-                            ipAddress = IPAddressExtensions.MapToIPv4(ipAddress); //ipAddress.MapToIPv4();
+                            ipAddress = IPAddressExtensions.MapToIPv4(addressBytes); //ipAddress.MapToIPv4();
 
                             //handle as v4
                             goto case System.Net.Sockets.AddressFamily.InterNetwork;

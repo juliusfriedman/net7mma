@@ -285,7 +285,7 @@
     }
 
     //Not really useful except for the methods which could be static.(As shown above)
-    public class RtpProfileHeaderBase : IRtpProfileInformation
+    public class RtpProfileInformationBase : IRtpProfileInformation
     {
         public virtual bool IsValidPacket(RtpPacket packet)
         {
@@ -335,6 +335,36 @@
         int IRtpProfileInformation.MaximumHeaderSize
         {
             get { return MaximumHeaderSize; }
+        }
+    }
+
+    //Could also have a derived type which was specifically overriding the values...
+    public class RFC2198ProfileHeaderInformation : RtpProfileInformationBase, IRtpProfileInformation
+    {
+        //Could also choose to define constants and use specific implementation as well
+
+        public RFC2198ProfileHeaderInformation()
+        {
+            HasVariableProfileHeaderSize = ProfileHeaderInformation.HasVariableProfileHeaderSize;
+
+            MinimumHeaderSize = ProfileHeaderInformation.MinimumHeaderSize;
+
+            MaximumHeaderSize = ProfileHeaderInformation.MaximumHeaderSize;
+        }
+
+        bool IRtpProfileInformation.HasVariableProfileHeaderSize
+        {
+            get { return ProfileHeaderInformation.HasVariableProfileHeaderSize; }
+        }
+
+        int IRtpProfileInformation.MinimumHeaderSize
+        {
+            get { return ProfileHeaderInformation.MinimumHeaderSize; }
+        }
+
+        int IRtpProfileInformation.MaximumHeaderSize
+        {
+            get { return ProfileHeaderInformation.MaximumHeaderSize; }
         }
     }
 }
