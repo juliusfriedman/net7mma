@@ -286,7 +286,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //Create the buffer as required by the profile.
                 m_Buffer = new MemoryStream(headersPresent ? Packets.SelectMany(rtp =>
-                {                                       
+                {
+                    if (Common.IDisposedExtensions.IsNullOrDisposed(rtp)) return Common.MemorySegment.Empty;
+
                     //From the beginning of the data in the actual payload
                     int payloadOffset = rtp.Payload.Offset, offset = payloadOffset + rtp.HeaderOctets,
                         max = rtp.Payload.Count - (offset + rtp.PaddingOctets), //until the end of the actual payload

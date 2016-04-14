@@ -130,25 +130,6 @@ namespace Media.Rtp
         /// </summary>
         internal readonly protected List<RtpPacket> Packets;
 
-        internal protected class PacketKey
-        {
-            internal readonly RtpPacket Key;
-
-            internal readonly IList<Common.MemorySegment> Depacketized;
-
-            public PacketKey(RtpPacket key)
-            {
-                if (Common.IDisposedExtensions.IsNullOrDisposed(key)) throw new ArgumentNullException();
-
-                Key = key;
-
-                Depacketized = new System.Collections.Generic.List<Common.MemorySegment>();
-            }
-        }
-
-        //todo, replace Packets with PacketList...
-        internal readonly protected List<PacketKey> PacketList;
-
         //Could use List if Add is replaced with Insert and index given by something like => Abs(Clamp(n, 0, Min(n - count) + Max(n - count))) or IndexOf(n)
         /// <summary>
         /// After a single RtpPacket is <see cref="Depacketize">depacketized</see> it will be placed into this list with the appropriate index.
@@ -619,6 +600,12 @@ namespace Media.Rtp
                 if (ts != m_Timestamp) throw new ArgumentException("packet.Timestamp must match frame Timestamp", "packet");
 
                 if (count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
+
+                //Ensure not a duplicate
+                if (false == allowDuplicates && (m_LowestSequenceNumber == seq || m_HighestSequenceNumber == seq)) throw new InvalidOperationException("Cannot have duplicate packets in the same frame.");
+
+                //Could possibly check for < m_LowestSequenceNumber or > m_HighestSequenceNumber here.
+
             }
 
             //Check for existing marker packet
@@ -632,10 +619,6 @@ namespace Media.Rtp
             {
                 //Check if the packet is allowed
                 if (false == allowPacketsAfterMarker) throw new InvalidOperationException("Cannot add packets after the marker packet.");
-
-                //Wait until added...
-                //Increase the marker count
-                //++MarkerCount;
             }
 
             #region Unused, marker always added to end of list

@@ -294,7 +294,11 @@ namespace Media.Rtsp
 
             //it should always be the first value...
 
-            ssrc = ttl = 0;
+            ssrc = 0;
+            
+            //I think ttl should have a default of 0 in this case, but it probably doesn't matter in most cases.
+            ttl = sbyte.MaxValue;
+
             source = destination = System.Net.IPAddress.Any;
             serverRtpPort = serverRtcpPort = clientRtpPort = clientRtcpPort = 0;
             dataChannel = 0;
@@ -400,7 +404,7 @@ namespace Media.Rtsp
                                 }
 
                                 //Could just clamp.
-                                if (ttl < byte.MinValue || ttl > byte.MinValue) 
+                                if (ttl < byte.MinValue || ttl > byte.MaxValue) 
                                     Media.Common.TaggedExceptionExtensions.RaiseTaggedException(ttl, "See Tag. Invalid ttl datum as given.");
 
                                 continue;
@@ -509,7 +513,7 @@ namespace Media.Rtsp
             }
         }
 
-        public static string TransportHeader(string connectionType, int? ssrc, //todo, reorder and add destination
+        public static string TransportHeader(string connectionType, int? ssrc, //todo, reorder and add destination and port
             System.Net.IPAddress source, 
             int? clientRtpPort, int? clientRtcpPort, 
             int? serverRtpPort, int? serverRtcpPort, 
