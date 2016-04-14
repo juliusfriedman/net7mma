@@ -162,6 +162,9 @@ namespace Media.Common
         //}
 
         #endregion
+
+        //Methods for copying an array of memory or constructor?
+
     }
 
     //Should probably enforce usability with additional derivations, Todo
@@ -199,6 +202,9 @@ namespace Media.Common
         public BitSegment(byte[] reference, int bitOffset, bool shouldDispose = true) : this(reference, bitOffset, Common.Binary.BytesToBits(reference.Length) - bitOffset, shouldDispose) { }
 
         public BitSegment(byte[] reference) : this(reference, 0, Common.Binary.BytesToBits(reference.Length)) { }
+
+
+        //Would have to implement a Copy virtual method to ensure that bitOffsets were not accidentally copied using Array.Copy
 
     }
 

@@ -237,11 +237,17 @@ namespace Media.Rtp
         public bool HasBuffer { get { return false == (m_Buffer == null); } }
 
         //Public means this can be disposed. virtual is not necessary
+        //This would have to be a System.IO.Stream
+        //This would have to use the SegmentList to be efficient.
         public System.IO.MemoryStream Buffer
         {
             //There may be multiple repeated calls to this property due to the way it was used previously.
             get
             {
+
+                //Ensure if already has a buffer to use the instance created or return a new one which is stored.
+                //return HasBuffer ? m_Buffer : m_Buffer = new Common.SegmentStream(Depacketized.Values);
+
                 //If the buffer was not already prepared then Prepare it.
                 if (m_Buffer == null)
                 {
@@ -369,14 +375,7 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if a contained packet has the marker bit set. (Usually the last packet in a frame)
         /// </summary>
-        public bool HasMarker
-        {
-            //get { return Packets.Count == 0 ? false : Packets[Packets.Count - 1].Marker; }
-            //If multiple markers packets are stored this must be enforced here also
-            //MarkerPackets.Count > 0
-            //get { return /*Packets.Count == 0 ? false : */ m_PayloadType > 127; }
-            get { return m_MarkerCount > 0; }
-        }
+        public bool HasMarker { get { return m_MarkerCount > 0; } }
 
         /// <summary>
         /// The amount of Packets in the RtpFrame
@@ -605,17 +604,13 @@ namespace Media.Rtp
                 if (false == allowDuplicates && (m_LowestSequenceNumber == seq || m_HighestSequenceNumber == seq)) throw new InvalidOperationException("Cannot have duplicate packets in the same frame.");
 
                 //Could possibly check for < m_LowestSequenceNumber or > m_HighestSequenceNumber here.
-
             }
-
-            //Check for existing marker packet
-            bool hasMarker = HasMarker;
 
             //Determine if the packet has a marker
             bool packetMarker = packet.Marker;
 
             //If not a duplicate and the marker is already contained
-            if (hasMarker)
+            if (HasMarker)
             {
                 //Check if the packet is allowed
                 if (false == allowPacketsAfterMarker) throw new InvalidOperationException("Cannot add packets after the marker packet.");
@@ -679,9 +674,6 @@ namespace Media.Rtp
 
             //Increase the marker count if the marker bit was set.
             if (packetMarker) ++m_MarkerCount;
-
-            //Should mark as dirty if not dispose.
-            //DisposeBuffer();
         }
 
         /// <summary>
@@ -868,7 +860,7 @@ namespace Media.Rtp
                         {
                             m_LowestSequenceNumber = Packets[0].SequenceNumber; //First
                         }
-                        else if (i >= count)//(sequenceNumber == m_HighestSequenceNumber)//Otherise if was == to the m_HighestSequenceNumber (i >= count)
+                        else if (sequenceNumber == m_HighestSequenceNumber)// (i >= count)
                         {
                             m_HighestSequenceNumber = Packets[count - 1].SequenceNumber; //Last
                         }
@@ -881,8 +873,8 @@ namespace Media.Rtp
             //Check for marker when i >= count and unset marker bit if present. (Todo, if AllowMultipleMarkers this needs to be counted)
             if (m_MarkerCount > 0 && p.Marker) --m_MarkerCount;
 
-            //Should mark as dirty if not dispose, if packet is disposed then Depacketized will have Disposed memory referenced.
-            //DisposeBuffer();
+            //Remove any memory assoicated with the packet.
+            FreeDepacketizedMemory(sequenceNumber);
 
         Done:
             return p;            //Notes, i contains the offset where p was stored.
@@ -1049,7 +1041,7 @@ namespace Media.Rtp
             //Depacketized.Add(Depacketized.Count, packet.PayloadDataSegment);//new Common.MemorySegment(packet.Payload.Array, (packet.Payload.Offset + headerOctets), packet.Payload.Count - (headerOctets + packet.PaddingOctets)));
 
 
-            int index = (short)packet.SequenceNumber;
+            int index = GetPacketKey(packet.SequenceNumber);
 
             if (Depacketized.ContainsKey(index)) return;
 
@@ -1111,6 +1103,29 @@ namespace Media.Rtp
 
             //Ensure cleared.
             Depacketized.Clear();
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ int GetPacketKey(int key) { unchecked { return (short)key; } }
+
+        internal protected void FreeDepacketizedMemory(int key)
+        {
+            //Needs a method to virtually determine the key of the packet.
+            if (Depacketized.ContainsKey(key))
+            {
+                //Obtain the segment
+                Common.MemorySegment segment = Depacketized[key];
+
+                //If the memory was not persisted
+                if (segment.ShouldDispose)
+                {
+                    //Dispose the memory
+                    segment.Dispose();
+
+                    //Remove it from the list.
+                    Depacketized.Remove(key);
+                }
+            }
         }
 
         #endregion
@@ -2037,9 +2052,64 @@ namespace Media.UnitTests
                         if (buffer.Position != frameCount) throw new Exception("Position changed in buffer");
                     }
                     else throw new Exception("HasDepacketized");
-                }
 
-                //Also perform the same test with out of order packets by creating a new frame from random packets in frame.
+                    //Also perform the same test with out of order packets by creating a new frame from random packets in frame.
+
+                    using (Media.Rtp.RtpFrame reorder = new Media.Rtp.RtpFrame(0))
+                    {
+                        int index;
+
+                        //While there are less than the same amount of frames in the reordered frame
+                        while (reorder.Count < frameCount)
+                        {
+                            //Calulate a random index between 0 and the count - 1
+                            index = Utility.Random.Next(0, frame.Count - 1);
+
+                            //Add that packet to the reordered frame
+                            reorder.TryAdd(frame[index]);
+
+                            //Remove that packet from the original frame.
+                            frame.Packets.RemoveAt(index);
+                        }
+
+                        //Loop the same values and ensure the packet is at the expected logical index
+                        for (ushort i = ushort.MaxValue - 5, j = 0; i != 10; ++i)
+                        {
+                            if (reorder.IndexOf(i) != j++) throw new Exception("frame order incorrect.");
+                        }
+
+                        //Ensure the frame IsEmpty
+                        if (false == frame.IsEmpty) throw new Exception("frame.IsEmpty");
+
+                        //Ensure the same amount of packets.
+                        if (reorder.Count != frameCount) throw new Exception("reorder.Count");
+
+                        //Depacketize the data in the frame
+                        reorder.Depacketize();
+
+                        //Ensure the amount of items in Depacketized.
+                        if (reorder.Depacketized.Count != frameCount) throw new Exception("More data in Depacketized than expected");
+
+                        //If the frame has depacketize data
+                        if (reorder.HasDepacketized)
+                        {
+                            int expected = 0;
+
+                            System.IO.Stream buffer = reorder.Buffer;
+
+                            //Check for the expected length
+                            if (buffer.Length != frameCount) throw new Exception("More data in buffer than expected");
+
+                            //Read the buffer
+                            while (buffer.Position < frameCount)
+                            {
+                                //If the byte is out of order then throw an exception
+                                if (buffer.ReadByte() != expected++) throw new Exception("Data at wrong position");
+                            }
+                        }
+                        else throw new Exception("HasDepacketized");
+                    }
+                }
             }
         }
     }

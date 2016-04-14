@@ -387,7 +387,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
                                                                                          //Ensure the no matter when the packet is processed that it will have the same order.
-                int packetKey = Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 0; //packet.Timestamp - packet.SequenceNumber;
+                int packetKey = GetPacketKey(packet.SequenceNumber); //Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 0; //packet.Timestamp - packet.SequenceNumber;
 
                 //Already contained.
                 if (Depacketized.ContainsKey(packetKey)) return;

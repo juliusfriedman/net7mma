@@ -289,6 +289,10 @@ namespace Media.Rtsp.Server.MediaTypes
                 {
                     if (Common.IDisposedExtensions.IsNullOrDisposed(rtp)) return Common.MemorySegment.Empty;
 
+                    int packetKey = GetPacketKey(rtp.SequenceNumber);
+
+                    if (Depacketized.ContainsKey(packetKey)) return Common.MemorySegment.Empty;
+
                     //From the beginning of the data in the actual payload
                     int payloadOffset = rtp.Payload.Offset, offset = payloadOffset + rtp.HeaderOctets,
                         max = rtp.Payload.Count - (offset + rtp.PaddingOctets), //until the end of the actual payload
@@ -579,16 +583,10 @@ namespace Media.Rtsp.Server.MediaTypes
                         #endregion
 
 
-                        //Interleaving is applied
-                        if (auIndex == 0)
-                        {
-                            auIndex = Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 1;
-                        }
+                        ////Interleaving is applied
+                        //if (auIndex == 0)...
 
-                        //Warning this will not work when Sequence numbers wrap.
-
-                        //Todo, Add to the index the known key such that packets with the same auIndex will not interfere with eachother.
-                        //auIndex += rtp.Timestamp - rtp.SequenceNumber;
+                        auIndex += packetKey;
 
                         #region CTSDeltaLength
 
