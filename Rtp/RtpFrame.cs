@@ -1046,7 +1046,14 @@ namespace Media.Rtp
 
             //Could copy the data here but would increase memory usage, should have option and should track option so removing may be able to ignore.
 
-            Depacketized.Add(Depacketized.Count, packet.PayloadDataSegment);//new Common.MemorySegment(packet.Payload.Array, (packet.Payload.Offset + headerOctets), packet.Payload.Count - (headerOctets + packet.PaddingOctets)));
+            //Depacketized.Add(Depacketized.Count, packet.PayloadDataSegment);//new Common.MemorySegment(packet.Payload.Array, (packet.Payload.Offset + headerOctets), packet.Payload.Count - (headerOctets + packet.PaddingOctets)));
+
+
+            int index = (short)packet.SequenceNumber;
+
+            if (Depacketized.ContainsKey(index)) return;
+
+            Depacketized.Add(index, packet.PayloadDataSegment);
 
             //Write the packet payload starting at the end of the extension and csrc until the padding
             //Buffer.Write(packet.Payload.Array, packet.Payload.Offset + headerOctets, packet.Payload.Count - (headerOctets + packet.PaddingOctets));
@@ -1959,6 +1966,80 @@ namespace Media.UnitTests
                         if (false == frame.IsMissingPackets) throw new Exception("Frame is not missing packets");                        
                     }
                 }
+            }
+        }
+
+        public void TestDepacketize()
+        {
+            //Create a frame
+            unchecked
+            {
+                using (Media.Rtp.RtpFrame frame = new Media.Rtp.RtpFrame(0))
+                {
+                    byte payloadValue = byte.MinValue;
+
+                    //Add 15 packets to the frame starting at 65530, ending at 9 (Wrapping at 65535)
+                    for (ushort i = ushort.MaxValue - 5; i != 10; ++i)
+                    {
+                        //1 byte in the payload for easy testing.
+                        frame.Add(new Media.Rtp.RtpPacket(2, false, false, new byte[] { payloadValue++ })
+                        {
+                            SequenceNumber = i,
+                            Marker = i == 9
+                        });
+                    }
+
+                    //Track the amount of packets in the frame for this test.
+                    int frameCount = frame.Count;
+
+                    //Depacketize the data in the frame
+                    frame.Depacketize();
+
+                    //If the frame has depacketize data
+                    if (frame.HasDepacketized)
+                    {
+                        int expected = 0;
+
+                        System.IO.Stream buffer = frame.Buffer;
+
+                        //Check for the expected length
+                        if (buffer.Length != frameCount) throw new Exception("More data in buffer than expected");
+
+                        //Read the buffer
+                        while (buffer.Position < frameCount)
+                        {
+                            //If the byte is out of order then throw an exception
+                            if (buffer.ReadByte() != expected++) throw new Exception("Data at wrong position");
+                        }
+                    }
+                    else throw new Exception("HasDepacketized");
+
+                    //Ensure the amount of items in Depacketized.
+                    if (frame.Depacketized.Count != frameCount) throw new Exception("More data in Depacketized than expected");
+
+                    //Ensure calling Depacketize twice does not effect the buffer
+
+                    //Depacketize the data in the frame
+                    frame.Depacketize();
+
+                    //Ensure the amount of items in Depacketized.
+                    if (frame.Depacketized.Count != frameCount) throw new Exception("More data in Depacketized than expected");
+
+                    //If the frame has depacketize data
+                    if (frame.HasDepacketized)
+                    {
+                        System.IO.Stream buffer = frame.Buffer;
+
+                        //Check for the expected length
+                        if (buffer.Length != frameCount) throw new Exception("More data in buffer than expected");
+
+                        //Read the buffer
+                        if (buffer.Position != frameCount) throw new Exception("Position changed in buffer");
+                    }
+                    else throw new Exception("HasDepacketized");
+                }
+
+                //Also perform the same test with out of order packets by creating a new frame from random packets in frame.
             }
         }
     }

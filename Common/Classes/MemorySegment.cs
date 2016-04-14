@@ -131,8 +131,13 @@ namespace Media.Common
 
         public byte this[int index]
         {
+#if UNSAFE
+            get { unsafe { fixed (byte* p = &m_Array[m_Offset]) return *(p + index); } }
+            set { unsafe { fixed (byte* p = &m_Array[m_Offset]) *(p + index) = value; } }
+#else
             get { return m_Array[m_Offset + index]; }
             set { m_Array[m_Offset + index] = value; }
+#endif
         }
 
         #region Unused 
@@ -280,6 +285,195 @@ namespace Media.Common
         }
     }
 
+    #region Musing
+
+    //The AlignedByteSegment could store it's values in the m_Offset, keep m_Array null and use a special m_Count or not
+    //Coulbe be IntPtr for aligned access also.... but that would be super abusive and non intuitive...
+    //The problem would be that unsafe access would be required and it would look ugly, it could look slightly nicer using int or long as shown.
+
+    //public class AlignedSegment
+    //{
+    //    int Member = 0;
+
+    //    public int Count { get; protected set; }
+
+    //    public unsafe byte this[int index]
+    //    {
+    //        get { fixed (int* x = &Member) return *(((byte*)x) + index); }
+    //        set { fixed (int* x = &Member) *(((byte*)x) + index) = value; }
+    //    }
+
+    //    public AlignedSegment(byte one)
+    //    {
+    //        this[0] = one;
+    //    }
+    //    public AlignedSegment(byte one, byte two)
+    //        :this(one)
+    //    {
+    //        this[1] = two;
+    //    }
+    //    public AlignedSegment(byte one, byte two,  byte three)
+    //        : this(one, two)
+    //    {
+    //        this[2] = three;
+    //    }
+    //    public AlignedSegment(byte one, byte two, byte three, byte fourc)
+    //        : this(one, two, three)
+    //    {
+    //        this[3] = fourc;
+    //    }
+    //}
+
+    #endregion
+
+    #region Not yet used
+
+    ////Deciding if I really need this...
+    ///// <summary>
+    ///// Used to crete a continious stream to locations of memory which may not be next to each other and could even overlap.
+    ///// </summary>
+    //public class SegmentStream : System.IO.Stream
+    //{
+    //    //Absolutely not necessary...
+    //    ulong m_Position, m_Count;
+
+    //    readonly List<Common.MemorySegment> Segments = new List<MemorySegment>();
+
+    //    public void AddMemory(Common.MemorySegment segment)
+    //    {
+    //        Segments.Add(segment);
+
+    //        m_Count += (ulong)segment.Count;
+    //    }
+
+    //    public void AddPersistedMemory(Common.MemorySegment segment)
+    //    {
+    //        Common.MemorySegment copy = new MemorySegment(segment.Count);
+
+    //        System.Array.Copy(segment.Array, segment.Offset, copy.Array, 0, segment.Count);
+
+    //        AddMemory(copy);
+    //    }
+
+    //    public void InsertMemory(int index, Common.MemorySegment toInsert)
+    //    {
+    //        Segments.Insert(index, toInsert);
+
+    //        m_Count += (ulong)toInsert.Count;
+    //    }
+
+    //    public void InsertPersistedMemory(int index, Common.MemorySegment toInsert)
+    //    {
+    //        Common.MemorySegment copy = new MemorySegment(toInsert.Count);
+
+    //        System.Array.Copy(toInsert.Array, toInsert.Offset, copy.Array, 0, toInsert.Count);
+
+    //        InsertMemory(index, copy);
+    //    }
+
+    //    public void Free(int index)
+    //    {
+    //        if (index < 0 || index > Segments.Count) return;
+
+    //        using (Common.MemorySegment segment = Segments[index])
+    //        {
+    //            Segments.RemoveAt(index);
+
+    //            m_Count -= (ulong)segment.Count;
+    //        }
+    //    }
+
+    //    public override bool CanRead
+    //    {
+    //        get { return true; }
+    //    }
+
+    //    public override bool CanSeek
+    //    {
+    //        get { return true; }
+    //    }
+
+    //    public override bool CanWrite
+    //    {
+    //        get { return true; }
+    //    }
+
+    //    public override void Flush()
+    //    {
+    //        return;
+    //    }
+
+    //    public override long Length
+    //    {
+    //        get { return (long)m_Count; }
+    //    }
+
+    //    public override long Position
+    //    {
+    //        get
+    //        {
+    //            return (long)m_Position;
+    //        }
+    //        set
+    //        {
+    //            ulong uvalue = (ulong)value;
+
+    //            if (uvalue > m_Count)
+    //            {
+    //                m_Position = m_Count;
+
+    //                return;
+    //            }
+
+    //            m_Position = uvalue;
+    //        }
+    //    }
+
+    //    public override int Read(byte[] buffer, int offset, int count)
+    //    {
+    //        throw new NotImplementedException();
+    //        //Needs to have the segmegment for the offset somewhere
+    //    }
+
+    //    public override long Seek(long offset, System.IO.SeekOrigin origin)
+    //    {
+    //        throw new NotImplementedException();
+    //        //need to switch on origin and move m_Position 
+    //        //Needs to have the segmegment for the offset somewhere
+    //    }
+
+    //    //Could have this clear or dispose memory...
+    //    public override void SetLength(long value)
+    //    {
+    //        if (value <= 0) Clear();
+
+    //        //Clear only up after value and resegment first segment offsets based on value if required.
+    //    }
+
+    //    /// <summary>
+    //    /// Calls <see cref="Free"/> for each entry in <see cref="Segments"/>
+    //    /// </summary>
+    //    private void Clear()
+    //    {
+    //        for (int i = 0, e = Segments.Count; i < e; ++i) Free(i);
+    //    }
+
+    //    public void WritePersisted(byte[] buffer, int offset, int count)
+    //    {
+    //        AddPersistedMemory(new Common.MemorySegment(buffer, offset, count));
+    //    }
+
+    //    public override void Write(byte[] buffer, int offset, int count)
+    //    {
+    //        AddMemory(new Common.MemorySegment(buffer, offset, count));
+    //    }
+    //}
+
+    #endregion
+
+    #region Concepts...
+
+    ///////////////////////////////////
     //SpannedMemorySegment / MemorySegmentList
 
     //MemorySegmentPointer Array is obtained with unsafe or function...    
@@ -294,4 +488,6 @@ namespace Media.Common
 
     //    m_Length = (uint)length;
     //}
+
+    #endregion
 }
