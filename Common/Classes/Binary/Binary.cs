@@ -1459,7 +1459,13 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte[] SetBit(byte[] self, int index, bool value)
         {
-            int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
+            //int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
+
+            //Only increases after bitIndex has been exhausted (bitIndex == 0)
+            int byteIndex = index >> Binary.Tres;
+
+            //(source index) Always <= 7, then decreases for each iteration
+            int bitIndex = Binary.Septem - (index & Binary.Septem);
 
             SetBit(ref self[byteIndex], index, value);
 
@@ -1469,7 +1475,13 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte[] ToggleBit(byte[] self, int index)
         {
-            int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
+            //int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
+
+            //Only increases after bitIndex has been exhausted (bitIndex == 0)
+            int byteIndex = index >> Binary.Tres;
+
+            //(source index) Always <= 7, then decreases for each iteration
+            int bitIndex = Binary.Septem - (index & Binary.Septem);
 
             ToggleBit(ref self[byteIndex], index);
 
@@ -1479,7 +1491,13 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool GetBit(byte[] self, int index)
         {
-            int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
+            //int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
+
+            //Only increases after bitIndex has been exhausted (bitIndex == 0)
+            int byteIndex = index >> Binary.Tres;
+
+            //(source index) Always <= 7, then decreases for each iteration
+            int bitIndex = Binary.Septem - (index & Binary.Septem);
 
             return GetBit(ref self[byteIndex], index);
         }
@@ -1487,7 +1505,13 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte[] ClearBit(byte[] self, int index)
         {
-            int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
+            //int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
+
+            //Only increases after bitIndex has been exhausted (bitIndex == 0)
+            int byteIndex = index >> Binary.Tres;
+
+            //(source index) Always <= 7, then decreases for each iteration
+            int bitIndex = Binary.Septem - (index & Binary.Septem);
 
             ClearBit(ref self[byteIndex], index);
 
@@ -1560,9 +1584,20 @@ namespace Media.Common
 
                 //(destination index) decreases
                 position = bitCountMinusOne - (index - bitOffset);
+#if UNSAFE
+                unsafe
+                {
+                    //Set the bits using the pointer to the byte to avoid the range check.
+                    //Even if the array is moved the pointer is taken each time it's needed
+                    //result |= ((ulong)((*((byte*)bytes[byteOffset]) >> bitIndex) & Binary.Ūnus) << position);
 
+                    fixed (byte* x = &bytes[byteOffset]) { result |= ((ulong)((*x >> bitIndex) & Binary.Ūnus) << position); } 
+                }
+
+#else
                 //Set the bit in result by reading the bit from the source and moving it to the destination
                 result |= ((ulong)((bytes[byteOffset] >> bitIndex) & Binary.Ūnus) << position);
+#endif
             }
 
             return result;
@@ -1610,8 +1645,23 @@ namespace Media.Common
                 //(destination index) increases
                 position = index - bitOffset;
 
+#if UNSAFE
+                unsafe
+                {
+                    //Set the bits using the pointer to the byte to avoid the range check.
+                    //Even if the array is moved the pointer is taken each time it's needed
+                    //result |= ((ulong)((*((byte*)bytes[byteOffset]) >> bitIndex) & Binary.Ūnus) << position);
+
+                    fixed (byte* x = &bytes[byteOffset]) { result |= ((ulong)((*x >> bitIndex) & Binary.Ūnus) << position); } 
+
+                }
+
+#else
+
                 //Set the bit in result by reading the bit from the source and moving it to the destination
                 result |= ((ulong)((bytes[byteOffset] >> bitIndex) & Binary.Ūnus) << position);
+#endif
+      
             }
 
             return result;
@@ -1676,7 +1726,23 @@ namespace Media.Common
                 bitIndex = index & Binary.Septem;
 
                 //byteOffset = Math.DivRem(index, 8, out bitIndex);
+#if UNSAFE
+                unsafe
+                {
+                    if (bitValue)
+                    {
+                        //*((byte*)bytes[byteOffset]) |= (byte)(Binary.Ūnus << bitIndex);
 
+                        fixed (byte* x = &bytes[byteOffset]) { *x |= (byte)(Binary.Ūnus << bitIndex); } 
+                    }
+                    else
+                    {
+                        //*((byte*)bytes[byteOffset]) &= (byte)~(Binary.Ūnus << bitIndex);
+                        
+                        fixed (byte* x = &bytes[byteOffset]) { *x &= (byte)~(Binary.Ūnus << bitIndex); } 
+                    }
+                }
+#else
                 if (bitValue)
                 {
                     bytes[byteOffset] |= (byte)(Binary.Ūnus << bitIndex);
@@ -1685,6 +1751,7 @@ namespace Media.Common
                 {
                     bytes[byteOffset] &= (byte)~(Binary.Ūnus << bitIndex);
                 }
+#endif
             }
         }
 
@@ -1717,7 +1784,24 @@ namespace Media.Common
                 byteOffset = index >> Binary.Tres;
 
                 bitIndex = Binary.Septem - (index & Binary.Septem);
-                
+
+#if UNSAFE
+                unsafe
+                {
+                    if (bitValue)
+                    {
+                        //*((byte*)bytes[byteOffset]) |= (byte)(Binary.Ūnus << bitIndex);
+                        
+                        fixed (byte* x = &bytes[byteOffset]) { *x |= (byte)(Binary.Ūnus << bitIndex); } 
+                    }
+                    else
+                    {
+                        //*((byte*)bytes[byteOffset]) &= (byte)~(Binary.Ūnus << bitIndex);
+
+                        fixed (byte* x = &bytes[byteOffset]) { *x &= (byte)~(Binary.Ūnus << bitIndex); } 
+                    }
+                }
+#else
                 if (bitValue)
                 {
                     bytes[byteOffset] |= (byte)(Binary.Ūnus << bitIndex);
@@ -1726,6 +1810,8 @@ namespace Media.Common
                 {
                     bytes[byteOffset] &= (byte)~(Binary.Ūnus << bitIndex);
                 }
+
+#endif
             }
         }
 

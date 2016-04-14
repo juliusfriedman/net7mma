@@ -47,6 +47,7 @@ namespace Media.Common.Extensions.IPAddress
             if (mask == null) throw new System.ArgumentNullException("mask");
 
             addressBytes = ipAddress.GetAddressBytes();
+
             maskBytes = mask.GetAddressBytes();
 
             if (addressBytes.Length != maskBytes.Length)
@@ -148,9 +149,21 @@ namespace Media.Common.Extensions.IPAddress
             {
                 case System.Net.Sockets.AddressFamily.InterNetwork:
                     {
+#if UNSAFE
+                        unsafe
+                            {
+                                //Read bits as a byte
+                                byte prop = (byte)(long*)ipAddress.Address;
+                                
+                                //Return the result of the evaluation
+                                return prop >= 224 && prop <= 239;
+                            }
+#else
+
                         byte highIP = (byte)(ipAddress.Address & byte.MaxValue); // ipAddress.GetAddressBytes()[0];
 
-                        return highIP >= 223 && highIP <= 230;
+                        return highIP >= 224 && highIP <= 239;
+#endif
                     }
                 case System.Net.Sockets.AddressFamily.InterNetworkV6:
                     {
@@ -218,8 +231,18 @@ namespace Media.Common.Extensions.IPAddress
             return MapToIPv4(addr.GetAddressBytes());
         }
 
+        //The last 4 bytes correspond to the IP6 address if map bytes are filled
+        //const int IPv4Offset = 12;
+
+        /// <summary>
+        /// Expects an IPv6 address in byte[] form
+        /// </summary>
+        /// <param name="addrBytes"></param>
+        /// <returns></returns>
         internal static System.Net.IPAddress MapToIPv4(byte[] addrBytes)
         {
+            //Create the IPAddress by using the last 4 bytes of the bytes of the address, assume the endian is already in host order
+            //As given by GetAddressBytes
             return new System.Net.IPAddress(Common.Binary.ReadU32(addrBytes, 12, false));
         }
 
