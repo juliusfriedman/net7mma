@@ -1928,13 +1928,13 @@ namespace Media.UnitTests
                                 Console.WriteLine("Data remaining in next packet = " + remainingInNextPacket);
 
                                 //Depending on the format of the audio you may required this function to create a header which should precede the data in the buffer when going to a decoder.
-                                byte[] header = Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame.CreateADTSHeader(2, 11, 1, (int)profileFrame.m_Buffer.Length);
+                                byte[] header = Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame.CreateADTSHeader(2, 11, 1, (int)profileFrame.Buffer.Length);
 
                                 //Write the header
                                 fs.Write(header, 0, header.Length);
 
                                 //Write the data in the buffer to the stream directly
-                                profileFrame.m_Buffer.CopyTo(fs);
+                                profileFrame.Buffer.CopyTo(fs);
                             }
                         }
                     }

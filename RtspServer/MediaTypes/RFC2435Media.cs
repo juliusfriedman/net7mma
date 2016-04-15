@@ -1859,7 +1859,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //Todo, should preserve order even when FragmentOffset and Sequence Number wraps.
                                                                                             //May not provide the correct order when sequenceNumber approaches ushort.MaxValue...
-                int packetKey = GetPacketKey(packet.SequenceNumber);//Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 0; //packet.Timestamp - packet.SequenceNumber;
+                //int packetKey = GetPacketKey(packet.SequenceNumber);//Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 0; //packet.Timestamp - packet.SequenceNumber;
+
+                int packetKey = (short)packet.SequenceNumber;
 
                 //If fragment offset wraps this packet will not be able to be added.
                 //packetKey += (int)FragmentOffset;
@@ -2214,7 +2216,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 {
                     if (m_Buffer == null || false == m_Buffer.CanRead) PrepareBuffer();
 
-                    return System.Drawing.Image.FromStream(m_Buffer, useEmbeddedColorManagement, validateImageData); 
+                    return System.Drawing.Image.FromStream(Buffer, useEmbeddedColorManagement, validateImageData); 
                 }
                 catch
                 {

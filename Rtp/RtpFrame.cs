@@ -236,20 +236,20 @@ namespace Media.Rtp
         /// </summary>
         public bool HasBuffer { get { return false == (m_Buffer == null); } }
 
+        //This doesn't have to even be exposed at this level...
+
         //Public means this can be disposed. virtual is not necessary
         //This would have to be a System.IO.Stream
         //This would have to use the SegmentList to be efficient.
-        public System.IO.MemoryStream Buffer
+        public System.IO.MemoryStream Buffer //Stream...
         {
             //There may be multiple repeated calls to this property due to the way it was used previously.
+            //Ensure if already has a buffer to use the instance created or return a new one which is stored.
+            //get { return HasBuffer ? m_Buffer : m_Buffer = new Common.SegmentStream(Depacketized.Values); }
             get
             {
-
-                //Ensure if already has a buffer to use the instance created or return a new one which is stored.
-                //return HasBuffer ? m_Buffer : m_Buffer = new Common.SegmentStream(Depacketized.Values);
-
                 //If the buffer was not already prepared then Prepare it.
-                if (m_Buffer == null)
+                if (m_Buffer == null || false == m_Buffer.CanRead)
                 {
                     //Can only be prepared when Depacketized
                     if (false == HasDepacketized) return null;
@@ -303,7 +303,7 @@ namespace Media.Rtp
         {
             get { return Packets[index]; }
             /*private*/
-            set { Packets[index] = value; }
+            //set { Packets[index] = value; }
         }
 
         #region Readonly Properties
@@ -313,16 +313,13 @@ namespace Media.Rtp
         /// </summary>
         public bool Transferred { get { return IsEmpty ? false : Packets.All(p => p.Transferred.HasValue); } }
 
-        //Possible make an Action<bool> which represents the functionality to use here and remove virtual.
+        //Possible make an Action<bool> / Delegate 'IsCompleteCheck' which represents the functionality to use here and remove virtual.
         /// <summary>
         /// Indicates if the RtpFrame is NotEmpty AND contained a RtpPacket which has the Marker Bit Set AND is not <see cref="IsMissingPackets"/>
         /// </summary>
         public virtual bool IsComplete
         {
-            get
-            {                                          
-                return false == IsDisposed && false == IsMissingPackets && HasMarker;
-            }
+            get { return false == IsDisposed && false == IsMissingPackets && HasMarker; }
         }
 
         //Todo, for Rtcp feedback one would need the sequence numbers of the missing packets...
@@ -520,7 +517,7 @@ namespace Media.Rtp
                 Depacketized = new SortedList<int, Common.MemorySegment>();
                 
                 //Can't create a new one because of the implications
-                m_Buffer = f.Buffer; 
+                m_Buffer = f.m_Buffer; 
             }
 
             /// See notes and determine if this is appropraite behavior
@@ -615,34 +612,6 @@ namespace Media.Rtp
                 //Check if the packet is allowed
                 if (false == allowPacketsAfterMarker) throw new InvalidOperationException("Cannot add packets after the marker packet.");
             }
-
-            #region Unused, marker always added to end of list
-
-            //The marker may not be the last packet in all cases..
-            ////If the packet has the marker bit set
-            //if (packetMarker)
-            //{
-            //    //If there was already a marker packet in the frame then this is an exception
-            //    if (false == allowPacketsAfterMarker && hasMarker) throw new InvalidOperationException("Cannot have more than one marker packet in the same RtpFrame.");
-
-            //    //Marker packet SHOULD always be last
-            //    Packets.Add(packet);
-
-            //    //It is the highest sequence number
-            //    m_HighestSequenceNumber = seq;
-
-            //    //Set marker bit in m_PayloadTypeByte (Todo, if AllowMultipleMarkers this needs to be counted)
-            //    //m_PayloadType |= RFC3550.CommonHeaderBits.RtpMarkerMask;
-
-            //    ++MarkerCount;
-
-            //    //Should mark as dirty if not dispose.
-            //    //DisposeBuffer();
-
-            //    return;
-            //}
-
-            #endregion
 
             //Determine where to insert and what seq will be inserted
             int insert = 0, tempSeq = 0;
@@ -768,7 +737,7 @@ namespace Media.Rtp
                             //compare seqeuence number
                             if (p.SequenceNumber == sequenceNumber) return i; // i
 
-                            //Obtain packet at e
+                            //Obtain packet at 1 - e
                             p = Packets[--e];
 
                             //compare seqeuence number
@@ -873,26 +842,13 @@ namespace Media.Rtp
             //Check for marker when i >= count and unset marker bit if present. (Todo, if AllowMultipleMarkers this needs to be counted)
             if (m_MarkerCount > 0 && p.Marker) --m_MarkerCount;
 
-            //Remove any memory assoicated with the packet.
-            FreeDepacketizedMemory(sequenceNumber);
-
         Done:
+            //Remove any memory assoicated with the packet by getting the key of the packet.
+            //Force if the packet should be disposed... (the packet is not really being disposed just yet..)
+            FreeDepacketizedMemory((short)sequenceNumber, p.ShouldDispose); //(sequenceNumber);
+            
             return p;            //Notes, i contains the offset where p was stored.
         }
-
-        
-        ////More realistically this doesn't need to be done at all.
-        ////Once a packet is removed it's removed, if the buffer is not diposed who cares?
-        ////Who can access RemoveAt anyway? the protected or derived members...
-        ////No one else is calling RemoveAt, not even this implementation.
-        ////Inline
-        ////disposeBuffer could determined by ShouldDispose or more correclty a readonly field which derived types can easily set in the construtor.
-        //internal protected virtual void RemoveAt(int index, bool disposeBuffer = false)
-        //{
-        //    Packets.RemoveAt(index);
-
-        //    if (disposeBuffer) DisposeBuffer();
-        //}
 
         /// <summary>
         /// Empties the RtpFrame by clearing the underlying List of contained RtpPackets
@@ -915,17 +871,42 @@ namespace Media.Rtp
         /// </summary>
         public void Clear()
         {
-            //Different than most collections
-            DisposeAllPackets();
+            //Multiple threads adding packets would not effect count but removing definitely would...
 
-            //Disposes the buffer also
-            DisposeBuffer();
+            //Iterate in reverse to make the remove as efficient as possible.
+            for (int e = Packets.Count - 1; e >= 0; --e)
+            {
+                //Flag / Mark removing
+
+                ////Use the packet to get it's SequenceNumber and determine if it should be forcefully removed from the collection
+                //using (RtpPacket p = Packets[e])
+                //{
+                //    //Must either choose to persist or free at this point.
+                //    //if (p.ShouldDispose)
+
+                //    //To free it's memory that was possibly referenced
+                //    FreeDepacketizedMemory(GetPacketKey(p.SequenceNumber), p.ShouldDispose);
+                //}
+
+                ////Remove that packet.
+                //Packets.RemoveAt(e);
+
+
+                //Remove the packet at index 0 as well as free depacketized memory related to it.
+                Remove(m_LowestSequenceNumber);
+            }
+
+            ////Different than most collections
+            //DisposeAllPackets();
+
+            //Disposes the buffer also (but not really neede since Depacketize is handled with FreeDepacketizedMemory
+            //DisposeBuffer();
 
             //Dispose all segments in Depacketized.
-            FreeDepacketizedMemory();
+            //FreeDepacketizedMemory();
 
             //Finally clears the collection and resets sequence numbers
-            RemoveAllPackets(); 
+            //RemoveAllPackets(); 
         }
 
         //(if packets are added or removed this logic is interrupted)
@@ -1040,8 +1021,7 @@ namespace Media.Rtp
 
             //Depacketized.Add(Depacketized.Count, packet.PayloadDataSegment);//new Common.MemorySegment(packet.Payload.Array, (packet.Payload.Offset + headerOctets), packet.Payload.Count - (headerOctets + packet.PaddingOctets)));
 
-
-            int index = GetPacketKey(packet.SequenceNumber);
+            int index = (short)packet.SequenceNumber;
 
             if (Depacketized.ContainsKey(index)) return;
 
@@ -1054,7 +1034,7 @@ namespace Media.Rtp
         /// <summary>
         /// Takes all depacketized segments and writes them to the buffer.
         /// </summary>
-        internal protected void PrepareBuffer() //action pre pre write, post write
+        internal protected void PrepareBuffer() //bool, persist, action pre pre write, post write
         {
             //Ensure there is something to write to the buffer
             if (false == HasDepacketized) return;
@@ -1070,6 +1050,9 @@ namespace Media.Rtp
             {
                 //Get the segment
                 Common.MemorySegment value = pair.Value;
+
+                //if null, disposed or empty skip
+                if (Common.IDisposedExtensions.IsNullOrDisposed(value) || value.Count == 0) continue;
 
                 //Write it to the Buffer
                 Buffer.Write(value.Array, value.Offset, value.Count);
@@ -1092,23 +1075,52 @@ namespace Media.Rtp
             }
         }
 
-        internal protected void FreeDepacketizedMemory()
+        internal protected void FreeDepacketizedMemory(bool force = false)
         {
             //iterate each key in Depacketized
             foreach (KeyValuePair<int, Common.MemorySegment> pair in Depacketized)
             {
                 //Set ShouldDispose = true and call Dispose.
-                Common.BaseDisposable.SetShouldDispose(pair.Value, true, true);
+                if (force || pair.Value.ShouldDispose)
+                    Common.BaseDisposable.SetShouldDispose(pair.Value, true, true);
             }
 
             //Ensure cleared.
             Depacketized.Clear();
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public /*virtual*/ int GetPacketKey(int key) { unchecked { return (short)key; } }
+        //PersistPacketizedMemory()...
 
-        internal protected void FreeDepacketizedMemory(int key)
+        //IsPersisted bool
+
+        //Coudld ensure the orderNumber prefixes the SequenceNumber serially.
+        //const uint OrderMask = 0xffff0000;
+
+        //const int KeyMask = 0x0000ffff;
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //internal protected int GetOrderNumber(ref int key) { return (int)((short)key & OrderMask); }
+
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //[CLSCompliant(false)]
+        //internal protected /*virtual*/ int GetPacketKey(ref int key)
+        //{
+        //    unchecked { return (short)key; }
+        //}
+
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //internal protected /*virtual*/ int GetPacketKey(int key)
+        //{
+        //    //Todo, could allow unsafe calls here to improve performance Int32ToInt16Bits
+        //    return GetPacketKey(ref key);
+        //}
+
+        /// <summary>
+        /// Removes memory refereces related to the given key.
+        /// By default if the memory was persisted it is left in the list.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="force"></param>
+        internal protected void FreeDepacketizedMemory(int key, bool force = false)
         {
             //Needs a method to virtually determine the key of the packet.
             if (Depacketized.ContainsKey(key))
@@ -1116,8 +1128,8 @@ namespace Media.Rtp
                 //Obtain the segment
                 Common.MemorySegment segment = Depacketized[key];
 
-                //If the memory was not persisted
-                if (segment.ShouldDispose)
+                //If forced or the memory was not persisted
+                if (force || segment.ShouldDispose)
                 {
                     //Dispose the memory
                     segment.Dispose();
@@ -1143,7 +1155,14 @@ namespace Media.Rtp
 
             if (ShouldDispose)
             {
+                //Remove packets and any memory
                 Clear();
+
+                //Free the depacketized memory incase packets were removed and we own the memory.
+                FreeDepacketizedMemory(true);
+
+                //Dispose the buffer.
+                DisposeBuffer();
             }
         }
 
@@ -1529,7 +1548,6 @@ namespace Media.Rtp
     //}
 
     #endregion
-
 }
 
 
@@ -1989,6 +2007,8 @@ namespace Media.UnitTests
             //Create a frame
             unchecked
             {
+                int expected = 0;
+
                 using (Media.Rtp.RtpFrame frame = new Media.Rtp.RtpFrame(0))
                 {
                     byte payloadValue = byte.MinValue;
@@ -2013,8 +2033,6 @@ namespace Media.UnitTests
                     //If the frame has depacketize data
                     if (frame.HasDepacketized)
                     {
-                        int expected = 0;
-
                         System.IO.Stream buffer = frame.Buffer;
 
                         //Check for the expected length
@@ -2062,14 +2080,52 @@ namespace Media.UnitTests
                         //While there are less than the same amount of frames in the reordered frame
                         while (reorder.Count < frameCount)
                         {
-                            //Calulate a random index between 0 and the count - 1
+                            //Calulate a random index between 0 and the frame.Count - 1
                             index = Utility.Random.Next(0, frame.Count - 1);
 
-                            //Add that packet to the reordered frame
-                            reorder.TryAdd(frame[index]);
+                            //Add that packet to the reordered frame which must not already be added.
+                            reorder.Add(frame[index]);
 
-                            //Remove that packet from the original frame.
+                            //Remove that packet from the original frame. 
+                            //Warining, (this will not set m_LowestSequenceNumber or m_HighestSeqenceNumber in frame) we are working with the List directly!
+                            //This will also leave Depacketized with 16 entries which are still alive and valid because they are in the reordered packet.
+                            //Publicly this field is not accessible, it's restricted to the internal use of the library and protected use for the dervied classed.
                             frame.Packets.RemoveAt(index);
+
+                            //Depacketize the data in the reordered frame
+                            reorder.Depacketize();
+
+                            //Ideally you should be able to access the buffer also...
+                            //This required the SegmentList to work the way we need it to.
+
+                            using (System.IO.MemoryStream buffer = reorder.Buffer)
+                            {
+                                //Console.WriteLine("Index:" + index + " reorder.Count: " + reorder.Count);
+
+                                //For this test all bytes of the payload must be greater than the previous.
+                                int lastByte = -1, currentByte = -1;
+
+                                //Read the buffer
+                                while (buffer.Position < buffer.Length)
+                                {
+                                    //Read the byte if not already read
+                                    if (currentByte == -1)
+                                    {
+                                        lastByte = currentByte = buffer.ReadByte();
+                                        
+                                        continue;
+                                    }
+
+                                    //Read a byte to compare
+                                    currentByte = buffer.ReadByte();
+
+                                    //If the byte read was less than the last byte Depacketize did not add the data in the correct order.
+                                    if (currentByte < lastByte) throw new Exception("Data out of order");
+
+                                    //Console.WriteLine(buffer.ReadByte());
+                                }
+                            }
+
                         }
 
                         //Loop the same values and ensure the packet is at the expected logical index
@@ -2093,7 +2149,7 @@ namespace Media.UnitTests
                         //If the frame has depacketize data
                         if (reorder.HasDepacketized)
                         {
-                            int expected = 0;
+                            expected = 0;
 
                             System.IO.Stream buffer = reorder.Buffer;
 
@@ -2108,6 +2164,21 @@ namespace Media.UnitTests
                             }
                         }
                         else throw new Exception("HasDepacketized");
+
+
+                        //Test the SegmentStream (Not really part of this test yet because it's not used.)
+
+                        Common.SegmentStream test = new Common.SegmentStream(reorder.Depacketized.Values);
+
+                        expected = 0;
+
+                        //Read the buffer
+                        while (test.Position < frameCount)
+                        {
+                            //If the byte is out of order then throw an exception
+                            if (test.ReadByte() != expected++) throw new Exception("Data at wrong position");
+                        }
+
                     }
                 }
             }

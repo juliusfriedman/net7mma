@@ -176,6 +176,12 @@ namespace Media.Concepts.Classes
             return *((int*)(void*)&x);
         }
 
+        [System.CLSCompliant(false)]
+        public static unsafe int Int32ToInt16Bits(int x)
+        {
+            return *((short*)(void*)&x);
+        }
+
         //Should use Write
 
         /// <summary>

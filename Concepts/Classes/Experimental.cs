@@ -765,8 +765,6 @@ namespace Media.Concepts.Experimental
 
         internal protected System.IO.Stream m_Stream;
 
-        internal protected bool m_Disposed;
-
         internal EnumerableByteStream m_Self;
 
         bool Initialized { get { return CurrentInt != -1; } }

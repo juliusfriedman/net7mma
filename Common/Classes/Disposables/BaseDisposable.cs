@@ -155,11 +155,9 @@ namespace Media.Common
             //If already IsDisposed return
             if (IsDisposed) return;
 
-            //Mark the instance disposed
-            IsDisposed = true;
-
+            //Mark the instance disposed if disposing
             //If the resources are to be removed then the finalizer has been called.
-            if (disposing)
+            if (IsDisposed = disposing)
             {
                 //Do not call the finalizer
                 GC.SuppressFinalize(this);
