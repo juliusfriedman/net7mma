@@ -342,6 +342,21 @@ namespace Media.Rtsp//.Server
             }
         }
 
+        internal RtpClient.TransportContext GetSourceContext(int ssrc)
+        {
+            try
+            {
+                foreach (RtpClient.TransportContext context in Attached.Keys)
+                    if (ssrc == context.RemoteSynchronizationSourceIdentifier) return context;
+            }
+            catch (InvalidOperationException)
+            {
+                return GetSourceContext(ssrc);
+            }
+            catch { }
+            return null;
+        }
+
         internal RtpClient.TransportContext GetSourceContext(RtpPacket packet)
         {
             try
@@ -432,10 +447,12 @@ namespace Media.Rtsp//.Server
         /// </summary>
         /// <param name="stream">The listener from which the packet arrived</param>
         /// <param name="packet">The packet which arrived</param>
-        internal void OnSourceRtcpPacketRecieved(object stream, RtcpPacket packet)
+        internal void OnSourceRtcpPacketRecieved(object stream, RtcpPacket packet, Rtp.RtpClient.TransportContext tc = null)
         {
 
             if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) return;
+
+            //Make GetSourceBy SSRC
 
             //Should check for Goodbye and Deactivate this source
 
@@ -677,6 +694,8 @@ namespace Media.Rtsp//.Server
                 //Attach events based on how the source will raise them.
                 if (source.RtpClient.FrameChangedEventsEnabled) source.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
                 else source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+
+                //source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
 
                 //Ensure playing
                 Playing.Add(source.Id);

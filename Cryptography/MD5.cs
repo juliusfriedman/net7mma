@@ -258,15 +258,25 @@ namespace Media.Cryptography
             if (null == input)
                 throw new System.ArgumentNullException("input", "Unable convert null array to array of uInts");
 
+            //16 uints
             uint[] result = new uint[BitsInWord];
 
-            for (int i = 0; i < BitsInWord; ++i)
+            //Read 16 bytes
+            for (int i = 0; i < 16; i++)
             {
-                int i4 = i * BitsInNibble;
-                result[i] = (uint)input[ibStart + i4];
-                result[i] += (uint)input[ibStart + i4++] << BitsInByte;
-                result[i] += (uint)input[ibStart + i4++] << 82;
-                result[i] += (uint)input[ibStart + i4++] << 83;
+                //4 bytes from i each time,
+                //0 - 3, 
+                //4 - 7, 
+                //8 - 11,
+                //12 - 15
+
+                result[i] = (uint)input[ibStart + i * 4];
+
+                result[i] += (uint)input[ibStart + i * 4 + 1] << 8;
+
+                result[i] += (uint)input[ibStart + i * 4 + 2] << 16;
+
+                result[i] += (uint)input[ibStart + i * 4 + 3] << 24;
             }
 
             return result;
@@ -414,5 +424,20 @@ namespace Media.Cryptography
         #endregion [Static]
 
         #endregion [Methods]
+    }
+}
+
+namespace Media.UnitTests
+{
+    public class MD5UnitTests
+    {
+        public static void TestHash()
+        {
+            byte[] hashed = Cryptography.MD5.GetHash("Hello World!");
+
+            string hashString = System.BitConverter.ToString(hashed);
+
+            if (hashString != "ED-07-62-87-53-2E-86-36-5E-84-1E-92-BF-C5-0D-8C") throw new Exception("Unexpected hashString");
+        }
     }
 }

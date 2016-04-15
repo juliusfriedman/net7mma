@@ -61,6 +61,8 @@ namespace Media.UnitTests
             TestStopWatch,
             TestClock,
             TestTimer,
+            //Cryptography
+            TestCryptography,
             //Common
             TestRuntimeExtensions,
             TestOperatingSystemExtensions,
@@ -2891,6 +2893,19 @@ a=appversion:1.0");
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpApplicationSpecificReportUnitTests), TypeOfVoid);
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpRtcpTests), TypeOfVoid);
+        }
+
+        static void TestCryptography()
+        {
+            //Todo
+            //Test md5 against c# version and test vectors.
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MD5UnitTests), TypeOfVoid);
+
+        }
+
+        static void TestSegmentStream()
+        {
+            //Todo, test the SegmentStream
         }
 
         /// <summary>
