@@ -703,7 +703,7 @@ namespace Media.Rtsp
         public NetworkCredential Credential { get { return m_Credential; } set { m_Credential = value; m_AuthorizationHeader = null; } }
 
         /// <summary>
-        /// The type of AuthenticationScheme to utilize in RtspRequests
+        /// The type of AuthenticationScheme to utilize in RtspRequests, if this is not set then the Credential will not send until it has been determined from a Not Authroized response.
         /// </summary>
         public AuthenticationSchemes AuthenticationScheme
         {
@@ -711,8 +711,12 @@ namespace Media.Rtsp
             set
             {
                 if (value == m_AuthenticationScheme) return; 
+                
                 if (value != AuthenticationSchemes.Basic && value != AuthenticationSchemes.Digest && value != AuthenticationSchemes.None) throw new System.InvalidOperationException("Only None, Basic and Digest are supported"); 
-                else m_AuthenticationScheme = value;
+                
+                m_AuthenticationScheme = value;
+
+                m_AuthorizationHeader = null;
             }
         }
 
@@ -2254,10 +2258,18 @@ namespace Media.Rtsp
                 //Calculate the connection time.
                 m_ConnectionTime = m_EndConnect.Value - m_BeginConnect.Value;
 
-                //Set the read and write timeouts based upon such a time (should include a min of the m_RtspSessionTimeout.)
-                if (m_ConnectionTime > TimeSpan.Zero) SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
+                //Possibly VM the timing may be off (Hardware Abstraction Layer BUGS) and if the timeout occurs the socket may be closed
+                //To prefent this check the value first.
+                int multipliedConnectionTime = (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
 
-                //Don't block
+                //If it took longer than 50 msec to connect (otherwise these remains at their current values)
+                if (multipliedConnectionTime > 100)
+                {
+                    //Set the read and write timeouts based upon such a time (should include a min of the m_RtspSessionTimeout.)
+                    if (m_ConnectionTime > TimeSpan.Zero) SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
+                }
+
+                //Don't block (possibly another way to work around the issue)
                 //m_RtspSocket.Blocking = false;
 
                 //Raise the Connected event.
@@ -2663,7 +2675,7 @@ namespace Media.Rtsp
 
                     //If there not already an Authorization header and there is an AuthenticationScheme utilize the information in the Credential
                     if (false == message.ContainsHeader(RtspHeaders.Authorization) &&
-                        m_AuthenticationScheme != AuthenticationSchemes.None &&
+                        m_AuthenticationScheme != AuthenticationSchemes.None && //Using this as an unknown value at first..
                         Credential != null)
                     {
                         //Basic
@@ -2683,6 +2695,7 @@ namespace Media.Rtsp
                             message.SetHeader(RtspHeaders.Authorization, m_AuthenticationScheme.ToString());
                         }
                     }
+
                     #endregion
 
                 Timestamp:
@@ -3043,8 +3056,18 @@ namespace Media.Rtsp
 
                                     break;
                                 }
-                            case RtspStatusCode.NotImplemented: SupportedMethods.Remove(m_LastTransmitted.MethodString); break;
-                            case RtspStatusCode.MethodNotValidInThisState: if (m_LastTransmitted.ContainsHeader(RtspHeaders.Allow)) MonitorProtocol(); break;
+                            case RtspStatusCode.NotImplemented:
+                                {
+                                    SupportedMethods.Remove(m_LastTransmitted.MethodString); 
+                                    
+                                    break;
+                                }
+                            case RtspStatusCode.MethodNotValidInThisState:
+                                {
+                                    if (m_LastTransmitted.ContainsHeader(RtspHeaders.Allow)) MonitorProtocol(); 
+                                    
+                                    break;
+                                }
                             case RtspStatusCode.Unauthorized:
                                 {
                                     //If we were not authorized and we did not give a nonce and there was an WWWAuthenticate header given then we will attempt to authenticate using the information in the header

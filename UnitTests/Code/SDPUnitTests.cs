@@ -526,7 +526,9 @@ a=control:track1
 
         using (Media.Sdp.SessionDescription sdp = new Media.Sdp.SessionDescription(testVector))
         {
-            System.Diagnostics.Debug.Assert(string.Compare(sdp.ToString(), testVector) == 0, "Unexpected ToString");
+            //This string should be equal exactly, but because the class corrects of the lines the order it's not exactly the same.
+            //T= is before the media description in the example..
+            //System.Diagnostics.Debug.Assert(string.Compare(sdp.ToString(), testVector) == 0, "Unexpected sdp.ToString");
 
             foreach (Media.Sdp.MediaDescription md in sdp.MediaDescriptions)
             {
@@ -537,14 +539,14 @@ a=control:track1
                 System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionNetworkType, Media.Sdp.Lines.SessionConnectionLine.IP4) == 0, "Unexpected ConnectionNetworkType");
 
                 //Todo
-                //IPAddress name of property is wrong.
+                //IPAddress name of property is wrong. (ConnectionAddress)
                 System.Diagnostics.Debug.Assert(string.Compare(cLine.IPAddress, "232.248.50.1") == 0, "Unexpected IPAddress");
 
                 System.Diagnostics.Debug.Assert(Media.Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(System.Net.IPAddress.Parse(cLine.IPAddress)), "Must be a IsMulticast");
 
                 System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionAddress, "232.248.50.1/255") == 0, "Unexpected ConnectionAddress");
 
-                System.Diagnostics.Debug.Assert(false == cLine.Ports.HasValue, "Unexpected Ports.HasValue");
+                System.Diagnostics.Debug.Assert(cLine.HasMultiplePorts == false, "Unexpected Ports.HasValue");
 
                 //Must be parsed from ConnectionParts
 
@@ -552,14 +554,50 @@ a=control:track1
 
                 //System.Diagnostics.Debug.Assert(cLine.Hops.Value != 255, "Unexpected Hops.Value");
 
-                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionParts.First(), "232.248.50.1") == 0, "Unexpected ConnectionParts");
+                System.Diagnostics.Debug.Assert(cLine.ConnectionParts.First() == "232.248.50.1", "Unexpected ConnectionParts");
 
-                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionParts.Last(), "255") == 0, "Unexpected ConnectionParts");
+                System.Diagnostics.Debug.Assert(cLine.ConnectionParts.Last() == "255", "Unexpected ConnectionParts");
 
-                System.Diagnostics.Debug.Assert(string.Compare(sdp.ToString(), @"c=IN IP4 232.248.50.1/255") == 0, "Unexpected cLine ToString");
+                System.Diagnostics.Debug.Assert(cLine.ToString() == "c=IN IP4 232.248.50.1/255\r\n", "Unexpected cLine ToString");
             }
 
         }
+
+    }
+
+    public void ParseMulticastConnectionLineWithPortRangeAndTtl()
+    {
+        string testVector = "c=IN IP4 232.248.50.1/255/2";
+
+        Media.Sdp.Lines.SessionConnectionLine cLine = new Media.Sdp.Lines.SessionConnectionLine(testVector);
+
+        System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionAddressType, Media.Sdp.Lines.SessionConnectionLine.InConnectionToken) == 0, "Unexpected ConnectionAddressType");
+
+        System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionNetworkType, Media.Sdp.Lines.SessionConnectionLine.IP4) == 0, "Unexpected ConnectionNetworkType");
+
+        //Todo
+        //IPAddress name of property is wrong. (ConnectionAddress)
+        System.Diagnostics.Debug.Assert(cLine.IPAddress == "232.248.50.1", "Unexpected IPAddress");
+
+        System.Diagnostics.Debug.Assert(Media.Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(System.Net.IPAddress.Parse(cLine.IPAddress)), "Must be a IsMulticast");
+
+        System.Diagnostics.Debug.Assert(cLine.ConnectionAddress == "232.248.50.1/255/2", "Unexpected ConnectionAddress");
+
+        System.Diagnostics.Debug.Assert(cLine.HasMultiplePorts, "Unexpected Ports.HasValue");
+
+        System.Diagnostics.Debug.Assert(cLine.Ports == 2, "Unexpected Ports.Value");
+
+        //Must be parsed from ConnectionParts
+
+        System.Diagnostics.Debug.Assert(cLine.HasTimeToLive, "Unexpected Hops.HasValue");
+
+        System.Diagnostics.Debug.Assert(cLine.Hops != 255, "Unexpected Hops.Value");
+
+        System.Diagnostics.Debug.Assert(cLine.ConnectionParts.First() == "232.248.50.1", "Unexpected ConnectionParts");
+
+        System.Diagnostics.Debug.Assert(cLine.ConnectionParts.Last() == "255", "Unexpected ConnectionParts");
+
+        System.Diagnostics.Debug.Assert(cLine.ToString() == "c=IN IP4 232.248.50.1/255/2\r\n", "Unexpected cLine ToString");
 
     }
 

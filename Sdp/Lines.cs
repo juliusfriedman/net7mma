@@ -335,6 +335,7 @@ namespace Media.Sdp
                 }
             }
 
+            //AddressToken
             //This is not always an IP....(see notes above)
             /// <summary>
             /// 
@@ -352,49 +353,69 @@ namespace Media.Sdp
                 }
             }
 
-            //HasHops
+            public bool HasTimeToLive
+            {
+                get
+                {
+                    if (string.IsNullOrWhiteSpace(ConnectionAddress)) return false;
+
+                    if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
+
+                    return m_ConnectionParts.Length > 1;
+                }
+            }
 
             //Should only be present if ConnectionAddress contains a Multicast address.
 
             /// <summary>
             /// Todo, should not be nullable.
             /// </summary>
-            public int? Hops
+            public int Hops
             {
                 get
                 {
-                    if (string.IsNullOrWhiteSpace(ConnectionAddress)) return null;
+                    if (string.IsNullOrWhiteSpace(ConnectionAddress)) return 0;
 
                     if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
 
-                    if (m_ConnectionParts.Length > 2)
+                    if (m_ConnectionParts.Length > 1)
                     {
                         return int.Parse(m_ConnectionParts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
                     }
 
-                    return null; //Default Ttl
+                    return 0; //Default Ttl
                 }
             }
 
-            //Has(Multiple)Ports
+            public bool HasMultiplePorts
+            {
+                get
+                {
+                    if (string.IsNullOrWhiteSpace(ConnectionAddress)) return false;
+
+                    if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
+
+                    return m_ConnectionParts.Length > 2;
+                }
+            }
 
             /// <summary>
             /// Todo, should not be nullable.
             /// </summary>
-            public int? Ports
+            public int Ports
             {
                 get
                 {
-                    if (string.IsNullOrWhiteSpace(ConnectionAddress)) return null;
+                    if (string.IsNullOrWhiteSpace(ConnectionAddress)) return 1;
 
                     if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
 
                     if (m_ConnectionParts.Length > 2) //Todo ensure not accidentally giving Hops... should proably be 3
                     {
-                        return int.Parse(m_ConnectionParts[m_ConnectionParts.Length - 1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
+                        return int.Parse(m_ConnectionParts[2], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
                     }
 
-                    return null; //1
+                    return 1; //1
                 }
             }
 
@@ -427,32 +448,15 @@ namespace Media.Sdp
             }
 
             public SessionConnectionLine(string[] sdpLines, ref int index)
-                : base(sdpLines, ref index, SessionDescription.SpaceString, ConnectionType) //,3) //this()
+                : base(sdpLines, ref index, SessionDescription.SpaceString, ConnectionType)
             {
-                //try
-                //{
-                //    string sdpLine = sdpLines[index++].Trim();
+                
+            }
 
-                //    if (string.IsNullOrWhiteSpace(sdpLine) 
-                //        || 
-                //        sdpLine[0] != ConnectionType) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid SessionConnectionLine");
-
-                //    sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
-
-                //    //m_Parts.Add(sdpLine);
-
-                //    //Could loop split results and call SetPart(i, splits[i])
-
-                //    m_Parts.Clear();
-
-                //    m_Parts.AddRange(sdpLine.Split(SessionDescription.Space));
-
-                //    EnsureParts(3);
-                //}
-                //catch
-                //{
-                //    throw;
-                //}
+            public SessionConnectionLine(string line) 
+                : base(line, SessionDescription.SpaceString, 3)
+            {
+                if (m_Type != ConnectionType) throw new InvalidOperationException("Not a SessionConnectionLine line");
             }
 
             #endregion

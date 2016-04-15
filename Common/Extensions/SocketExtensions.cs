@@ -40,6 +40,89 @@ namespace Media.Common.Extensions.Socket
 {
     public static class SocketExtensions
     {
+
+        //Virtual machines with HAL...
+        //static SocketExtensions()
+        //{
+        //    //Make a socket for the sender to receive connections on
+        //    var sendersSocket = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
+
+        //    var testEp = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 7);
+
+        //    var testData = new byte[] { 0 };
+
+        //    System.Net.Sockets.SocketError error;
+
+        //    //Bind and listen
+        //    sendersSocket.Bind(testEp);
+
+        //    sendersSocket.Listen(1);
+
+        //    bool done = false;
+
+        //    //Start to accept connections
+        //    var acceptResult = sendersSocket.BeginAccept(new System.AsyncCallback(iar =>
+        //    {
+        //        //Get the socket used
+        //        var acceptedSocket = sendersSocket.EndAccept(iar);
+
+        //        if (acceptedSocket.ReceiveTimeout == 0)
+        //        {
+        //            //Set the values to 1 ms
+        //            acceptedSocket.SendTimeout = acceptedSocket.ReceiveTimeout = 1;
+
+        //            //Send dat which should succeeed to be sent.
+        //            acceptedSocket.Send(testData, 0, 1, System.Net.Sockets.SocketFlags.None, out error);
+
+        //            //Something else happened
+        //            if (error != System.Net.Sockets.SocketError.Success) return;
+
+        //            //Receive that data
+        //            acceptedSocket.Receive(testData, 0, 1, System.Net.Sockets.SocketFlags.None, out error);
+
+        //            if (error != System.Net.Sockets.SocketError.Success)
+        //            {
+        //                //Timed out
+
+        //                acceptedSocket.Send(testData, 0, 1, System.Net.Sockets.SocketFlags.None, out error);
+
+        //                if (error != System.Net.Sockets.SocketError.Success && false == acceptedSocket.Connected) throw new System.Exception("Hal Bug");
+
+        //                acceptedSocket.Receive(testData, 0, 1, System.Net.Sockets.SocketFlags.None, out error);
+
+        //                if (error != System.Net.Sockets.SocketError.Success && false == acceptedSocket.Connected) throw new System.Exception("Hal Bug");
+
+        //                acceptedSocket.Receive(testData, 0, 1, System.Net.Sockets.SocketFlags.None, out error);
+
+        //                if (error != System.Net.Sockets.SocketError.Success && false == acceptedSocket.Connected) throw new System.Exception("Hal Bug");
+
+        //            }
+
+        //            done = true;
+        //        }
+
+        //    }), null);
+
+        //    //Make a socket for the receiver to connect to the sender on.
+        //    var rr = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
+
+        //    //Connect to the sender
+        //    rr.Connect(testEp);
+
+        //    //acceptedSocket is now rr
+
+        //    while (false == done)
+        //    {
+        //        System.Threading.Thread.Sleep(1);
+        //        //Wait for the connection
+        //    }
+
+        //    rr.Dispose();
+
+        //    sendersSocket.Dispose();
+
+        //}
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public static System.Net.Sockets.Socket ReservePort(System.Net.Sockets.SocketType socketType, System.Net.Sockets.ProtocolType protocol, System.Net.IPAddress localIp, int port)
         {

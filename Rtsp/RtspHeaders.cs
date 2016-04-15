@@ -230,7 +230,7 @@ namespace Media.Rtsp
 
                 //http://en.wikipedia.org/wiki/Digest_access_authentication
                 //The MD5 hash of the combined username, authentication realm and password is calculated. The result is referred to as HA1.
-                byte[] HA1 = Cryptography.MD5.GetHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", credential.UserName, realmPart, credential.Password)));
+                byte[] HA1 = Cryptography.MD5.GetHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", credential.UserName, realmPart, credential.Password)));                
 
                 //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
                 byte[] HA2 = null;
