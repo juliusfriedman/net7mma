@@ -153,6 +153,8 @@ namespace Media.Common.Collections.Generic
             //Add the new key and value
             if (false == CoreAdd(ref key, ref value, Predicates, hadValue, false))
             {
+                //Todo, possibly expand here.
+                //Could wrap this method and throw a TaggedException which would be able to be used to update the item.
                 //throw new ArgumentException("The given key was already present in the dictionary");
             }
         }

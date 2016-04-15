@@ -309,21 +309,27 @@ namespace Media.Common
     //        set { fixed (int* x = &Member) *(((byte*)x) + index) = value; }
     //    }
 
-    //    public AlignedSegment(byte one)
+    //These copy by value, e.g. dereference the ref to to the copy.
+    //There would have to be a setter for byte* to use this with single bytes...
+    //The meaning would not be the same as you would think if the value of one changes after this call.
+    //To achive that a byte* version would be need and it would have to be fixed..
+    //Fixing is bad enough and to fix a single byte is even worse...
+
+    //    public AlignedSegment(ref byte one)
     //    {
     //        this[0] = one;
     //    }
-    //    public AlignedSegment(byte one, byte two)
+    //    public AlignedSegment(ref byte one, byte two)
     //        :this(one)
     //    {
     //        this[1] = two;
     //    }
-    //    public AlignedSegment(byte one, byte two,  byte three)
+    //    public AlignedSegment(ref byte one, ref byte two,  ref byte three)
     //        : this(one, two)
     //    {
     //        this[2] = three;
     //    }
-    //    public AlignedSegment(byte one, byte two, byte three, byte fourc)
+    //    public AlignedSegment(ref byte one, ref byte two, ref byte three, ref byte fourc)
     //        : this(one, two, three)
     //    {
     //        this[3] = fourc;
@@ -334,146 +340,334 @@ namespace Media.Common
 
     #region Not yet used
 
-    ////Deciding if I really need this...
-    ///// <summary>
-    ///// Used to crete a continious stream to locations of memory which may not be next to each other and could even overlap.
-    ///// </summary>
-    //public class SegmentStream : System.IO.Stream
-    //{
-    //    //Absolutely not necessary...
-    //    ulong m_Position, m_Count;
+    /// <summary>
+    /// Used to crete a continious stream to locations of memory which may not be next to each other and could even overlap.
+    /// </summary>
+    public class SegmentStream : System.IO.Stream, IDisposed
+    {
+        long m_Position, m_Count;
 
-    //    readonly List<Common.MemorySegment> Segments = new List<MemorySegment>();
+        readonly IList<Common.MemorySegment> Segments;
 
-    //    public void AddMemory(Common.MemorySegment segment)
-    //    {
-    //        Segments.Add(segment);
+        Common.MemorySegment WorkingSegment;
 
-    //        m_Count += (ulong)segment.Count;
-    //    }
+        int m_Index = 0;
 
-    //    public void AddPersistedMemory(Common.MemorySegment segment)
-    //    {
-    //        Common.MemorySegment copy = new MemorySegment(segment.Count);
+        long m_Cursor;
 
-    //        System.Array.Copy(segment.Array, segment.Offset, copy.Array, 0, segment.Count);
+        public SegmentStream(IList<Common.MemorySegment> existing)
+        {
+            if (existing == null) throw new ArgumentNullException();
 
-    //        AddMemory(copy);
-    //    }
+            Segments = existing;
 
-    //    public void InsertMemory(int index, Common.MemorySegment toInsert)
-    //    {
-    //        Segments.Insert(index, toInsert);
+            m_Count = Segments.Sum(s => Common.IDisposedExtensions.IsNullOrDisposed(s) ? 0 : s.m_Length);
+        }
 
-    //        m_Count += (ulong)toInsert.Count;
-    //    }
+        /////////////////////////////////////
 
-    //    public void InsertPersistedMemory(int index, Common.MemorySegment toInsert)
-    //    {
-    //        Common.MemorySegment copy = new MemorySegment(toInsert.Count);
+        public void AddMemory(Common.MemorySegment segment)
+        {
+            if (Common.IDisposedExtensions.IsNullOrDisposed(segment)) segment = Common.MemorySegment.Empty;
 
-    //        System.Array.Copy(toInsert.Array, toInsert.Offset, copy.Array, 0, toInsert.Count);
+            Segments.Add(segment);
 
-    //        InsertMemory(index, copy);
-    //    }
+            m_Count += segment.m_Length;
+        }
 
-    //    public void Free(int index)
-    //    {
-    //        if (index < 0 || index > Segments.Count) return;
+        public void AddPersistedMemory(Common.MemorySegment segment)
+        {
+            if (Common.IDisposedExtensions.IsNullOrDisposed(segment))
+            {
+                AddMemory(Common.MemorySegment.Empty);
 
-    //        using (Common.MemorySegment segment = Segments[index])
-    //        {
-    //            Segments.RemoveAt(index);
+                return;
+            }
 
-    //            m_Count -= (ulong)segment.Count;
-    //        }
-    //    }
+            Common.MemorySegment copy = new MemorySegment(segment.Count, false); //Don't dispose unless forced
 
-    //    public override bool CanRead
-    //    {
-    //        get { return true; }
-    //    }
+            System.Array.Copy(segment.Array, segment.Offset, copy.Array, 0, segment.Count);
 
-    //    public override bool CanSeek
-    //    {
-    //        get { return true; }
-    //    }
+            AddMemory(copy);
+        }
 
-    //    public override bool CanWrite
-    //    {
-    //        get { return true; }
-    //    }
+        public void InsertMemory(int index, Common.MemorySegment toInsert) { InsertMemory(ref index, toInsert); }
 
-    //    public override void Flush()
-    //    {
-    //        return;
-    //    }
+        [CLSCompliant(false)]
+        public void InsertMemory(ref int index, Common.MemorySegment toInsert)
+        {
+            if (Common.IDisposedExtensions.IsNullOrDisposed(toInsert)) toInsert = Common.MemorySegment.Empty;
 
-    //    public override long Length
-    //    {
-    //        get { return (long)m_Count; }
-    //    }
+            Segments.Insert(index, toInsert);
 
-    //    public override long Position
-    //    {
-    //        get
-    //        {
-    //            return (long)m_Position;
-    //        }
-    //        set
-    //        {
-    //            ulong uvalue = (ulong)value;
+            m_Count += toInsert.m_Length;
+        }
 
-    //            if (uvalue > m_Count)
-    //            {
-    //                m_Position = m_Count;
+        public void InsertPersistedMemory(int index, Common.MemorySegment toInsert) { InsertPersistedMemory(ref index, toInsert); }
 
-    //                return;
-    //            }
+        [CLSCompliant(false)]
+        public void InsertPersistedMemory(ref int index, Common.MemorySegment toInsert)
+        {
 
-    //            m_Position = uvalue;
-    //        }
-    //    }
+            if (Common.IDisposedExtensions.IsNullOrDisposed(toInsert))
+            {
+                InsertMemory(ref index, (Common.MemorySegment.Empty));
 
-    //    public override int Read(byte[] buffer, int offset, int count)
-    //    {
-    //        throw new NotImplementedException();
-    //        //Needs to have the segmegment for the offset somewhere
-    //    }
+                return;
+            }
 
-    //    public override long Seek(long offset, System.IO.SeekOrigin origin)
-    //    {
-    //        throw new NotImplementedException();
-    //        //need to switch on origin and move m_Position 
-    //        //Needs to have the segmegment for the offset somewhere
-    //    }
+            Common.MemorySegment copy = new MemorySegment(toInsert.Count);
 
-    //    //Could have this clear or dispose memory...
-    //    public override void SetLength(long value)
-    //    {
-    //        if (value <= 0) Clear();
+            System.Array.Copy(toInsert.Array, toInsert.Offset, copy.Array, 0, toInsert.Count);
 
-    //        //Clear only up after value and resegment first segment offsets based on value if required.
-    //    }
+            InsertMemory(ref index, copy);
+        }
 
-    //    /// <summary>
-    //    /// Calls <see cref="Free"/> for each entry in <see cref="Segments"/>
-    //    /// </summary>
-    //    private void Clear()
-    //    {
-    //        for (int i = 0, e = Segments.Count; i < e; ++i) Free(i);
-    //    }
+        public void Free(int index) { Free(ref index); }
 
-    //    public void WritePersisted(byte[] buffer, int offset, int count)
-    //    {
-    //        AddPersistedMemory(new Common.MemorySegment(buffer, offset, count));
-    //    }
+        [CLSCompliant(false)]
+        internal protected void Free(ref int index)
+        {
+            if (index < 0 || index > Segments.Count) return;
 
-    //    public override void Write(byte[] buffer, int offset, int count)
-    //    {
-    //        AddMemory(new Common.MemorySegment(buffer, offset, count));
-    //    }
-    //}
+            //Call dispose at the end of this
+            using (Common.MemorySegment segment = Segments[index])
+            {
+                //Remove the Segment
+                Segments.RemoveAt(index);
+
+                //Decrment for length of the segment
+                m_Count -= segment.m_Length;
+            }
+        }
+
+        public override bool CanRead
+        {
+            get { return true; }
+        }
+
+        public override bool CanSeek
+        {
+            get { return true; }
+        }
+
+        public override bool CanWrite
+        {
+            get { return true; }
+        }
+
+        public override void Flush()
+        {
+            return;
+        }
+
+        public override long Length
+        {
+            get { return (long)m_Count; }
+        }
+
+        public override long Position
+        {
+            get
+            {
+                return (long)m_Position;
+            }
+            set
+            {
+                Seek(value, System.IO.SeekOrigin.Current);
+            }
+        }
+
+        //Already doing what we need
+        //public override int ReadByte()
+        //{
+        //    return base.ReadByte();
+        //}
+
+        //Could make this a threaded stream by giving absolute values for offset and count
+        //Would then remove all instance fields including working segment and m_Cursor
+        //Each read operation would be 'atomic' to that call
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            //If at the end of data return 0 unless closed...
+            if (m_Position >= m_Count) return IsDisposed ? -1 : 0;
+
+            if (WorkingSegment == null || m_Cursor == WorkingSegment.m_Length) WorkingSegment = Segments[m_Index++];
+
+            int total = 0;
+
+            //While there is data to read and the data to read is in the region of memory we can read
+            while (total < count && m_Index <= Segments.Count && m_Cursor < WorkingSegment.m_Length)
+            {
+                int toCopy = (int)(WorkingSegment.m_Length - m_Cursor);
+
+                toCopy = Common.Binary.Min(count, toCopy);
+
+                //Copy the data from the working segment from the offset + cursor to the amount of bytes to copy.
+                Array.Copy(WorkingSegment.Array, WorkingSegment.Offset + m_Cursor, buffer, offset, toCopy);
+
+                //Increment for total
+                total += toCopy;
+
+                m_Position += toCopy;
+
+                offset += toCopy;
+
+                count -= toCopy;
+
+                //Need to have a GetSegmentForOffset Func
+                if ((m_Cursor += toCopy) == WorkingSegment.m_Length && m_Position < m_Count)
+                {
+                    WorkingSegment = Segments[m_Index++];
+
+                    m_Cursor = 0;
+                }
+            }
+
+            return total;
+        }
+
+        public override long Seek(long offset, System.IO.SeekOrigin origin)
+        {
+            //need to switch on origin and move m_Position 
+            //Needs to have the segmegment for the offset somewhere
+
+            switch (origin)
+            {
+                case System.IO.SeekOrigin.Begin:
+                    {
+                        if (offset > m_Count)
+                        {
+                            //Segment is the last segment.
+
+                            WorkingSegment = Segments[Segments.Count - 1];
+
+                            m_Cursor = WorkingSegment.Count;
+
+                            return m_Position = m_Count;
+                        }
+
+                        //Must change segment for offset given.
+
+                        m_Cursor = m_Position = m_Index = 0;
+
+                        while (offset > 0)
+                        {
+                            WorkingSegment = Segments[m_Index];
+
+                            m_Position += (m_Cursor = (offset -= Math.Min(WorkingSegment.m_Length, offset)));
+                        }
+
+                        return m_Position;;
+                    }
+                case System.IO.SeekOrigin.Current:
+                    {
+                        while (offset > 0)
+                        {
+                            WorkingSegment = Segments[m_Index];
+
+                            long left = m_Cursor - WorkingSegment.m_Length;
+
+                            offset -= left;
+
+                            m_Position += left;
+
+                            m_Index++;
+                        }
+
+                        //if the current segment is at the end of it's data then it needs to change...
+                        //Need to have a GetSegmentForOffset Func
+                        return m_Position;
+                    }
+                case System.IO.SeekOrigin.End:
+                    {
+                        //Need to have a GetSegmentForOffset Func
+
+                        WorkingSegment = Segments.Last();
+
+                        m_Cursor = offset - WorkingSegment.m_Length;
+
+                        return m_Position = m_Count - offset;
+                    }
+                default: return Position;
+            }
+        }
+
+        //Could have this clear or dispose memory...
+        public override void SetLength(long value)
+        {
+            if (value <= 0) Clear();
+
+            //Clear only up after value and resegment first segment offsets based on value if required.
+        }
+
+        /// <summary>
+        /// Calls <see cref="Free"/> for each entry in <see cref="Segments"/>
+        /// </summary>
+        private void Clear()
+        {
+            for (int i = 0, e = Segments.Count; i < e; ++i) Free(ref i);
+        }
+
+        public void WritePersisted(byte[] buffer, int offset, int count)
+        {
+            AddPersistedMemory(new Common.MemorySegment(buffer, offset, count));
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            AddMemory(new Common.MemorySegment(buffer, offset, count));
+        }
+
+        //public override void Close()
+        //{
+        //IsClosed = true;
+        // LeaveOpen...
+        //    ShouldDispose = true;//....?
+        //    //base.Close(); 
+            
+        //    //base.Close() =>
+        //    //  Dispose(true);
+        //    //  GC.SuppressFinalize(this);
+        //}
+
+        #region IDisposed
+
+        internal protected bool ShouldDispose = true, IsDisposed;
+
+        protected override void Dispose(bool disposing)
+        {
+            //Does nothing base.Dispose(disposing);
+
+            //If disposing
+            if (IsDisposed = disposing)
+            {
+                //Calls Close virtual (Calls Dispose(true) and GC.SuppressFinalize(this))
+                //base.Dispose(); 
+
+                //Clear memory
+                Clear();
+            }
+        }
+
+        bool IDisposed.IsDisposed
+        {
+            get { return IsDisposed; }
+        }
+
+        bool IDisposed.ShouldDispose
+        {
+            get { return ShouldDispose; }
+        }
+
+        void IDisposable.Dispose() { Dispose(ShouldDispose); }
+
+        //Indicate really disping when the destructor is called.
+        ~SegmentStream() { Dispose(ShouldDispose); }
+
+        #endregion
+    }
 
     #endregion
 

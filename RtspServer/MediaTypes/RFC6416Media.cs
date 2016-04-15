@@ -113,25 +113,25 @@ namespace Media.Rtsp.Server.MediaTypes
             /// Write the required prerequesite data to the Buffer along with the Video Frame.
             /// </summary>
             /// <param name="profileLevelId">The profileLevelId (if not 1)</param>
-            public void Depacketize(byte profileLevelId = 1)
-            {
-                DisposeBuffer();
+            //public void Depacketize(byte profileLevelId = 1)
+            //{
+            //    DisposeBuffer();
 
-                if (profileLevelId < 1) throw new ArgumentException("Must be a valid Mpeg 4 Profile Level Id with a value >= 1", "profileLevelId");
+            //    if (profileLevelId < 1) throw new ArgumentException("Must be a valid Mpeg 4 Profile Level Id with a value >= 1", "profileLevelId");
 
-                /*
-                  Example usages for the "profile-level-id" parameter are:
-                  1  : MPEG-4 Visual Simple Profile/Level 1
-                  15 : AAC?
-                  34 : MPEG-4 Visual Core Profile/Level 2
-                  145: MPEG-4 Visual Advanced Real Time Simple Profile/Level 1
-                 */
+            //    /*
+            //      Example usages for the "profile-level-id" parameter are:
+            //      1  : MPEG-4 Visual Simple Profile/Level 1
+            //      15 : AAC?
+            //      34 : MPEG-4 Visual Core Profile/Level 2
+            //      145: MPEG-4 Visual Advanced Real Time Simple Profile/Level 1
+            //     */
 
-                m_Buffer = new MemoryStream(Media.Containers.Mpeg.StartCodes.StartCodePrefix. //00 00 01
-                    Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.Mpeg4.StartCodes.VisualObjectSequence)).
-                    Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(profileLevelId)). // B0 XX (ID)
-                    Concat(Media.Containers.Mpeg.StartCodes.StartCodePrefix).Concat(Assemble()).ToArray()); // 00 00 01 XX (DATA)
-            }
+            //    m_Buffer = new MemoryStream(Media.Containers.Mpeg.StartCodes.StartCodePrefix. //00 00 01
+            //        Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.Mpeg4.StartCodes.VisualObjectSequence)).
+            //        Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(profileLevelId)). // B0 XX (ID)
+            //        Concat(Media.Containers.Mpeg.StartCodes.StartCodePrefix).Concat(Assemble()).ToArray()); // 00 00 01 XX (DATA)
+            //}
 
             public virtual void ProcessPacket(Rtp.RtpPacket packet, byte profileLevelId = 1)
             {

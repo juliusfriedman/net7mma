@@ -184,124 +184,41 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="addPadding"></param>
             /// <param name="includeAuHeaders"></param>
             /// <param name="includeAuxData"></param>
-            public void Depacketize(out int parsedAccessUnits, out int remainsInAu, bool headersPresent = true, int profileId = 0, int channelConfiguration = 0, 
+            public void Depacketize(Media.Rtp.RtpPacket packet, out int parsedAccessUnits, out int remainsInAu, bool headersPresent = true, int profileId = 0, int channelConfiguration = 0, 
                 int frequencyIndex = 0, int sizeLength = 0, int indexLength = 0, int indexDeltaLength = 0, int CTSDeltaLength = 0, 
                 int DTSDeltaLength = 0, int auxDataSizeLength = 0, bool randomAccessIndication = false, int streamStateIndication = 0,
                 int constantAuSize = 0, IEnumerable<byte> frameHeader = null, 
                 bool addPadding = false, bool includeAuHeaders = false, bool includeAuxData = false) 
             {
-                #region Expired Draft Notes
+                remainsInAu = parsedAccessUnits = 0;
 
-                /* https://tools.ietf.org/html/draft-ietf-avt-rtp-mpeg4
-                 4.2.1. ES_ID Signaling through the RTP Header
-                In a similar manner with the FlexMux tools [14]
-                (codeMux mode), we transmit in the RTP packet header a
-                code value that indicates the RTP payload organization. In
-                such a way to make a correspondence between each
-                ES_ID and its associated reduced SL packet, which is
-                carried in the RTP payload. This code field may be
-                mapped into the SSRC RTP header field (see Figure 4).
-                Nevertheless, this approach induces additional out of band
-                signaling of the correspondence tables between the
-                codeMux field and the associated ES_IDs.
-                In addition, the dynamic behavior of MPEG-4 scene
-                (e.g. apparition of a new ESs during the MPEG-4 session)
-                induces a continuous signaling of the correspondence
-                tables, which are exposed to loss. This will result in a
-                multiplexing blocking, then a decoding blocking. 
-                 */
+                if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-                //In short to comply with this draft a compatibility flag would be given and 2 more bytes would be skipped per AU.
-                //These 2 bytes contain the SL Header
-                //Then there is the ES_ID (2 bytes) right after the the AU Headers Length 
+                //This key is based on the SequenceNumber in signed form
+                //int packetKey = GetPacketKey(packet.SequenceNumber);
 
-                //Thus a total of 4 bytes need to be skipped only if trying to work with this old draft format.
-                #endregion
+                int packetKey = (short)packet.SequenceNumber;
 
-                #region Audio Notes
+                //Since the auIndex may be stored in highest 16 bits we could mask them out.
+
+                //0xffff, but would require unsigned key in Depacketized.
+
+                //There is also no reason to think that some other implementation wouldn't use more than 16 bits for the index and delta.
+
+                if (Depacketized.ContainsKey(packetKey)) return;
+
+                //I thought about adding the key for this packet with Empty bytes which woudln't effect the stream and would keep it from being repacketized.
+                //Depacketized.Add(packetKey, null);
+
+                //From the beginning of the data in the actual payload
+                int payloadOffset = packet.Payload.Offset, offset = payloadOffset + packet.HeaderOctets,
+                    max = packet.Payload.Count - (offset + packet.PaddingOctets), //until the end of the actual payload
+                    auIndex = 0, //Indicates the serial number of the associated Access Unit
+                    auHeadersAvailable = 0; //The amount of Au Headers in the Au Header section
+
+                #region  3.2.  RTP Payload Structure
 
                 /*
-                 AU Headers Length: is a two bytes field that specifies:
-                    The length in bits of the concatenated AU-headers. If the
-                    concatenated AU-headers consume a non-integer number
-                    of bytes, up to 7 zero-padding bits must be inserted at the
-                    end (PAD field) in order to achieve byte-alignment of the
-                    AU Header Section.
-                     * 
-                    [SL Packets Only (Draft)] ES_ID: is a two bytes field that specifies the ES_ID
-                    associated to the AUs carried in the reduced SL packet.
-                    This field is common to all the AUs encapsulated into the
-                    SL packet. This minimizes the overhead. The ES_ID field
-                    is the only one that must be present in the SL packet
-                    header.
-                    For each Access Unit in the SL packet, there is exactly
-                    one AU-header. Hence, the nth AU-header refers to the
-                    nth AU.
-                     * 
-                    AU Size 
-                     * Index/IndexDelta 
-                     * CTS-Flag CTS-Delta
-                     * DTS-Flag DTS-Delta
-                    Optional fields
-                     * 
-                    AU Size: indicates the size in bytes of the associated
-                    Access Unit in the reduced SL payload.
-                    Index / IndexDelta: indicates the serial number of the
-                    associated Access Unit (fragment). For each (in time)
-                    consecutive AU or AU fragment, the serial number is
-                    incremented with 1. The AU-Index-delta field is an
-                    unsigned integer that specifies the serial number of the
-                    associated AU as the difference with respect to the serial
-                    number of the previous Access Unit. The Index field
-                    appears only on the first AU Header of the reduced SL
-                    packet.
-                     * 
-                    CTS-Flag: Indicates whether the CTS-delta field is
-                    present. A value of 1 indicates that the field is present, a
-                    value of 0 that it is not present.
-                     * 
-                    CTS-Delta: Encodes the CTS by specifying the value of
-                    CTS as a 2's complement offset (delta) from the
-                    timestamp in the RTP header of this RTP packet. The CTS
-                    must use the same clock rate as the time stamp in the RTP
-                    header.
-                     * 
-                    DTS-Flag: Indicates whether the DTS-delta field is
-                    present. A value of 1 indicates that the field is present, a
-                    value of 0 that it is not present.
-                     * 
-                    DTS-Delta: specifies the value of the DTS as a 2's
-                    complement offset (delta) from the CTS timestamp. The
-                    DTS must use the same clock rate as the time stamp in the
-                    RTP header
-                 */
-
-                #endregion
-
-                //What it both are 0...
-
-                if (constantAuSize != 0 && sizeLength != 0) throw new InvalidOperationException("The sizeLength and the constantAuSize parameters MUST NOT be simultaneously present.");
-
-                int remainingInNextAccessUnit = 0, parsedUnits = 0;
-
-                //Create the buffer as required by the profile.
-                m_Buffer = new MemoryStream(headersPresent ? Packets.SelectMany(rtp =>
-                {
-                    if (Common.IDisposedExtensions.IsNullOrDisposed(rtp)) return Common.MemorySegment.Empty;
-
-                    int packetKey = GetPacketKey(rtp.SequenceNumber);
-
-                    if (Depacketized.ContainsKey(packetKey)) return Common.MemorySegment.Empty;
-
-                    //From the beginning of the data in the actual payload
-                    int payloadOffset = rtp.Payload.Offset, offset = payloadOffset + rtp.HeaderOctets,
-                        max = rtp.Payload.Count - (offset + rtp.PaddingOctets), //until the end of the actual payload
-                        auIndex = 0, //Indicates the serial number of the associated Access Unit
-                        auHeadersAvailable = 0; //The amount of Au Headers in the Au Header section
-
-                    #region  3.2.  RTP Payload Structure
-
-                    /*
                       
 
                     3.2.1.  The AU Header Section
@@ -336,163 +253,163 @@ namespace Media.Rtsp.Server.MediaTypes
                         Header Section.
                     */
 
-                    #endregion
+                #endregion
 
-                    #region Reference
+                #region Reference
 
-                    //http://www.netmite.com/android/mydroid/donut/external/opencore/protocols/rtp_payload_parser/rfc_3640/src/rfc3640_payload_parser.cpp
+                //http://www.netmite.com/android/mydroid/donut/external/opencore/protocols/rtp_payload_parser/rfc_3640/src/rfc3640_payload_parser.cpp
 
-                    /*  https://gstrtpmp4adepay.c#L189
-                    * Parse StreamMuxConfig according to ISO/IEC 14496-3:
-                    *
-                    * audioMuxVersion           == 0 (1 bit)
-                    * allStreamsSameTimeFraming == 1 (1 bit)
-                    * numSubFrames              == rtpmp4adepay->numSubFrames (6 bits)
-                    * numProgram                == 0 (4 bits)
-                    * numLayer                  == 0 (3 bits)
-                    *
-                    * We only require audioMuxVersion == 0;
-                    *
-                    * The remaining bit of the second byte and the rest of the bits are used
-                    * for audioSpecificConfig which we need to set in codec_info.
-                    */
+                /*  https://gstrtpmp4adepay.c#L189
+                * Parse StreamMuxConfig according to ISO/IEC 14496-3:
+                *
+                * audioMuxVersion           == 0 (1 bit)
+                * allStreamsSameTimeFraming == 1 (1 bit)
+                * numSubFrames              == rtpmp4adepay->numSubFrames (6 bits)
+                * numProgram                == 0 (4 bits)
+                * numLayer                  == 0 (3 bits)
+                *
+                * We only require audioMuxVersion == 0;
+                *
+                * The remaining bit of the second byte and the rest of the bits are used
+                * for audioSpecificConfig which we need to set in codec_info.
+                */
 
-                    //Object Type 5 Bits.
+                //Object Type 5 Bits.
 
-                    //SampleRate Index 4 Bits.
+                //SampleRate Index 4 Bits.
 
-                    //Channels 4 Bits
+                //Channels 4 Bits
 
-                    //If SampleRate Index == 15, 24 Bits of SampleRate
+                //If SampleRate Index == 15, 24 Bits of SampleRate
 
-                    //For object types 1-7 Then Parse the Frame Flags. (Which indicate a frameLength of 960?)
+                //For object types 1-7 Then Parse the Frame Flags. (Which indicate a frameLength of 960?)
 
-                    #endregion
+                #endregion
 
-                    //Determine the AU Headers Length (in bits)
-                    int auHeaderLengthBits = headersPresent ? Common.Binary.ReadU16(rtp.Payload.Array, offset, BitConverter.IsLittleEndian) : 0,
-                        //It will then be converted to bytes.
-                        auHeaderLengthBytes = 0,
-                        //AU-Size And the length of the underlying Elementary Stream Data for that access unit      
-                        auSize = 0,
-                        //The offset of current the au Header being parsed
-                        auHeaderOffset = offset,
-                        //The offset of the auxiliary data if present
-                        auxHeaderOffset = 0,
-                        //The length of the auxiliary data if present
-                        auxLengthBytes = 0,
-                        //The absolute offset in the bitstream of the packet payload
-                        bitOffset = 0,
-                        //The amount of bytes required to read the sizeLength bit field
-                        sizeLengthBytes = Media.Common.Binary.BitsToBytes(sizeLength),
-                        indexLengthBytes = Media.Common.Binary.BitsToBytes(indexLength),
-                        indexDeltaLengthBytes = Media.Common.Binary.BitsToBytes(indexDeltaLength);
+                //Determine the AU Headers Length (in bits)
+                int auHeaderLengthBits = headersPresent ? Common.Binary.ReadU16(packet.Payload.Array, offset, BitConverter.IsLittleEndian) : 0,
+                    //It will then be converted to bytes.
+                    auHeaderLengthBytes = 0,
+                    //AU-Size And the length of the underlying Elementary Stream Data for that access unit      
+                    auSize = 0,
+                    //The offset of current the au Header being parsed
+                    auHeaderOffset = offset,
+                    //The offset of the auxiliary data if present
+                    auxHeaderOffset = 0,
+                    //The length of the auxiliary data if present
+                    auxLengthBytes = 0,
+                    //The absolute offset in the bitstream of the packet payload
+                    bitOffset = 0,
+                    //The amount of bytes required to read the sizeLength bit field
+                    sizeLengthBytes = Media.Common.Binary.BitsToBytes(sizeLength),
+                    indexLengthBytes = Media.Common.Binary.BitsToBytes(indexLength),
+                    indexDeltaLengthBytes = Media.Common.Binary.BitsToBytes(indexDeltaLength);
 
-                    //Move the offset for the 2 bytes consumed (the Au Headers Length Section)
-                    offset += 2;
+                //Move the offset for the 2 bytes consumed (the Au Headers Length Section)
+                offset += 2;
 
-                    //Move the bitOffset
-                    bitOffset += 16;
-                   
-                    //If there are any auHeaders indicated
-                    if (auHeaderLengthBits > 0)
+                //Move the bitOffset
+                bitOffset += 16;
+
+                //If there are any auHeaders indicated
+                if (auHeaderLengthBits > 0)
+                {
+                    //Convert bits to bytes
+                    auHeaderLengthBytes = Media.Common.Binary.BitsToBytes(auHeaderLengthBits);
+
+                    //Check enough bytes are available (2 is the size of the RFC Profile Header read above)
+                    if (auHeaderLengthBytes >= max - 2) throw new InvalidOperationException("Invalid Rfc Headers?");
+
+                    //This many bits in each auAuheader + more if CTS or DTS is present.
+                    int usedBits = sizeLength + indexDeltaLength;
+
+                    //Throw an error if the length indicated is not equal to the amount of bits in use by the profile
+                    if (auHeaderLengthBits != usedBits) throw new InvalidOperationException("Invalid Au Headers?");
+
+                    //Determine the amount of AU Headers possibly contained in the header section
+                    auHeadersAvailable = 1 + (auHeaderLengthBits - usedBits) / usedBits;
+
+                    //padding should be tracked here 
+                    //int lastHeaderPadding;
+                    //auHeadersAvailable = Math.DivRem(1 + (auHeaderLengthBits - usedBits), usedBits, out lastHeaderPadding);
+                }
+
+                #region No AU Headers Length
+
+                // The AU Headers Length is either not present or known..
+                //{
+                //    //Read the 'ES_ID'
+                //    //ushort esId = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian);
+
+                //    //if (esId == 16) //This is AAC Audio 00 10?
+                //}
+
+                #endregion
+
+                //The length in bytes of all auHeaders is known, the last auHeader may have padding to achieve Octet alignment.
+
+                //Parse AU Headers should be seperate logic, probably in Audio.Aac
+
+                //Create a sorted list to allow the de-interleaving of access units if required.
+                //SortedList<int, IEnumerable<byte>> accessUnits = new SortedList<int, IEnumerable<byte>>();
+
+                //Should occur only after the last AU Header but before the individual payloads.
+                #region Parse Auxiliary Data
+
+                //Now skip over the aux data region.
+                if (0 != auxDataSizeLength)
+                {
+                    //Store the offset where the auxData occurs
+                    //This should be after all AuHeaders... e.g. @ auHeaderLengthBytes
+                    auxHeaderOffset = offset;
+
+                    //Note that when used in a BigEndian system that the Media.Common.Binary.ReadBigEndianInteger should be used.
+
+                    //Read the size in bits of that section
+                    int auxDataSizeBits = (int)Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, auxDataSizeLength);
+
+                    if (auxDataSizeBits > 0)
                     {
-                        //Convert bits to bytes
-                        auHeaderLengthBytes = Media.Common.Binary.BitsToBytes(auHeaderLengthBits);
+                        //Calculate the amount of bytes in the auxillary data section
+                        auxLengthBytes = (int)Media.Common.Binary.BitsToBytes(ref auxDataSizeBits);
 
-                        //Check enough bytes are available (2 is the size of the RFC Profile Header read above)
-                        if (auHeaderLengthBytes >= max - 2) throw new InvalidOperationException("Invalid Rfc Headers?");
+                        //Ensure the amount of bytes indicated in the section are present in the contained data
+                        if (max - offset < auxLengthBytes) throw new InvalidOperationException("Invalid Au Aux Data?");
 
-                        //This many bits in each auAuheader + more if CTS or DTS is present.
-                        int usedBits = sizeLength + indexDeltaLength;
-
-                        //Throw an error if the length indicated is not equal to the amount of bits in use by the profile
-                        if (auHeaderLengthBits != usedBits) throw new InvalidOperationException("Invalid Au Headers?");
-
-                        //Determine the amount of AU Headers possibly contained in the header section
-                        auHeadersAvailable = 1 + (auHeaderLengthBits - usedBits) / usedBits;
-
-                        //padding should be tracked here 
-                        //int lastHeaderPadding;
-                        //auHeadersAvailable = Math.DivRem(1 + (auHeaderLengthBits - usedBits), usedBits, out lastHeaderPadding);
+                        //Skip the bits indicated
+                        bitOffset += auxDataSizeBits;
                     }
 
-                    #region No AU Headers Length
-
-                    // The AU Headers Length is either not present or known..
+                    // as per 3) skip padding
+                    //if (bitOffset > 0)
                     //{
-                    //    //Read the 'ES_ID'
-                    //    //ushort esId = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian);
-
-                    //    //if (esId == 16) //This is AAC Audio 00 10?
+                    //    bitOffset = 0;
+                    //    ++offset;
                     //}
+                }
 
-                    #endregion
+                //Default auxData
+                Common.MemorySegment auxillaryData = Common.MemorySegment.Empty;
 
-                    //The length in bytes of all auHeaders is known, the last auHeader may have padding to achieve Octet alignment.
+                //If there was any auxillary data
+                if (auxLengthBytes > 0)
+                {
+                    //Get the auxData
+                    auxillaryData = new Common.MemorySegment(packet.Payload.Array, auxHeaderOffset, auxLengthBytes);
+                }
 
-                    //Parse AU Headers should be seperate logic, probably in Audio.Aac
+                #endregion
 
-                    //Create a sorted list to allow the de-interleaving of access units if required.
-                    //SortedList<int, IEnumerable<byte>> accessUnits = new SortedList<int, IEnumerable<byte>>();
+                //Look for Access Units in the packet
+                //Must also track offset.
+                while (Common.Binary.BitsToBytes(ref bitOffset) < max)
+                {
+                    //Should read from auHeaderOffset
+                    #region ParseAuHeader
 
-                    //Should occur only after the last AU Header but before the individual payloads.
-                    #region Parse Auxiliary Data
+                    #region AU-size
 
-                    //Now skip over the aux data region.
-                    if (0 != auxDataSizeLength)
-                    {
-                        //Store the offset where the auxData occurs
-                        //This should be after all AuHeaders... e.g. @ auHeaderLengthBytes
-                        auxHeaderOffset = offset;
-
-                        //Note that when used in a BigEndian system that the Media.Common.Binary.ReadBigEndianInteger should be used.
-                        
-                        //Read the size in bits of that section
-                        int auxDataSizeBits = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, auxDataSizeLength);
-
-                        if (auxDataSizeBits > 0)
-                        {
-                            //Calculate the amount of bytes in the auxillary data section
-                            auxLengthBytes = (int)Media.Common.Binary.BitsToBytes(ref auxDataSizeBits);
-
-                            //Ensure the amount of bytes indicated in the section are present in the contained data
-                            if (max - offset < auxLengthBytes) throw new InvalidOperationException("Invalid Au Aux Data?");
-
-                            //Skip the bits indicated
-                            bitOffset += auxDataSizeBits;
-                        }
-                     
-                        // as per 3) skip padding
-                        //if (bitOffset > 0)
-                        //{
-                        //    bitOffset = 0;
-                        //    ++offset;
-                        //}
-                    }
-
-                    //Default auxData
-                    Common.MemorySegment auxillaryData = Common.MemorySegment.Empty;
-
-                    //If there was any auxillary data
-                    if (auxLengthBytes > 0)
-                    {
-                        //Get the auxData
-                        auxillaryData = new Common.MemorySegment(rtp.Payload.Array, auxHeaderOffset, auxLengthBytes);
-                    }
-
-                    #endregion
-
-                    //Look for Access Units in the packet
-                    //Must also track offset.
-                    while (Common.Binary.BitsToBytes(ref bitOffset) < max)
-                    {
-                        //Should read from auHeaderOffset
-                        #region ParseAuHeader
-
-                        #region AU-size
-
-                        /*
+                    /*
                           AU-size: Indicates the size in octets of the associated Access Unit
                           in the Access Unit Data Section in the same RTP packet.  When the
                           AU-size is associated with an AU fragment, the AU size indicates
@@ -503,37 +420,37 @@ namespace Media.Rtsp.Server.MediaTypes
                           useful after losing a packet carrying the last fragment of an AU.
                          */
 
-                        if (sizeLength > 0)
+                    if (sizeLength > 0)
+                    {
+                        //Ensure there are enough bytes required to read the auSize
+                        if (sizeLengthBytes > (remainsInAu = (max - offset) - 1))
                         {
-                            //Ensure there are enough bytes required to read the auSize
-                            if (sizeLengthBytes > (remainingInNextAccessUnit = (max - offset) - 1))
-                            {
-                                offset = max;
-
-                                continue;
-                            }
-
-                            //Read the bits for the size and the index to align the read.
-                            auSize = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, sizeLength);
-
-                            //auSize can never be greater than max.
-                            if (auSize + offset >= max) throw new InvalidOperationException("auSize is larger than expected.");
-                        }
-                        else auSize = constantAuSize;
-
-                        #endregion
-
-                        //Check for auSize == 0 because there is nothing to consume
-                        if (auSize == 0)
-                        {
-                            //Todo, offset didn't move for the bits just read...
+                            offset = max;
 
                             continue;
                         }
 
-                        #region AU-Index / AU-Index-delta
+                        //Read the bits for the size and the index to align the read.
+                        auSize = (int)Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, sizeLength);
 
-                        /*
+                        //auSize can never be greater than max.
+                        if (auSize + offset >= max) throw new InvalidOperationException("auSize is larger than expected.");
+                    }
+                    else auSize = constantAuSize;
+
+                    #endregion
+
+                    //Check for auSize == 0 because there is nothing to consume
+                    if (auSize == 0)
+                    {
+                        //Todo, offset didn't move for the bits just read...
+
+                        continue;
+                    }
+
+                    #region AU-Index / AU-Index-delta
+
+                    /*
                          AU-Index-delta: The AU-Index-delta field is an unsigned integer that
                           specifies the serial number of the associated AU as the difference
                           with respect to the serial number of the previous Access Unit.
@@ -549,224 +466,232 @@ namespace Media.Rtsp.Server.MediaTypes
                           than 0 signals that interleaving is applied.
                          */
 
-                        if (parsedUnits == 0 && indexLength > 0)
+                    //This should check that if indexLength == 0 and indexDeltaLength == 0 there is an invalid operation exception
+                    //This can be done before we even read into the packet.
+
+                    if (Depacketized.Count == 0 && indexLength > 0)
+                    {
+
+                        //Ensure enough data is present to read the bit field
+                        if (indexLength > (remainsInAu = (max - offset) - 1))
                         {
-                            
-                            //Ensure enough data is present to read the bit field
-                            if (indexLength > (remainingInNextAccessUnit = (max - offset) - 1))
-                            {
-                                offset = max;
+                            offset = max;
 
-                                continue;
-                            }
-
-                            //Notes that this should be read out of the Au Headers Section for the Au being parsed
-                            auIndex = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, indexLength);
-                        }
-                        else if (indexDeltaLength > 0)
-                        {
-
-                            //Ensure enough data is present to read the bit field
-                            if (indexDeltaLength > (remainingInNextAccessUnit = (max - offset) - 1))
-                            {
-                                offset = max;
-
-                                bitOffset = Common.Binary.BytesToBits(ref max);
-
-                                continue;
-                            }
-
-                            //Notes that this should be read out of the Au Headers Section for the Au being parsed
-                            auIndex = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, indexDeltaLength);
+                            continue;
                         }
 
-                        #endregion
+                        //Notes that this should be read out of the Au Headers Section for the Au being parsed
+                        auIndex = (int)Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, indexLength);
+                    }
+                    else if (indexDeltaLength > 0)//Must be present... should check.
+                    {
 
-
-                        ////Interleaving is applied
-                        //if (auIndex == 0)...
-
-                        auIndex += packetKey;
-
-                        #region CTSDeltaLength
-
-                        //From RFC3640: "The CTS-flag field MUST be present in each AU-header
-                        //               if the length of the CTS-delta field is signaled to
-                        //               be larger than zero."
-                        if (0 != CTSDeltaLength)
+                        //Ensure enough data is present to read the bit field
+                        if (indexDeltaLength > (remainsInAu = (max - offset) - 1))
                         {
-                            bool CTSFlag = Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, 1) > 0;
-                            if (CTSFlag)
-                            {
-                                int CTSDelta = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, CTSDeltaLength);
-                            }
+                            offset = max;
+
+                            bitOffset = Common.Binary.BytesToBits(ref max);
+
+                            continue;
                         }
 
-                        #endregion
+                        //Notes that this should be read out of the Au Headers Section for the Au being parsed
+                        auIndex = (int)Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, indexDeltaLength);
 
-                        #region DTSDeltaLength
+                        //An AU-Index-delta value larger than 0 signals that interleaving is applied.
 
-                        if (0 != DTSDeltaLength)
+                    }
+
+                    #endregion
+
+
+                    ////Interleaving is applied if auIndex == 0...
+
+                    //For now if 0 to prevent duplicates add the count of depackized to it.
+                    if (auIndex == 0) auIndex += Depacketized.Count;
+
+                    //Set the higher 16 bits to the auIndex. which should ensure that is comes in the correct place.. when depacketizing.
+                    //Must use a uint to do this though...
+                    ///auIndex = (int)((auIndex << 16) << 16 | packetKey);
+                    ///
+
+                    //Instead just add index to the key. (this will make Contains Key true for packetKey + auIndex which is not correct.
+                    //auIndex += packetKey;
+
+                    //Just leave the auIndex in place but it must be inserted into Depacketized in the correct order.                        
+
+                    #region CTSDeltaLength
+
+                    //From RFC3640: "The CTS-flag field MUST be present in each AU-header
+                    //               if the length of the CTS-delta field is signaled to
+                    //               be larger than zero."
+                    if (0 != CTSDeltaLength)
+                    {
+                        bool CTSFlag = Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, 1) > 0;
+                        if (CTSFlag)
                         {
-                            bool DTSFlag = Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, 1) > 0;
-                            if (DTSFlag)
-                            {
-                                int DTSDelta = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, DTSDeltaLength);
-                            }
-                        }
-
-                        #endregion
-
-                        #region randomAccessIndication
-
-                        if (randomAccessIndication)
-                        {
-                            bool RAPFlag = Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, 1) > 0;
-                        }
-
-                        #endregion
-
-                        #region StreamState
-
-                        //StreamState
-                        //https://www.ietf.org/proceedings/54/slides/avt-6.pdf                      
-                        if (0 != streamStateIndication)
-                        {
-                            //number of bits for Stream-State
-                            int streamState = (int)Media.Common.Binary.ReadBitsMSB(rtp.Payload.Array, ref bitOffset, streamStateIndication);
-
-                            //Read that many more bits
-                            //Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, streamState, BitConverter.IsLittleEndian);
-                            bitOffset += streamState;
-                        }
-
-                        #endregion
-
-                        //Might not need to skip padding, this should be determined by auHeaderLengthBits % 8
-                        // as per 3) skip padding
-                        int padding = (bitOffset & 7);
-                        if (padding > 0) //Common.Binary.Align (bitOffset), ref, out byteOffset
-                        {
-                            bitOffset += padding;
-                        }
-
-                        #endregion
-
-                        //Get the header which corresponds to this access unit (note that this should be done in ParseAuHeader)
-                        //This should also take into account that the last auHeader may be padded with up to 7 '0' bits.
-                        using (var accessUnitHeader = new Common.MemorySegment(rtp.Payload.Array, auHeaderOffset, auHeaderLengthBytes))
-                        {
-                            //Use a  auHeader from the header section, if there is more then one move the offset to the next header
-                            if (--auHeadersAvailable > 0) auHeaderOffset += auHeaderLengthBytes;
-
-                            //Determine how much data remains in the payload
-                            int remains = max - offset;
-
-                            //If the size of the accessUnit is greater than what remains
-                            if (auSize > remains)
-                            {
-                                //Indicate that much remains
-                                remainingInNextAccessUnit = auSize - remains;
-
-                                //Truncated or Fragmented?
-
-                                //Make auSize equal to what actually remains.
-                                auSize = remains;
-                            }
-                            else remainingInNextAccessUnit = 0; //Nothing else remains if the auSize indicated was completely contained in the payload
-
-                            //Project the data in the payload from the offset of the access unit until its declared size.
-                            using (Common.MemorySegment accessUnitData = new Common.MemorySegment(rtp.Payload.Array, Common.Binary.BitsToBytes(ref bitOffset), auSize, false))  //offset, auSize))
-                            {
-                                //Prepend the accessUnitHeaer with the data to create a depacketized au if the option was specified
-                                //var depacketizedAccessUnit = includeAuHeaders ? Enumerable.Concat(accessUnitHeader, accessUnitData) : accessUnitData;
-
-                                if (includeAuHeaders) Depacketized.Add(auIndex++, accessUnitHeader);                                
-
-                                //If there aux data then add it after the Au header we just added if the option was specified
-                                if (includeAuxData && auxLengthBytes > 0)
-                                {
-                                    //Add the auxillary data
-                                    //depacketizedAccessUnit = Enumerable.Concat(depacketizedAccessUnit, auxillaryData);
-
-                                    Depacketized.Add(auIndex++, auxillaryData);
-                                }
-
-                                #region Todo allow partial data from previous parsing, (needs bitOffset to be ref)
-
-                                //If data exists from the previous packet which is not part of the payload
-                                //if (previouslyIncompleteAccessUnitWithAuxHeaderAndData != null)
-                                //{
-                                //    //May have to write the length in the frameData
-                                //    depacketizedAccessUnit = Enumerable.Concat(frameHeader, depacketizedAccessUnit);
-
-                                //    previouslyIncompleteAccessUnitWithAuxHeaderAndData = null;
-                                //}
-                                //else
-                                //{
-                                //    //Could just update the length but
-                                //    //This is a bit field though and needs to have the WriteBits methods available then
-                                //    //Media.Common.Binary.Write16(adtsHeader, 6, false, (short)auSize);
-
-                                //    //Create the header for the frame, (should only be done once and the length should be updated each time)
-                                //    //Should also have the ADTS header only 1 time, and only after the frameLength is known.
-                                //    depacketizedAccessUnit = Enumerable.Concat(CreateADTSHeader(profileId, frequencyIndex, channelConfiguration, auSize), depacketizedAccessUnit);
-                                //}
-
-                                #endregion
-
-                                //Add padding if required.. ?Allow custom
-                                if (addPadding)
-                                {
-                                    int required = max - offset;
-
-                                    //if (required > 0) depacketizedAccessUnit = Enumerable.Concat(depacketizedAccessUnit, Enumerable.Repeat<byte>(byte.MinValue, required));
-
-                                    if (required > 0) Depacketized.Add(auIndex++, new Common.MemorySegment(Enumerable.Repeat<byte>(byte.MinValue, required).ToArray()));
-                                }
-
-                                //Add the Access Unit to the list (copies memory)
-                                if (auSize > 1) Depacketized.Add(auIndex++, accessUnitData);
-
-                                //Move the byte offset leaving the bit offset in tact
-                                offset += auSize;
-
-                                bitOffset += Common.Binary.BytesToBits(ref auSize);
-
-                                //Keep track of the amount of access units parsed
-                                ++parsedUnits;
-                            }
+                            int CTSDelta = (int)Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, CTSDeltaLength);
                         }
                     }
 
-                    //Return the access units in decoding order from the lamda, which will be written to the buffer
-                    return Depacketized.SelectMany(au => au.Value);
+                    #endregion
 
-                }).ToArray() : Assemble().ToArray());
+                    #region DTSDeltaLength
 
-                //Assign the output parameters
+                    if (0 != DTSDeltaLength)
+                    {
+                        bool DTSFlag = Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, 1) > 0;
+                        if (DTSFlag)
+                        {
+                            int DTSDelta = (int)Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, DTSDeltaLength);
+                        }
+                    }
 
-                parsedAccessUnits = parsedUnits;
+                    #endregion
 
-                remainsInAu = remainingInNextAccessUnit;
+                    #region randomAccessIndication
+
+                    if (randomAccessIndication)
+                    {
+                        bool RAPFlag = Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, 1) > 0;
+                    }
+
+                    #endregion
+
+                    #region StreamState
+
+                    //StreamState
+                    //https://www.ietf.org/proceedings/54/slides/avt-6.pdf                      
+                    if (0 != streamStateIndication)
+                    {
+                        //number of bits for Stream-State
+                        int streamState = (int)Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, streamStateIndication);
+
+                        //Read that many more bits
+                        //Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, streamState, BitConverter.IsLittleEndian);
+                        bitOffset += streamState;
+                    }
+
+                    #endregion
+
+                    //Might not need to skip padding, this should be determined by auHeaderLengthBits % 8
+                    // as per 3) skip padding
+                    int padding = (bitOffset & 7);
+                    if (padding > 0) //Common.Binary.Align (bitOffset), ref, out byteOffset
+                    {
+                        bitOffset += padding;
+                    }
+
+                    #endregion
+
+                    //Get the header which corresponds to this access unit (note that this should be done in ParseAuHeader)
+                    //This should also take into account that the last auHeader may be padded with up to 7 '0' bits.
+                    using (var accessUnitHeader = new Common.MemorySegment(packet.Payload.Array, auHeaderOffset, auHeaderLengthBytes, false == includeAuHeaders))
+                    {
+                        //Use a  auHeader from the header section, if there is more then one move the offset to the next header
+                        if (--auHeadersAvailable > 0) auHeaderOffset += auHeaderLengthBytes;
+
+                        //Determine how much data remains in the payload
+                        int remains = max - offset;
+
+                        //If the size of the accessUnit is greater than what remains
+                        if (auSize > remains)
+                        {
+                            //Indicate that much remains
+                            remainsInAu = auSize - remains;
+
+                            //Truncated or Fragmented?
+
+                            //Make auSize equal to what actually remains.
+                            auSize = remains;
+                        }
+                        else remainsInAu = 0; //Nothing else remains if the auSize indicated was completely contained in the payload
+
+                        //Project the data in the payload from the offset of the access unit until its declared size.
+                        using (Common.MemorySegment accessUnitData = new Common.MemorySegment(packet.Payload.Array, Common.Binary.BitsToBytes(ref bitOffset), auSize, false))  //offset, auSize))
+                        {
+                            //Prepend the accessUnitHeaer with the data to create a depacketized au if the option was specified
+                            //var depacketizedAccessUnit = includeAuHeaders ? Enumerable.Concat(accessUnitHeader, accessUnitData) : accessUnitData;
+
+                            if (includeAuHeaders) Depacketized.Add(auIndex++, accessUnitHeader);
+
+                            //If there aux data then add it after the Au header we just added if the option was specified
+                            if (includeAuxData && auxLengthBytes > 0)
+                            {
+                                //Add the auxillary data
+                                //depacketizedAccessUnit = Enumerable.Concat(depacketizedAccessUnit, auxillaryData);
+
+                                Depacketized.Add(auIndex++, auxillaryData);
+                            }
+
+                            #region Todo allow partial data from previous parsing, (needs bitOffset to be ref)
+
+                            //If data exists from the previous packet which is not part of the payload
+                            //if (previouslyIncompleteAccessUnitWithAuxHeaderAndData != null)
+                            //{
+                            //    //May have to write the length in the frameData
+                            //    depacketizedAccessUnit = Enumerable.Concat(frameHeader, depacketizedAccessUnit);
+
+                            //    previouslyIncompleteAccessUnitWithAuxHeaderAndData = null;
+                            //}
+                            //else
+                            //{
+                            //    //Could just update the length but
+                            //    //This is a bit field though and needs to have the WriteBits methods available then
+                            //    //Media.Common.Binary.Write16(adtsHeader, 6, false, (short)auSize);
+
+                            //    //Create the header for the frame, (should only be done once and the length should be updated each time)
+                            //    //Should also have the ADTS header only 1 time, and only after the frameLength is known.
+                            //    depacketizedAccessUnit = Enumerable.Concat(CreateADTSHeader(profileId, frequencyIndex, channelConfiguration, auSize), depacketizedAccessUnit);
+                            //}
+
+                            #endregion
+
+                            //Add padding if required.. ?Allow custom
+                            if (addPadding)
+                            {
+                                int required = max - offset;
+
+                                //if (required > 0) depacketizedAccessUnit = Enumerable.Concat(depacketizedAccessUnit, Enumerable.Repeat<byte>(byte.MinValue, required));
+
+                                if (required > 0) Depacketized.Add(auIndex++, new Common.MemorySegment(Enumerable.Repeat<byte>(byte.MinValue, required).ToArray()));
+                            }
+
+                            //Add the Access Unit to the list (copies memory)
+                            if (auSize > 1) Depacketized.Add(auIndex++, accessUnitData);
+
+                            //Move the byte offset leaving the bit offset in tact
+                            offset += auSize;
+
+                            bitOffset += Common.Binary.BytesToBits(ref auSize);
+
+                            //Keep track of the amount of access units parsed
+                            ++parsedAccessUnits;
+                        }
+                    }
+                }
+
+                //Return the access units in decoding order from the lamda, which will be written to the buffer
+                return;
             }
 
-            public void Depacketize(bool headersPresent = true, int profileId = 0, int channelConfiguration = 0,
+            public void Depacketize(out int parsedAccessUnits, out int remainsInInterleavedAu, bool headersPresent = true, int profileId = 0, int channelConfiguration = 0,
               int frequencyIndex = 0, int sizeLength = 0, int indexLength = 0, int indexDeltaLength = 0, int CTSDeltaLength = 0,
               int DTSDeltaLength = 0, int auxDataSizeLength = 0, bool randomAccessIndication = false, int streamStateIndication = 0,
               int defaultAuSize = 0, IEnumerable<byte> frameHeader = null,
               bool addPadding = false, bool includeAuHeaders = false, bool includeAuxData = false)
             {
-                int parsedAccessUnits, remainsInInterleavedAu;
+                parsedAccessUnits = remainsInInterleavedAu = 0;
 
-                Depacketize(out parsedAccessUnits, out remainsInInterleavedAu, headersPresent, profileId, channelConfiguration, frequencyIndex, sizeLength, indexDeltaLength, indexDeltaLength, CTSDeltaLength, DTSDeltaLength, auxDataSizeLength, randomAccessIndication, streamStateIndication, defaultAuSize, frameHeader, addPadding, includeAuHeaders, includeAuxData);
+                foreach(Rtp.RtpPacket packet in Packets) Depacketize(packet, out parsedAccessUnits, out remainsInInterleavedAu, headersPresent, profileId, channelConfiguration, frequencyIndex, sizeLength, indexDeltaLength, indexDeltaLength, CTSDeltaLength, DTSDeltaLength, auxDataSizeLength, randomAccessIndication, streamStateIndication, defaultAuSize, frameHeader, addPadding, includeAuHeaders, includeAuxData);
             }
 
-            public override void Depacketize(Rtp.RtpPacket packet)
+            public override void Depacketize(bool allowIncomplete)
             {
-                if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+                if (false == allowIncomplete && false == IsComplete) return;
 
-                //Todo, use logic in Depacketize above.
+                Depacketize();
             }
 
             //public override void Depacketize(bool allowIncomplete)

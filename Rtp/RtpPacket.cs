@@ -199,7 +199,8 @@ namespace Media.Rtp
         {
             get
             {
-                if (IsDisposed || false == IsComplete || Payload.Count == 0) return Media.Common.MemorySegment.Empty;
+                //Maybe should provide the incomplete data...
+                if (IsDisposed || false == IsComplete) return Media.Common.MemorySegment.Empty;
 
                 //return Payload.Reverse().Take(PaddingOctets).Reverse();
 
