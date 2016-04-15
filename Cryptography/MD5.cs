@@ -261,8 +261,10 @@ namespace Media.Cryptography
             //16 uints
             uint[] result = new uint[BitsInWord];
 
-            //Read 16 bytes
-            for (int i = 0; i < 16; i++)
+            //Use the buffer to copy the data which converts it in place...
+
+            if (System.BitConverter.IsLittleEndian) Buffer.BlockCopy(input, ibStart, result, 0, 64);
+            else for (int i = 0; i < 16; i++) //Read 16 uint values
             {
                 //4 bytes from i each time,
                 //0 - 3, 
@@ -270,13 +272,17 @@ namespace Media.Cryptography
                 //8 - 11,
                 //12 - 15
 
-                result[i] = (uint)input[ibStart + i * 4];
+                //result[i] = (uint)input[ibStart + i * 4];
 
-                result[i] += (uint)input[ibStart + i * 4 + 1] << 8;
+                //result[i] += (uint)input[ibStart + i * 4 + 1] << 8;
 
-                result[i] += (uint)input[ibStart + i * 4 + 2] << 16;
+                //result[i] += (uint)input[ibStart + i * 4 + 2] << 16;
 
-                result[i] += (uint)input[ibStart + i * 4 + 3] << 24;
+                //result[i] += (uint)input[ibStart + i * 4 + 3] << 24;
+
+                //This is done with ReadU32, ibStart is moved 4 bytes for each value. (All values are ensured to be in little endian)
+                result[i] = Common.Binary.ReadU32(input, ref ibStart, false == System.BitConverter.IsLittleEndian);
+
             }
 
             return result;
@@ -317,10 +323,11 @@ namespace Media.Cryptography
             
             byte[] output = new byte[BitsInWord];
 
-            Common.Binary.Write32(output, Zero, false, ABCD.A);
-            Common.Binary.Write32(output, BitsInNibble, false, ABCD.B);
-            Common.Binary.Write32(output, BitsInByte, false, ABCD.C);
-            Common.Binary.Write32(output, 12, false, ABCD.D);
+            //Write in Little Endian
+            Common.Binary.Write32(output, Zero, false == System.BitConverter.IsLittleEndian, ABCD.A);
+            Common.Binary.Write32(output, BitsInNibble, false == System.BitConverter.IsLittleEndian, ABCD.B);
+            Common.Binary.Write32(output, BitsInByte, false == System.BitConverter.IsLittleEndian, ABCD.C);
+            Common.Binary.Write32(output, 12, false == System.BitConverter.IsLittleEndian, ABCD.D);
 
             return output;
         }
