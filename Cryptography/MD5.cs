@@ -258,13 +258,20 @@ namespace Media.Cryptography
             if (null == input)
                 throw new System.ArgumentNullException("input", "Unable convert null array to array of uInts");
 
+            //Should ensure input.Length...
+            //int lengh = HashAlignValue;
+
+            //if (input.Length < BitsInWord)
+            //{
+            //    lengh = input.Length / BitsInWord;
+            //}
+
             //16 uints
             uint[] result = new uint[BitsInWord];
 
-            //Use the buffer to copy the data which converts it in place...
-
-            if (System.BitConverter.IsLittleEndian) Buffer.BlockCopy(input, ibStart, result, 0, 64);
-            else for (int i = 0; i < 16; i++) //Read 16 uint values
+            //Use the buffer to copy the data which converts it in place but only if on little endian
+            if (System.BitConverter.IsLittleEndian) Buffer.BlockCopy(input, ibStart, result, 0, HashAlignValue);
+            else for (int i = 0; i < BitsInWord; i++) //Read 16 uint values (use length for custom hash)
             {
                 //4 bytes from i each time,
                 //0 - 3, 
@@ -281,8 +288,8 @@ namespace Media.Cryptography
                 //result[i] += (uint)input[ibStart + i * 4 + 3] << 24;
 
                 //This is done with ReadU32, ibStart is moved 4 bytes for each value. (All values are ensured to be in little endian)
+                //Enumerable gets the range check elimination better than most for loops
                 result[i] = Common.Binary.ReadU32(input, ref ibStart, false == System.BitConverter.IsLittleEndian);
-
             }
 
             return result;
@@ -294,7 +301,7 @@ namespace Media.Cryptography
             byte[] working = new byte[HashAlignValue];
             byte[] length = new byte[BitsInByte];
 
-            Common.Binary.Write64(length, Zero, false, len);
+            Common.Binary.Write64(length, Zero, false == System.BitConverter.IsLittleEndian, len);
 
             //Padding is a single bit 1, followed by the number of 0s required to make size congruent to 448 modulo 512. Step 1 of RFC 1321  
             //The CLR ensures that our buffer is 0-assigned, we don't need to explicitly set it. This is why it ends up being quicker to just
@@ -440,9 +447,9 @@ namespace Media.UnitTests
     {
         public static void TestHash()
         {
-            byte[] hashed = Cryptography.MD5.GetHash("Hello World!");
+            byte[] hashBytes = Cryptography.MD5.GetHash("Hello World!");
 
-            string hashString = System.BitConverter.ToString(hashed);
+            string hashString = System.BitConverter.ToString(hashBytes);
 
             if (hashString != "ED-07-62-87-53-2E-86-36-5E-84-1E-92-BF-C5-0D-8C") throw new Exception("Unexpected hashString");
         }

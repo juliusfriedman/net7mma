@@ -1863,8 +1863,18 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 int packetKey = (short)packet.SequenceNumber;
 
-                //If fragment offset wraps this packet will not be able to be added.
-                //packetKey += (int)FragmentOffset;
+                //add FragmentOffset to the PacketKey to ensure that rollover is hanlded correctly and that the data is placed at the appropriate place in te stream
+                //Because of this, this implementation successfully can receive data sent from a sender in which the fragmentOffsets are in the reverse of the sending order.
+                //I will make a test to prove this out shortly.
+                //The idea is that the sender can send the last fragment in the first packet...
+                //The result is that the packet data index is based on the fragmentOffset and the seqeuence number
+                //Meaning that if it rolls over the sequence number still puts it in the right place with respect to where it needs to be.
+                //Senders can send with fragmentOffset == 0 as the last packet with the marker if they so choose.
+                //No OTHER SOFTWARE I KNOW OF PERSONALLY will not work like that.....
+                //Even if they re-order packets correctly.
+                //This is because the FragmentOffset should take precedence with respect to the SeqeuenceNumber
+                //And furthernmore if it wraps again to 0 the reciever should be smart enough to detect this and still place it in the resultant buffer correctly.
+                packetKey += (int)FragmentOffset;
 
                 //Already contained.
                 if (Depacketized.ContainsKey(packetKey)) return;
@@ -1957,6 +1967,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     Type >= 2 && Type <= 5)
                 {
                     //Should allow for 2035 decoding seperately
+                    //Lines of a scan.
                     throw new InvalidOperationException("Type numbers 2-5 are reserved and SHOULD NOT be used.  Applications based on RFC 2035 should be updated to indicate the presence of restart markers with type 64 or 65 and the Restart Marker header.");
                 }
 
@@ -2041,8 +2052,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         provides a way to specify the quantization tables associated with
                         this Q value in-band.
                      */
-                    if (Quality == 0) throw new InvalidOperationException("(Q)uality = 0 is Reserved.");
-                    else if (Quality >= (rfc2035Quality ? 100 : 128)) //RFC2035 uses 0->100 where RFC2435 uses 0 ->127 but values 100 - 127 are not specified in the algorithm provided and should possiblly use the alternate quantization tables
+                    if (Quality >= (rfc2035Quality ? 100 : 128)) //RFC2035 uses 0->100 where RFC2435 uses 0 ->127 but values 100 - 127 are not specified in the algorithm provided and should possiblly use the alternate quantization tables
                     {
 
                         /* http://tools.ietf.org/search/rfc2435#section-3.1.8
