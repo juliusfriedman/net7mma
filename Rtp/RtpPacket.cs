@@ -803,10 +803,10 @@ namespace Media.Rtp
         /// </summary>
         public override void Dispose()
         {
+            if (false == ShouldDispose) return;
+
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
-
-            if (false == ShouldDispose) return;
 
             //If there is a referenced RtpHeader
             if (m_OwnsHeader)
@@ -837,7 +837,7 @@ namespace Media.Rtp
 
             return other.Length == Length
                  &&
-                 other.Payload == Payload
+                 other.Payload == Payload //SequenceEqual...
                  &&
                  other.GetHashCode() == GetHashCode();
         }
@@ -927,6 +927,30 @@ namespace Media.UnitTests
                                 using (Media.Rtp.RtpPacket s = new Rtp.RtpPacket(p.Prepare().ToArray(), 0))
                                 {
                                     if (false == s.Prepare().SequenceEqual(p.Prepare())) throw new Exception("Unexpected Data");
+
+                                    //The HashCode of the header uses only the first 2 bytes of the header and the ssrc
+                                    System.Diagnostics.Debug.Assert(s.Header.GetHashCode() == p.Header.GetHashCode(), "Unexpected GetHashCode");
+
+                                    //This implies that a RtcpPacket Header can have the same HashCode as a RtpPacketHeader if their values are the same.
+                                    //This may or may not be desireable depding on what one is trying to do with the HashCode.
+                                    //E.g. if your string both types of packet in a single collection using the the HasCode,
+                                    //it's possible a collision will occur for some RtpPackets and RtcpPackets with the current GetHashCode implementation.
+
+                                    //HashCode's of an RtpPacket use the time they were created at as well as the underlying HashCode of their header.
+                                    //If two packets were created with the same DateTime then their HashCode will be equal.
+                                    //System.Diagnostics.Debug.Assert(s.GetHashCode() == p.GetHashCode(), "Unexpected GetHashCode");
+
+                                    //This implies that two packets created at the same exact time with the same values should have the same HashCode.
+
+                                    //The packet should be equal.. It's content's and values are the same as the original packet but:
+                                    //the created time is different
+                                    //The values in the header and data are equal but not the same reference
+                                    //Maybe should have a DataEqual overload... etc.
+
+                                    //Two packets will never be equal unless their Payload points to the same original object.
+
+                                    //System.Diagnostics.Debug.Assert((s.Equals(p) ? false : true), "Unexpected Equals");
+
                                 }
                             }
                         }

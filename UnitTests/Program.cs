@@ -1478,13 +1478,15 @@ namespace Media.UnitTests
         /// </summary>
         static void TestServer()
         {
+            int serverPort = Media.Rtsp.RtspMessage.ReliableTransportDefaultPort + 1;
+
             //
             var serverIp = System.Net.IPAddress.Parse("192.168.1.158"); //Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
 
             Console.WriteLine("Server Starting on: " + serverIp);
 
             //Setup a Media.RtspServer on port 554
-            using (Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(serverIp, 554)
+            using (Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(serverIp, serverPort)
             {
                 //new Media.Rtsp.Server.RtspServerDebuggingLogger() 
                 Logger = new Media.Rtsp.Server.RtspServerConsoleLogger()
@@ -2874,7 +2876,11 @@ a=appversion:1.0");
         /// </summary>
         static void TestRtpRtcp()
         {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpHeaderUnitTests), TypeOfVoid);
+
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpPacketUnitTests), TypeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpHeaderUnitTests), TypeOfVoid);
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpPacketUnitTests), TypeOfVoid);
 

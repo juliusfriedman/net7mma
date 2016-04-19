@@ -219,5 +219,37 @@ namespace Media.Http
 
         //string[] ParseHeaderValues(int count) => source.Split(delemit, count);
 
+        public static string[] SplitSpace(string input) { return input.Split((char)Common.ASCII.Space); }
+
+        public static string[] SplitComma(string input) { return input.Split(SemiColon); }
+
+        public static string[] SplitEqual(string input) { return input.Split((char)Common.ASCII.EqualsSign); }
+
+        //Media.Http.HttpHeaders.ParseHeader(@"Digest realm=""testrealm@host.com"",\r\n  \t qop=""auth,auth-int"",   nonce=""dcd98b7102dd2f0e8b11d0f600bfb0c093"", opaque=""5ccc069c403ebaf9f0171e9517f40e41""").Keys
+
+        public static Common.Collections.Generic.ConcurrentThesaurus<string, string> ParseHeader(string input)
+        {
+
+            //Todo, instead of split use substring...
+
+            Common.Collections.Generic.ConcurrentThesaurus<string, string> result = new Common.Collections.Generic.ConcurrentThesaurus<string, string>();
+
+            //Digest realm="testrealm@host.com",\r\n  \t qop="auth,auth-int",   nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093", opaque="5ccc069c403ebaf9f0171e9517f40e41"
+            string[] majors = SplitSpace(input);
+
+            foreach (string part in majors)
+            {
+                if (string.IsNullOrWhiteSpace(part)) continue;
+
+                string[] parts = SplitEqual(part);
+
+                if (parts.Length > 1)
+                    result.Add(parts[0], parts[1]);
+                else
+                    result.Add(parts[0], string.Empty);
+            }
+
+            return result;
+        }
     }
 }

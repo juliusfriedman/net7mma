@@ -183,6 +183,7 @@ namespace Media.Containers.BaseMedia
             }
 
             //Return the result of parsing a Guid from the uuid bytes. The UUID should be in big endian format...
+                                                        //BitOrder == LeastSignificant
             return Common.Binary.ReadGuid(uuidBytes, 0, BitConverter.IsLittleEndian);  //new Guid(uuidBytes);
         }
 

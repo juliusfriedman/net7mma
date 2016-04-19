@@ -197,7 +197,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 //This key is based on the SequenceNumber in signed form
                 //int packetKey = GetPacketKey(packet.SequenceNumber);
 
-                int packetKey = (short)packet.SequenceNumber;
+                int packetKey = Depacketized.Count; //(short)packet.SequenceNumber;
 
                 //Since the auIndex may be stored in highest 16 bits we could mask them out.
 
@@ -205,7 +205,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //There is also no reason to think that some other implementation wouldn't use more than 16 bits for the index and delta.
 
-                if (Depacketized.ContainsKey(packetKey)) return;
+                //if (Depacketized.ContainsKey(packetKey)) return;
 
                 //I thought about adding the key for this packet with Empty bytes which woudln't effect the stream and would keep it from being repacketized.
                 //Depacketized.Add(packetKey, null);
@@ -486,6 +486,8 @@ namespace Media.Rtsp.Server.MediaTypes
                     else if (indexDeltaLength > 0)//Must be present... should check.
                     {
 
+                        //If Depacketized.Count == 0 this should not occur...
+
                         //Ensure enough data is present to read the bit field
                         if (indexDeltaLength > (remainsInAu = (max - offset) - 1))
                         {
@@ -501,25 +503,10 @@ namespace Media.Rtsp.Server.MediaTypes
 
                         //An AU-Index-delta value larger than 0 signals that interleaving is applied.
 
+                        if (auIndex == 0) auIndex = Depacketized.Count + 1;
                     }
 
                     #endregion
-
-
-                    ////Interleaving is applied if auIndex == 0...
-
-                    //For now if 0 to prevent duplicates add the count of depackized to it.
-                    if (auIndex == 0) auIndex += Depacketized.Count;
-
-                    //Set the higher 16 bits to the auIndex. which should ensure that is comes in the correct place.. when depacketizing.
-                    //Must use a uint to do this though...
-                    ///auIndex = (int)((auIndex << 16) << 16 | packetKey);
-                    ///
-
-                    //Instead just add index to the key. (this will make Contains Key true for packetKey + auIndex which is not correct.
-                    //auIndex += packetKey;
-
-                    //Just leave the auIndex in place but it must be inserted into Depacketized in the correct order.                        
 
                     #region CTSDeltaLength
 

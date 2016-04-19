@@ -104,6 +104,8 @@ namespace Media.Rtsp
                 //Retransmit for 0 sec
                 if (Common.Extensions.OperatingSystemExtensions.IsWindows) Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket);
 
+                //https://en.wikipedia.org/wiki/TCP_delayed_acknowledgment
+
                 //If both send and receieve buffer size are 0 then there is no coalescing when nagle's algorithm is disabled
                 Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(socket);
                 //socket.NoDelay = true;
@@ -2139,6 +2141,7 @@ namespace Media.Rtsp
 
                         if (ipendPoint.Address.Equals(m_RemoteIP) && ipendPoint.Port == m_RtspPort && socket.Connected)
                         {
+                            //Assign the socket (Update ConnectionTime etc)>
                             RtspSocket = socket;
 
                             //m_InterleaveEvent.Reset();
@@ -2258,16 +2261,19 @@ namespace Media.Rtsp
                 //Calculate the connection time.
                 m_ConnectionTime = m_EndConnect.Value - m_BeginConnect.Value;
 
-                //Possibly VM the timing may be off (Hardware Abstraction Layer BUGS) and if the timeout occurs the socket may be closed
+                //Possibly in a VM the timing may be off (Hardware Abstraction Layer BUGS) and if the timeout occurs a few times witin the R2 the socket may be closed
                 //To prefent this check the value first.
                 int multipliedConnectionTime = (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
 
-                //If it took longer than 50 msec to connect (otherwise these remains at their current values)
+                //If it took longer than 50 msec to connect 
                 if (multipliedConnectionTime > 100)
                 {
                     //Set the read and write timeouts based upon such a time (should include a min of the m_RtspSessionTimeout.)
                     if (m_ConnectionTime > TimeSpan.Zero) SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
+                    //....else 
                 }
+
+                //(otherwise these remains at their current values) SocketWriteTimeout = SocketReadTimeout = 0?
 
                 //Don't block (possibly another way to work around the issue)
                 //m_RtspSocket.Blocking = false;
@@ -2336,8 +2342,6 @@ namespace Media.Rtsp
             m_BeginConnect = m_EndConnect = null;
 
             m_ConnectionTime = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
-
-            
         }
 
         /// <summary>
@@ -2436,6 +2440,7 @@ namespace Media.Rtsp
             //Should also be a hash broken up by key appropriately.
 
             //Get the tokens in the header
+                                //Todo, use response.m_StringWhiteSpace to ensure the encoding is parsed correctly...
             string[] baseParts = authenticateHeader.Split(Media.Common.Extensions.Linq.LinqExtensions.Yield(((char)Common.ASCII.Space)).ToArray(), 2, StringSplitOptions.RemoveEmptyEntries);
             
             //If nothing was in the header then return the response given.
@@ -4146,9 +4151,17 @@ namespace Media.Rtsp
 
                             if (multicast)
                             {
-                                Media.Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtpSocket, destinationIp, ttl);
+                                //Should store address for drop and sometimes should send rtcp to this address e.g. AnySourceMulticast rtp or rtcp.
+                                Media.Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtpSocket, destinationIp);
 
-                                if (created.RtcpSocket.Handle != created.RtpSocket.Handle) Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtcpSocket, destinationIp, ttl);
+                                Media.Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(created.RtpSocket, ttl);
+
+                                if (created.RtcpSocket.Handle != created.RtpSocket.Handle)
+                                {
+                                    Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtcpSocket, destinationIp);
+
+                                    Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(created.RtcpSocket, ttl);
+                                }
                             }
 
                             //When the RtspClient is disposed that socket will also be disposed.
@@ -4220,9 +4233,16 @@ namespace Media.Rtsp
                             //&& 
                             Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(destinationIp))
                         {
-                            Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtpSocket, destinationIp, ttl);
+                            Media.Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtpSocket, destinationIp);
 
-                            if(created.RtcpSocket.Handle != created.RtpSocket.Handle) Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtcpSocket, destinationIp, ttl);
+                            Media.Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(created.RtpSocket, ttl);
+
+                            if (created.RtcpSocket.Handle != created.RtpSocket.Handle)
+                            {
+                                Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(created.RtcpSocket, destinationIp);
+
+                                Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(created.RtcpSocket, ttl);
+                            }
                         }
 
                         //No longer need the temporary sockets
@@ -4247,8 +4267,10 @@ namespace Media.Rtsp
                     {
                         m_RtpClient.AddContext(created, false == multiplexing, false == multiplexing);
 
+                        //Store the sessionId in the ApplicationContext.
                         created.ApplicationContext = SessionId;
 
+                        //Store the context in the session
                         session.Context = created;
                     }
 
@@ -4704,6 +4726,7 @@ namespace Media.Rtsp
 
                         //perform the request
 
+                        //Note, that each session may use a totally different connection.
 
                         //Check if GET_PARAMETER is supported.
                         if (SupportedMethods.Contains(RtspMethod.GET_PARAMETER.ToString()))
@@ -4716,7 +4739,7 @@ namespace Media.Rtsp
                             using (SendOptions(session.Value.ControlLocation == RtspMessage.Wildcard, session.Value.SessionId)) ;
                         }
                         else if (SupportedMethods.Contains(RtspMethod.PLAY.ToString())) //If at least PLAY is supported
-                        {
+                        {                            
                             using (SendPlay()) ; //Sessionid overload
                         }
                     }

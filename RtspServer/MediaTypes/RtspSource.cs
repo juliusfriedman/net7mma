@@ -70,7 +70,10 @@ namespace Media.Rtsp.Server.MediaTypes
         /// <summary>
         /// Gets the RtpClient used by the RtspClient to provide media
         /// </summary>
-        public override Rtp.RtpClient RtpClient { get { return IsDisposed ? null : RtspClient.Client; } }
+        public override Rtp.RtpClient RtpClient
+        {
+            get { return  IsDisposed ? null : Common.IDisposedExtensions.IsNullOrDisposed(RtspClient) ? null : RtspClient.Client; }
+        }
 
         public override NetworkCredential SourceCredential
         {

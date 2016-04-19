@@ -102,7 +102,7 @@ namespace Media.Containers.Real
 
             foreach (var chunk in this)
             {
-                if (chunkTypes == null || chunkTypes.Count() == 0 || chunkTypes.Contains((ChunkType)Common.Binary.Read32(chunk.Identifier, 0, false == BitConverter.IsLittleEndian)))
+                if (chunkTypes == null || chunkTypes.Count() == 0 || chunkTypes.Contains((ChunkType)Common.Binary.Read32(chunk.Identifier, 0, Media.Common.Binary.IsBigEndian)))
                     yield return chunk;
 
                 count -= chunk.DataSize;

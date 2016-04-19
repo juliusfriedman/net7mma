@@ -113,7 +113,7 @@ namespace Media.Codecs.Image.Jpeg
 
             if (Code == Markers.StartOfInformation || Code == Markers.EndOfInformation) yield break;
 
-            foreach (byte b in Common.Binary.GetBytes((short)Length, false == BitConverter.IsLittleEndian)) yield return b;
+            foreach (byte b in Common.Binary.GetBytes((short)Length, Media.Common.Binary.IsBigEndian)) yield return b;
 
             if (Length > 0) foreach (byte b in Data) yield return b;
 

@@ -106,7 +106,7 @@ namespace Media.RtpTools
             //plen (2)
             //offset (4)
 
-            if (false == BitConverter.IsLittleEndian)
+            if (Media.Common.Binary.IsBigEndian)
                 return BitConverter.GetBytes((ushort)(packet.Length + sizeOf_RD_packet_T)).
                     Concat
                     (packet is Rtcp.RtcpPacket ?

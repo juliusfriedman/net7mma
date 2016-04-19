@@ -102,6 +102,7 @@ namespace Media.Rtp
 
         #region Readonly
 
+        //Used in GetHashCode and Equals
         //readonly ValueType
         /// <summary>
         /// The DateTime in which the instance was created.
@@ -131,10 +132,12 @@ namespace Media.Rtp
         internal readonly protected List<RtpPacket> Packets;
 
         //Could use List if Add is replaced with Insert and index given by something like => Abs(Clamp(n, 0, Min(n - count) + Max(n - count))) or IndexOf(n)
+        //Also needs a Dictionary to be able to maintain state of remove operations...
+        //Could itself be a Dictionary to ensure that a packet is not already present but if packets are added out of order then the buffer would need to be created again...
         /// <summary>
         /// After a single RtpPacket is <see cref="Depacketize">depacketized</see> it will be placed into this list with the appropriate index.
         /// </summary>
-        internal readonly SortedList<int, Common.MemorySegment> Depacketized; //Also needs a Dictionary to be able to maintain state of remove operations...
+        internal readonly SortedList<int, Common.MemorySegment> Depacketized; 
 
         #endregion
 
@@ -544,7 +547,7 @@ namespace Media.Rtp
 
         //public IEnumerator<Common.MemorySegment> GetEnumerator() { return Depacketized.Values.GetEnumerator(); }
 
-        //The amount of memory used by Depacketized.
+        //The amount of memory used by Depacketized. (When Persisted... otherwise it should be shared...)
 
         /// <summary>
         /// Adds a RtpPacket to the RtpFrame. The first packet added sets the SynchronizationSourceIdentifier and Timestamp if not already set.
@@ -1055,7 +1058,7 @@ namespace Media.Rtp
                 if (Common.IDisposedExtensions.IsNullOrDisposed(value) || value.Count == 0) continue;
 
                 //Write it to the Buffer
-                Buffer.Write(value.Array, value.Offset, value.Count);
+                m_Buffer.Write(value.Array, value.Offset, value.Count);
             }
 
             //Ensure at the begining

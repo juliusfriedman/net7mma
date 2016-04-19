@@ -389,10 +389,11 @@ namespace Media.Rtsp.Server.MediaTypes
                                                                                          //Ensure the no matter when the packet is processed that it will have the same order.
                 //int packetKey = GetPacketKey(packet.SequenceNumber); //Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 0; //packet.Timestamp - packet.SequenceNumber;
 
-                int packetKey = (short)packet.SequenceNumber;
+                //Just put the packets into Depacketized at the end for most cases.
+                int packetKey = Depacketized.Count;
 
                 //Already contained. (Might want to wait for the Decoder Order Number to be checked.
-                if (Depacketized.ContainsKey(packetKey)) return;
+                //if (Depacketized.ContainsKey(packetKey)) return;
 
                 //(May need to handle re-ordering)
                 //In such cases this step needs to place the packets into a seperate collection for sorting on DON / TSOFFSET before writing to the buffer.
@@ -445,8 +446,6 @@ namespace Media.Rtsp.Server.MediaTypes
                             //Move to Nal Data
                             ++offset;
 
-                            
-
                             //Todo Determine if need to Order by DON first.
                             //EAT DON for ALL BUT STAP - A
                             if (nalUnitType != Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationA)
@@ -454,7 +453,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //Should check for 2 bytes.
 
                                 //Read the DecoderOrderingNumber and add the value from the index.
-                                packetKey += Common.Binary.ReadU16(packetData, ref offset, BitConverter.IsLittleEndian);
+                                packetKey = Common.Binary.ReadU16(packetData, ref offset, BitConverter.IsLittleEndian);
                             }
 
                             //Should check for 2 bytes.
@@ -480,7 +479,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //DOND 1 byte
 
                                                 //Read DOND and TSOFFSET, combine the values with the existing index
-                                                packetKey |= (int)Common.Binary.ReadU24(packetData, ref offset, BitConverter.IsLittleEndian);
+                                                packetKey = (int)Common.Binary.ReadU24(packetData, ref offset, BitConverter.IsLittleEndian);
                                                 
                                                 goto default;
                                             }
@@ -491,7 +490,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //DOND 2 bytes
 
                                                 //Read DOND and TSOFFSET , combine the values with the existing index
-                                                packetKey |= (int)Common.Binary.ReadU32(packetData, ref offset, BitConverter.IsLittleEndian);
+                                                packetKey = (int)Common.Binary.ReadU32(packetData, ref offset, BitConverter.IsLittleEndian);
 
                                                 goto default;
                                             }
@@ -532,10 +531,10 @@ namespace Media.Rtsp.Server.MediaTypes
                               NAL unit per packet and transmit packets out of their decoding
                               order, STAP-B packet type can be used.
                              */
-                            //Need 3 bytes?
-                            if (count > 2)
+                            //Needs atleast 3 bytes to reconstruct... 
+                            if (count >= 3)
                             {
-                                //Offset still at the firstByte, move to and read FU Header (Indicator)
+                                //Offset still at the firstByte (FU Indicator) move to and read FU Header
                                 byte FUHeader = packetData[++offset];
 
                                 bool Start = ((FUHeader & 0x80) >> 7) > 0;
@@ -555,7 +554,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //Should not be set 
                                 //if (Reserved) throw new InvalidOperationException("Reserved Bit Set");
 
-                                //Move to data (Skips FU Header)
+                                //Move to data (Just read the FU Header)
                                 ++offset;
 
                                             //packet.SequenceNumber - packet.Timestamp;
@@ -564,7 +563,11 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //int DecodingOrderNumber = packetKey;
 
                                 //DON Present in FU - B, add the DON to the DecodingOrderNumber
-                                if (nalUnitType == Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB) packetKey += Common.Binary.ReadU16(packetData, ref offset, BitConverter.IsLittleEndian);//offset += 2;
+                                if (nalUnitType == Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB)
+                                {
+                                    //Needs 2 more bytes...
+                                    packetKey += Common.Binary.ReadU16(packetData, ref offset, BitConverter.IsLittleEndian);//offset += 2;
+                                }
 
                                 //Should verify count... just consumed 1 - 3 bytes and only required 2.
 
@@ -605,7 +608,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             //No more data?
                             return;
                         }
-                    default: //Any other type including PayloadContentScalabilityInformation(30) and Reserved(31)
+                    default: //Any other type excluding PayloadContentScalabilityInformation(30) and Reserved(31)
                         {
                             //(Stores the nalUnitType) Write the start code
                             DepacketizeStartCode(ref packetKey, ref nalUnitType, fullStartCodes);
@@ -830,7 +833,7 @@ namespace Media.Rtsp.Server.MediaTypes
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 H264/90000")); //<- 96 must match the Payload description given above
 
             //Prepare the profile information which is useful for receivers decoding the data, in this profile the Id, Sps and Pps are given in a base64 string.
-            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=fmtp:96 profile-level-id=" + Common.Binary.ReadU24(sps, 4, false == BitConverter.IsLittleEndian).ToString("X2") + ";sprop-parameter-sets=" + Convert.ToBase64String(sps, 4, sps.Length - 4) + ',' + Convert.ToBase64String(pps, 4, pps.Length - 4)));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=fmtp:96 profile-level-id=" + Common.Binary.ReadU24(sps, 4, Media.Common.Binary.IsBigEndian).ToString("X2") + ";sprop-parameter-sets=" + Convert.ToBase64String(sps, 4, sps.Length - 4) + ',' + Convert.ToBase64String(pps, 4, pps.Length - 4)));            
 
             //Create a context
             m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1,  //data and control channel id's (can be any number and should not overlap but can...)
@@ -985,6 +988,12 @@ namespace Media.Rtsp.Server.MediaTypes
                     When nal_unit_type is equal to 5 (IDR picture), slice_type shall
                     be equal to 2, 4, 7, or 9 (I or SI)
                     */
+
+                    //Should come from the payload
+
+                    //FirstMbInSLice
+                    //SliceType
+                    //Pps ID
 
                     byte sliceType = nalType; // = get_ue_golomb_31(gb);
 

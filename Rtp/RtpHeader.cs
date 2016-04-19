@@ -444,6 +444,10 @@ namespace Media.Rtp
             }
         }
 
+        /// <summary>
+        /// Uses the first 2 bytes and the <see cref="SynchronizationSourceIdentifier"/> to create a HashCode which represents this header.
+        /// </summary>
+        /// <returns></returns>
         public override int GetHashCode() { return First16Bits ^ SynchronizationSourceIdentifier; }
 
         public override bool Equals(object obj)
@@ -548,6 +552,13 @@ namespace Media.UnitTests
                                         if (test.Size != deserialized.Size) throw new Exception("Unexpected Size");
 
                                         if (false == test.SequenceEqual(deserialized)) throw new Exception("Unexpected SequenceEqual");
+
+                                        //The HashCode does not depend on the SequenceNumber or Timestamp right now.
+                                        if (test.GetHashCode() != deserialized.GetHashCode()) throw new Exception("Unexpected GetHashCode");
+
+                                        ////m_Memory is not == 
+                                        if (test.Equals(deserialized)) throw new Exception("Unexpected Equals");
+
                                     }
 
                                     //Test IEnumerable constructor if added

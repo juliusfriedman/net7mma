@@ -1875,6 +1875,19 @@ namespace Media.Rtsp.Server.MediaTypes
                 //This is because the FragmentOffset should take precedence with respect to the SeqeuenceNumber
                 //And furthernmore if it wraps again to 0 the reciever should be smart enough to detect this and still place it in the resultant buffer correctly.
                 packetKey += (int)FragmentOffset;
+                
+                //Seq   | Frag     |key | index
+                //65535 | 200      | 199| 2
+                //0     | 300      | 300| 3
+                //1     | 100      | 101| 1
+                //2     | 0 Marker | 2  | 0         -> Depacketized.Count > 0, would not read QTables (needs state)
+
+                //Seq   | Frag     |key      | index
+                //65535 | 16777215 | 16777214| 3
+                //0     | 0        | 0       | 0    -> Depacketized.Count > 0, would not read QTables (needs state)
+                //1     | 100      | 101     | 1
+                //2     | 300  M   | 302     | 2    
+
 
                 //Already contained.
                 if (Depacketized.ContainsKey(packetKey)) return;
@@ -1992,7 +2005,6 @@ namespace Media.Rtsp.Server.MediaTypes
                 //It is worth noting you can send higher resolution pictures may be sent and these values will simply be ignored in such cases or the receiver will have to know to use a 
                 //divisor other than 8 to obtain the values when decoding
 
-
                 /*
                  3.1.3.  Type: 8 bits
 
@@ -2040,7 +2052,9 @@ namespace Media.Rtsp.Server.MediaTypes
                 //1) Correct component numbering when component numbers do not start at 0 or use non incremental indexes.
                 //2) Allow for the SubSampling to be indicated in that same field when not 1x1
                 // 2a) For CMYK or RGB one would also need to provide additional data such as Huffman tables and count (the same for Quantization information)
-                //Could keep TotalFragmentOffset rather than local to not check the buffer position
+
+                //Todo,
+                //At this point FragmentOffset may have wrapped or been out of order....
                 if (FragmentOffset == 0 && Depacketized.Count == 0)
                 {
 
