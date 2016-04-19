@@ -58,6 +58,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
         public readonly bool PerPacket;
 
+        public readonly bool PassthroughRtcp;
+
         public bool RtcpDisabled { get { return m_DisableQOS; } set { m_DisableQOS = value; } }
 
         public virtual Rtp.RtpClient RtpClient { get; protected set; }

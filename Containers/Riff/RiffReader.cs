@@ -292,7 +292,7 @@ namespace Media.Containers.Riff
 
             foreach (var chunk in this)
             {
-                if (names == null || names.Count() == 0 || names.Contains(Common.Binary.Read32(chunk.Identifier, 0, false == BitConverter.IsLittleEndian)))
+                if (names == null || names.Count() == 0 || names.Contains(Common.Binary.Read32(chunk.Identifier, 0, Media.Common.Binary.IsBigEndian)))
                 {
                     yield return chunk;
                     continue;
@@ -363,12 +363,12 @@ namespace Media.Containers.Riff
 
             read += Read(lengthBytes, 0, LengthSize);
 
-            ulong length = (ulong)Common.Binary.Read32(lengthBytes, 0, false == BitConverter.IsLittleEndian);
+            ulong length = (ulong)Common.Binary.Read32(lengthBytes, 0, Media.Common.Binary.IsBigEndian);
 
             int identifierSize = IdentifierSize;
 
             //Get the fourCC of the node
-            FourCharacterCode fourCC = (FourCharacterCode)Common.Binary.Read32(identifier, 0, false == BitConverter.IsLittleEndian);
+            FourCharacterCode fourCC = (FourCharacterCode)Common.Binary.Read32(identifier, 0, Media.Common.Binary.IsBigEndian);
 
             //Determine if 64 bit support is needed by inspecting the first node encountered.
             if (false == m_Needs64BitInfo.HasValue)
@@ -427,10 +427,10 @@ namespace Media.Containers.Riff
                     //There must be at least 28 bytes in a junk / ds64 chunk
                     next.DataSize >= 28 &&
                     //This is the ds64 chunk
-                    FourCharacterCode.ds64 == (FourCharacterCode)Common.Binary.Read32(next.Identifier, 0, false == BitConverter.IsLittleEndian))
+                    FourCharacterCode.ds64 == (FourCharacterCode)Common.Binary.Read32(next.Identifier, 0, Media.Common.Binary.IsBigEndian))
                 {
 
-                    m_DataSize = (ulong)Common.Binary.Read64(next.Data, MinimumSize, false == BitConverter.IsLittleEndian);
+                    m_DataSize = (ulong)Common.Binary.Read64(next.Data, MinimumSize, Media.Common.Binary.IsBigEndian);
 
                     //if this is found to be == 0 then what?
 
@@ -734,27 +734,27 @@ namespace Media.Containers.Riff
 
                 int offset = 0;
 
-                m_MicroSecPerFrame = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_MicroSecPerFrame = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
 
-                m_MaxBytesPerSec = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_MaxBytesPerSec = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
 
-                m_PaddingGranularity = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_PaddingGranularity = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
                 
-                m_Flags = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_Flags = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
 
-                m_TotalFrames = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_TotalFrames = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
 
-                m_InitialFrames = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_InitialFrames = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
 
-                m_Streams = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_Streams = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
 
-                m_SuggestedBufferSize = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_SuggestedBufferSize = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
 
-                m_Width = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_Width = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
 
-                m_Height = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_Height = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
 
-                m_Reserved = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
+                m_Reserved = Common.Binary.Read32(headerChunk.Data, ref offset, Media.Common.Binary.IsBigEndian);
             }            
         }
 
@@ -804,7 +804,7 @@ namespace Media.Containers.Riff
 
                 //Expect 56 Bytes
 
-                FourCharacterCode fccType = (FourCharacterCode)Common.Binary.Read32(strhChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                FourCharacterCode fccType = (FourCharacterCode)Common.Binary.Read32(strhChunk.Data, offset, Media.Common.Binary.IsBigEndian);
 
                 offset += 4;
 
@@ -853,12 +853,12 @@ namespace Media.Containers.Riff
                 offset += 4 + (DWORDSIZE * 3);
 
                 //Scale
-                timeScale = Common.Binary.Read32(strhChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                timeScale = Common.Binary.Read32(strhChunk.Data, offset, Media.Common.Binary.IsBigEndian);
 
                 offset += 4;
 
                 //Rate
-                rate = Common.Binary.Read32(strhChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                rate = Common.Binary.Read32(strhChunk.Data, offset, Media.Common.Binary.IsBigEndian);
 
                 offset += 4;
 
@@ -870,12 +870,12 @@ namespace Media.Containers.Riff
                 }
 
                 //Start
-                startTime = Common.Binary.Read32(strhChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                startTime = Common.Binary.Read32(strhChunk.Data, offset, Media.Common.Binary.IsBigEndian);
 
                 offset += 4;
 
                 //Length of stream (as defined in rate and timeScale above)
-                duration = Common.Binary.Read32(strhChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                duration = Common.Binary.Read32(strhChunk.Data, offset, Media.Common.Binary.IsBigEndian);
 
                 offset += 4;
 
@@ -899,16 +899,16 @@ namespace Media.Containers.Riff
                                 {
                                     //BitmapInfoHeader
                                     //Read 32 Width
-                                    width = (int)Common.Binary.ReadU32(strf.Data, 4, false == BitConverter.IsLittleEndian);
+                                    width = (int)Common.Binary.ReadU32(strf.Data, 4, Media.Common.Binary.IsBigEndian);
 
                                     //Read 32 Height
-                                    height = (int)Common.Binary.ReadU32(strf.Data, 8, false == BitConverter.IsLittleEndian);
+                                    height = (int)Common.Binary.ReadU32(strf.Data, 8, Media.Common.Binary.IsBigEndian);
 
                                     //Maybe...
                                     //Read 16 panes 
 
                                     //Read 16 BitDepth
-                                    bitDepth = (byte)(int)Common.Binary.ReadU16(strf.Data, 14, false == BitConverter.IsLittleEndian);
+                                    bitDepth = (byte)(int)Common.Binary.ReadU16(strf.Data, 14, Media.Common.Binary.IsBigEndian);
 
                                     //Read codec
                                     codecIndication = strf.Data.Skip(16).Take(4).ToArray();
@@ -927,8 +927,8 @@ namespace Media.Containers.Riff
                                 {
                                     //WaveFormat (EX) 
                                     codecIndication = strf.Data.Take(2).ToArray();
-                                    channels = (byte)Common.Binary.ReadU16(strf.Data, 2, false == BitConverter.IsLittleEndian);
-                                    bitDepth = (byte)Common.Binary.ReadU16(strf.Data, 4, false == BitConverter.IsLittleEndian);
+                                    channels = (byte)Common.Binary.ReadU16(strf.Data, 2, Media.Common.Binary.IsBigEndian);
+                                    bitDepth = (byte)Common.Binary.ReadU16(strf.Data, 4, Media.Common.Binary.IsBigEndian);
                                 }
                             }
 

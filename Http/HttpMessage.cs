@@ -233,13 +233,15 @@ namespace Media.Http
 
         protected bool m_StatusLineParsed, m_HeadersParsed;
 
-        protected char[] m_EncodedLineEnds = Media.Common.UTF8.LineEndingCharacters,
+        internal protected char[] m_EncodedLineEnds = Media.Common.UTF8.LineEndingCharacters,
             m_EncodedWhiteSpace = Media.Common.UTF8.WhiteSpaceCharacters,
             m_EncodedForwardSlash = Media.Common.UTF8.ForwardSlashCharacters,
             m_EncodedColon = Media.Common.UTF8.ColonCharacters,
             m_EncodedSemiColon = Media.Common.UTF8.SemiColonCharacters;
 
         string m_HeaderFormat = DefaultHeaderFormat, m_StringWhiteSpace, m_StringEndLine, m_StringColon, m_StringSemiColon;
+
+        //Should expose string in format for outside parsing...
 
         protected double m_Version;
 

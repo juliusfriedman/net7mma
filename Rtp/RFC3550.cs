@@ -945,7 +945,7 @@ namespace Media
                 //There are 8 bits in a byte.
                 //Where 3 is the amount of unnecessary bits preceeding the Extension bit
                 //and 7 is amount of bits to discard to place the extension bit at the highest indicie of the octet (8)
-                //get { return First8Bits > 0 && (Common.Binary.ReadBitsWithShift(First8Bits, 3, 7, false == BitConverter.IsLittleEndian) & ExtensionMask) > 0; }
+                //get { return First8Bits > 0 && (Common.Binary.ReadBitsWithShift(First8Bits, 3, 7, Media.Common.Binary.IsBigEndian) & ExtensionMask) > 0; }
                 get { return (First8Bits & ExtensionMask) > 0; }
                 set { First8Bits = PackOctet((byte)Version, Padding, value, (byte)RtpContributingSourceCount); }
             }
@@ -1479,7 +1479,7 @@ namespace Media
             //    m_CurrentSource = (uint)id;
 
             //    //Write the given value to the correct position
-            //    Binary.WriteNetwork32(m_Binary.Array, m_CurrentOffset, false == BitConverter.IsLittleEndian, m_CurrentSource);
+            //    Binary.WriteNetwork32(m_Binary.Array, m_CurrentOffset, Media.Common.Binary.IsBigEndian, m_CurrentSource);
 
             //    //Move the offset
             //    m_CurrentOffset += 4;

@@ -54,11 +54,11 @@ namespace Media.Rtmp
         {
             get
             {
-                return Binary.ReadU16(m_Packet, HeaderLength + 1, false == BitConverter.IsLittleEndian);
+                return Binary.ReadU16(m_Packet, HeaderLength + 1, Media.Common.Binary.IsBigEndian);
             }
             set
             {
-                Binary.Write16(m_Packet, HeaderLength + 1, false == BitConverter.IsLittleEndian, (ushort)value);
+                Binary.Write16(m_Packet, HeaderLength + 1, Media.Common.Binary.IsBigEndian, (ushort)value);
             }
         }
 
@@ -76,7 +76,7 @@ namespace Media.Rtmp
             {
                 if (HasTimesamp)
                 {
-                    return (int)Binary.ReadU32(m_Packet, HeaderLength - 4, false == BitConverter.IsLittleEndian);
+                    return (int)Binary.ReadU32(m_Packet, HeaderLength - 4, Media.Common.Binary.IsBigEndian);
                 }
 
                 return null;
@@ -85,7 +85,7 @@ namespace Media.Rtmp
             {
                 if (HasTimesamp)
                 {
-                    Binary.Write32(m_Packet, HeaderLength - 4, false == BitConverter.IsLittleEndian, (uint)value);
+                    Binary.Write32(m_Packet, HeaderLength - 4, Media.Common.Binary.IsBigEndian, (uint)value);
                 }
             }
         }

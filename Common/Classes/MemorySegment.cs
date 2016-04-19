@@ -351,6 +351,8 @@ namespace Media.Common
 
         Common.MemorySegment WorkingSegment;
 
+        //Could keep remaining instead of cursor would be easier to keep track of.
+
         int m_Index = 0;
 
         long m_Cursor;

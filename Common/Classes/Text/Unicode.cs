@@ -41,6 +41,7 @@ namespace Media.Common
     public sealed class Unicode
     {
 
+        //Todo, move to UTF8
         
         /// <summary>
         /// ISO 8859-1 characters with the most-significant bit set are represented as 1100001x 10xxxxxx. (See RFC 2279 [21])
@@ -59,6 +60,9 @@ namespace Media.Common
         /// <remarks>If knew the width did you, faster it could be..</remarks>
         public static bool FoundValidUniversalTextFormat(byte[] buffer, ref int start, ref int count, bool reverse = false)
         {
+
+            //unsafe
+
             unchecked //unaligned
             {
                 //1100001 1

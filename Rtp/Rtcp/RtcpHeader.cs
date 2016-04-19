@@ -388,10 +388,10 @@ namespace Media.Rtcp
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc, int lengthInWords)
+        public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc, int lengthInWordsMinusOne)
             : this(version, payloadType, padding, blockCount, ssrc)
         {
-            LengthInWordsMinusOne = lengthInWords;
+            LengthInWordsMinusOne = lengthInWordsMinusOne;
         }
 
         #endregion
@@ -427,6 +427,7 @@ namespace Media.Rtcp
         {
             switch (LengthInWordsMinusOne)
             {
+                    //Value 0 means there is 65535 words.... this should return any values present... (as default does)
                 case RtcpHeader.MinimumLengthInWords:
                 case RtcpHeader.MaximumLengthInWords:
                     return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes.Take(RFC3550.CommonHeaderBits.Size));
@@ -534,12 +535,14 @@ namespace Media.UnitTests
                             //Permute every possible value in the 5 bit BlockCount
                             for (byte ReportBlockCounter = byte.MinValue; ReportBlockCounter <= Media.Common.Binary.FiveBitMaxValue; ++ReportBlockCounter)
                             {
-                                //Permute every necessary value in the 16 bit LengthInWordsMinusOne
+                                //Permute every necessary value in the 16 bit LengthInWordsMinusOne 65535, 0 -> 8
                                 for (ushort lengthIn32BitWords = ushort.MaxValue; lengthIn32BitWords == ushort.MaxValue || lengthIn32BitWords <= Media.Common.Binary.BitsPerByte; ++lengthIn32BitWords)
                                 {
+                                    //Always specify a value for the ssrc, if the length is 65535 this means there is no ssrc...
                                     using (Rtcp.RtcpHeader test = new Rtcp.RtcpHeader(VersionCounter, PayloadCounter, bitValue, ReportBlockCounter, 7, lengthIn32BitWords))
                                     {
-                                        if (lengthIn32BitWords > 0 && test.SendersSynchronizationSourceIdentifier != 7) throw new Exception("Unexpected SendersSynchronizationSourceIdentifier");
+                                        //Should possibly allow for this ...
+                                        if (lengthIn32BitWords != ushort.MaxValue && test.SendersSynchronizationSourceIdentifier != 7) throw new Exception("Unexpected SendersSynchronizationSourceIdentifier");
 
                                         if (test.Padding != bitValue) throw new Exception("Unexpected BlockCount");
 
@@ -573,6 +576,15 @@ namespace Media.UnitTests
                                             if (test.LengthInWordsMinusOne != deserialized.LengthInWordsMinusOne) throw new Exception("Invalid LengthInWordsMinusOne");
 
                                             if (test.Size != deserialized.Size) throw new Exception("Unexpected Size");
+
+                                            //Should possibly allow for this ...
+                                            if (test.SendersSynchronizationSourceIdentifier == deserialized.SendersSynchronizationSourceIdentifier
+                                                &&
+                                                test.GetHashCode() != deserialized.GetHashCode()) throw new Exception("Unexpected GetHashCode");
+                                            else if (deserialized.Size != test.Size) throw new Exception("Unexpected Size");
+                                            
+                                            //m_Memory is not == 
+                                            if (test.Equals(deserialized)) throw new Exception("Unexpected Equals");
                                         }
 
                                         //Test IEnumerable constructor if added

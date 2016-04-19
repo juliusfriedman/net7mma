@@ -657,8 +657,10 @@ namespace Media.Http
                 //Calculate the connection time.
                 m_ConnectionTime = m_EndConnect.Value - m_BeginConnect.Value;
 
-                //Set the read and write timeouts based upon such a time (should include a min of the m_RtspSessionTimeout.)
-                if (m_ConnectionTime > TimeSpan.Zero) SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
+                int multipliedConnectionTime = (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
+
+                //Set the read and write timeouts based upon such a time but only if the connection time took longer than 50 ms
+                if (m_ConnectionTime > TimeSpan.Zero && multipliedConnectionTime > 100) SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
 
                 //Don't block
                 //m_RtspSocket.Blocking = false;

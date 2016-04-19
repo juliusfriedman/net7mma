@@ -81,6 +81,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public RFC6295Frame(RFC6295Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
 
+            //Todo, use base buffer
             public System.IO.MemoryStream Buffer { get; set; }
 
             public void Packetize(int delta, byte[] command, int mtu = 1500)

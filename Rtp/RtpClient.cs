@@ -551,7 +551,21 @@ namespace Media.Rtp
                     }
 
                     //Needs ttl here.
-                    if(multiCast) Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(tc.RtpSocket, remoteIp, ttl);
+                    if (multiCast)
+                    {
+                        //remoteIp should be groupAdd from media c= line.
+
+                        Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(tc.RtpSocket, remoteIp);
+                        
+                        Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(tc.RtpSocket, ttl);
+
+                        if (tc.RtcpSocket.Handle != tc.RtpSocket.Handle)
+                        {
+                            Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(tc.RtcpSocket, remoteIp);
+
+                            Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(tc.RtcpSocket, ttl);
+                        }
+                    }
                 }
 
                 //Return the context created
@@ -586,6 +600,7 @@ namespace Media.Rtp
                 //Note that in most cases this timestamp will not be equal to the RTP timestamp in any adjacent data packet.  Rather, it MUST be  calculated from the corresponding NTP timestamp using the relationship between the RTP timestamp counter and real time as maintained by periodically checking the wallclock time at a sampling instant.
                 result.RtpTimestamp = context.SenderRtpTimestamp;
 
+                //If no data has been received this value will be 0, set it to the expected value based on the time.
                 if (result.RtpTimestamp == 0) result.RtpTimestamp = (int)Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp32(result.NtpDateTime);
 
                 //Counters
@@ -3871,7 +3886,7 @@ namespace Media.Rtp
 
             m_StopRequested = true;
 
-            foreach (var tc in TransportContexts) if(tc.IsActive) tc.DisconnectSockets();
+            foreach (TransportContext tc in TransportContexts) if (tc.IsActive) tc.DisconnectSockets();
 
             Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref m_WorkerThread);
 

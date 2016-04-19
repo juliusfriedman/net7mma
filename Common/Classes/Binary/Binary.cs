@@ -890,26 +890,50 @@ namespace Media.Common
         /// <summary>
         /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture.
         /// </summary>
-        public static readonly int MostSignificantBit = -1;
+        public static int m_MostSignificantBit = -1;
 
+        /// <summary>
+        /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture.
+        /// </summary>
+        public static int MostSignificantBit { get { return m_MostSignificantBit; } }
 
         //readonly ValueType
         /// <summary>
         /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture.
         /// </summary>
-        public static readonly int LeastSignificantBit = -1;
+        public static int m_LeastSignificantBit = -1;
+
+        /// <summary>
+        /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture.
+        /// </summary>
+        public static int LeastSignificantBit { get { return m_LeastSignificantBit; } }
 
         //readonly ValueType
         /// <summary>
         /// The <see cref="ByteOrder"/> of the current architecture
         /// </summary>
-        public static readonly ByteOrder SystemByteOrder = ByteOrder.Unknown;
+        public static ByteOrder m_SystemByteOrder = ByteOrder.Unknown;
+
+        /// <summary>
+        /// The <see cref="BitOrder"/> of the current architecture
+        /// </summary>
+        public static ByteOrder SystemByteOrder { get { return m_SystemByteOrder; } }
 
         //readonly ValueType
         /// <summary>
         /// The <see cref="BitOrder"/> of the current architecture
         /// </summary>
-        public static readonly BitOrder SystemBitOrder = BitOrder.Unknown;
+        public static BitOrder m_SystemBitOrder = BitOrder.Unknown;
+
+        /// <summary>
+        /// The <see cref="BitOrder"/> of the current architecture
+        /// </summary>
+        public static BitOrder SystemBitOrder { get { return m_SystemBitOrder; } }
+
+        /// <summary>
+        /// Gets a value indicating if the system's byte order is Big Endian.
+        /// </summary>
+        public static bool IsBigEndian { get { return m_SystemByteOrder == ByteOrder.Big; } }
 
         //Check byte, sbyte, short, ushort, uint?
 
@@ -926,8 +950,8 @@ namespace Media.Common
         static Binary()
         {
             //ensure not already called.
-            if (SystemBitOrder != BitOrder.Unknown ||
-                SystemByteOrder != ByteOrder.Unknown || 
+            if (m_SystemBitOrder != BitOrder.Unknown ||
+                m_SystemByteOrder != ByteOrder.Unknown || 
                 BitsSetTable != null || 
                 BitsReverseTable != null) return;
 
@@ -958,22 +982,22 @@ namespace Media.Common
 
                         //Determine the BitOrder using the value
                         //GetBit 0?
-                        switch (SystemBitOrder = ((BitOrder)atOffset))
+                        switch (m_SystemBitOrder = ((BitOrder)atOffset))
                         {
                             case BitOrder.LeastSignificant:
                                 {
 
-                                    MostSignificantBit = Binary.Nihil;
+                                    m_MostSignificantBit = Binary.Nihil;
 
-                                    LeastSignificantBit = Binary.Septem;
+                                    m_LeastSignificantBit = Binary.Septem;
 
                                     break;
                                 }
                             case BitOrder.MostSignificant:
                                 {
-                                    MostSignificantBit = Binary.Septem;
+                                    m_MostSignificantBit = Binary.Septem;
 
-                                    LeastSignificantBit = Binary.Nihil;
+                                    m_LeastSignificantBit = Binary.Nihil;
 
                                     break;
                                 }
@@ -987,16 +1011,16 @@ namespace Media.Common
                         switch (offset)
                         {
                             case Binary.Nihil:
-                                SystemByteOrder = ByteOrder.Little;
+                                m_SystemByteOrder = ByteOrder.Little;
                                 break;
                             case Binary.Ūnus:
-                                SystemByteOrder = ByteOrder.MiddleLittle;
+                                m_SystemByteOrder = ByteOrder.MiddleLittle;
                                 break;
                             case Binary.Duo:
-                                SystemByteOrder = ByteOrder.MiddleBig;
+                                m_SystemByteOrder = ByteOrder.MiddleBig;
                                 break;
                             case Binary.Tres:
-                                SystemByteOrder = ByteOrder.Big;
+                                m_SystemByteOrder = ByteOrder.Big;
                                 break;
                         }
 
@@ -1005,9 +1029,9 @@ namespace Media.Common
                     }
                 }
 
-                if ((int)SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
+                if ((int)m_SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
 
-                if (GetBit((byte)SystemBitOrder, MostSignificantBit)) throw new InvalidOperationException("Did not correctly detect BitOrder");
+                if (GetBit((byte)m_SystemBitOrder, m_MostSignificantBit)) throw new InvalidOperationException("Did not correctly detect BitOrder");
 
                 memoryOf = null;
 
@@ -1527,7 +1551,7 @@ namespace Media.Common
         public static long ReadBits(byte[] bytes, int bitOffset, int bitCount, bool reverse)
         {
             return ReadBits(bytes, bitOffset, bitCount,
-                (Binary.SystemBitOrder == BitOrder.MostSignificant ? //Determine what to do based first on the Binary.SystemBitOrder
+                (Binary.m_SystemBitOrder == BitOrder.MostSignificant ? //Determine what to do based first on the Binary.SystemBitOrder
                 //MostSignificant -> Determine reverse or not
                 (reverse ? BitOrder.LeastSignificant : BitOrder.MostSignificant)
                 : //LeastSignificant -> Determine reverse or not
@@ -1591,7 +1615,9 @@ namespace Media.Common
                     //Even if the array is moved the pointer is taken each time it's needed
                     //result |= ((ulong)((*((byte*)bytes[byteOffset]) >> bitIndex) & Binary.Ūnus) << position);
 
-                    fixed (byte* x = &bytes[byteOffset]) { result |= ((ulong)((*x >> bitIndex) & Binary.Ūnus) << position); } 
+                    result |= ((ulong)((((byte)*(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset)) >> bitIndex) & Binary.Ūnus) << position);
+
+                    //fixed (byte* x = &bytes[byteOffset]) { result |= ((ulong)((*x >> bitIndex) & Binary.Ūnus) << position); } 
                 }
 
 #else
@@ -1652,7 +1678,9 @@ namespace Media.Common
                     //Even if the array is moved the pointer is taken each time it's needed
                     //result |= ((ulong)((*((byte*)bytes[byteOffset]) >> bitIndex) & Binary.Ūnus) << position);
 
-                    fixed (byte* x = &bytes[byteOffset]) { result |= ((ulong)((*x >> bitIndex) & Binary.Ūnus) << position); } 
+                    result |= ((ulong)((((byte)*(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset)) >> bitIndex) & Binary.Ūnus) << position);
+
+                    //fixed (byte* x = &bytes[byteOffset]) { result |= ((ulong)((*x >> bitIndex) & Binary.Ūnus) << position); } 
 
                 }
 
@@ -1684,7 +1712,7 @@ namespace Media.Common
         public static void WriteBits(byte[] bytes, int bitOffset, int bitCount, long value, bool reverse)
         {
             WriteBits(bytes, bitOffset, bitCount, value,
-                (Binary.SystemBitOrder == BitOrder.MostSignificant ? //Determine what to do based first on the Binary.SystemBitOrder
+                (Binary.m_SystemBitOrder == BitOrder.MostSignificant ? //Determine what to do based first on the Binary.SystemBitOrder
                   //MostSignificant -> Determine reverse or not
                 (reverse ? BitOrder.LeastSignificant : BitOrder.MostSignificant)
                 : //LeastSignificant -> Determine reverse or not
@@ -1733,12 +1761,18 @@ namespace Media.Common
                     {
                         //*((byte*)bytes[byteOffset]) |= (byte)(Binary.Ūnus << bitIndex);
 
-                        fixed (byte* x = &bytes[byteOffset]) { *x |= (byte)(Binary.Ūnus << bitIndex); } 
+                        //result |= ((ulong)((((byte)*(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset)) >> bitIndex) & Binary.Ūnus) << position);
+
+                        *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset) |= (byte)(Binary.Ūnus << bitIndex);
+
+                        //fixed (byte* x = &bytes[byteOffset]) { *x |= (byte)(Binary.Ūnus << bitIndex); } 
                     }
                     else
                     {
                         //*((byte*)bytes[byteOffset]) &= (byte)~(Binary.Ūnus << bitIndex);
-                        
+
+                        *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset) &= (byte)~(Binary.Ūnus << bitIndex);
+
                         fixed (byte* x = &bytes[byteOffset]) { *x &= (byte)~(Binary.Ūnus << bitIndex); } 
                     }
                 }
@@ -1791,14 +1825,18 @@ namespace Media.Common
                     if (bitValue)
                     {
                         //*((byte*)bytes[byteOffset]) |= (byte)(Binary.Ūnus << bitIndex);
-                        
-                        fixed (byte* x = &bytes[byteOffset]) { *x |= (byte)(Binary.Ūnus << bitIndex); } 
+
+                        *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset) |= (byte)(Binary.Ūnus << bitIndex);
+
+                        //fixed (byte* x = &bytes[byteOffset]) { *x |= (byte)(Binary.Ūnus << bitIndex); } 
                     }
                     else
                     {
                         //*((byte*)bytes[byteOffset]) &= (byte)~(Binary.Ūnus << bitIndex);
 
-                        fixed (byte* x = &bytes[byteOffset]) { *x &= (byte)~(Binary.Ūnus << bitIndex); } 
+                        *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset) &= (byte)~(Binary.Ūnus << bitIndex);
+
+                        //fixed (byte* x = &bytes[byteOffset]) { *x &= (byte)~(Binary.Ūnus << bitIndex); } 
                     }
                 }
 #else
@@ -2045,21 +2083,19 @@ namespace Media.Common
 
         public static Guid ReadGuid(IEnumerable<byte> octets, int offset, bool reverse)
         {
-            byte[] buffer = octets.Skip(offset).Take(Binary.Sēdecim).ToArray();
-
-            //Already expected in little endian format...
             return new Guid(
-                Read32(buffer, 0, reverse),
-                Read16(buffer, 4, reverse),
-                Read16(buffer, 6, reverse),
-                buffer[8],
-                buffer[9],
-                buffer[10],
-                buffer[11],
-                buffer[12],
-                buffer[13],
-                buffer[14],
-                buffer[15]);
+                Read32(octets, ref offset, reverse),
+                Read16(octets, ref offset, reverse),
+                Read16(octets, ref offset, reverse),
+                //Might not have to reverse these values... (would depend on how 8 bit values were stored in octets)
+                ReadU8(octets, ref offset, reverse), //reverse && isBigEndian
+                ReadU8(octets, ref offset, reverse),
+                ReadU8(octets, ref offset, reverse),
+                ReadU8(octets, ref offset, reverse),
+                ReadU8(octets, ref offset, reverse),
+                ReadU8(octets, ref offset, reverse),
+                ReadU8(octets, ref offset, reverse),
+                ReadU8(octets, ref offset, reverse));
         }              
 
         /// <summary>

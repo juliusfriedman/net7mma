@@ -41,13 +41,13 @@ namespace Media.Common.Extensions.Socket
     public static class SocketExtensions
     {
 
-        //Virtual machines with HAL...
+        //Virtual machine implementations may experience a weird receive timeout bug which closes the connection when SendTimeout = ReceiveTimeout > 0
         //static SocketExtensions()
         //{
         //    //Make a socket for the sender to receive connections on
         //    var sendersSocket = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
 
-        //    var testEp = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 7);
+        //    var testEp = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 7); //Loopback doesn't seem to have the problem as much as other adapters.
 
         //    var testData = new byte[] { 0 };
 
@@ -401,7 +401,26 @@ namespace Media.Common.Extensions.Socket
             return GetFirstMulticastIPAddress(addressFamily, out networkInterface);
         }
 
-        public static void JoinMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toJoin, int ttl)
+        public static void SetMulticastTimeToLive(this System.Net.Sockets.Socket socket, int ttl)
+        {
+            switch (socket.AddressFamily)
+            {
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                    {
+                        socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
+
+                        return;
+                    }
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    {
+                        socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
+
+                        return;
+                    }
+            }
+        }
+
+        public static void JoinMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toJoin)
         {
             switch (toJoin.AddressFamily)
             {
@@ -419,7 +438,8 @@ namespace Media.Common.Extensions.Socket
                     //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.AddMembership,
                     //                        new System.Net.Sockets.MulticastOption(toJoin, System.Net.IPAddress.NetworkToHostOrder(Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(socket).GetIPProperties().GetIPv4Properties().Index)));
 
-                    socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
+                    //Call SetMulticastTimeToLive
+                    //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
 
                     break;
                 case System.Net.Sockets.AddressFamily.InterNetworkV6:
@@ -436,12 +456,14 @@ namespace Media.Common.Extensions.Socket
                     //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.AddMembership,
                     //                        new System.Net.Sockets.IPv6MulticastOption(toJoin, System.Net.IPAddress.NetworkToHostOrder(Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(socket).GetIPProperties().GetIPv6Properties().Index)));
 
-                    socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
+                    //Call SetMulticastTimeToLive
+                    //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
 
                     break;
             }
         }
 
+        //asm
         /// <summary>
         /// 
         /// </summary>
@@ -449,7 +471,7 @@ namespace Media.Common.Extensions.Socket
         /// <param name="toJoin"></param>
         /// <param name="interfaceIndex">expected as given from the NetworkInterface in Host byte order. (In some cases it can return -1 or throw an exception)</param>
         /// <param name="ttl"></param>
-        public static void JoinMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toJoin, int interfaceIndex, int ttl)
+        public static void JoinMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toJoin, int interfaceIndex)
         {
             //if (interfaceIndex == -1) throw new System.InvalidOperationException();
 
@@ -464,7 +486,8 @@ namespace Media.Common.Extensions.Socket
                             System.Net.Sockets.SocketOptionName.AddMembership,
                             new System.Net.Sockets.MulticastOption(toJoin, interfaceIndex));
 
-                        socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
+                        //Call SetMulticastTimeToLive
+                        //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
 
                         return;
                     }
@@ -477,10 +500,135 @@ namespace Media.Common.Extensions.Socket
                         System.Net.Sockets.SocketOptionName.AddMembership,
                         new System.Net.Sockets.IPv6MulticastOption(toJoin, interfaceIndex));
 
-                    socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
+                     //Call SetMulticastTimeToLive
+                    //socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.MulticastTimeToLive, ttl);
 
                     return;
             }
+        }
+
+        /// <summary>
+        /// USed for ssm  / ip_mreq_source 
+        /// </summary>
+        /// <param name="localIp"></param>
+        /// <param name="multicastIp"></param>
+        /// <param name="sourceIp"></param>
+        /// <returns></returns>
+        public static byte[] CreateMembershipAddress(System.Net.IPAddress localIp, System.Net.IPAddress multicastIp, System.Net.IPAddress sourceIp)
+        {
+            //Todo, should check localIp, multicastIp and sourceIp versions and addresses...
+
+            //3 ips, 12 or 36 bytes.
+            int size = localIp.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? 4 : 12;
+
+            int size2 = size + size;
+
+            int size3 = size + size2;
+
+            byte[] membershipAddress = new byte[size3];
+
+            multicastIp.GetAddressBytes().CopyTo(membershipAddress, 0);
+
+            sourceIp.GetAddressBytes().CopyTo(membershipAddress, size);
+
+            localIp.GetAddressBytes().CopyTo(membershipAddress, size2);
+
+            return membershipAddress;
+        }
+
+        //Ssm (uses the routing tables to determine the index), (maybe can specify for v6..)
+        //https://social.msdn.microsoft.com/Forums/en-US/e8063f6d-22f5-445e-a00c-bf46b46c1561/how-to-join-source-specific-multicast-group-in-c?forum=netfxnetcom
+        public static void JoinMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toJoin, System.Net.IPAddress sourceIp, out byte[] membershipAddress)
+        {
+            membershipAddress = CreateMembershipAddress(((System.Net.IPEndPoint)socket.LocalEndPoint).Address, toJoin, sourceIp);
+
+            switch (socket.AddressFamily)
+            {
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                    {
+                        socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, 
+                            System.Net.Sockets.SocketOptionName.AddSourceMembership, 
+                            membershipAddress);
+
+                        return;
+                    }
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    {
+                        socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, 
+                            System.Net.Sockets.SocketOptionName.AddSourceMembership, 
+                            membershipAddress);
+
+                        return;
+                    }
+            }
+
+        }
+
+        //should also have index... Group_Req, MGroup_Req
+        public static void LeaveMulticastGroup(this System.Net.Sockets.Socket socket, byte[] membershipAddress)
+        {
+            switch (socket.AddressFamily)
+            {
+                case System.Net.Sockets.AddressFamily.InterNetwork:
+                    {
+                        socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, System.Net.Sockets.SocketOptionName.DropSourceMembership, membershipAddress);
+                        
+                        return;
+                    }
+                case System.Net.Sockets.AddressFamily.InterNetworkV6:
+                    {
+                        socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IPv6, System.Net.Sockets.SocketOptionName.DropSourceMembership, membershipAddress);
+                        
+                        return;
+                    }
+            }
+            
+        }
+
+        #region Other Values
+
+        //Todo, make an IP to test and determine what options are support e.g. /MapSocketOptions.
+        //Could also just have a SocketOptionProvider...
+
+        //// SO_CONNECT_TIME         =   0x700C,
+
+        ////IP_MULTICAST_IF         =   9, 
+
+        ////IPV6_MULTICAST_HOPS     =   10,
+
+        ////IPV6_MULTICAST_LOOP = 11
+
+        //const int JoinGroup = 41;  //12 AddMembership //IPV6_ADD_MEMBERSHIP
+
+        //const int LeaveGroup = 42; //13 DropMembership //IPV6_DROP_MEMBERSHIP //IPV6_LEAVE_GROUP        
+
+        //const int BlockSource = 43; //17
+
+        //const int UnblockSource = 44; //18
+
+        ////IP_PKTINFO          = 19
+
+        ////P_HOPLIMIT         =   21, IPV6_HOPLIMIT           
+
+        ////IP_RECEIVE_BROADCAST    =   22,
+
+        ////IP_RECVIF           =   24, IPV6_RECVIF         
+
+        ////IP_IFLIST           =   28,
+
+        ////DontFragment = 14
+
+        //const int JoinSourceGroup = 45; // 15 (AddSourceMembership)
+
+        //const int LeaveSourceGroup = 46; // 16 (DropSouceMembership)
+
+        //const int Filter = 47; //MCAST_MSFILTER  
+
+        #endregion
+
+        public static void LeaveMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toJoin, System.Net.IPAddress sourceIp)
+        {
+            LeaveMulticastGroup(socket, CreateMembershipAddress(((System.Net.IPEndPoint)socket.LocalEndPoint).Address, toJoin, sourceIp));
         }
 
         static void LeaveMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toDrop)

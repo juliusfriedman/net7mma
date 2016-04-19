@@ -107,6 +107,8 @@ namespace Media.Common
 
             if (disposing) Expire();
 
+            //Set disposing and ShouldDispose at the same time based on => (ShouldDispose || disposing || LifetimeElapsed)
+            //Really only need to set ShouldDispose here..
             base.Dispose(disposing = ShouldDispose = ShouldDispose || disposing || LifetimeElapsed);
         }
 

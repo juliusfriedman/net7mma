@@ -112,17 +112,17 @@ namespace Media.Codecs.Image
                 throw new ArgumentOutOfRangeException(
                     "offset");
 
-            size = (uint)Media.Common.Binary.ReadInteger(data, offset, 4, false == BitConverter.IsLittleEndian);
-            width = (uint)Media.Common.Binary.ReadInteger(data, offset + 4, 4, false == BitConverter.IsLittleEndian);
-            height = (uint)Media.Common.Binary.ReadInteger(data, offset + 8, 4, false == BitConverter.IsLittleEndian);
-            planes = (ushort)Media.Common.Binary.ReadInteger(data, offset + 12, 2, false == BitConverter.IsLittleEndian);
-            bit_count = (ushort)Media.Common.Binary.ReadInteger(data, offset + 14, 2, false == BitConverter.IsLittleEndian);
+            size = (uint)Media.Common.Binary.ReadInteger(data, offset, 4, Media.Common.Binary.IsBigEndian);
+            width = (uint)Media.Common.Binary.ReadInteger(data, offset + 4, 4, Media.Common.Binary.IsBigEndian);
+            height = (uint)Media.Common.Binary.ReadInteger(data, offset + 8, 4, Media.Common.Binary.IsBigEndian);
+            planes = (ushort)Media.Common.Binary.ReadInteger(data, offset + 12, 2, Media.Common.Binary.IsBigEndian);
+            bit_count = (ushort)Media.Common.Binary.ReadInteger(data, offset + 14, 2, Media.Common.Binary.IsBigEndian);
             compression_id = data.Skip(offset + 16).Take(4);
-            size_of_image = (uint)Media.Common.Binary.ReadInteger(data, offset + 20, 4, false == BitConverter.IsLittleEndian);
-            x_pixels_per_meter = (uint)Media.Common.Binary.ReadInteger(data, offset + 24, 4, false == BitConverter.IsLittleEndian);
-            y_pixels_per_meter = (uint)Media.Common.Binary.ReadInteger(data, offset + 28, 4, false == BitConverter.IsLittleEndian);
-            colors_used = (uint)Media.Common.Binary.ReadInteger(data, offset + 32, 4, false == BitConverter.IsLittleEndian);
-            colors_important = (uint)Media.Common.Binary.ReadInteger(data, offset + 36, 4, false == BitConverter.IsLittleEndian);
+            size_of_image = (uint)Media.Common.Binary.ReadInteger(data, offset + 20, 4, Media.Common.Binary.IsBigEndian);
+            x_pixels_per_meter = (uint)Media.Common.Binary.ReadInteger(data, offset + 24, 4, Media.Common.Binary.IsBigEndian);
+            y_pixels_per_meter = (uint)Media.Common.Binary.ReadInteger(data, offset + 28, 4, Media.Common.Binary.IsBigEndian);
+            colors_used = (uint)Media.Common.Binary.ReadInteger(data, offset + 32, 4, Media.Common.Binary.IsBigEndian);
+            colors_important = (uint)Media.Common.Binary.ReadInteger(data, offset + 36, 4, Media.Common.Binary.IsBigEndian);
         }
 
         #endregion
@@ -261,7 +261,7 @@ namespace Media.Codecs.Image
             unchecked
             {
                 return (int)(size ^ width ^ height ^ planes ^
-                    bit_count ^ (uint)Media.Common.Binary.ReadInteger(compression_id, 0, 4, false == BitConverter.IsLittleEndian) ^
+                    bit_count ^ (uint)Media.Common.Binary.ReadInteger(compression_id, 0, 4, Media.Common.Binary.IsBigEndian) ^
                     size_of_image ^ x_pixels_per_meter ^
                     y_pixels_per_meter ^ colors_used ^
                     colors_important);

@@ -449,54 +449,52 @@ namespace Media.Rtsp//.Server
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtcpPacketRecieved(object stream, RtcpPacket packet, Rtp.RtpClient.TransportContext tc = null)
         {
+            if (Common.IDisposedExtensions.IsNullOrDisposed(packet) 
+                || 
+                Common.IDisposedExtensions.IsNullOrDisposed(tc) 
+                || 
+                Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) return;
 
-            if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) return;
+            //Todo, this should enque the packet to be sent by the source.
 
-            //Make GetSourceBy SSRC
+            //If this is a senders report.
+            if (packet.PayloadType == Rtcp.SendersReport.PayloadType)
+            {
+                RtpClient.TransportContext localContect = m_RtpClient.GetContextForMediaDescription(tc.MediaDescription);
 
-            //Should check for Goodbye and Deactivate this source
+                if (localContect == null) return;
 
-            //m_RtpClient.SendReports();
+                localContect.RtpTransit = tc.RtpTransit;
+                localContect.RtpJitter = tc.RtpJitter;
 
-            //m_RtpClient.EnquePacket(new RtcpPacket(packet.Prepare().ToArray(), 0));
+                using (Rtcp.SendersReport sr = new SendersReport(packet, false))
+                {
+                    //Some senders may disable timestamps by using 0 here
+                    localContect.NtpTimestamp = sr.NtpTimestamp;
+                    localContect.RtpTimestamp = sr.RtpTimestamp;
 
-            //if (packet.PayloadType == Rtcp.SendersReport.PayloadType) // Reduced size...
-            //{
+                    //Could calulcate NtpOffset from difference here if desired. e.g. NtpOffset is given by 
+                    //context.NtpTimestamp -  Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(DateTime.UtcNow)
 
-            //    var sourceContext = SourceContexts.FirstOrDefault(tc => tc.RemoteSynchronizationSourceIdentifier == packet.SynchronizationSourceIdentifier);
+                    //Most senders don't use blocks anyway...
+                    if (sr.BlockCount > 0)
+                    {
+                        Rtcp.IReportBlock reportBlock = sr.First(rb => rb.BlockIdentifier == tc.RemoteSynchronizationSourceIdentifier);
 
-            //    if (sourceContext == null) return;
+                        if (reportBlock != null)
+                        {
+                            ReportBlock block = (ReportBlock)reportBlock;
 
-            //    var context = m_RtpClient.GetContextByPayloadType(sourceContext.MediaDescription.MediaFormat);
+                            localContect.RecieveSequenceNumber = block.ExtendedHighestSequenceNumberReceived;
 
-            //    if (context == null) return;
+                            localContect.RtpJitter = (uint)block.InterarrivalJitterEstimate;
+                        }
+                    }
+                }
 
-            //    context.RtpTransit = sourceContext.RtpTransit;
-            //    context.RtpJitter = sourceContext.RtpJitter;
+            }
 
-                //using (Rtcp.SendersReport sr = new SendersReport(packet, false))
-                //{
-                //    context.NtpTimestamp = sr.NtpTimestamp;
-                //    context.RtpTimestamp = sr.RtpTimestamp;
-
-            //Could calulcate NtpOffset from difference here if desired.
-
-                //    if (sr.BlockCount > 0)
-                //    {
-                //        Rtcp.IReportBlock reportBlock = sr.First(rb => SourceContexts.Any(sc => sc.RemoteSynchronizationSourceIdentifier == rb.BlockIdentifier));
-
-                //        if (reportBlock != null)
-                //        {
-                //            ReportBlock block = (ReportBlock)reportBlock;
-
-                //            context.SequenceNumber = block.ExtendedHighestSequenceNumberReceived;
-                //            context.RtpJitter = (uint)block.InterarrivalJitterEstimate;
-                //        }
-                //    }
-                //}
-
-            //}
-
+            //Could send reports right now to ensure the clients of this stream gets the time from the source ASAP
             //m_RtpClient.SendReports();
         }
 
@@ -648,10 +646,10 @@ namespace Media.Rtsp//.Server
             //Indicate why play would not be allowed.
             string information = string.Empty;
 
+            
+
             //Check the there is an underlying transport which has not already been disposed.
-            if (m_RtpClient == null
-                ||
-                true == m_RtpClient.IsDisposed)
+            if (Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient))
             {
                 //Indicate the SETUP needs to occur again.
                 information = "Session Transport closed. Perform SETUP.";
@@ -695,7 +693,7 @@ namespace Media.Rtsp//.Server
                 if (source.RtpClient.FrameChangedEventsEnabled) source.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
                 else source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
 
-                //source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
+                if(source.PassthroughRtcp) source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
 
                 //Ensure playing
                 Playing.Add(source.Id);
@@ -789,7 +787,12 @@ namespace Media.Rtsp//.Server
                 //AggreateOperationNotAllowed?
                 if (sourceContext == null) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, null, "Source Not Setup");
 
-                var context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
+                //Get the context.
+                RtpClient.TransportContext context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
+
+                //Copy the sourceContext RtpTimestamp. (Because we sending reports right after this)
+                //context.NtpTimestamp = sourceContext.NtpTimestamp;
+                //context.RtpTimestamp = sourceContext.RtpTimestamp;
 
                 //Create the RtpInfo header for this context.
 
@@ -819,6 +822,10 @@ namespace Media.Rtsp//.Server
                     var context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
 
                     if (context == null) continue;
+
+                    //Copy the sourceContext RtpTimestamp. (May help with time jumping in some cases...)(Because we sending reports right after this)
+                    //context.NtpTimestamp = sourceContext.NtpTimestamp;
+                    //context.RtpTimestamp = sourceContext.RtpTimestamp;
 
                     //Create the RtpInfo header for this context.
 
@@ -857,6 +864,8 @@ namespace Media.Rtsp//.Server
                 m_RtpClient.Activate();
                 
                 //m_RtpClient.m_WorkerThread.Priority = ThreadPriority.Highest;
+
+                //Could have taken frames from sourceContext and used them here...
             }
 
             //Return the response
@@ -1301,7 +1310,7 @@ namespace Media.Rtsp//.Server
                     foreach (RtpClient.TransportContext tc in rtpSource.RtpClient.GetTransportContexts()) Attached.Remove(tc);
 
                     //Detach events
-                    //rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
+                    rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
                     rtpSource.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
                     rtpSource.RtpClient.RtpFrameChanged -= OnSourceFrameChanged;
                 }
