@@ -137,7 +137,21 @@ namespace Media.Rtp
         /// <summary>
         /// After a single RtpPacket is <see cref="Depacketize">depacketized</see> it will be placed into this list with the appropriate index.
         /// </summary>
-        internal readonly SortedList<int, Common.MemorySegment> Depacketized; 
+        internal readonly SortedList<int, Common.MemorySegment> Depacketized;
+
+        //In this case we need Depacketized index's to also match the index in packets so remove works correctly.
+        //The problem with that is that children classes may add more than one depacketization per packet.
+        //To remove all of them there would have to be a way to store packets to all segments.
+
+        //Maybe something like RtpPacket, IEnumerable<Common.MemorySegment>
+        // e.g. ConcurrentThesaurus<RtpPacket, Common.MemorySegment> , but it would be impossible to preserve the order of packets in the dictionary without a linked list.       
+        //For all that Packets could just as well be a LinkedList since adds at the head or tail would probably be faster.. but iteration in parallel might be weird
+        
+        //A Depacketization structure with the Packet and all segments could work, this makes removing easy
+
+        //PacketKey { RtpPacket packet; List<MemorySegment> Depacketized;  }
+
+        //When depacketizing the list PacketKey would implicitly be in the same order as the packets because Packets would contains the Depacketized data right there.
 
         #endregion
 
@@ -254,9 +268,6 @@ namespace Media.Rtp
                 //If the buffer was not already prepared then Prepare it.
                 if (m_Buffer == null || false == m_Buffer.CanRead)
                 {
-                    //Can only be prepared when Depacketized
-                    if (false == HasDepacketized) return null;
-
                     //Prepare the buffer
                     PrepareBuffer();
                 }
@@ -320,10 +331,7 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if the RtpFrame is NotEmpty AND contained a RtpPacket which has the Marker Bit Set AND is not <see cref="IsMissingPackets"/>
         /// </summary>
-        public virtual bool IsComplete
-        {
-            get { return false == IsDisposed && false == IsMissingPackets && HasMarker; }
-        }
+        public virtual bool IsComplete { get { return false == IsDisposed && false == IsMissingPackets && HasMarker; } }
 
         //Todo, for Rtcp feedback one would need the sequence numbers of the missing packets...
         //Would be given any arbitrary RtpFrame and would implement that logic there.
@@ -600,7 +608,7 @@ namespace Media.Rtp
 
                 if (count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
 
-                //Ensure not a duplicate
+                //Ensure not a duplicate (Must also check PayloadType if multiple types are allowed)
                 if (false == allowDuplicates && (m_LowestSequenceNumber == seq || m_HighestSequenceNumber == seq)) throw new InvalidOperationException("Cannot have duplicate packets in the same frame.");
 
                 //Could possibly check for < m_LowestSequenceNumber or > m_HighestSequenceNumber here.
@@ -618,6 +626,8 @@ namespace Media.Rtp
 
             //Determine where to insert and what seq will be inserted
             int insert = 0, tempSeq = 0;
+
+            //If AllowMultiplePayloadTypes is true then the packets should maintain their order by PayloadType and then SequenceNumber.
 
             //Search for insert point while the index < count and while roll over would not occur
             while (insert < count && (short)(seq - (tempSeq = Packets[insert].SequenceNumber)) >= 0)
@@ -848,6 +858,8 @@ namespace Media.Rtp
         Done:
             //Remove any memory assoicated with the packet by getting the key of the packet.
             //Force if the packet should be disposed... (the packet is not really being disposed just yet..)
+
+            //The packets may not be stored with sequenceNumber as a key.
             FreeDepacketizedMemory((short)sequenceNumber, p.ShouldDispose); //(sequenceNumber);
             
             return p;            //Notes, i contains the offset where p was stored.
@@ -860,6 +872,7 @@ namespace Media.Rtp
         {
             Packets.Clear();
 
+            //Clear but don't dispose memory..
             Depacketized.Clear();
 
             m_HighestSequenceNumber = m_LowestSequenceNumber = -1;
@@ -980,7 +993,7 @@ namespace Media.Rtp
             //May allow incomplete packets.
             if (false == allowIncomplete && false == IsComplete) return;
 
-            //This should proably provide the index to Depacketize otherwise the order cannot be preserved.
+            //This should proably provide the index to Depacketize otherwise the order cannot be preserved and when removing the order is unknown.
 
             //for (int i = 0, e = Count; i < e; ++i)
             //{
@@ -1066,6 +1079,38 @@ namespace Media.Rtp
         }
 
         /// <summary>
+        /// If <see cref="HasDepacketized"/>, Copies the memory already depacketized to an array at the given offset.
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <returns>The amount of bytes copied</returns>
+        public int CopyTo(byte[] buffer, int offset)
+        {
+            int total = 0;
+
+            //Iterate decorder ordered segments (possibly not in rtp order)
+            foreach (KeyValuePair<int, Common.MemorySegment> pair in Depacketized)
+            {
+                //Get the segment
+                Common.MemorySegment value = pair.Value;
+
+                //if null, disposed or empty skip
+                if (Common.IDisposedExtensions.IsNullOrDisposed(value) || value.Count == 0) continue;
+
+                //Accumulate the total.
+                total += value.Count;
+
+                //Write it to the Buffer
+                System.Array.Copy(value.Array, value.Offset, buffer, offset, value.Count);
+
+                //Move the offset
+                offset += value.Count;
+            }
+
+            return total;
+        }
+
+        /// <summary>
         /// virtual so it's easy to keep the same API, not really needed though since Dispose is also overridable.
         /// </summary>
         internal virtual protected void DisposeBuffer()
@@ -1139,7 +1184,7 @@ namespace Media.Rtp
 
                     //Remove it from the list.
                     Depacketized.Remove(key);
-                }
+                }                
             }
         }
 

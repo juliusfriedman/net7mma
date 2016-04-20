@@ -834,10 +834,9 @@ namespace Media.Rtcp
         /// </summary>
         public override void Dispose()
         {
-            if (false == ShouldDispose) return;
-
-            //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
+
+            if (false == ShouldDispose) return;
 
             //If there is a referenced RtpHeader
             if (m_OwnsHeader)

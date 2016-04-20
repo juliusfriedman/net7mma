@@ -69,6 +69,7 @@ namespace Media.UnitTests
             TestEncodingExtensions, 
             TestUtility, 
             TestBinary, 
+            //TestCommonClasses,
             //Rtp / Rtcp
             TestRtpRtcp, 
             // Frame Level
@@ -2951,6 +2952,13 @@ a=appversion:1.0");
             Console.WriteLine("Detected a: " + Media.Concepts.Classes.BinaryRepresentations.SystemBinaryRepresentation.ToString() + ' ' + Media.Concepts.Classes.BinaryRepresentations.SystemBinaryRepresentation.GetType().Name + " System.");
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.BinaryUnitTests), TypeOfVoid);
+        }
+
+        public static void TestCommonClasses()
+        {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MemorySegmentTests), TypeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SegmentStreamTests), TypeOfVoid);
         }
 
         static void TestCodec()

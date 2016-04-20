@@ -244,7 +244,7 @@ namespace Media.Rtp
 
             Sdp.Lines.SessionConnectionLine connectionLine = new Sdp.Lines.SessionConnectionLine(sessionDescription.ConnectionLine);
 
-            IPAddress remoteIp = IPAddress.Parse(connectionLine.IPAddress), localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
+            IPAddress remoteIp = IPAddress.Parse(connectionLine.Host), localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
 
             RtpClient client = new RtpClient(sharedMemory, incomingEvents);
 
@@ -361,12 +361,14 @@ namespace Media.Rtp
                     //Attempt to parse the IP, if failed then throw an exception.
                     if (cLine == null
                         ||
-                        false == IPAddress.TryParse(new Sdp.Lines.SessionConnectionLine(cLine).IPAddress, out remoteIp)) throw new InvalidOperationException("Cannot determine remoteIp from ConnectionLine");
+                        false == IPAddress.TryParse(new Sdp.Lines.SessionConnectionLine(cLine).Host, out remoteIp)) throw new InvalidOperationException("Cannot determine remoteIp from ConnectionLine");
                 }                
 
+                //For AnySourceMulticast the remoteIp would be a multicast address.
                 bool multiCast = Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(remoteIp);
 
                 //If no localIp was given determine based on the remoteIp
+                //--When there is no remoteIp this should be done first to determine if the sender is multicasting.
                 if (localIp == null) localIp = multiCast ? Media.Common.Extensions.Socket.SocketExtensions.GetFirstMulticastIPAddress(remoteIp.AddressFamily) : Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
 
                 //The localIp and remoteIp should be on the same network otherwise they will need to be mapped or routed.
@@ -551,6 +553,9 @@ namespace Media.Rtp
                     }
 
                     //Needs ttl here.
+
+                    //Should also check for the ConnectionAddress even if remoteIp was given...
+
                     if (multiCast)
                     {
                         //remoteIp should be groupAdd from media c= line.
@@ -559,7 +564,7 @@ namespace Media.Rtp
                         
                         Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(tc.RtpSocket, ttl);
 
-                        if (tc.RtcpSocket.Handle != tc.RtpSocket.Handle)
+                        if (rtcpEnabled && tc.RtcpSocket.Handle != tc.RtpSocket.Handle)
                         {
                             Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(tc.RtcpSocket, remoteIp);
 
@@ -2361,6 +2366,9 @@ namespace Media.Rtp
             //Get the transportContext for the packet by the sourceId then by the payload type of the RtpPacket, not the SSRC alone because it may have not yet been defined.
             //Noting that this is not per RFC3550
             //This is because this implementation allows for the value 0 to be used as a discovery mechanism.
+
+            //Notes that sometimes multiple payload types are being sent from a sender, in such cases the transportContext may incorrectly be selected here.
+            //E.g.if payloadTypes of two contexts overlap and the ssrc is not well defined for each.
             TransportContext transportContext = GetContextForPacket(packet);
 
             //Check for premature finalizer problem and if fixed by memory copy then this is not required.
@@ -2397,9 +2405,9 @@ namespace Media.Rtp
             //}
 
             //Cache the payload type of the packet being handled
-            int payloadType = packet.PayloadType;
+            int payloadType = packet.PayloadType;            
 
-            //If the packet payload type has not been
+            //If the packet payload type has not been defined in the MediaDescription
             if (false == transportContext.MediaDescription.PayloadTypes.Contains(payloadType))
             {
                 Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket RTP Packet PT =" + packet.PayloadType + " is not in Media Description. (" + transportContext.MediaDescription.MediaDescriptionLine + ") ");
@@ -2536,7 +2544,7 @@ namespace Media.Rtp
 
                     //Todo, Clone
                     //If the packet was added to the frame
-                    if (transportContext.LastFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0), true))
+                    if (transportContext.LastFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0)))
                     {
                         bool final = transportContext.LastFrame.Count >= transportContext.LastFrame.MaxPackets;
 
@@ -2570,8 +2578,8 @@ namespace Media.Rtp
                     int pseq = transportContext.RecieveSequenceNumber; //packet.SequenceNumber;
 
                     //Only allow newer timestamps but wrapping should be allowed.
-                    //When the timestamp wraps and the sequence number is not in order this is a re-ordered packet.
-                    if (packetTimestamp < transportContext.CurrentFrame.Timestamp && pseq < transportContext.CurrentFrame.LowestSequenceNumber)
+                    //When the timestamp is lower and the sequence number is not in order this is a re-ordered packet. (needs to correctly check for wrapping sequence numbers)
+                    if (packetTimestamp < transportContext.CurrentFrame.Timestamp)
                     {
                         //Could jump to case log
                         Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleFrameChanges Ignored SequenceNumber " + pseq + " @ " + packetTimestamp + ". Current Timestamp =" + transportContext.CurrentFrame.Timestamp + ", Current LowestSequenceNumber = " + transportContext.CurrentFrame.LowestSequenceNumber);
@@ -2606,7 +2614,7 @@ namespace Media.Rtp
                 {
                     //Todo, Clone
                     //If the packet was added to the frame
-                    if (transportContext.CurrentFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0), true))
+                    if (transportContext.CurrentFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0)))
                     {
 
                         bool final = transportContext.CurrentFrame.Count >= transportContext.CurrentFrame.MaxPackets;
