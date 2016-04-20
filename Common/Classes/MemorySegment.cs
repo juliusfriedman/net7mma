@@ -132,6 +132,8 @@ namespace Media.Common
         public byte this[int index]
         {
 #if UNSAFE
+            //Could also use UnsafeAddrOfPinnedArrayElement
+            //*(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, m_Offset + index);
             get { unsafe { fixed (byte* p = &m_Array[m_Offset]) return *(p + index); } }
             set { unsafe { fixed (byte* p = &m_Array[m_Offset]) *(p + index) = value; } }
 #else
@@ -476,7 +478,7 @@ namespace Media.Common
             }
             set
             {
-                Seek(value, System.IO.SeekOrigin.Current);
+                Seek(value, System.IO.SeekOrigin.Begin);
             }
         }
 
@@ -494,6 +496,8 @@ namespace Media.Common
         {
             //If at the end of data return 0 unless closed...
             if (m_Position >= m_Count) return IsDisposed ? -1 : 0;
+
+            if (count == 0) return 0;
 
             if (WorkingSegment == null || m_Cursor == WorkingSegment.m_Length) WorkingSegment = Segments[m_Index++];
 
@@ -665,7 +669,6 @@ namespace Media.Common
 
         void IDisposable.Dispose() { Dispose(ShouldDispose); }
 
-        //Indicate really disping when the destructor is called.
         ~SegmentStream() { Dispose(ShouldDispose); }
 
         #endregion
@@ -692,4 +695,127 @@ namespace Media.Common
     //}
 
     #endregion
+}
+
+
+namespace Media.UnitTests
+{
+
+    public class MemorySegmentTests
+    {
+
+    }
+
+    public class SegmentStreamTests
+    {
+
+        public static void TestWritingAndReading()
+        {
+
+            int TestBytesLength = 1024;//Utility.Random.Next(1024, 8192);
+
+            //Create random bytes
+            byte[] randomBytes = new byte[TestBytesLength];
+
+            //Fill with random bytes.
+            Media.Utility.Random.NextBytes(randomBytes);
+
+            List<Common.MemorySegment> segments = new List<Common.MemorySegment>();
+
+            int offset = 0, toTake = 0;
+
+            //Make a segment stream
+            Common.SegmentStream stream = new Common.SegmentStream(segments);
+
+            //make random length segments of all bytes which are contained.
+            for (int remains = TestBytesLength; remains > 0; )
+            {
+                //Take a random amount
+                toTake = Media.Utility.Random.Next(1, remains);
+
+                //Ensure that we do not take more than what remains
+                if (toTake > remains) toTake = remains;
+
+                //Create the segment
+                Common.MemorySegment created = new Common.MemorySegment(randomBytes, offset, toTake);
+
+                //Add it to the list
+                segments.Add(created);
+
+                //Add it to the stream
+                stream.AddMemory(created);
+
+                //Move the offset
+                offset += toTake;
+                
+                //Decrease for what remains
+                remains -= toTake;
+
+                if (remains == 1)
+                {
+                    segments.Add(new Common.MemorySegment(randomBytes, offset, 1));
+
+                    //Add it to the list
+                    segments.Add(created);
+
+                    //Add it to the stream
+                    stream.AddMemory(created);
+
+                    remains = 0;
+                }
+            }
+            
+            //Seek to position 0.
+            stream.Position = 0;
+
+            byte[] buffer = new byte[TestBytesLength];
+
+            int total = 0;
+
+            offset = 0;
+
+            int streamRemains = (int)(stream.Length - stream.Position);
+
+            //Iterate segments (try to read past the end)
+            while (total < stream.Length)
+            {
+                //Issue random reads at the SegmentStream for a value inclusive of what remains in the stream.
+
+                int toRead = Utility.Random.Next(1, streamRemains);
+
+                if (toRead > streamRemains) toRead = streamRemains;
+
+                int streamRead = stream.Read(buffer, offset, toRead);
+
+                if (streamRead != toRead) throw new System.Exception("Unexpected amount from Read");
+
+                offset += streamRead;
+
+                total += streamRead;
+
+                streamRemains = (int)(stream.Length - stream.Position);
+            }
+
+            if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
+
+            //Reset Position to 0.
+            stream.Position = 0;
+
+            using (System.IO.MemoryStream ms = new System.IO.MemoryStream())
+            {
+                stream.CopyTo(ms);
+
+                if (false == ms.ToArray().SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
+            }
+
+            stream.Close();
+
+            stream.Dispose();
+
+            Console.WriteLine(segments.Count);
+
+        }
+
+    }
+
 }

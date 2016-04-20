@@ -350,6 +350,7 @@ namespace Media.Sdp
             else
                 m_Parts = new List<string>(line.Substring(2).Split(Common.Extensions.Object.ObjectExtensions.ToArray<string>(m_Seperator), StringSplitOptions.RemoveEmptyEntries));
 
+            //Should have option to throw less parts than expected or truncate extra parts?
             EnsureParts(partCount);
 
             //m_Parts = new List<string>(line.Substring(2).Split(SessionDescription.SemiColonSplit));
@@ -363,8 +364,8 @@ namespace Media.Sdp
         {
             if (m_Type != expected) throw new InvalidOperationException("Expected: " + expected + ", Found: " + m_Type);
 
-            //Should have option to throw less parts than expected?
-            EnsureParts(partCount);
+            //Should have option to throw less parts than expected or truncate extra parts?
+            EnsureParts(partCount);            
         }
 
         [CLSCompliant(false)]

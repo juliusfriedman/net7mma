@@ -327,7 +327,7 @@ namespace Media.Sdp
 
                 if (connectionLine != null && connectionLine.HasMultipleAddresses)
                 {
-                    int? portSpecifier = connectionLine.Ports;
+                    int? portSpecifier = connectionLine.NumberOfPorts;
 
                     if (portSpecifier.HasValue)
                     {
@@ -499,15 +499,16 @@ namespace Media.Sdp
                     if (controlUri.IsAbsoluteUri) return controlUri;
 
                     //Return a new uri using the original string and the controlUri relative path.
-                    //Hopefully the direction of the braces matched
+                    //Hopefully the direction of the braces matched..
 
                                                                                                     //string.Join(source.OriginalString, controlUri.OriginalString);
 
                     return new Uri(source.OriginalString.EndsWith(SessionDescription.ForwardSlashString) ? source.OriginalString + controlUri.OriginalString : string.Join(SessionDescription.ForwardSlashString, source.OriginalString, controlUri.OriginalString));
 
-                    //Todo, ensure that parameters have also been restored.
+                    //Todo, ensure that any parameters have also been restored...
 
                     #region Explination
+
                     //I wonder if Mr./(Dr) Fielding is happy...
                     //Let source = 
                     //rtsp://alt1.v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/1/video.3gp/trackID=0
@@ -515,6 +516,15 @@ namespace Media.Sdp
                     //return new Uri(source, controlUri);
                     //Result = 
                     //rtsp://alt1.v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/1/trackID=0
+
+
+                    //Useless when the source doesn't end with '/', e.g. same problem with Uri constructor.
+
+                    //System.UriBuilder builder = new UriBuilder(source);
+                    //builder.Path += controlUri.ToString();
+
+                    //"rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov/trackID=1"
+
                     #endregion
                 }
             }

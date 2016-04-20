@@ -1093,18 +1093,16 @@ namespace Media.Sdp
 
             m_MediaDescriptions.ForEach(md => buffer.Append(md.ToString(this)));
 
-            //Strings in .Net are Unicode code points ( subsequently the characters only are addressable by their 16 bit code point representation).
+            //Strings in .Net are Unicode code points (subsequently the characters only are addressable by their 16 bit code point representation).
+            //http://csharpindepth.com/Articles/General/Strings.aspx
             return buffer.ToString();
         }
 
         public override void Dispose()
         {
-
             if (IsDisposed) return;
 
             base.Dispose();
-
-            if (false == ShouldDispose) return;
 
             m_SessionVersionLine = null;
 
@@ -1200,7 +1198,7 @@ namespace Media.Sdp
             if (controlLine == null) return false;
 
             //Get the control token
-            string controlPart = controlLine.Parts.Where(p => p.Contains("control")).FirstOrDefault();
+            string controlPart = controlLine.Parts.Where(p => p.Contains(AttributeFields.Control)).FirstOrDefault();
 
             //If there is a controlPart in the controlLine
             if (false == string.IsNullOrWhiteSpace(controlPart))

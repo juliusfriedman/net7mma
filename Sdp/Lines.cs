@@ -272,6 +272,14 @@ namespace Media.Sdp
         /// </summary>
         public class SessionConnectionLine : SessionDescriptionLine
         {
+            /*
+             
+            Multiple addresses or "c=" lines MAY be specified on a per-media
+            basis only if they provide multicast addresses for different layers
+            in a hierarchical or layered encoding scheme.  
+             * They MUST NOT be specified for a session-level "c=" field.
+             */
+
             public const string InConnectionToken = "IN";
 
             //Should be moved when defined
@@ -291,22 +299,27 @@ namespace Media.Sdp
             internal const char ConnectionType = 'c';
 
             /// <summary>
-            /// 
+            /// Gets the string value associated with the nettype token.
             /// </summary>
-            internal string ConnectionNetworkType { get { return GetPart(0); } set { SetPart(0, value); } }
+            public string ConnectionNetworkType { get { return GetPart(0); } internal protected set { SetPart(0, value); } }
 
             /// <summary>
-            /// 
+            /// Gets the string value associated with the addrtype token.
             /// </summary>
-            internal string ConnectionAddressType { get { return GetPart(1); } set { SetPart(1, value); } }
+            public string ConnectionAddressType { get { return GetPart(1); } internal protected set { SetPart(1, value); } }
 
             /// <summary>
-            /// See 5.7.  Connection Data ("c=")
+            /// Gets the string value associated with the connection-address token, See 5.7.  Connection Data ("c=")
             /// </summary>
-            internal string ConnectionAddress { get { return GetPart(2); } set { SetPart(2, value); } }
+            /// <remarks>
+            /// This may be a DNS fully qualified domain
+            /// </remarks>
+            public string ConnectionAddress { get { return GetPart(2); } internal protected set { SetPart(2, value); } }
 
-            //HasOptionalSubFields...
-            internal bool HasMultipleAddresses
+            /// <summary>
+            /// Indicates if the '/' character is present. The slash notation for multiple addresses MUST NOT be used for IP unicast addresses.
+            /// </summary>
+            public bool HasMultipleAddresses
             {
                 get
                 {
@@ -314,6 +327,8 @@ namespace Media.Sdp
                     return ConnectionAddress.Contains((char)Common.ASCII.ForwardSlash);
                 }
             }
+
+            //public bool IsUnicastAddress { get { return false == HasMultipleAddresses; } }
 
             //Todo
             //Only split the ConnectionAddress one time and cache it
@@ -335,12 +350,13 @@ namespace Media.Sdp
                 }
             }
 
-            //AddressToken
-            //This is not always an IP....(see notes above)
             /// <summary>
-            /// 
+            /// Only the host portion of the <see cref="ConnectionAddress"/>
             /// </summary>
-            public string IPAddress
+            /// <remarks>
+            ///  If no other information is present on the line then it will equal the <see cref="ConnectionAddress"/>.
+            /// </remarks>
+            public string Host
             {
                 get
                 {
@@ -353,6 +369,25 @@ namespace Media.Sdp
                 }
             }
 
+            //To obtain the IPAddress you would need to resolve the host if it was domain name, otherwise it would be parsed as an IPAddress.
+            //public System.Net.IPAddress Resolve(System.Net.Sockets.AddressFamily family)
+            //{
+            //    string host = Host;
+            //    System.Uri uri;
+            //    if (System.Uri.TryCreate(host, UriKind.RelativeOrAbsolute, out uri))
+            //    {
+            //        if (uri.IsAbsoluteUri)
+            //        {
+            //            System.Net.Dns.GetHostAddresses(uri.DnsSafeHost).FirstOrDefault(l => l.AddressFamily == family);
+            //        }
+            //        throw new InvalidOperationException("Can't parse a relative Uri for a IPAddress");
+            //    }
+            //    return IPAddress.Parse(host);
+            //}
+
+            /// <summary>
+            /// Indicates if the <see cref="ConnectionAddress"/> contains a Time to Live token.
+            /// </summary>
             public bool HasTimeToLive
             {
                 get
@@ -365,15 +400,15 @@ namespace Media.Sdp
                 }
             }
 
-            //Should only be present if ConnectionAddress contains a Multicast address.
-
             /// <summary>
-            /// Todo, should not be nullable.
+            /// Parses the Time To Live token as found in the <see cref="ConnectionAddress"/>, if not found 0 is returned.
             /// </summary>
-            public int Hops
+            public int TimeToLive
             {
                 get
                 {
+                    //Should not be present for IPv6 Addresses
+
                     if (string.IsNullOrWhiteSpace(ConnectionAddress)) return 0;
 
                     if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
@@ -385,8 +420,12 @@ namespace Media.Sdp
 
                     return 0; //Default Ttl
                 }
+                //Todo, Set
             }
 
+            /// <summary>
+            /// Indicates if the <see cref="ConnectionAddress"/> contains a ports token.
+            /// </summary>
             public bool HasMultiplePorts
             {
                 get
@@ -400,9 +439,9 @@ namespace Media.Sdp
             }
 
             /// <summary>
-            /// Todo, should not be nullable.
+            /// Indicates the amount of ports specified by the <see cref="ConnectionAddress"/> or 1 if unspecified.
             /// </summary>
-            public int Ports
+            public int NumberOfPorts
             {
                 get
                 {
@@ -410,13 +449,20 @@ namespace Media.Sdp
 
                     if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
 
-                    if (m_ConnectionParts.Length > 2) //Todo ensure not accidentally giving Hops... should proably be 3
+                    if (m_ConnectionParts.Length > 2)
                     {
                         return int.Parse(m_ConnectionParts[2], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
                     }
 
-                    return 1; //1
+                    return 1;
                 }
+                //Todo, may have TimeToLive...
+                //set
+                //{
+                //    if (value < ushort.MinValue || value > ushort.MaxValue) throw new ArgumentOutOfRangeException("A value less than 0 or greater than 65535 is not valid.");
+
+                //    SetPart(2, string.Join(SessionDescription.ForwardSlash.ToString(), ConnectionAddress, value));
+                //}
             }
 
             #region Constructor
@@ -1264,7 +1310,7 @@ namespace Media.Sdp
             /// <summary>
             /// Gets a value indicating if the <see cref="PortToken"/> has the <see cref="SessionDescription.ForwardSlashString"/>
             /// </summary>
-            public bool HasPortRange
+            public bool HasMultiplePorts
             {
                 get { return PortToken.IndexOf(SessionDescription.ForwardSlashString) >= 0; }
             }

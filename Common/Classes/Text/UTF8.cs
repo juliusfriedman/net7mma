@@ -64,5 +64,9 @@ namespace Media.Common
         public static readonly byte[] TabBytes = new byte[] { Common.ASCII.HorizontalTab };
 
         public static readonly char[] TabCharacters = System.Text.Encoding.UTF8.GetChars(TabBytes);
+
+        //Todo, Encode / Decode
+
+        //T.140
     }
 }

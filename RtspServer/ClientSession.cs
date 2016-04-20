@@ -464,14 +464,14 @@ namespace Media.Rtsp//.Server
 
                 if (localContect == null) return;
 
-                localContect.RtpTransit = tc.RtpTransit;
-                localContect.RtpJitter = tc.RtpJitter;
+                localContect.SenderTransit = tc.RtpTransit;
+                localContect.SenderJitter = tc.RtpJitter;
 
                 using (Rtcp.SendersReport sr = new SendersReport(packet, false))
                 {
                     //Some senders may disable timestamps by using 0 here
-                    localContect.NtpTimestamp = sr.NtpTimestamp;
-                    localContect.RtpTimestamp = sr.RtpTimestamp;
+                    localContect.SenderNtpTimestamp = sr.NtpTimestamp;
+                    localContect.SenderRtpTimestamp = sr.RtpTimestamp;
 
                     //Could calulcate NtpOffset from difference here if desired. e.g. NtpOffset is given by 
                     //context.NtpTimestamp -  Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(DateTime.UtcNow)
@@ -485,9 +485,9 @@ namespace Media.Rtsp//.Server
                         {
                             ReportBlock block = (ReportBlock)reportBlock;
 
-                            localContect.RecieveSequenceNumber = block.ExtendedHighestSequenceNumberReceived;
+                            localContect.SendSequenceNumber = block.ExtendedHighestSequenceNumberReceived;
 
-                            localContect.RtpJitter = (uint)block.InterarrivalJitterEstimate;
+                            localContect.SenderJitter = (uint)block.InterarrivalJitterEstimate;
                         }
                     }
                 }
@@ -791,8 +791,8 @@ namespace Media.Rtsp//.Server
                 RtpClient.TransportContext context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
 
                 //Copy the sourceContext RtpTimestamp. (Because we sending reports right after this)
-                //context.NtpTimestamp = sourceContext.NtpTimestamp;
-                //context.RtpTimestamp = sourceContext.RtpTimestamp;
+                //context.SenderNtpTimestamp = sourceContext.NtpTimestamp;
+                //context.SenderRtpTimestamp = sourceContext.RtpTimestamp;
 
                 //Create the RtpInfo header for this context.
 
@@ -824,8 +824,8 @@ namespace Media.Rtsp//.Server
                     if (context == null) continue;
 
                     //Copy the sourceContext RtpTimestamp. (May help with time jumping in some cases...)(Because we sending reports right after this)
-                    //context.NtpTimestamp = sourceContext.NtpTimestamp;
-                    //context.RtpTimestamp = sourceContext.RtpTimestamp;
+                    //context.SenderNtpTimestamp = sourceContext.NtpTimestamp;
+                    //context.SenderRtpTimestamp = sourceContext.RtpTimestamp;
 
                     //Create the RtpInfo header for this context.
 

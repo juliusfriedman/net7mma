@@ -4149,6 +4149,14 @@ namespace Media.Rtsp
                             created.Initialize( multicast ?  Media.Common.Extensions.Socket.SocketExtensions.GetFirstMulticastIPAddress(sourceIp.AddressFamily) : Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(sourceIp.AddressFamily), 
                                 sourceIp, serverRtpPort); //Might have to come from source string?
 
+                            //Handle ttl if present..
+                            if (ttl > 0)
+                            {
+                                created.RtpSocket.Ttl = (short)ttl;
+
+                                if (needsRtcp && created.RtpSocket.Handle != created.RtcpSocket.Handle) created.RtcpSocket.Ttl = (short)ttl;
+                            }
+
                             if (multicast)
                             {
                                 //Should store address for drop and sometimes should send rtcp to this address e.g. AnySourceMulticast rtp or rtcp.
@@ -4224,6 +4232,14 @@ namespace Media.Rtsp
                         created.ContextMemory = m_RtpClient.m_Buffer;
 
                         created.Initialize(localIp, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+
+                        //Handle ttl if present..
+                        if (ttl > 0)
+                        {
+                            created.RtpSocket.Ttl = (short)ttl;
+
+                            if (needsRtcp && created.RtpSocket.Handle != created.RtcpSocket.Handle) created.RtcpSocket.Ttl = (short)ttl;
+                        }
 
                         //Todo, if the desitionIp is not equal to the sourceIp must also be handled (addressFamily also)
 

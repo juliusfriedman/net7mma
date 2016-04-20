@@ -429,7 +429,7 @@ r=7d 1h 0 25h";
 
             System.Diagnostics.Debug.Assert(line.MediaProtocol == "RTP/AVP", "Unexpected MediaProtocol");
 
-            System.Diagnostics.Debug.Assert(false == line.HasPortRange, "Unexpected HasPortRange");
+            System.Diagnostics.Debug.Assert(false == line.HasMultiplePorts, "Unexpected HasPortRange");
 
             //System.Diagnostics.Debug.Assert(line.PortRange == 0, "Unexpected PortRange");
 
@@ -538,21 +538,17 @@ a=control:track1
 
                 System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionNetworkType, Media.Sdp.Lines.SessionConnectionLine.IP4) == 0, "Unexpected ConnectionNetworkType");
 
-                //Todo
-                //IPAddress name of property is wrong. (ConnectionAddress)
-                System.Diagnostics.Debug.Assert(string.Compare(cLine.IPAddress, "232.248.50.1") == 0, "Unexpected IPAddress");
-
-                System.Diagnostics.Debug.Assert(Media.Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(System.Net.IPAddress.Parse(cLine.IPAddress)), "Must be a IsMulticast");
-
                 System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionAddress, "232.248.50.1/255") == 0, "Unexpected ConnectionAddress");
+
+                System.Diagnostics.Debug.Assert(string.Compare(cLine.Host, "232.248.50.1") == 0, "Unexpected Host");
+
+                System.Diagnostics.Debug.Assert(Media.Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(System.Net.IPAddress.Parse(cLine.Host)), "Must be a IsMulticast");
 
                 System.Diagnostics.Debug.Assert(cLine.HasMultiplePorts == false, "Unexpected Ports.HasValue");
 
-                //Must be parsed from ConnectionParts
+                System.Diagnostics.Debug.Assert(false == cLine.HasTimeToLive, "Unexpected HasTimeToLive");
 
-                //System.Diagnostics.Debug.Assert(cLine.Hops.HasValue, "Unexpected Hops.HasValue");
-
-                //System.Diagnostics.Debug.Assert(cLine.Hops.Value != 255, "Unexpected Hops.Value");
+                System.Diagnostics.Debug.Assert(cLine.TimeToLive == 0, "Unexpected TimeToLive value");
 
                 System.Diagnostics.Debug.Assert(cLine.ConnectionParts.First() == "232.248.50.1", "Unexpected ConnectionParts");
 
@@ -577,21 +573,21 @@ a=control:track1
 
         //Todo
         //IPAddress name of property is wrong. (ConnectionAddress)
-        System.Diagnostics.Debug.Assert(cLine.IPAddress == "232.248.50.1", "Unexpected IPAddress");
+        System.Diagnostics.Debug.Assert(cLine.Host == "232.248.50.1", "Unexpected IPAddress");
 
-        System.Diagnostics.Debug.Assert(Media.Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(System.Net.IPAddress.Parse(cLine.IPAddress)), "Must be a IsMulticast");
+        System.Diagnostics.Debug.Assert(Media.Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(System.Net.IPAddress.Parse(cLine.Host)), "Must be a IsMulticast");
 
         System.Diagnostics.Debug.Assert(cLine.ConnectionAddress == "232.248.50.1/255/2", "Unexpected ConnectionAddress");
 
-        System.Diagnostics.Debug.Assert(cLine.HasMultiplePorts, "Unexpected Ports.HasValue");
-
-        System.Diagnostics.Debug.Assert(cLine.Ports == 2, "Unexpected Ports.Value");
-
         //Must be parsed from ConnectionParts
 
-        System.Diagnostics.Debug.Assert(cLine.HasTimeToLive, "Unexpected Hops.HasValue");
+        System.Diagnostics.Debug.Assert(cLine.HasTimeToLive, "Unexpected HasTimeToLive");
 
-        System.Diagnostics.Debug.Assert(cLine.Hops != 255, "Unexpected Hops.Value");
+        System.Diagnostics.Debug.Assert(cLine.TimeToLive == 255, "Unexpected TimeToLive value");
+
+        System.Diagnostics.Debug.Assert(cLine.HasMultiplePorts, "Unexpected HasMultiplePorts");
+
+        System.Diagnostics.Debug.Assert(cLine.NumberOfPorts == 2, "Unexpected Ports value");
 
         System.Diagnostics.Debug.Assert(cLine.ConnectionParts.First() == "232.248.50.1", "Unexpected ConnectionParts");
 

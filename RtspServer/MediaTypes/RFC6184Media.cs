@@ -154,11 +154,23 @@ namespace Media.Rtsp.Server.MediaTypes
 
             #region Constructor
 
-            public RFC6184Frame(byte payloadType) : base(payloadType) { m_ContainedNalTypes = new List<byte>(); }
+            public RFC6184Frame(byte payloadType)
+                : base(payloadType)
+            {
+                m_ContainedNalTypes = new List<byte>();
+            }
 
-            public RFC6184Frame(Rtp.RtpFrame existing) : base(existing) { m_ContainedNalTypes = new List<byte>(); }
+            public RFC6184Frame(Rtp.RtpFrame existing)
+                : base(existing)
+            {
+                m_ContainedNalTypes = new List<byte>();
+            }
 
-            public RFC6184Frame(RFC6184Frame existing) : base(existing, true, true) { m_ContainedNalTypes = existing.m_ContainedNalTypes; }
+            public RFC6184Frame(RFC6184Frame existing)
+                : base(existing, true, true)
+            {
+                m_ContainedNalTypes = existing.m_ContainedNalTypes;
+            }
 
             //AllowMultipleMarkerPackets
 
@@ -371,7 +383,8 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="packet"></param>
             public override void Depacketize(Rtp.RtpPacket packet) { ProcessPacket(packet, false, false); }
 
-            //Could be Depacketize
+            //Could be called Depacketize
+            //Virtual because the RFC6190 logic defers to this method for non SVC nal types.
             /// <summary>
             /// Depacketizes a single packet.
             /// </summary>
@@ -383,15 +396,13 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="isIdr"></param>
             internal protected virtual void ProcessPacket(Rtp.RtpPacket packet, bool ignoreForbiddenZeroBit = true, bool fullStartCodes = false)
             {
-                //Prevent NRE
+                //If the packet is null or disposed then do not process it.
                 if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
-
-                                                                                         //Ensure the no matter when the packet is processed that it will have the same order.
-                //int packetKey = GetPacketKey(packet.SequenceNumber); //Depacketized.Count > 0 ? Depacketized.Keys.Last() + 1 : 0; //packet.Timestamp - packet.SequenceNumber;
 
                 //Just put the packets into Depacketized at the end for most cases.
                 int packetKey = Depacketized.Count;
 
+                //The packets are not stored by SequenceNumber in Depacketized, they are stored in whatever Decoder Order is necessary.
                 //Already contained. (Might want to wait for the Decoder Order Number to be checked.
                 //if (Depacketized.ContainsKey(packetKey)) return;
 
@@ -404,7 +415,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     offset = payloadOffset + nonPayloadOctets,
                     count = packet.Payload.Count - (nonPayloadOctets + packet.PaddingOctets); //until the end of the actual payload
 
-                //Must have at least 2 bytes
+                //Must have at least 2 bytes (When nalUnitType is a FragmentUnit.. 3)
                 if (count <= 2) return;
 
                 //Obtain the data of the packet with respect to extensions and csrcs present.
@@ -413,18 +424,18 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Determine if the forbidden bit is set and the type of nal from the first byte
                 byte firstByte = packetData[offset];
 
-                //Should never be set...
+                //Should never be set... (unless decoding errors are present)
                 if (false == ignoreForbiddenZeroBit && ((firstByte & 0x80) >> 7) != 0) throw new Exception("forbiddenZeroBit");
 
                 byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
-
-                //Media.Codecs.Video.H264.NalUnitPriority priority = (Media.Codecs.Video.H264.NalUnitPriority)((firstByte & 0x60) >> 5);
 
                 //RFC6184 @ Page 20
                 //o  The F bit MUST be cleared if all F bits of the aggregated NAL units are zero; otherwise, it MUST be set.
                 //if (forbiddenZeroBit && nalUnitType <= 23 && nalUnitType > 29) throw new InvalidOperationException("Forbidden Zero Bit is Set.");
 
-                //Optomize setting out parameters, could be done with a label or with a static function.
+                //Needs other state to check if previously F was set or not
+
+                //Media.Codecs.Video.H264.NalUnitPriority priority = (Media.Codecs.Video.H264.NalUnitPriority)((firstByte & 0x60) >> 5);
 
                 //Determine what to do
                 switch (nalUnitType)
@@ -454,6 +465,10 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 //Read the DecoderOrderingNumber and add the value from the index.
                                 packetKey = Common.Binary.ReadU16(packetData, ref offset, BitConverter.IsLittleEndian);
+
+                                //If the number was already observed skip this packet.
+                                //if (Depacketized.ContainsKey(packetKey)) return;
+
                             }
 
                             //Should check for 2 bytes.
@@ -480,7 +495,10 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                                 //Read DOND and TSOFFSET, combine the values with the existing index
                                                 packetKey = (int)Common.Binary.ReadU24(packetData, ref offset, BitConverter.IsLittleEndian);
-                                                
+
+                                                //If the number was already observed skip this packet.
+                                                //if (Depacketized.ContainsKey(packetKey)) return;
+
                                                 goto default;
                                             }
                                         case Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24:// MTAP - 24 (May require re-ordering)
@@ -492,6 +510,9 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //Read DOND and TSOFFSET , combine the values with the existing index
                                                 packetKey = (int)Common.Binary.ReadU32(packetData, ref offset, BitConverter.IsLittleEndian);
 
+                                                //If the number was already observed skip this packet.
+                                                //if (Depacketized.ContainsKey(packetKey)) return;
+
                                                 goto default;
                                             }
                                         default:
@@ -502,10 +523,12 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //Could check for extra bytes or emulation prevention
                                                 //https://github.com/raspberrypi/userland/blob/master/containers/rtp/rtp_h264.c
 
-                                                //(Stores the nal) Write the start code
+                                                //(Stores the nalType) Write the start code
                                                 DepacketizeStartCode(ref packetKey, ref packetData[offset], fullStartCodes);
 
                                                 //Add the depacketized data and increase the index.
+
+                                                //When tmp_nal_size is 0 packetData which is referenced by this segment which will have a 0 count.
                                                 Depacketized.Add(packetKey++, new Common.MemorySegment(packetData, offset, tmp_nal_size));
 
                                                 //Move the offset past the nal
@@ -531,8 +554,9 @@ namespace Media.Rtsp.Server.MediaTypes
                               NAL unit per packet and transmit packets out of their decoding
                               order, STAP-B packet type can be used.
                              */
-                            //Needs atleast 3 bytes to reconstruct... 
-                            if (count >= 3)
+                            //Needs atleast 2 bytes to reconstruct... 
+                            //3 bytes for any valid data to follow after the header.
+                            if (count >= 2)
                             {
                                 //Offset still at the firstByte (FU Indicator) move to and read FU Header
                                 byte FUHeader = packetData[++offset];
@@ -566,7 +590,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 if (nalUnitType == Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB)
                                 {
                                     //Needs 2 more bytes...
-                                    packetKey += Common.Binary.ReadU16(packetData, ref offset, BitConverter.IsLittleEndian);//offset += 2;
+                                    Common.Binary.ReadU16(packetData, ref offset, BitConverter.IsLittleEndian);//offset += 2;
                                 }
 
                                 //Should verify count... just consumed 1 - 3 bytes and only required 2.
@@ -575,7 +599,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 int fragment_size = count - offset;
 
                                 //Don't emit empty fragments
-                                if (fragment_size == 0) return;
+                                //if (fragment_size == 0) return;
 
                                 //If the start bit was set
                                 if (Start)

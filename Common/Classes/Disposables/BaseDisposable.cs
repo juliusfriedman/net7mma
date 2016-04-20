@@ -66,7 +66,13 @@ namespace Media.Common
             if (sender != null && sender is BaseDisposable) SetShouldDispose((sender as BaseDisposable), true, true);
         }
 
-        internal protected static void SetShouldDispose(BaseDisposable toDispose, bool value, bool callDispose = false)
+        /// <summary>
+        /// Sets <see cref="ShouldDispose"/> to the given value and optionally calls Dispose.
+        /// </summary>
+        /// <param name="toDispose"></param>
+        /// <param name="value"></param>
+        /// <param name="callDispose"></param>
+        public static void SetShouldDispose(BaseDisposable toDispose, bool value, bool callDispose = false)
         {
             if (IDisposedExtensions.IsNullOrDisposed(toDispose)) return;
 
@@ -152,7 +158,7 @@ namespace Media.Common
         /// <param name="disposing">Indicates if resources should be destroyed</param>
         internal protected virtual void Dispose(bool disposing)
         {
-            //If already IsDisposed return
+            //If should not dispose or already IsDisposed return
             if (IsDisposed) return;
 
             //Mark the instance disposed if disposing

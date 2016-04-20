@@ -159,7 +159,7 @@ namespace Media.Rtsp.Server.MediaTypes
         }
 
         public RtpSource(string name, Sdp.SessionDescription sessionDescription)
-            : base(name, new Uri(Rtp.RtpClient.RtpProtcolScheme + "://" + ((Sdp.Lines.SessionConnectionLine)sessionDescription.ConnectionLine).IPAddress))
+            : base(name, new Uri(Rtp.RtpClient.RtpProtcolScheme + "://" + ((Sdp.Lines.SessionConnectionLine)sessionDescription.ConnectionLine).Host))
         {
             if (sessionDescription == null) throw new ArgumentNullException("sessionDescription");
 
