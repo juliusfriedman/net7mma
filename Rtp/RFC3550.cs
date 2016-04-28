@@ -1217,6 +1217,25 @@ namespace Media
 
             #endregion
 
+            #region Methods
+
+            public int CopyTo(byte[] dest, int offset)
+            {
+                if (IsDisposed) return 0;
+
+                int copied = 0;
+
+                Common.MemorySegmentExtensions.CopyTo(m_Memory, dest, offset);
+
+                copied += m_Memory.Count;
+
+                offset += m_Memory.Count;
+
+                return copied;
+            }
+
+            #endregion
+
             #region Implicit Operators
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]

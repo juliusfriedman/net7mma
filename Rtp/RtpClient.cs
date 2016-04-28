@@ -112,8 +112,9 @@ namespace Media.Rtp
         static byte[] WakeUpBytes = new byte[] { 0x70, 0x70, 0x70, 0x70 };
 
         //Choose better name,,, 
-        internal const byte BigEndianFrameControl = 36;//, // ASCII => $,  Hex => 24  Binary => 100100
-        //LittleEndianFrameControl = 9;                   //                                     001001
+        //And depending on how memory is aligned 36 may be a palindrome
+        internal const byte BigEndianFrameControl = 36;//, // ASCII => $,  Hex => 24  Binary => (00)100100
+        //LittleEndianFrameControl = 9;                   //                                        001001(00)
 
         //The point at which rollover occurs on the SequenceNumber
 

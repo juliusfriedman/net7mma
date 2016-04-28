@@ -220,39 +220,41 @@ namespace Media.Common.Extensions.Socket
 
             System.Net.Sockets.Socket working = null;
 
+            //Switch on the type
+            switch (type)
+            {
+                //Handle TCP
+                case System.Net.Sockets.ProtocolType.Tcp:
+                    {
+                        working = new System.Net.Sockets.Socket(localIp.AddressFamily, System.Net.Sockets.SocketType.Stream, type);
+
+                        Media.Common.Extensions.Socket.SocketExtensions.DisableAddressReuse(working);
+
+                        break;
+                    }
+                //Handle UDP
+                case System.Net.Sockets.ProtocolType.Udp:
+                    {
+                        working = new System.Net.Sockets.Socket(localIp.AddressFamily, System.Net.Sockets.SocketType.Dgram, type);
+
+                        Media.Common.Extensions.Socket.SocketExtensions.DisableAddressReuse(working);
+                        
+                        break;
+                    }
+                //Don't handle
+                default: return -1;
+            }
+
             //The port is in the valid range.
-            while (start <= ushort.MaxValue)
+            using (working) while (start <= ushort.MaxValue)
             {
                 try
                 {
-                    //Switch on the type
-                    switch (type)
-                    {
-                            //Handle TCP
-                        case System.Net.Sockets.ProtocolType.Tcp:
-                            {
-                                working = new System.Net.Sockets.Socket(localIp.AddressFamily, System.Net.Sockets.SocketType.Stream, type);
+                    //Try to bind the end point.
+                    working.Bind(new System.Net.IPEndPoint(localIp, start));
 
-                                Media.Common.Extensions.Socket.SocketExtensions.DisableAddressReuse(working);
-
-                                working.Bind(new System.Net.IPEndPoint(localIp, start));
-
-                                goto Done;
-                            }
-                            //Handle UDP
-                        case System.Net.Sockets.ProtocolType.Udp:
-                            {
-                                working = new System.Net.Sockets.Socket(localIp.AddressFamily, System.Net.Sockets.SocketType.Dgram, type);
-
-                                Media.Common.Extensions.Socket.SocketExtensions.DisableAddressReuse(working);
-
-                                working.Bind(new System.Net.IPEndPoint(localIp, start));
-
-                                goto Done;
-                            }
-                            //Don't handle
-                        default: return -1;
-                    }
+                    //We are done if we can bind.
+                    break;
                 }
                 catch (System.Exception ex)
                 {
@@ -263,9 +265,6 @@ namespace Media.Common.Extensions.Socket
 
                         if (se.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse)
                         {
-                            //Dispose working socket
-                            if (working != null) working.Dispose();
-
                             //Try next port
                             if (++start > ushort.MaxValue)
                             {
@@ -290,10 +289,6 @@ namespace Media.Common.Extensions.Socket
                     break;
                 }
             }
-
-        Done:
-            //Dispose working socket if assigned.
-            if (working != null) working.Dispose();
 
             //Return the port.
             return start;

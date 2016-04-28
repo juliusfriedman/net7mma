@@ -481,6 +481,20 @@ namespace Media.Rtcp
         #region Methods
 
         /// <summary>
+        /// Copies all of the data in the packet to the given destination. The amount of bytes copied is given by <see cref="Length"/>
+        /// </summary>
+        /// <param name="destination"></param>
+        /// <param name="offset"></param>
+        public void CopyTo(byte[] destination, int offset)
+        {
+            offset += Header.CopyTo(destination, offset);
+
+            Common.MemorySegmentExtensions.CopyTo(Payload, destination, offset);
+
+            offset += Payload.Count;
+        }
+
+        /// <summary>
         /// Sets the <see cref="RtcpHeader.LengthInWordsMinusOne"/> property based on the Length property.
         /// Throws a <see cref="InvalidOperationException"/> if <see cref="IsReadOnly"/> is true.
         /// </summary>

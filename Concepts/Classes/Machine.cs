@@ -267,14 +267,16 @@ namespace Media.Concepts.Classes
         /// </summary>
         public static readonly System.Reflection.ImageFileMachine MachineType;
 
+        internal static int m_BitPatternSize = 0;
+
         /// <summary>
         /// The maximum amount of shifting which can occur before the bit pattern space repeats
         /// </summary>
-        public static readonly int BitPatternSize = -1;
+        public static int BitPatternSize { get { return m_BitPatternSize; } }
 
         #endregion
 
-        public static bool SupportsWrapAround() { return BitPatternSize > 0; }
+        public static bool FiniteBitPattern() { return BitPatternSize > 0; }
 
         public static bool IsArm()
         {
@@ -348,14 +350,8 @@ namespace Media.Concepts.Classes
 
                 #region Check Bit Pattern Space
 
-                //Use a local variable to calulcate the pattern size
-                int pattenSize = 0;
-
                 //Caclulcate the pattern size until the value approaches 1 again
-                while (1 >> ++pattenSize != 1) ;
-
-                //Set the value in the field
-                BitPatternSize = pattenSize;
+                while (1 >> ++m_BitPatternSize != 1 && m_BitPatternSize <= int.MaxValue) ;
 
                 #endregion               
             }
