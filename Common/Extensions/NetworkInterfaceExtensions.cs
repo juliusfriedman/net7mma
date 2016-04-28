@@ -57,13 +57,14 @@ namespace Media.Common.Extensions.NetworkInterface
                 //Only look for interfaces which are UP
                 if (networkInterface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
 
-                //Check for the Multicast Address to be bound on the networkInterface
                 if (isMulticast)
                 {
                     if (false == networkInterface.SupportsMulticast) continue;
 
+                    //Check for the Multicast Address to be bound on the networkInterface
                     foreach (System.Net.NetworkInformation.MulticastIPAddressInformation ip in networkInterface.GetIPProperties().MulticastAddresses)
                     {
+                        //If equal return
                         if (System.Net.IPAddress.Equals(localAddress, ip.Address))
                         {
                             return networkInterface;
@@ -75,6 +76,7 @@ namespace Media.Common.Extensions.NetworkInterface
                     //Check for the Unicast Address to be bound on the networkInterface
                     foreach (System.Net.NetworkInformation.UnicastIPAddressInformation ip in networkInterface.GetIPProperties().UnicastAddresses)
                     {
+                        //If equal return
                         if (System.Net.IPAddress.Equals(localAddress, ip.Address))
                         {
                             return networkInterface;
@@ -93,6 +95,16 @@ namespace Media.Common.Extensions.NetworkInterface
             }
 
             return default(System.Net.NetworkInformation.NetworkInterface);
+        }
+
+        public static System.Collections.Generic.IEnumerable<System.Net.NetworkInformation.NetworkInterface> GetNetworkInterface(System.Net.NetworkInformation.NetworkInterfaceType interfaceType)
+        {
+            if(interfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Unknown) yield break;
+
+            foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (networkInterface.NetworkInterfaceType == interfaceType) yield return networkInterface;
+            }
         }
 
         public static System.Net.NetworkInformation.NetworkInterface GetNetworkInterface(System.Net.IPEndPoint localEndPoint)
@@ -157,7 +169,7 @@ namespace Media.Common.Extensions.NetworkInterface
             //Iterate for each Multicast IP bound to the interface
             foreach (System.Net.NetworkInformation.MulticastIPAddressInformation multicastIpInfo in interfaceProperties.MulticastAddresses)
             {
-                //If the IP AddresFamily is the same as required then return it.
+                //If the IP AddresFamily is the same as required then return it. (Maybe Broadcast...)
                 if (multicastIpInfo.Address.AddressFamily == addressFamily) return multicastIpInfo.Address;
             }
 
@@ -166,7 +178,7 @@ namespace Media.Common.Extensions.NetworkInterface
         }
 
         public static System.Net.IPAddress GetFirstUnicastIPAddress(System.Net.NetworkInformation.NetworkInterface networkInterface, System.Net.Sockets.AddressFamily addressFamily)
-        {
+        {            
             //Filter interfaces which are not usable.
             if (networkInterface == null || 
                 networkInterface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up)// The interface is not up
@@ -186,15 +198,16 @@ namespace Media.Common.Extensions.NetworkInterface
                 //Get the address
                 System.Net.IPAddress address = unicastIpInfo.Address;
 
+                //If the IP AddressFamily is not the same as required then return it.
+                if (address.AddressFamily != addressFamily) continue;
+
                 //Don't use Any and don't use Broadcast.
                 if (address.Equals(System.Net.IPAddress.Broadcast)
                     ||
-                    address.Equals(System.Net.IPAddress.IPv6Any)
-                    ||
-                    address.Equals(System.Net.IPAddress.Any)) continue;
+                    (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? address.Equals(System.Net.IPAddress.IPv6Any) : address.Equals(System.Net.IPAddress.Any))) continue;
 
-                //If the IP AddresFamily is the same as required then return it.
-                if (address.AddressFamily == addressFamily) return address;
+                //Return the compatible address.
+                return address;
             }
 
             //Indicate no unicast IPAddress was found

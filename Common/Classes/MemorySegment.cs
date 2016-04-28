@@ -1,8 +1,48 @@
-﻿using System;
+﻿#region Copyright
+/*
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
+  
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
+
+Permission is hereby granted, free of charge, 
+ * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, 
+ * including without limitation the rights to :
+ * use, 
+ * copy, 
+ * modify, 
+ * merge, 
+ * publish, 
+ * distribute, 
+ * sublicense, 
+ * and/or sell copies of the Software, 
+ * and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ * 
+ * 
+ * JuliusFriedman@gmail.com should be contacted for further details.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ * 
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+ * TORT OR OTHERWISE, 
+ * ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ * v//
+ */
+#endregion
+
+#region Using Statements
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
+#endregion
 
 namespace Media.Common
 {
@@ -133,8 +173,9 @@ namespace Media.Common
         {
 #if UNSAFE
             //Could also use UnsafeAddrOfPinnedArrayElement
-            //*(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, m_Offset + index);
+            //get { unsafe { return *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, m_Offset + index); } }
             get { unsafe { fixed (byte* p = &m_Array[m_Offset]) return *(p + index); } }
+            //set { unsafe { *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, m_Offset + index) = value; } }
             set { unsafe { fixed (byte* p = &m_Array[m_Offset]) *(p + index) = value; } }
 #else
             get { return m_Array[m_Offset + index]; }
@@ -233,11 +274,31 @@ namespace Media.Common
             return copy;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static System.ArraySegment<byte> ToByteArraySegment(this MemorySegment segment)
         {
             return new ArraySegment<byte>(segment.Array, segment.Offset, segment.Count);
         }
+        
+        /// <summary>
+        /// Copies all bytes from the segment to dest
+        /// </summary>
+        /// <param name="segment"></param>
+        /// <param name="dest"></param>
+        /// <param name="destinationIndex">The offset in <paramref name="dest"/> to start copying</param>
+        public static void CopyTo(this MemorySegment segment, byte[] dest, int destinationIndex)
+        {
+            CopyTo(segment, dest, destinationIndex, segment.Count);
+        }
 
+        /// <summary>
+        /// Copies bytes from the segment to the dest
+        /// </summary>
+        /// <param name="segment"></param>
+        /// <param name="dest"></param>
+        /// <param name="destinationIndex">The offset in <paramref name="dest"/> to start copying</param>
+        /// <param name="length">The amount of bytes to copy from <paramref name="segment"/></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void CopyTo(this MemorySegment segment, byte[] dest, int destinationIndex, int length)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(segment)) return;
@@ -248,7 +309,7 @@ namespace Media.Common
         }
 
         //make Left / Right or expect the callers to use -length when they need to...
-
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static MemorySegment Subset(this MemorySegment segment, int offset, int length, bool shouldDispose = true)
         {
             //Should propably enforce that offset and length do not supercede existing length or this is not a true subset.
@@ -340,342 +401,6 @@ namespace Media.Common
 
     #endregion
 
-    #region Not yet used
-
-    /// <summary>
-    /// Used to crete a continious stream to locations of memory which may not be next to each other and could even overlap.
-    /// </summary>
-    public class SegmentStream : System.IO.Stream, IDisposed
-    {
-        long m_Position, m_Count;
-
-        readonly IList<Common.MemorySegment> Segments;
-
-        Common.MemorySegment WorkingSegment;
-
-        //Could keep remaining instead of cursor would be easier to keep track of.
-
-        int m_Index = 0;
-
-        long m_Cursor;
-
-        public SegmentStream(IList<Common.MemorySegment> existing)
-        {
-            if (existing == null) throw new ArgumentNullException();
-
-            Segments = existing;
-
-            m_Count = Segments.Sum(s => Common.IDisposedExtensions.IsNullOrDisposed(s) ? 0 : s.m_Length);
-        }
-
-        /////////////////////////////////////
-
-        public void AddMemory(Common.MemorySegment segment)
-        {
-            if (Common.IDisposedExtensions.IsNullOrDisposed(segment)) segment = Common.MemorySegment.Empty;
-
-            Segments.Add(segment);
-
-            m_Count += segment.m_Length;
-        }
-
-        public void AddPersistedMemory(Common.MemorySegment segment)
-        {
-            if (Common.IDisposedExtensions.IsNullOrDisposed(segment))
-            {
-                AddMemory(Common.MemorySegment.Empty);
-
-                return;
-            }
-
-            Common.MemorySegment copy = new MemorySegment(segment.Count, false); //Don't dispose unless forced
-
-            System.Array.Copy(segment.Array, segment.Offset, copy.Array, 0, segment.Count);
-
-            AddMemory(copy);
-        }
-
-        public void InsertMemory(int index, Common.MemorySegment toInsert) { InsertMemory(ref index, toInsert); }
-
-        [CLSCompliant(false)]
-        public void InsertMemory(ref int index, Common.MemorySegment toInsert)
-        {
-            if (Common.IDisposedExtensions.IsNullOrDisposed(toInsert)) toInsert = Common.MemorySegment.Empty;
-
-            Segments.Insert(index, toInsert);
-
-            m_Count += toInsert.m_Length;
-        }
-
-        public void InsertPersistedMemory(int index, Common.MemorySegment toInsert) { InsertPersistedMemory(ref index, toInsert); }
-
-        [CLSCompliant(false)]
-        public void InsertPersistedMemory(ref int index, Common.MemorySegment toInsert)
-        {
-
-            if (Common.IDisposedExtensions.IsNullOrDisposed(toInsert))
-            {
-                InsertMemory(ref index, (Common.MemorySegment.Empty));
-
-                return;
-            }
-
-            Common.MemorySegment copy = new MemorySegment(toInsert.Count);
-
-            System.Array.Copy(toInsert.Array, toInsert.Offset, copy.Array, 0, toInsert.Count);
-
-            InsertMemory(ref index, copy);
-        }
-
-        public void Free(int index) { Free(ref index); }
-
-        [CLSCompliant(false)]
-        internal protected void Free(ref int index)
-        {
-            if (index < 0 || index > Segments.Count) return;
-
-            //Call dispose at the end of this
-            using (Common.MemorySegment segment = Segments[index])
-            {
-                //Remove the Segment
-                Segments.RemoveAt(index);
-
-                //Decrment for length of the segment
-                m_Count -= segment.m_Length;
-            }
-        }
-
-        public override bool CanRead
-        {
-            get { return true; }
-        }
-
-        public override bool CanSeek
-        {
-            get { return true; }
-        }
-
-        public override bool CanWrite
-        {
-            get { return true; }
-        }
-
-        public override void Flush()
-        {
-            return;
-        }
-
-        public override long Length
-        {
-            get { return (long)m_Count; }
-        }
-
-        public override long Position
-        {
-            get
-            {
-                return (long)m_Position;
-            }
-            set
-            {
-                Seek(value, System.IO.SeekOrigin.Begin);
-            }
-        }
-
-        //Already doing what we need
-        //public override int ReadByte()
-        //{
-        //    return base.ReadByte();
-        //}
-
-        //Could make this a threaded stream by giving absolute values for offset and count
-        //Would then remove all instance fields including working segment and m_Cursor
-        //Each read operation would be 'atomic' to that call
-
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            //If at the end of data return 0 unless closed...
-            if (m_Position >= m_Count) return IsDisposed ? -1 : 0;
-
-            if (count == 0) return 0;
-
-            if (WorkingSegment == null || m_Cursor == WorkingSegment.m_Length) WorkingSegment = Segments[m_Index++];
-
-            int total = 0;
-
-            //While there is data to read and the data to read is in the region of memory we can read
-            while (total < count && m_Index <= Segments.Count && m_Cursor < WorkingSegment.m_Length)
-            {
-                int toCopy = (int)(WorkingSegment.m_Length - m_Cursor);
-
-                toCopy = Common.Binary.Min(count, toCopy);
-
-                //Copy the data from the working segment from the offset + cursor to the amount of bytes to copy.
-                Array.Copy(WorkingSegment.Array, WorkingSegment.Offset + m_Cursor, buffer, offset, toCopy);
-
-                //Increment for total
-                total += toCopy;
-
-                m_Position += toCopy;
-
-                offset += toCopy;
-
-                count -= toCopy;
-
-                //Need to have a GetSegmentForOffset Func
-                if ((m_Cursor += toCopy) == WorkingSegment.m_Length && m_Position < m_Count)
-                {
-                    WorkingSegment = Segments[m_Index++];
-
-                    m_Cursor = 0;
-                }
-            }
-
-            return total;
-        }
-
-        public override long Seek(long offset, System.IO.SeekOrigin origin)
-        {
-            //need to switch on origin and move m_Position 
-            //Needs to have the segmegment for the offset somewhere
-
-            switch (origin)
-            {
-                case System.IO.SeekOrigin.Begin:
-                    {
-                        if (offset > m_Count)
-                        {
-                            //Segment is the last segment.
-
-                            WorkingSegment = Segments[Segments.Count - 1];
-
-                            m_Cursor = WorkingSegment.Count;
-
-                            return m_Position = m_Count;
-                        }
-
-                        //Must change segment for offset given.
-
-                        m_Cursor = m_Position = m_Index = 0;
-
-                        while (offset > 0)
-                        {
-                            WorkingSegment = Segments[m_Index];
-
-                            m_Position += (m_Cursor = (offset -= Math.Min(WorkingSegment.m_Length, offset)));
-                        }
-
-                        return m_Position;;
-                    }
-                case System.IO.SeekOrigin.Current:
-                    {
-                        while (offset > 0)
-                        {
-                            WorkingSegment = Segments[m_Index];
-
-                            long left = m_Cursor - WorkingSegment.m_Length;
-
-                            offset -= left;
-
-                            m_Position += left;
-
-                            m_Index++;
-                        }
-
-                        //if the current segment is at the end of it's data then it needs to change...
-                        //Need to have a GetSegmentForOffset Func
-                        return m_Position;
-                    }
-                case System.IO.SeekOrigin.End:
-                    {
-                        //Need to have a GetSegmentForOffset Func
-
-                        WorkingSegment = Segments.Last();
-
-                        m_Cursor = offset - WorkingSegment.m_Length;
-
-                        return m_Position = m_Count - offset;
-                    }
-                default: return Position;
-            }
-        }
-
-        //Could have this clear or dispose memory...
-        public override void SetLength(long value)
-        {
-            if (value <= 0) Clear();
-
-            //Clear only up after value and resegment first segment offsets based on value if required.
-        }
-
-        /// <summary>
-        /// Calls <see cref="Free"/> for each entry in <see cref="Segments"/>
-        /// </summary>
-        private void Clear()
-        {
-            for (int i = 0, e = Segments.Count; i < e; ++i) Free(ref i);
-        }
-
-        public void WritePersisted(byte[] buffer, int offset, int count)
-        {
-            AddPersistedMemory(new Common.MemorySegment(buffer, offset, count));
-        }
-
-        public override void Write(byte[] buffer, int offset, int count)
-        {
-            AddMemory(new Common.MemorySegment(buffer, offset, count));
-        }
-
-        //public override void Close()
-        //{
-        //IsClosed = true;
-        // LeaveOpen...
-        //    ShouldDispose = true;//....?
-        //    //base.Close(); 
-            
-        //    //base.Close() =>
-        //    //  Dispose(true);
-        //    //  GC.SuppressFinalize(this);
-        //}
-
-        #region IDisposed
-
-        internal protected bool ShouldDispose = true, IsDisposed;
-
-        protected override void Dispose(bool disposing)
-        {
-            //Does nothing base.Dispose(disposing);
-
-            //If disposing
-            if (IsDisposed = disposing)
-            {
-                //Calls Close virtual (Calls Dispose(true) and GC.SuppressFinalize(this))
-                //base.Dispose(); 
-
-                //Clear memory
-                Clear();
-            }
-        }
-
-        bool IDisposed.IsDisposed
-        {
-            get { return IsDisposed; }
-        }
-
-        bool IDisposed.ShouldDispose
-        {
-            get { return ShouldDispose; }
-        }
-
-        void IDisposable.Dispose() { Dispose(ShouldDispose); }
-
-        ~SegmentStream() { Dispose(ShouldDispose); }
-
-        #endregion
-    }
-
-    #endregion
-
     #region Concepts...
 
     ///////////////////////////////////
@@ -703,119 +428,6 @@ namespace Media.UnitTests
 
     public class MemorySegmentTests
     {
-
+        //Todo
     }
-
-    public class SegmentStreamTests
-    {
-
-        public static void TestWritingAndReading()
-        {
-
-            int TestBytesLength = 1024;//Utility.Random.Next(1024, 8192);
-
-            //Create random bytes
-            byte[] randomBytes = new byte[TestBytesLength];
-
-            //Fill with random bytes.
-            Media.Utility.Random.NextBytes(randomBytes);
-
-            List<Common.MemorySegment> segments = new List<Common.MemorySegment>();
-
-            int offset = 0, toTake = 0;
-
-            //Make a segment stream
-            Common.SegmentStream stream = new Common.SegmentStream(segments);
-
-            //make random length segments of all bytes which are contained.
-            for (int remains = TestBytesLength; remains > 0; )
-            {
-                //Take a random amount
-                toTake = Media.Utility.Random.Next(1, remains);
-
-                //Ensure that we do not take more than what remains
-                if (toTake > remains) toTake = remains;
-
-                //Create the segment
-                Common.MemorySegment created = new Common.MemorySegment(randomBytes, offset, toTake);
-
-                //Add it to the list
-                segments.Add(created);
-
-                //Add it to the stream
-                stream.AddMemory(created);
-
-                //Move the offset
-                offset += toTake;
-                
-                //Decrease for what remains
-                remains -= toTake;
-
-                if (remains == 1)
-                {
-                    segments.Add(new Common.MemorySegment(randomBytes, offset, 1));
-
-                    //Add it to the list
-                    segments.Add(created);
-
-                    //Add it to the stream
-                    stream.AddMemory(created);
-
-                    remains = 0;
-                }
-            }
-            
-            //Seek to position 0.
-            stream.Position = 0;
-
-            byte[] buffer = new byte[TestBytesLength];
-
-            int total = 0;
-
-            offset = 0;
-
-            int streamRemains = (int)(stream.Length - stream.Position);
-
-            //Iterate segments (try to read past the end)
-            while (total < stream.Length)
-            {
-                //Issue random reads at the SegmentStream for a value inclusive of what remains in the stream.
-
-                int toRead = Utility.Random.Next(1, streamRemains);
-
-                if (toRead > streamRemains) toRead = streamRemains;
-
-                int streamRead = stream.Read(buffer, offset, toRead);
-
-                if (streamRead != toRead) throw new System.Exception("Unexpected amount from Read");
-
-                offset += streamRead;
-
-                total += streamRead;
-
-                streamRemains = (int)(stream.Length - stream.Position);
-            }
-
-            if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
-
-            //Reset Position to 0.
-            stream.Position = 0;
-
-            using (System.IO.MemoryStream ms = new System.IO.MemoryStream())
-            {
-                stream.CopyTo(ms);
-
-                if (false == ms.ToArray().SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
-            }
-
-            stream.Close();
-
-            stream.Dispose();
-
-            Console.WriteLine(segments.Count);
-
-        }
-
-    }
-
 }

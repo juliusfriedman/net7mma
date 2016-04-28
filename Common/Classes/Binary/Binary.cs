@@ -875,6 +875,41 @@ namespace Media.Common
         #region Bit Tables
 
         /// <summary>
+        /// Indicates if the byte is the same when interpreted in reverse
+        /// </summary>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsPalindrome(ref byte b)
+        {
+            switch (b)
+            {
+                case 0:
+                case 24:
+                case 36:
+                case 60:
+                case 66:
+                case 90:
+                case 102:
+                case 126:
+                case 129:
+                case 153:
+                case 165:
+                case 189:
+                case 195:
+                case 219:
+                case 231:
+                case 255:
+                    return true;
+                default: return false;
+            }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsPalindrome(byte b) { return IsPalindrome(ref b); }
+
+        /// <summary>
         /// Assumes 8 bits per byte
         /// </summary>
         internal static readonly byte[] BitsSetTable;
@@ -890,7 +925,7 @@ namespace Media.Common
         /// <summary>
         /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture.
         /// </summary>
-        public static int m_MostSignificantBit = -1;
+        internal static int m_MostSignificantBit = -1;
 
         /// <summary>
         /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture.
@@ -901,7 +936,7 @@ namespace Media.Common
         /// <summary>
         /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture.
         /// </summary>
-        public static int m_LeastSignificantBit = -1;
+        internal static int m_LeastSignificantBit = -1;
 
         /// <summary>
         /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture.
@@ -912,7 +947,7 @@ namespace Media.Common
         /// <summary>
         /// The <see cref="ByteOrder"/> of the current architecture
         /// </summary>
-        public static ByteOrder m_SystemByteOrder = ByteOrder.Unknown;
+        internal static ByteOrder m_SystemByteOrder = ByteOrder.Unknown;
 
         /// <summary>
         /// The <see cref="BitOrder"/> of the current architecture
@@ -923,7 +958,7 @@ namespace Media.Common
         /// <summary>
         /// The <see cref="BitOrder"/> of the current architecture
         /// </summary>
-        public static BitOrder m_SystemBitOrder = BitOrder.Unknown;
+        internal static BitOrder m_SystemBitOrder = BitOrder.Unknown;
 
         /// <summary>
         /// The <see cref="BitOrder"/> of the current architecture
@@ -956,6 +991,9 @@ namespace Media.Common
                 BitsReverseTable != null) return;
 
             //Todo, Determine MaxBits (BitSize)
+            //Todo, Determine x64 or x86 paths.
+
+            bool x64 = Environment.Is64BitProcess;
 
             unchecked
             {
@@ -1054,10 +1092,45 @@ namespace Media.Common
 
                 BitsReverseTable[byte.MaxValue] = byte.MaxValue;
 
+                #region Palindromes
+
+                //Todo, optimize...
+
+                //Some bytes cannot be reversed and should skipped. (mod 3, mod 2)
+                //There are at least 16 values out of 255 which are palindromes. (All are products of 3)
+                //http://stackoverflow.com/questions/845772/how-to-check-if-the-binary-representation-of-an-integer-is-a-palindrome
+
+                /*
+              Value | Quotient of division 3
+                0   | 0
+                24  | 8
+                36  | 12
+                60  | 20
+                66  | 22
+                90  | 30
+                102 | 34
+                126 | 42
+                129 | 43
+                153 | 51
+                165 | 55
+                189 | 63
+                195 | 65
+                219 | 73
+                231 | 77
+                255 | 85
+                 */
+
+                //This implies that it should only take 83 total operations to populate the reverse table. (85 including 0 and 255)
+                //All other values should be shifts from those values
+                //Since there are 8 bits in a byte, 8 * 8 possible permuatations would be 64, half of those values are reversed of the prior so there are 32 unique permutations.
+                //....
+
+                #endregion
+
                 //253 Operations [2 -> 254]
-                for (int i = Binary.Duo; i < byte.MaxValue; ++i)
+                for (byte i = Binary.Duo; i < byte.MaxValue; ++i)
                 {
-                    byte reverse = MultiplyReverseU8_64((byte)i);
+                    byte reverse = x64 ? MultiplyReverseU8_64(ref i) : MultiplyReverseU8_32(ref i);
 
                     BitsReverseTable[i] = reverse;
 
@@ -1093,6 +1166,7 @@ namespace Media.Common
             switch (value)
             {
                 case 0: return BitsPerInteger;
+                case uint.MaxValue:
                 case int.MaxValue: return 0;
                 default:
                     {
@@ -1109,6 +1183,8 @@ namespace Media.Common
                             //    valueCopy |= valueCopy >> 16;
                             //    return DeBruijnPositions[(valueCopy * 0x07C4ACDD) >> 27];
                             //}
+
+                            //Uses a lookup based on the magic constant
 
                             return DeBruijnPositions[((uint)(value & -value) * 0x077CB531U) >> 27];
                         }
@@ -1133,7 +1209,9 @@ namespace Media.Common
             switch (value)
             {
                 case 0: return BitsPerLong;
+                case ulong.MaxValue:
                 case long.MaxValue:
+                case uint.MaxValue:
                 case int.MaxValue: return 0;
                 default:
                     {
@@ -1153,6 +1231,17 @@ namespace Media.Common
              1, 10, 4, 14, 6, 22, 25, 20, 11, 15, 23, 26, 16, 27, 17, 18
 	    };
 
+        //https://gist.github.com/andrewrk/1883543
+        // map a bit value mod 37 to its position for 64 bit..
+        //about 3x slower than __builtin_ctz
+        internal static uint[] Mod37BitPosition = new uint[]
+        {
+            4294967295, //-1
+            0, 1, 26, 2, 23, 27, 0, 3, 16, 24, 30, 28, 11, 0, 13, 4,
+            7, 17, 0, 25, 22, 31, 15, 29, 10, 12, 6, 0, 21, 14, 9, 5,
+            20, 8, 19, 18
+        };
+
         /// <summary>
         /// builtin_clz implementation
         /// </summary>
@@ -1164,27 +1253,34 @@ namespace Media.Common
         {
             switch (value)
             {
-                case 0: return BitsPerInteger;
+                case 0: return BitsPerInteger;                
+                case uint.MaxValue:
                 case int.MaxValue: return 0;
                 default:
                     {
-                        //Could reverse the int and return CountTrailing
+                        //Use the 64 bit method if possible. (Machine may also be helpful)
+                        if (Environment.Is64BitProcess)
+                        {
+                            return (int)Mod37BitPosition[(-value & value) % 37];
+                        }
+
+                        //Could reverse the int and return CountTrailing...
 
                         //Could use rebase
                         //int lz = (int)(32 - Math.Log((double)value + 1, 2d));
                         //lz += (int)((value - (0x80000000u >> lz)) >> 31);
 
-                        //Ensure a power of two, could also use a different sequence and constant.
+                        //Ensure a power of two, could also use a different sequence and constant to avoid
 
-                        uint x = value;
-                        x |= x >> 1;
-                        x |= x >> 2;
-                        x |= x >> 4;
-                        x |= x >> 8;
-                        x |= x >> 16;
-                        x++;
+                        //uint x = value;
+                        value |= value >> 1;
+                        value |= value >> 2;
+                        value |= value >> 4;
+                        value |= value >> 8;
+                        value |= value >> 16;
+                        value++;
 
-                        return ReverseDeBruijnPositions[x * 0x076be629 >> 27];
+                        return ReverseDeBruijnPositions[value * 0x076be629 >> 27];
                     }
             }
         }
@@ -1196,12 +1292,14 @@ namespace Media.Common
 
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static int CountLeadingZeros(ref long value)
+        public static int CountLeadingZeros(ref ulong value)
         {
             switch (value)
             {
                 case 0: return BitsPerLong;
+                case ulong.MaxValue:
                 case long.MaxValue:
+                case uint.MaxValue:
                 case int.MaxValue: return 0;
                 default:
                     {
@@ -1210,7 +1308,7 @@ namespace Media.Common
             }
         }
 
-        public static int CountLeadingZeros(long value) { return CountLeadingZeros(ref value); }
+        public static int CountLeadingZeros(long value) { ulong temp = (ulong)value; return CountLeadingZeros(ref temp); }
 
         public static long GreatestCommonDivisor(long a, long b)
         {
@@ -1383,8 +1481,27 @@ namespace Media.Common
 
         public static bool SetBit(byte source, int index, bool newValue) { return SetBit(ref source, index, newValue); }
 
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool SetBitReverse(ref byte source, int index, bool newValue)
+        {
+            if (index < Binary.Nihil || index > Binary.BitsPerByte) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
-        public static bool SetBitReverse(byte source, int index) { return SetBitReverse(ref source, index); }
+            //Read the bit in reverse
+            bool oldValue = GetBitReverse(ref source, index);
+
+            //If the newValue has been set already return
+            if (oldValue == newValue) return oldValue;
+
+            //Set or clear the bit according to newValue
+            source = (byte)(newValue ? (source | (Binary.SedecimBitSize >> index)) : (source & ~(Binary.SedecimBitSize >> index)));
+
+            //Return the old value
+            return oldValue;
+        }
+
+
+        public static bool SetBitReverse(byte source, int index, bool newValue) { return SetBitReverse(ref source, index, newValue); }
 
         /// <summary>
         /// Provides an implementation of setting the reverse bit in a highly optomized fashion.
@@ -1397,17 +1514,12 @@ namespace Media.Common
         /// <returns>The value which was previously set in the bit where true = 1 and false = 0</returns>
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool SetBitReverse(ref byte source, int index)
+        public static void SetBitReverse(ref byte source, int index)
         {
-
             if (index < Binary.Nihil || index > Binary.BitsPerByte) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
-            switch (source)
-            {
-                case byte.MinValue: return false;
-                case byte.MaxValue: return true;
-                default: return unchecked((source = (byte)(source | (Binary.SedecimBitSize >> index))) != Binary.Nihil);
-            }
+            //Set the bit
+            source = (byte)(source | (Binary.SedecimBitSize >> index));
         }
 
         /// <summary>
@@ -1491,7 +1603,7 @@ namespace Media.Common
             //(source index) Always <= 7, then decreases for each iteration
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
-            SetBit(ref self[byteIndex], index, value);
+            SetBit(ref self[byteIndex], bitIndex, value);
 
             return self;
         }
@@ -1507,7 +1619,7 @@ namespace Media.Common
             //(source index) Always <= 7, then decreases for each iteration
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
-            ToggleBit(ref self[byteIndex], index);
+            ToggleBit(ref self[byteIndex], bitIndex);
 
             return self;
         }
@@ -1523,7 +1635,7 @@ namespace Media.Common
             //(source index) Always <= 7, then decreases for each iteration
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
-            return GetBit(ref self[byteIndex], index);
+            return GetBit(ref self[byteIndex], bitIndex);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -1537,10 +1649,12 @@ namespace Media.Common
             //(source index) Always <= 7, then decreases for each iteration
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
-            ClearBit(ref self[byteIndex], index);
+            ClearBit(ref self[byteIndex], bitIndex);
 
             return self;
         }
+
+        //Reverse overloads?
 
         #endregion
 

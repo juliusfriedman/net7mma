@@ -843,6 +843,20 @@ namespace Media.Rtp
 
         public override int GetHashCode() { return Created.GetHashCode() ^ Header.GetHashCode(); }
 
+        /// <summary>
+        /// Copies all of the data in the packet to the given destination. The amount of bytes copied is given by <see cref="Length"/>
+        /// </summary>
+        /// <param name="destination"></param>
+        /// <param name="offset"></param>
+        public void CopyTo(byte[] destination, int offset)
+        {
+            offset += Header.CopyTo(destination, offset);
+
+            Common.MemorySegmentExtensions.CopyTo(Payload, destination, offset);
+
+            offset += Payload.Count;
+        }
+
         #endregion
 
         #region Operators

@@ -69,7 +69,7 @@ namespace Media.UnitTests
             TestEncodingExtensions, 
             TestUtility, 
             TestBinary, 
-            //TestCommonClasses,
+            TestCommonClasses,
             //Rtp / Rtcp
             TestRtpRtcp, 
             // Frame Level
@@ -2990,7 +2990,7 @@ a=appversion:1.0");
             Object typedInstance = instanceType.IsAbstract ? null : Activator.CreateInstance(instanceType);
 
             //Write the name if desired
-            if (writeNames) writeInfo("Testing Type: " + instanceType.Name);
+            if (writeNames) writeInfo("Running all tests within: " + instanceType.Name);
 
             //Get the methods of the class
             foreach (var method in instanceType.GetMethods())
@@ -2999,7 +2999,7 @@ a=appversion:1.0");
                 if (method.ReturnType != returnType) continue;
 
                 //Write the name if desired
-                if (writeNames) writeInfo("Testing Method: " + method.Name);
+                if (writeNames) writeInfo("Running Test: " + method.Name);
 
                 //Invoke the void with (no parameters) on the created instance
                 method.Invoke(typedInstance, null);

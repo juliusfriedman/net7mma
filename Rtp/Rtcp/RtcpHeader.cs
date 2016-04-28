@@ -398,6 +398,25 @@ namespace Media.Rtcp
 
         #region Instance Methods
 
+        public int CopyTo(byte[] dest, int offset)
+        {
+            if (IsDisposed) return 0;
+
+            int copied = 0;
+
+            copied += First16Bits.CopyTo(dest, offset);
+
+            offset += copied;
+
+            Common.MemorySegmentExtensions.CopyTo(PointerToLast6Bytes, dest, offset);
+
+            copied += PointerToLast6Bytes.Count;
+
+            offset += PointerToLast6Bytes.Count;
+
+            return copied;
+        }
+
         /// <summary>
         /// Creates a sequence containing  only the octets of the <see cref="SendersSynchronizationSourceIdentifier"/>. 
         /// </summary>

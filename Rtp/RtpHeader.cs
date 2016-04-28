@@ -390,6 +390,25 @@ namespace Media.Rtp
 
         #region Instance Methods        
 
+        public int CopyTo(byte[] dest, int offset)
+        {
+            if (IsDisposed) return 0;
+
+            int copied = 0;
+            
+            copied += First16Bits.CopyTo(dest, offset);
+
+            offset += copied;
+
+            Common.MemorySegmentExtensions.CopyTo(PointerToLast10Bytes, dest, offset);
+
+            copied += PointerToLast10Bytes.Count;
+
+            offset += PointerToLast10Bytes.Count;
+
+            return copied;
+        }
+
         /// <summary>
         /// Clones this RtpHeader instance.
         /// If reference is true any changes performed in either this instance or the new instance will be reflected in both instances.
