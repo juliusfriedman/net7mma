@@ -103,6 +103,7 @@ namespace Media.Container
 
         //public readonly string Language; //Useful?
 
+        //FourCC?
         public readonly byte[] CodecIndication;
 
         public readonly double Rate;
