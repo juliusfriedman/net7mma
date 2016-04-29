@@ -152,7 +152,13 @@ namespace Media.Common
         {
             for (int i = 0; i < m_Length; ++i)
             {
+#if UNSAFE
+                unsafe { *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, m_Offset + i) = value; }
+#elif NATIVE
+                yield return System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, (int)m_Offset + i));
+#else
                 yield return m_Array[m_Offset + i]; //this[i]
+#endif
             }
         }
 
@@ -177,6 +183,9 @@ namespace Media.Common
             get { unsafe { fixed (byte* p = &m_Array[m_Offset]) return *(p + index); } }
             //set { unsafe { *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, m_Offset + index) = value; } }
             set { unsafe { fixed (byte* p = &m_Array[m_Offset]) *(p + index) = value; } }
+#elif NATIVE
+            get { return System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, (int)m_Offset + index)); }
+            set { System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, (int)m_Offset + index), value); }
 #else
             get { return m_Array[m_Offset + index]; }
             set { m_Array[m_Offset + index] = value; }

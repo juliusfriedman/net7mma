@@ -2955,10 +2955,9 @@ a=appversion:1.0");
 
             Console.WriteLine("Detected a: " + Media.Common.Binary.SystemBitOrder.ToString() + ' ' + Media.Common.Binary.SystemBitOrder.GetType().Name + " System.");
 
-            Console.WriteLine("Detected a: " + Media.Concepts.Classes.BinaryRepresentations.SystemBinaryRepresentation.ToString() + ' ' + Media.Concepts.Classes.BinaryRepresentations.SystemBinaryRepresentation.GetType().Name + " System.");
-
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.BinaryUnitTests), TypeOfVoid);
         }
+
 
         public static void TestCommonClasses()
         {

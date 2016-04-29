@@ -62,6 +62,8 @@ namespace Media
 
         #endregion
 
+        //Todo, Unsafe and Native
+
         /// <summary>
         /// Indicates the position of the match in a given buffer to a given set of octets.
         /// If the match fails the start parameter will reflect the position of the last partial match, otherwise it will be incremented by <paramref name="octetCount"/>
@@ -140,6 +142,8 @@ namespace Media
             //Return the last position of the partial match
             return lastPosition;
         }
+
+        //Todo, Unsafe and Native
 
         public static int Find(byte[] array, byte[] needle, int startIndex, int sourceLength)
         {

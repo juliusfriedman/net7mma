@@ -61,7 +61,6 @@
     </Compile>
     <Compile Include="Classes\ArithmeticLogicUnit.cs" />
     <Compile Include="Classes\Asm.cs" />
-    <Compile Include="Classes\BinaryRepresentation.cs" />
     <Compile Include="Classes\BindableBase.cs" />
     <Compile Include="Classes\BitEnumerator.cs" />
     <Compile Include="Classes\Bitwise.cs" />

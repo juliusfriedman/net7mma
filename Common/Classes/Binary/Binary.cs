@@ -615,17 +615,19 @@ namespace Media.Common
 
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
         public static bool IsPowerOfTwo(ref long x) { return Binary.Nihil == (x & (x - Binary.Ūnus)); }
 
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
         public static bool IsPowerOfTwo(ref int x) { return Binary.Nihil == (x & (x - Binary.Ūnus)); }
 
         public static bool IsPowerOfTwo(long x) { return IsPowerOfTwo(ref x); }
 
         public static bool IsPowerOfTwo(int x) { return IsPowerOfTwo(ref x); }
+
+        //Uint
+
+        //ULong
 
         #endregion
 
@@ -633,10 +635,15 @@ namespace Media.Common
 
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
         public static bool IsEven(ref int x) { return Binary.Nihil == (x & Binary.Ūnus); }
 
         public static bool IsEven(int x) { return IsEven(ref x); }
+
+        //Uint
+
+        //Long
+
+        //ULong
 
         #endregion
 
@@ -647,6 +654,16 @@ namespace Media.Common
         public static bool IsOdd(ref int x) { return Binary.Ūnus == (x & Binary.Ūnus); }
 
         public static bool IsOdd(int x) { return IsOdd(ref x); }
+
+        //Uint
+
+        //Long
+
+        //ULong
+
+        #endregion
+
+        #region IsNegative
 
         /// <summary>
         /// Determines if the given value is negitive
@@ -669,6 +686,10 @@ namespace Media.Common
         public static bool IsNegative(ref long arg) { return (arg & SignMask) == SignMask; }
 
         public static bool IsNegative(long arg) { return IsNegative(ref arg); }
+
+        #endregion
+
+        #region IsPositive
 
         /// <summary>
         /// Determines if the given value is positive
@@ -876,7 +897,7 @@ namespace Media.Common
 
         #region Fields
 
-        #region Bit Tables
+        #region IsPalindrome / Bit Tables
 
         /// <summary>
         /// Indicates if the byte is the same when interpreted in reverse
@@ -916,38 +937,25 @@ namespace Media.Common
         /// <summary>
         /// Assumes 8 bits per byte
         /// </summary>
-        internal static readonly byte[] BitsSetTable;
+        internal static readonly byte[] BitsSetTable; //256 bytes
 
         /// <summary>
         /// Assumes 8 bits per byte
         /// </summary>
-        internal static readonly byte[] BitsReverseTable;
+        internal static readonly byte[] BitsReverseTable; //256 bytes
 
         #endregion
 
-        //readonly ValueType
         /// <summary>
         /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture.
         /// </summary>
         internal static int m_MostSignificantBit = -1;
-
-        /// <summary>
-        /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture.
-        /// </summary>
-        public static int MostSignificantBit { get { return m_MostSignificantBit; } }
-
-        //readonly ValueType
+        
         /// <summary>
         /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture.
         /// </summary>
         internal static int m_LeastSignificantBit = -1;
 
-        /// <summary>
-        /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture.
-        /// </summary>
-        public static int LeastSignificantBit { get { return m_LeastSignificantBit; } }
-
-        //readonly ValueType
         /// <summary>
         /// The <see cref="ByteOrder"/> of the current architecture
         /// </summary>
@@ -956,13 +964,30 @@ namespace Media.Common
         /// <summary>
         /// The <see cref="BitOrder"/> of the current architecture
         /// </summary>
-        public static ByteOrder SystemByteOrder { get { return m_SystemByteOrder; } }
+        internal static BitOrder m_SystemBitOrder = BitOrder.Unknown;
 
-        //readonly ValueType
+        //Check byte, sbyte, short, ushort, uint?
+
+        //double, decimal?
+
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture.
+        /// </summary>
+        public static int MostSignificantBit { get { return m_MostSignificantBit; } }
+
+        /// <summary>
+        /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture.
+        /// </summary>
+        public static int LeastSignificantBit { get { return m_LeastSignificantBit; } }
+
         /// <summary>
         /// The <see cref="BitOrder"/> of the current architecture
         /// </summary>
-        internal static BitOrder m_SystemBitOrder = BitOrder.Unknown;
+        public static ByteOrder SystemByteOrder { get { return m_SystemByteOrder; } }
 
         /// <summary>
         /// The <see cref="BitOrder"/> of the current architecture
@@ -973,10 +998,6 @@ namespace Media.Common
         /// Gets a value indicating if the system's byte order is Big Endian.
         /// </summary>
         public static bool IsBigEndian { get { return m_SystemByteOrder == ByteOrder.Big; } }
-
-        //Check byte, sbyte, short, ushort, uint?
-
-        //double, decimal?
 
         #endregion
 
@@ -1801,7 +1822,8 @@ namespace Media.Common
 
                     //fixed (byte* x = &bytes[byteOffset]) { result |= ((ulong)((*x >> bitIndex) & Binary.Ūnus) << position); } 
                 }
-
+#elif NATIVE
+                result |= ((ulong)((System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset)) >> bitIndex ) & Binary.Ūnus) << position);
 #else
                 //Set the bit in result by reading the bit from the source and moving it to the destination
                 result |= ((ulong)((bytes[byteOffset] >> bitIndex) & Binary.Ūnus) << position);
@@ -1866,6 +1888,8 @@ namespace Media.Common
 
                 }
 
+#elif NATIVE
+                result |= ((ulong)((System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset)) >> bitIndex) & Binary.Ūnus) << position);
 #else
 
                 //Set the bit in result by reading the bit from the source and moving it to the destination
@@ -1958,6 +1982,13 @@ namespace Media.Common
                         fixed (byte* x = &bytes[byteOffset]) { *x &= (byte)~(Binary.Ūnus << bitIndex); } 
                     }
                 }
+#elif NATIVE
+                
+                if (bitValue)
+                    System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset)) | (byte)(Binary.Ūnus << bitIndex)));
+                else
+                    System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset)) & (byte)~(Binary.Ūnus << bitIndex)));
+
 #else
                 if (bitValue)
                 {
@@ -2021,6 +2052,13 @@ namespace Media.Common
                         //fixed (byte* x = &bytes[byteOffset]) { *x &= (byte)~(Binary.Ūnus << bitIndex); } 
                     }
                 }
+#elif NATIVE
+
+                if (bitValue)
+                    System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset)) | (byte)(Binary.Ūnus << bitIndex)));
+                else
+                    System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(bytes, byteOffset)) & (byte)~(Binary.Ūnus << bitIndex)));
+
 #else
                 if (bitValue)
                 {
@@ -2312,7 +2350,7 @@ namespace Media.Common
                 if (reverse) selected = selected.Reverse();
 
                 //Using an enumerator
-                using (var enumerator = selected.GetEnumerator())
+                using (IEnumerator<byte> enumerator = selected.GetEnumerator())
                 {
                     //While there is a value to read
                     while (enumerator.MoveNext())
@@ -2559,11 +2597,30 @@ namespace Media.Common
                 while (count-- > 0)
                 {
 
+#if UNSAFE
+                    unsafe
+                    {
+                        //Write the byte at the index
+                        *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index++) = (byte)value; 
+
+                        //Remove the bits we used
+                        value >>= shift;
+                    }
+#elif NATIVE
                     //Write the byte at the index
-                    buffer[index++] = (byte)(value);
+                    System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index++), (byte)value);
 
                     //Remove the bits we used
                     value >>= shift;
+#else
+
+                    //Write the byte at the index
+                    buffer[index++] = (byte)(value);                    
+
+                    //Remove the bits we used
+                    value >>= shift;
+
+#endif
                 }
 
                 //For unaligned writes a new function should be created
@@ -2587,11 +2644,29 @@ namespace Media.Common
                 //While something remains
                 while (count/*--*/ > 0)
                 {
+#if UNSAFE
+                    unsafe
+                    {
+                        //Write the byte at the index
+                        *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index + --count) = (byte)value; 
+
+                        //Remove the bits we used
+                        value >>= shift;
+                    }
+#elif NATIVE
+                    //Write the byte at the index
+                    System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index + --count), (byte)value);
+
+                    //Remove the bits we used
+                    value >>= shift;
+#else
                     //Write the byte at the reversed index
                     buffer[index + --count] = (byte)(value);
 
                     //Remove the bits we used
                     value >>= shift;
+
+#endif
                 }
             }
         }
@@ -2599,14 +2674,26 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void WriteU8(byte[] buffer, int index, bool reverse, byte value)
         {
+#if UNSAFE
+            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index) = reverse ? ReverseU8(value) : value;
+#elif NATIVE
+            System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index), reverse ? ReverseU8(value) : value);
+#else
             buffer[index] = reverse ? ReverseU8(value) : value;
+#endif
         }
 
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Write8(byte[] buffer, int index, bool reverse, sbyte value)
         {
+#if UNSAFE
+            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index) = reverse ? ReverseU8((byte)value) : (byte)value;
+#elif NATIVE
+            System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index), reverse ? ReverseU8((byte)value) : (byte)value);
+#else
             buffer[index] = reverse ? ReverseU8((byte)value) : (byte)value;
+#endif
         }
 
         /// <summary>
@@ -2679,6 +2766,7 @@ namespace Media.Common
 
         //ref..
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static byte[] GetBytes(Guid value, bool reverse = false)
         {
             byte[] result = value.ToByteArray();
@@ -2694,6 +2782,8 @@ namespace Media.Common
 
             return result;
         }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte[] GetBytes(short i, bool reverse = false)
         {
             byte[] result = new byte[Binary.BytesPerShort];
@@ -2701,6 +2791,7 @@ namespace Media.Common
             return result;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte[] GetBytes(int i, bool reverse = false)
         {
             byte[] result = new byte[Binary.BytesPerInteger];
@@ -2709,6 +2800,7 @@ namespace Media.Common
         }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte[] GetBytes(uint i, bool reverse = false)
         {
             byte[] result = new byte[Binary.BytesPerInteger];
@@ -2716,6 +2808,7 @@ namespace Media.Common
             return result;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte[] GetBytes(long i, bool reverse = false)
         {
             byte[] result = new byte[Binary.BytesPerLong];
@@ -2851,6 +2944,7 @@ namespace Media.Common
 
         #endregion
 
+        //Could be moved to Machine...
         #region Roll
 
         /// <summary>
@@ -2863,6 +2957,7 @@ namespace Media.Common
         /// On 32 bit Architectures two registers are beging used to perform this operation and on some optomized a single instruction is unsed
         /// </remarks>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static ulong RollU64(ulong source, int amount)
         {
             switch (source)
@@ -2874,6 +2969,7 @@ namespace Media.Common
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long Roll64(long source, int amount)
         {
             switch (source)
@@ -3258,7 +3354,41 @@ namespace Media.UnitTests
             }
         }
 
-        public static void Test_CountLeadingZeros()
+        public static void Test_CountTrailingZeros()
+        {
+            //Loop all negitive values in the 16 bit range and 0
+            for (int i = short.MinValue; i <= ushort.MinValue; ++i)
+            {
+                //Get the amount of leading zeros in i (31 bits)
+                int stz = Common.Binary.CountTrailingZeros(i);
+
+                //Check for any result when i was less than 0 because the sign bit should be present.
+                if (i == 0 && stz != Common.Binary.ThirtyOne || i < Common.Binary.Zero && stz < Common.Binary.Zero) throw new Exception("CountTrailingZeros");
+
+                //Get the amount of leading zeros in the 32 bit conversion of i
+                int ctz = Common.Binary.CountTrailingZeros((uint)i);
+
+                //Verify the difference
+                if (i == Common.Binary.Zero && ctz != Common.Binary.BitsPerInteger || ctz > stz && ctz - stz != Common.Binary.One) throw new Exception("CountTrailingZeros");
+
+                //Check for any result when i was less than 0 because the sign bit should be present.
+                if (i < Common.Binary.Zero && ctz < Common.Binary.Zero) throw new Exception("CountTrailingZeros");
+
+                //Get the amount of leading zeros in the 63 bit conversion of i
+                int stzl = Common.Binary.CountTrailingZeros((long)i);
+
+                //Verify the result
+                if (i == Common.Binary.Zero && stzl != 63 || i > 0 && stzl - stz != Common.Binary.ThirtyOne) throw new Exception("CountTrailingZeros");
+
+                //Get the amount of leading zeros in the 64 bit conversion of i
+                int tzll = Common.Binary.CountTrailingZeros((ulong)i);
+
+                //Verify the result
+                if (i == Common.Binary.Zero && tzll != Common.Binary.BitsPerLong || i > 0 && tzll - stzl != Common.Binary.One) throw new Exception("CountTrailingZeros");
+            }
+        }
+
+        public static void Test_CountLeadingZeros() //Uses CountTrailingZeros
         {
             //Loop all negitive values in the 16 bit range and 0
             for (int i = short.MinValue; i <= ushort.MinValue; ++i)
@@ -3297,40 +3427,6 @@ namespace Media.UnitTests
                     i <= -1 && clzll != Common.Binary.BitsPerInteger 
                     || 
                     i > Common.Binary.Zero && sclzl - clzll != Common.Binary.One) throw new Exception("CountLeadingZeros");
-            }
-        }
-
-        public static void Test_CountTrailingZeros()
-        {
-            //Loop all negitive values in the 16 bit range and 0
-            for (int i = short.MinValue; i <= ushort.MinValue; ++i)
-            {
-                //Get the amount of leading zeros in i (31 bits)
-                int stz = Common.Binary.CountTrailingZeros(i);
-
-                //Check for any result when i was less than 0 because the sign bit should be present.
-                if (i == 0 && stz != Common.Binary.ThirtyOne || i < Common.Binary.Zero && stz < Common.Binary.Zero) throw new Exception("CountTrailingZeros");
-
-                //Get the amount of leading zeros in the 32 bit conversion of i
-                int ctz = Common.Binary.CountTrailingZeros((uint)i);
-
-                //Verify the difference
-                if (i == Common.Binary.Zero && ctz != Common.Binary.BitsPerInteger || ctz > stz && ctz - stz != Common.Binary.One) throw new Exception("CountTrailingZeros");
-
-                //Check for any result when i was less than 0 because the sign bit should be present.
-                if (i < Common.Binary.Zero && ctz < Common.Binary.Zero) throw new Exception("CountTrailingZeros");
-
-                //Get the amount of leading zeros in the 63 bit conversion of i
-                int stzl = Common.Binary.CountTrailingZeros((long)i);
-
-                //Verify the result
-                if (i == Common.Binary.Zero && stzl != 63 || i > 0 && stzl - stz != Common.Binary.ThirtyOne) throw new Exception("CountTrailingZeros");
-
-                //Get the amount of leading zeros in the 64 bit conversion of i
-                int tzll = Common.Binary.CountTrailingZeros((ulong)i);
-
-                //Verify the result
-                if (i == Common.Binary.Zero && tzll != Common.Binary.BitsPerLong || i > 0 && tzll - stzl != Common.Binary.One) throw new Exception("CountTrailingZeros");
             }
         }
 
