@@ -21,6 +21,9 @@ namespace Media.Common
         public CommonDisposable(bool shouldDispose) : base(shouldDispose) { }
     }
 
+    //Could provide hooks to determine manually... (SOS wrapper seems like a seperately useful class)
+    //Should provide for Mono and other CLR's also.
+
     //Provides a way to derermine how many classes hold a reference if the API was used.
     //public class ReferenceCountingDisposable : CommonDisposable
     //{

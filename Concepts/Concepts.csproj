@@ -71,7 +71,6 @@
     <Compile Include="Classes\Composed.cs" />
     <Compile Include="Classes\Disposable.cs" />
     <Compile Include="Classes\Experimental.cs" />
-    <Compile Include="Classes\Machine.cs" />
     <Compile Include="Classes\MemoryStreamEx.cs" />
     <Compile Include="Classes\Stopwatch.cs" />
     <Compile Include="Classes\Timer.cs" />

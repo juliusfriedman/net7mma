@@ -245,10 +245,11 @@ namespace Media.Rtp
             else if (m_OwnedOctets == null) m_OwnedOctets = octets.Skip(offset).Take(count - offset).ToArray();
             else m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(count - offset)).ToArray();
 
-            //Create a pointer to the owned octets.
-            Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
-
-            //Old Payload will be GC
+            using (Common.MemorySegment previousPayload = Payload)
+            {
+                //Create a pointer to the owned octets.
+                Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
+            }
 
             //Return
             return;
@@ -853,8 +854,6 @@ namespace Media.Rtp
             offset += Header.CopyTo(destination, offset);
 
             Common.MemorySegmentExtensions.CopyTo(Payload, destination, offset);
-
-            offset += Payload.Count;
         }
 
         #endregion

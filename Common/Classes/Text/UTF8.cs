@@ -67,6 +67,21 @@ namespace Media.Common
 
         //Todo, Encode / Decode
 
+        //See https://github.com/dotnet/corefxlab/tree/master/src/System.Text.Utf8
+        //See https://github.com/Quobject/EngineIoClientDotNet/blob/master/Src/EngineIoClientDotNet.mono/Modules/UTF8.cs
+        //See https://gist.github.com/antonijn/8400302
+
+        //java implementations
+        // https://github.com/google/protobuf/blob/master/java/core/src/main/java/com/google/protobuf/Utf8.java
+
+        // https://github.com/google/guava/blob/master/guava/src/com/google/common/base/Utf8.java
+
+        // https://github.com/xetorthio/fastu/blob/master/src/main/java/com/github/xetorthio/Fastu.java
+
+        // Ascii - https://github.com/pquiring/javaforce/blob/master/src/javaforce/ASCII8.java
+
+        //
         //T.140
+        //Needs UTF-8, should have it's own Assembly. (Codecs.Text)... Codecs.Text.UTF8, Codecs.Text.T140 etc.
     }
 }
