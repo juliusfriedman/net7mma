@@ -35,11 +35,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 namespace Media.Concepts.Classes
 {
+    //Candidate for integration with Machine if the size is not too much of an increase...
+
     public sealed class Bitwise
     {
-
-        Bitwise() { }
-
         #region Bitwise
 
         /// <summary>
@@ -49,35 +48,35 @@ namespace Media.Concepts.Classes
         /// <param name="right"></param>
         /// <param name="format">The binary format to convert left and right to</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void BitwisePrepare(ref int left, ref int right, BinaryRepresentation format = BinaryRepresentation.NoSign)
+        public static void BitwisePrepare(ref int left, ref int right, Common.Machine.BinaryRepresentation format = Common.Machine.BinaryRepresentation.NoSign)
         {
             switch (format)
             {
-                case BinaryRepresentation.SignedMagnitude:
+                case Common.Machine.BinaryRepresentation.SignedMagnitude:
                     {
-                        left = BinaryRepresentations.SignedMagnitude(ref left);
+                        left = Common.Machine.SignedMagnitude(ref left);
 
-                        right = BinaryRepresentations.SignedMagnitude(ref right);
+                        right = Common.Machine.SignedMagnitude(ref right);
 
                         break;
                     }
-                case BinaryRepresentation.TwosComplement:
+                case Common.Machine.BinaryRepresentation.TwosComplement:
                     {
-                        left = BinaryRepresentations.TwosComplement(ref left);
+                        left = Common.Machine.TwosComplement(ref left);
 
-                        right = BinaryRepresentations.TwosComplement(ref right);
+                        right = Common.Machine.TwosComplement(ref right);
 
                         break;
                     }
-                case BinaryRepresentation.OnesComplement:
+                case Common.Machine.BinaryRepresentation.OnesComplement:
                     {
-                        left = BinaryRepresentations.OnesComplement(ref left);
+                        left = Common.Machine.OnesComplement(ref left);
 
-                        right = BinaryRepresentations.OnesComplement(ref right);
+                        right = Common.Machine.OnesComplement(ref right);
 
                         break;
                     }
-                case BinaryRepresentation.NoSign:
+                case Common.Machine.BinaryRepresentation.NoSign:
                     {
                         left = (int)((uint)left);
 
@@ -146,5 +145,8 @@ namespace Media.Concepts.Classes
         }
 
         #endregion
+
+        //private constructor
+        Bitwise() { }
     }
 }

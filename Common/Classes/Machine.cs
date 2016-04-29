@@ -45,6 +45,26 @@ namespace Media.Common
     /// <note><see href="https://msdn.microsoft.com/en-us/magazine/jj553518.aspx">.NET Development for ARM Processors</see></note>
     public static class Machine
     {
+        #region Nested Types
+
+        /// <summary>
+        /// Defines a known <see href="http://en.wikipedia.org/wiki/Signed_number_representations">Signed number representation</see>
+        /// </summary>
+        public enum BinaryRepresentation
+        {
+            Unknown = 0,
+            NoSign = 1,
+            OnesComplement = 2,
+            SignedMagnitude = 4,
+            TwosComplement = 6,
+            Excess = 8,
+            Base = 16,
+            Biased = 32,
+            ZigZag = 64,
+            Any = NoSign | OnesComplement | SignedMagnitude | TwosComplement | Excess | Base | Biased | ZigZag,
+            All = int.MaxValue
+        }
+
         #region Shift Implementations
 
         /// <summary>
@@ -242,31 +262,43 @@ namespace Media.Common
 
         #endregion
 
+        #endregion
+
         #region Fields
 
-        static readonly System.Type Type = typeof(Machine);
+        //Get the System.Type to which Machine corresponds
+        internal static readonly System.Type SystemType = typeof(Machine);
 
-        static readonly System.Reflection.Assembly Assembly = Type.Assembly;
+        //Reflect the Assembly of that type
+        internal static readonly System.Reflection.Assembly Assembly = SystemType.Assembly;
 
-        static readonly System.Reflection.AssemblyName AssemblyName = Assembly.GetName();
+        //Get the AssemblyName from the Assembly
+        internal static readonly System.Reflection.AssemblyName AssemblyName = Assembly.GetName(); //Should be okay in partial trust where as GetFullName is not...
 
+        //Should work in netMf also
         //https://github.com/NETMF/netmf-interpreter/blob/d28c5365e35fa7c861312b702cde5b73e2ef3808/Framework/Subset_of_CorLib/System/Reflection/AssemblyNameFlags.cs
+
+        public static System.Reflection.ProcessorArchitecture AssemblyNameProcessorArchitecture { get { return m_AssemblyNameProcessorArchitecture; } }
 
         /// <summary>
         /// Indicates the Platform the code was compiled for.
         /// Identifies the processor and bits-per-word of the platform targeted by an executable.
         /// </summary>
-        static readonly System.Reflection.ProcessorArchitecture AssemblyNameProcessorArchitecture = AssemblyName.ProcessorArchitecture;
+        internal static System.Reflection.ProcessorArchitecture m_AssemblyNameProcessorArchitecture = AssemblyName.ProcessorArchitecture;
+
+        public static System.Reflection.PortableExecutableKinds CodeType { get { return m_CodeType; } }
 
         /// <summary>
         /// Indicates the type of machine code produced by JIT when the code is compiled.
         /// </summary>
-        public static readonly System.Reflection.PortableExecutableKinds CodeType;
+        internal static System.Reflection.PortableExecutableKinds m_CodeType;
+
+        public static System.Reflection.ImageFileMachine MachineType { get { return m_MachineType; } }
 
         /// <summary>
         /// Indicates the CPU instructions used by the JIT when the code is compiled.
         /// </summary>
-        public static readonly System.Reflection.ImageFileMachine MachineType;
+        internal static System.Reflection.ImageFileMachine m_MachineType;
 
         internal static int m_BitPatternSize = 0;
 
@@ -276,9 +308,16 @@ namespace Media.Common
         /// </summary>
         public static int BitPatternSize { get { return m_BitPatternSize; } }
 
+        internal static BinaryRepresentation m_SystemBinaryRepresentation = BinaryRepresentation.Unknown;
+
+        /// <summary>
+        /// The <see cref="BinaryRepresentation"/> of the current architecture used for the <see cref="int"/> type.
+        /// </summary>
+        public static BinaryRepresentation SystemBinaryRepresentation { get { return m_SystemBinaryRepresentation; } }
+
         #endregion
 
-        #region Methods
+        #region Machine Methods
 
         /// <summary>
         /// Indicates if the Machine has a finite bit pattern.
@@ -322,18 +361,157 @@ namespace Media.Common
 
         #endregion
 
+        #region BinaryRepresentation Methods
+
+        public static int OnesComplement(int value) { return OnesComplement(ref value); }
+
+        /// <summary>
+        /// Convert from two's to one's complement.
+        /// </summary>
+        /// <param name="value">A value in two's complement</param>
+        /// <returns>The one's complement representation of <paramref name="value"/></returns>
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int OnesComplement(ref int value) { return (~value); }
+
+        /// <summary>
+        /// Convert from one's to two's complement.
+        /// </summary>
+        /// <param name="value">A value in one's complement</param>
+        /// <returns>The two's complement representation of <paramref name="value"/></returns>
+        public static int TwosComplement(int value) { return TwosComplement(ref value); }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int TwosComplement(ref int value) { unchecked { return (~value + Common.Binary.One); } }
+
+        public static int SignedMagnitude(int value) { int sign; return SignedMagnitude(ref value, out sign); }
+
+        [System.CLSCompliant(false)]
+        public static int SignedMagnitude(ref int value) { int sign; return SignedMagnitude(ref value, out sign); }
+
+        /// <summary>
+        /// Converts value to twos complement if the value is negitive and returns the signed magnitude representation outputs the sign
+        /// </summary>
+        /// <param name="value">A binary value</param>
+        /// <param name="sign">The sign of <paramref name="value"/></param>
+        /// <returns>The signed magnitude representation of <paramref name="value"/></returns>
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int SignedMagnitude(ref int value, out int sign)
+        {
+            unchecked
+            {
+
+                //If the sign is -1 then convert to twos complement < 0 should be faster
+                //if ((sign = Math.Sign(value)) == -Binary.Ūnus) value = TwosComplement(ref value);
+
+                if ((sign = Common.Binary.Sign(value)) < Common.Binary.Zero) value = TwosComplement(ref value);
+
+                //Doesn't output the sign...
+                //if (IsNegative(ref value))
+                //{
+                //    sign = -Binary.Ūnus;
+
+                //    value = TwosComplement(ref value);
+                //}
+
+                //Return the value multiplied by sign
+                return value * sign;
+            }
+        }
+
+        /// <summary>
+        /// Converts the given number in twos complement to signed magnitude representation
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int TwosComplementToSignedMagnitude(ref int value)
+        {
+            unchecked
+            {
+                //Create a mask of the value holding the sign
+                int sign = (value >> Common.Binary.ThirtyOne); //SignMask
+
+                //Convert from TwosComplement to SignedMagnitude
+                return (((value + sign) ^ sign) | (int)(value & Common.Binary.SignMask));
+            }
+        }
+
+        /// <summary>
+        /// Converts the given number in signed magnitude representation to twos complement.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static long SignedMagnitudeToTwosComplement(ref int value)
+        {
+            unchecked
+            {
+                //Convert from SignedMagnitude to TwosComplement
+                return ((~(value & int.MaxValue)) + Common.Binary.One) | (int)(value & Common.Binary.SignMask);
+            }
+        }
+
+        /// <summary>
+        /// Indicates if the architecture utilizes two's complement binary representation
+        /// </summary>
+        /// <returns>True if two's complement is used, otherwise false</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsTwosComplement()
+        {
+            //return Convert.ToSByte(byte.MaxValue.ToString(Media.Common.Extensions.String.StringExtensions.HexadecimalFormat), Binary.Sēdecim) == -Binary.Ūnus;
+
+            return unchecked((sbyte)byte.MaxValue == -Media.Common.Binary.One);
+        }
+
+        /// <summary>
+        /// Indicates if the architecture utilizes one's complement binary representation
+        /// </summary>
+        /// <returns>True if ones's complement is used, otherwise false</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsOnesComplement()
+        {
+            //return Convert.ToSByte(sbyte.MaxValue.ToString(Media.Common.Extensions.String.StringExtensions.HexadecimalFormat), Binary.Sēdecim) == -Binary.Ūnus;
+
+            return unchecked(sbyte.MaxValue == -Media.Common.Binary.One);
+        }
+
+        /// <summary>
+        /// Indicates if the architecture utilizes sign and magnitude representation
+        /// </summary>
+        /// <returns>True if sign and magnitude representation is used, otherwise false</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsSignedMagnitude()
+        {
+            return unchecked(((Common.Binary.Three & -Common.Binary.One) == Common.Binary.One)); //&& false == IsTwosComplement
+
+            //e.g. (3 & -1) == 3, where as Media.Common.Binary.BitwiseAnd(-3, 1) == 1
+        }
+
+        //http://en.wikipedia.org/wiki/Signed_number_representations
+        //Excess, Base, Biased
+
+        #endregion
+
+        #region Constructor
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static Machine()
         {
+            //Ensure not already called.
+            if (m_BitPatternSize != 0 | m_SystemBinaryRepresentation != BinaryRepresentation.Unknown) return;
+
             //No overflow anyway
             unchecked
             {
                 #region Compilation Check
 
                 //Determine how the code was compiled
-                foreach (System.Reflection.Module module in Type.Assembly.Modules)
+                foreach (System.Reflection.Module module in SystemType.Assembly.Modules)
                 {
-                    module.GetPEKind(out CodeType, out MachineType);
+                    module.GetPEKind(out m_CodeType, out m_MachineType);
 
                     break;
                 }
@@ -377,12 +555,49 @@ namespace Media.Common
 
                 #region Check Bit Pattern Space
 
-                //Caclulcate the pattern size until the value approaches 1 again
-                while (1 >> ++m_BitPatternSize != 1 && m_BitPatternSize <= int.MaxValue) ;
+                //Caclulcate the pattern size until the value approaches 1 again (compare against 0 should be faster)
+                while (1 >> ++m_BitPatternSize != 1 && m_BitPatternSize > 0) ;
 
                 #endregion               
+
+                #region Determine BinaryRepresentation
+
+                //Todo, branchless...
+
+                switch ((m_SystemBinaryRepresentation = Common.Binary.Zero != (Common.Binary.One & -Common.Binary.One) ?
+                            (Common.Binary.Three & -Common.Binary.One) == Common.Binary.One ?
+                                        BinaryRepresentation.SignedMagnitude : BinaryRepresentation.TwosComplement
+                        : BinaryRepresentation.OnesComplement))
+                {
+                    case BinaryRepresentation.TwosComplement:
+                        {
+                            if (false == IsTwosComplement()) throw new System.InvalidOperationException("Did not correctly detect BinaryRepresentation");
+
+                            break;
+                        }
+                    case BinaryRepresentation.OnesComplement:
+                        {
+                            if (false == IsOnesComplement()) throw new System.InvalidOperationException("Did not correctly detect BinaryRepresentation");
+
+                            break;
+                        }
+                    case BinaryRepresentation.SignedMagnitude:
+                        {
+                            if (false == IsSignedMagnitude()) throw new System.InvalidOperationException("Did not correctly detect BinaryRepresentation");
+
+                            break;
+                        }
+                    default:
+                        {
+                            throw new System.NotSupportedException("Create an Issue for your Architecture to be supported.");
+                        }
+                }
+
+                #endregion
             }
         }
+
+        #endregion
 
         //See also
         //http://apichange.codeplex.com/SourceControl/changeset/view/76c98b8c7311#ApiChange.Api/src/Introspection/CorFlagsReader.cs
@@ -412,6 +627,13 @@ namespace Media.UnitTests
             System.Console.WriteLine("IsX64:" + Media.Common.Machine.IsX64());
 
             System.Console.WriteLine("IsArm:" + Media.Common.Machine.IsArm());
+        }
+
+        public static void ShowBinaryRepresentation()
+        {
+            System.Console.WriteLine("Detected a: " + Media.Common.Machine.SystemBinaryRepresentation.ToString() + ' ' + Media.Common.Machine.SystemBinaryRepresentation.GetType().Name + " System.");
+
+            //Todo, test conversions
         }
     
         //public void TestSignExtendedShift()

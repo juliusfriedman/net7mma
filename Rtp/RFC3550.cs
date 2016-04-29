@@ -859,20 +859,14 @@ namespace Media
 
             internal byte First8Bits
             {
-                get { return m_Memory.Array[m_Memory.Offset]; }
-                set
-                {
-                    m_Memory.Array[m_Memory.Offset] = value;
-                }
+                get { return m_Memory[0]; }
+                set { m_Memory[0] = value; }
             }
             
             internal byte Last8Bits
             {
-                get { return m_Memory.Array[m_Memory.Offset + 1]; }
-                set
-                {
-                    m_Memory.Array[m_Memory.Offset + 1] = value;
-                }
+                get { return m_Memory[1]; }
+                set { m_Memory[1] = value; }
             }
 
             /// <summary>

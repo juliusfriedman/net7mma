@@ -158,6 +158,10 @@ namespace Media.Common.Extensions.IPAddress
                                 //Return the result of the evaluation
                                 return prop >= 224 && prop <= 239;
                             }
+#elif NATIVE
+                        byte highIP = System.Runtime.InteropServices.Marshal.ReadByte(ipAddress.Address, 0);
+                        
+                        return highIP >= 224 && highIP <= 239;
 #else
 
                         byte highIP = (byte)(ipAddress.Address & byte.MaxValue); // ipAddress.GetAddressBytes()[0];

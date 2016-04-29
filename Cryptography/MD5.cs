@@ -244,6 +244,7 @@ namespace Media.Cryptography
             return unchecked(b + LSR((a + (c ^ (b | (d ^ 0xFFFFFFFF))) + x + t), s));
         }
 
+        //Could be moved to Machine.
         // Implementation of left rotate
         // s is an int instead of a uint becuase the CLR requires the argument passed to >>/<< is of 
         // type int. Doing the demoting inside this function would add overhead.
