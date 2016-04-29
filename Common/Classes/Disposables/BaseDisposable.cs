@@ -58,9 +58,6 @@ namespace Media.Common
     {
         #region Statics
 
-        //Not really needed
-        public static bool IsNullOrDisposed(BaseDisposable toCheck) { return IDisposedExtensions.IsNullOrDisposed(toCheck); }
-       
         internal protected static void SetShouldDisposeIfSenderIsBaseDisposable(object sender, EventArgs e)
         {
             if (sender != null && sender is BaseDisposable) SetShouldDispose((sender as BaseDisposable), true, true);
@@ -150,6 +147,7 @@ namespace Media.Common
         /// <summary>
         /// Throws a System.ObjectDisposedException if <see cref="IsDisposed"/> is true.
         /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal protected void CheckDisposed() { if (IsDisposed) throw new ObjectDisposedException(GetType().Name); }
 
         /// <summary>

@@ -41,6 +41,8 @@ namespace Media.Common.Loggers
         }
     }
 
+    //See also https://github.com/perpetual-motion/clrplus/blob/master/Console/ConsoleApi.cs
+
     //Todo, sometimes the color most be changed differently depending on Platform
     //public static class ConsoleLoggerExtensions
     //{

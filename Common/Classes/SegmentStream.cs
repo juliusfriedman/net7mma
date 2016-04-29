@@ -138,6 +138,7 @@ namespace Media.Common
 
             Segments.Insert(index, toInsert);
 
+            //Should be optional to update the position
             //m_Postion should be offset also if the segment being inserted is at an index <= m_Index;
             if (index <= m_Index)
             {
@@ -170,15 +171,38 @@ namespace Media.Common
             InsertMemory(ref index, copy);
         }
 
+        //Dirty, feels easiery to just insert, this would be something another type of stream would potentially do. (Add data to an existing segment)
+        //void AppendMemory(ref int index, Common.MemorySegment with)
+        //{
+        //    if (index < 0 || index >= Segments.Count || Segments.IsReadOnly) return;
 
-        //void AppendMemory(ref int index, Common.MemorySegment with){
+        //Could also just remove at index, create a new segment with the total len and insert at index.
+
+        //    Common.MemorySegment ms = Segments[index];
+
+        //    //Take the existing array
+        //    byte[] array = ms.Array;
+
+        //    //Determine the new size
+        //    int len = ms.Count + with.Count;
+
+        //    //Resize the array
+        //    Array.Resize<byte>(ref array, ms.Count + with.Count);
+
+        //    //Copy the new data
+        //    Array.Copy(array, ms.Offset, with.Array, with.Offset, with.Count);
+
+        //    //Set the length
+        //    ms.m_Length = len;
         //}
 
         public void Free(int index) { Free(ref index); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal protected void Free(ref int index)
         {
+            //Some lists are read only.
             if (index < 0 || index >= Segments.Count || Segments.IsReadOnly) return;
 
             //Call dispose at the end of this
@@ -208,6 +232,7 @@ namespace Media.Common
         /// <param name="destination">The destination</param>
         /// <param name="offset">The offset in <paramref name="destination"/> to start copying</param>
         /// <returns>The amount of bytes copied to <paramref name="destination"/></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public int CopyTo(byte[] destination, int offset)
         {
             if (IsDisposed) return 0;
@@ -226,11 +251,18 @@ namespace Media.Common
             return total;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public new void CopyTo(System.IO.Stream s) { CopyToStream(s); }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public new void CopyTo(System.IO.Stream s, int bufferSize) { CopyToStream(s); }
+
         /// <summary>
         /// Creates a copy of all data in a contigious allocation.
         /// <see cref="Position"/> is not moved.
         /// </summary>
         /// <returns>The array created which will have a size equal to <see cref="Length"/></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public byte[] ToArray()
         {
             if (IsDisposed) return null;
@@ -247,6 +279,7 @@ namespace Media.Common
         /// Note, this implementation does not use an intermediate buffer allocation.
         /// </summary>
         /// <param name="destination">The stream to which the contents of the current stream will be copied.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void CopyToStream(System.IO.Stream destination)
         {
             if (IsDisposed) return;
@@ -255,7 +288,7 @@ namespace Media.Common
 
             int toCopy = 0;
 
-            while (destination.CanWrite && CanRead)
+            while (destination.CanWrite && CanRead && m_Position < m_Count)
             {
                 //From the current cursor and array copy all bytes
 
@@ -269,7 +302,7 @@ namespace Media.Common
                 if ((m_Position += toCopy) < m_Count)
                 {
                     //Move to the next segment
-                    WorkingSegment = Segments[m_Index++];
+                    WorkingSegment = Segments[++m_Index];
 
                     //Set the cursor to 0
                     m_Cursor = 0;
@@ -290,6 +323,7 @@ namespace Media.Common
         /// <param name="bufferOffset"></param>
         /// <param name="count"></param>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public int ReadAt(long streamOffset, byte[] buffer, int bufferOffset, int count)
         {
             //Use a temp stream to allow for threading...
@@ -317,6 +351,7 @@ namespace Media.Common
         /// <param name="buffer"></param>
         /// <param name="bufferOffset"></param>
         /// <param name="count"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void WriteAt(long streamOffset, byte[] buffer, int bufferOffset, int count)
         {
             //Use a temp stream to allow for threading...
@@ -337,9 +372,14 @@ namespace Media.Common
         /// <summary>
         /// Calls <see cref="Free"/> for each entry in <see cref="Segments"/>
         /// </summary>
-        private void Clear()
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected void Clear()
         {
             for (int i = 0, e = Segments.Count - 1; e >= i; --e) Free(ref e);
+
+            m_Index = -1;
+
+            WorkingSegment = Common.MemorySegment.Empty;
         }       
 
         #endregion
@@ -515,6 +555,8 @@ namespace Media.Common
 
                     m_Cursor = 0;
                 }
+
+                //break;
             } while (count > 0 && m_Position < m_Count);
 
             return total;
@@ -791,10 +833,14 @@ namespace Media.Common
             //return m_Position
         }
 
-        //Could have this clear or dispose memory...
+        /// <summary>
+        /// Sets the length of the stream and sets <see cref="Position"/> to the end. If the value is greater than or equal to <see cref="Length"/> no change is performed.
+        /// </summary>
+        /// <param name="value"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override void SetLength(long value)
         {
-            if (IsDisposed) return;
+            if (IsDisposed || value >= m_Count) return;
 
             if (value <= 0)
             {
@@ -806,25 +852,22 @@ namespace Media.Common
             //Go to the position (m_Position and m_Cursor is set with respect to value)
             Seek(value, System.IO.SeekOrigin.Begin);
 
+            //All segments after this segment will be removed.
+            for (int i = m_Index + 1, e = Segments.Count - 1; i < e; ++i) Free(ref i);
+
             //Calculate the difference in the length of the working segment - where the cursor is which will be the new end of this stream
-            int change = (int)(WorkingSegment.m_Length - m_Cursor);
+            m_Cursor = (WorkingSegment.m_Length - m_Cursor);
 
             //Dispose the old segment
             using (Common.MemorySegment previouslyWorkingSegment = WorkingSegment)
             {
                 //make the new segment
                 WorkingSegment = new MemorySegment(previouslyWorkingSegment.Array, (int)previouslyWorkingSegment.Offset, (int)m_Cursor, previouslyWorkingSegment.ShouldDispose);
+
+                ////Set the position to count, Decrease for the change in bytes
+                m_Position = m_Count -= WorkingSegment.m_Length - previouslyWorkingSegment.m_Length;
             }
-
-            //Decrease for the change in bytes
-            m_Count -= change;
-
-            //m_Position is now at m_Count....
         }
-
-        
-
-       
 
         #region Task Based
 
@@ -863,7 +906,7 @@ namespace Media.Common
                 if ((m_Position += toCopy) < m_Count)
                 {
                     //Move to the next segment
-                    WorkingSegment = Segments[m_Index++];
+                    WorkingSegment = Segments[++m_Index];
 
                     //Set the cursor to 0
                     m_Cursor = 0;
@@ -971,293 +1014,314 @@ namespace Media.UnitTests
                 int offset = 0, toTake = 0;
 
                 //Make a segment stream
-                Common.SegmentStream stream = new Common.SegmentStream(segments);
-
-                //make random length segments of all bytes which are contained.
-                for (int remains = TestBytesLength; remains > 0; )
+                using (Common.SegmentStream stream = new Common.SegmentStream(segments))
                 {
-                    //Take a random amount
-                    toTake = remains > 1 ? Media.Utility.Random.Next(1, remains) : 1;
-
-                    //Ensure that we do not take more than what remains
-                    if (toTake > remains) toTake = remains;
-
-                    //Create the segment
-                    Common.MemorySegment created = new Common.MemorySegment(randomBytes, offset, toTake);
-
-                    //Add it to the stream (and list) //Write?
-                    stream.AddMemory(created);
-
-                    //Move the offset
-                    offset += toTake;
-
-                    //Decrease for what remains
-                    remains -= toTake;
-                }
-
-                //Console.WriteLine(segments.Count);
-
-                //Ensure the amount of all memory added is equal to the length of the stream.
-                if (stream.Length != TestBytesLength) throw new System.Exception("Not equal Length");
-
-                //Seek to position 0.
-                stream.Position = 0;
-
-                //Enumerate each segment added
-                foreach (Media.Common.MemorySegment ms in segments)
-                {
-                    //Create an array which is equal to the amount of bytes in the segment
-                    byte[] expected = new byte[ms.Count];
-
-                    //Read that many bytes and ensure the amount read
-                    if (stream.Read(expected, 0, ms.Count) != ms.Count) throw new System.Exception("Read");
-
-                    //Ensure the bytes read are equal to the existing memory
-                    if (false == expected.SequenceEqual(ms)) throw new System.Exception("Not equal");
-
-                    //Ensure the bytes read correspond to the original bytes added
-                    if (false == randomBytes.Skip(ms.Offset).Take(ms.Count).SequenceEqual(expected)) throw new System.Exception("Not equal original");
-
-                    //Todo, fix bugs with Write
-                    //Write that same data in the stream at the exact same position (writes to randomBytes)
-                    //stream.WriteAt(ms.Offset, expected, 0, ms.Count);
-
-                    //Seek backward
-                    stream.Seek(-ms.Count, System.IO.SeekOrigin.Current);
-
-                    if (stream.Position != ms.Offset) throw new System.Exception("Position");
-
-                    //Read that many bytes and ensure the amount read
-                    if (stream.Read(expected, 0, ms.Count) != ms.Count) throw new System.Exception("Read");
-
-                    //Ensure the bytes read correspond to the original bytes added (use buffer because randomByte was modified with WriteAt
-                    if (false == buffer.Skip(ms.Offset).Take(ms.Count).SequenceEqual(expected)) throw new System.Exception("Not equal original");
-                }
-
-                //Ensure all bytes read in buffer are equal to the initial bytes and in the exact same order
-                if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
-
-                //Clear buffer
-                Array.Clear(buffer, 0, TestBytesLength);
-
-                //Seek to position 0.
-                stream.Position = 0;
-
-                offset = 0;
-
-                int streamRemains = (int)(stream.Length - stream.Position);
-
-                //Iterate segments (try to read past the end)
-                while (offset < stream.Length)
-                {
-                    //Issue random reads at the SegmentStream for a value inclusive of what remains in the stream.
-
-                    int toRead = Utility.Random.Next(1, streamRemains);
-
-                    if (toRead > streamRemains) toRead = streamRemains;
-
-                    int streamRead = stream.Read(buffer, offset, toRead);
-
-                    if (streamRead != toRead) throw new System.Exception("Read");
-
-                    offset += streamRead;
-
-                    streamRemains = (int)(stream.Length - stream.Position);
-                }
-
-                //Ensure all bytes read are equal to the initial bytes and in the exact same order
-                if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
-
-                //Reset Position to 0.
-                stream.Position = 0;
-
-                using (System.IO.MemoryStream memoryStream = new System.IO.MemoryStream())
-                {
-                    //Ensure Read returns 0 at end of stream
-                    stream.CopyTo(memoryStream);
-
-                    //Create the array from the memory stream
-                    byte[] actual = memoryStream.ToArray();
-
-                    //Ensure that the bytes read are exactly equal
-                    if (false == actual.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
-
-                    //Test ToArray
-                    actual = stream.ToArray();
-
-                    //Ensure that the bytes read are exactly equal
-                    if (false == actual.SequenceEqual(randomBytes)) throw new System.Exception("ToArray");
-
-                    //Test CopyTo
-                    if (TestBytesLength != stream.CopyTo(actual, 0) || false == actual.SequenceEqual(randomBytes)) throw new System.Exception("CopyTo");
-                }
-
-                //Reads at the end of the stream should return 0 bytes read.
-                if (stream.Read(randomBytes, 0, 1) != 0) throw new System.Exception("Read");
-
-                //Reads at the end of the stream should return -1 for the result of ReadByte
-                if (stream.ReadByte() != -1) throw new System.Exception("ReadByte");
-
-                //Ensure all bytes read are equal to the initial bytes and in the exact same order
-                if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
-
-                //Reset Position to 0.
-                stream.Position = 0;
-
-                //Iterate for all bytes that should be in the stream
-                for (int i = 0; i < TestBytesLength; ++i)
-                {
-                    //Check the result of Read
-                    if (1 != stream.Read(buffer, i, 1) || buffer[i] != randomBytes[i]) throw new System.Exception("Read");
-                }
-
-                if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
-
-                //Reset Position to 0.
-                stream.Position = 0;
-
-                //Iterate for all bytes that should be in the stream
-                for (int i = 0; i < TestBytesLength; ++i)
-                {
-                    //Check the result of ReadByte
-                    if (randomBytes[i] != stream.ReadByte()) throw new System.Exception("ReadByte");
-                }
-
-                //Reset Position to 0.
-                stream.Position = 0;
-
-                //Iterate for all bytes that should be in the stream
-                for (int i = 0; i < TestBytesLength; ++i)
-                {
-                    //Ensure the position
-                    if (stream.Position != i) throw new System.Exception("Position");
-
-                    //Check the byte at Position
-                    if (randomBytes[i] != stream.ReadByte()) throw new System.Exception("ReadByte");
-
-                    //Set the position back by 1 using Seek.Begin
-                    stream.Position = i;
-
-                    //Ensure the position
-                    if (stream.Position != i) throw new System.Exception("Position");
-
-                    //Read the byte again
-                    if (randomBytes[i] != stream.ReadByte()) throw new System.Exception("ReadByte");
-
-                    //Set the position back by 1 using Seek.Begin
-                    stream.Position = i;
-
-                    //Ensure the position
-                    if (stream.Position != i) throw new System.Exception("Position");
-
-                    //Check the result of Read
-                    if (1 != stream.Read(buffer, i, 1) || buffer[i] != randomBytes[i]) throw new System.Exception("Read");
-
-                    //Set the position back by 1 using Current
-                    if (i != stream.Seek(-1, System.IO.SeekOrigin.Current)) throw new System.Exception("Seek.Current");
-
-                    //Ensure the position
-                    if (stream.Position != i) throw new System.Exception("Position");
-
-                    //Read the byte again
-                    if (randomBytes[i] != stream.ReadByte()) throw new System.Exception("ReadByte");
-
-                    //Set the position back by 1 using Current
-                    if (i != stream.Seek(-1, System.IO.SeekOrigin.Current)) throw new System.Exception("Seek.Current");
-
-                    //Ensure the position
-                    if (stream.Position != i) throw new System.Exception("Position");
-
-                    //Check the result of Read
-                    if (1 != stream.Read(buffer, i, 1) || buffer[i] != randomBytes[i]) throw new System.Exception("Read");
-
-                    //Set the position back to i using End (Not working because of 0 based offsets in reverse)
-                    if (i != stream.Seek(-(stream.Length - i), System.IO.SeekOrigin.End)) throw new System.Exception("Seek.End");
-
-                    //Ensure the position
-                    if (stream.Position != i) throw new System.Exception("Position");
-
-                    //Read the byte again
-                    if (randomBytes[i] != stream.ReadByte()) throw new System.Exception("ReadByte");
-
-                    //Set the position back to i using End (Not working because of 0 based offsets in reverse)
-                    if (i != stream.Seek(-(stream.Length - i), System.IO.SeekOrigin.End)) throw new System.Exception("Seek.End");
-
-                    //Ensure the position
-                    if (stream.Position != i) throw new System.Exception("Position");
-
-                    //Check the result of Read
-                    if (1 != stream.Read(buffer, i, 1) || buffer[i] != randomBytes[i]) throw new System.Exception("Read");
-                }
-
-                //Ensure all bytes read are equal to the initial bytes and in the exact same order
-                if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
-
-                //Test Seeking to random points and reading the byte at that offset and after it, test also seeking backwards by one byte.
-                for (int i = 0; i < stream.Length; ++i)
-                {
-                    //Log previous
-                    //Console.WriteLine("Previously@: " + stream.Position);
-
-                    //Access a random point
-                    int point = (int)Utility.Random.Next(i, (int)(stream.Length - 1));
-
-                    //Test setting the position
-                    stream.Position = point;
-
-                    //Log Current
-                    //Console.WriteLine("Currently@: " + stream.Position);
-
-                    //Ensure the position is what is expected
-                    if (stream.Position != point) throw new System.Exception("Position");
-
-                    //Seek Begin with point < offset may be wrong.
-
-                    //Check for the byte expected
-                    if (randomBytes[point] != stream.ReadByte()) throw new System.Exception("ReadByte");
-
-                    //Test moving the position
-                    stream.Position++;
-
-                    //Ensure the position is what is expected
-                    if (stream.Position != Common.Binary.Min(TestBytesLength, point + 2)) throw new System.Exception("Position");
-
-                    if (point + 2 >= TestBytesLength)
+                    //make random length segments of all bytes which are contained.
+                    for (int remains = TestBytesLength; remains > 0; )
                     {
-                        //Check for the byte expected
-                        if (-1 != stream.ReadByte()) throw new System.Exception("ReadByte");
+                        //Take a random amount
+                        toTake = remains > 1 ? Media.Utility.Random.Next(1, remains) : 1;
 
-                        //Test seeking backwards from this position
-                        point = (int)(stream.Position -= 2);
+                        //Ensure that we do not take more than what remains
+                        if (toTake > remains) toTake = remains;
+
+                        //Create the segment
+                        Common.MemorySegment created = new Common.MemorySegment(randomBytes, offset, toTake);
+
+                        //Add it to the stream (and list) //Write?
+                        stream.AddMemory(created);
+
+                        //Move the offset
+                        offset += toTake;
+
+                        //Decrease for what remains
+                        remains -= toTake;
+                    }
+
+                    //Console.WriteLine(segments.Count);
+
+                    //Ensure the amount of all memory added is equal to the length of the stream.
+                    if (stream.Length != TestBytesLength) throw new System.Exception("Not equal Length");
+
+                    //Seek to position 0.
+                    stream.Position = 0;
+
+                    //Enumerate each segment added
+                    foreach (Media.Common.MemorySegment ms in segments)
+                    {
+                        //Create an array which is equal to the amount of bytes in the segment
+                        byte[] expected = new byte[ms.Count];
+
+                        //Read that many bytes and ensure the amount read
+                        if (stream.Read(expected, 0, ms.Count) != ms.Count) throw new System.Exception("Read");
+
+                        //Ensure the bytes read are equal to the existing memory
+                        if (false == expected.SequenceEqual(ms)) throw new System.Exception("Not equal");
+
+                        //Ensure the bytes read correspond to the original bytes added
+                        if (false == randomBytes.Skip(ms.Offset).Take(ms.Count).SequenceEqual(expected)) throw new System.Exception("Not equal original");
+
+                        //Todo, fix bugs with Write
+                        //Write that same data in the stream at the exact same position (writes to randomBytes)
+                        //stream.WriteAt(ms.Offset, expected, 0, ms.Count);
+
+                        //Seek backward
+                        stream.Seek(-ms.Count, System.IO.SeekOrigin.Current);
+
+                        if (stream.Position != ms.Offset) throw new System.Exception("Position");
+
+                        //Read that many bytes and ensure the amount read
+                        if (stream.Read(expected, 0, ms.Count) != ms.Count) throw new System.Exception("Read");
+
+                        //Ensure the bytes read correspond to the original bytes added (use buffer because randomByte was modified with WriteAt
+                        if (false == buffer.Skip(ms.Offset).Take(ms.Count).SequenceEqual(expected)) throw new System.Exception("Not equal original");
+                    }
+
+                    //Ensure all bytes read in buffer are equal to the initial bytes and in the exact same order
+                    if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
+
+                    //Clear buffer
+                    Array.Clear(buffer, 0, TestBytesLength);
+
+                    //Seek to position 0.
+                    stream.Position = 0;
+
+                    offset = 0;
+
+                    int streamRemains = (int)(stream.Length - stream.Position);
+
+                    //Iterate segments (try to read past the end)
+                    while (offset < stream.Length)
+                    {
+                        //Issue random reads at the SegmentStream for a value inclusive of what remains in the stream.
+
+                        int toRead = Utility.Random.Next(1, streamRemains);
+
+                        if (toRead > streamRemains) toRead = streamRemains;
+
+                        int streamRead = stream.Read(buffer, offset, toRead);
+
+                        if (streamRead != toRead) throw new System.Exception("Read");
+
+                        offset += streamRead;
+
+                        streamRemains = (int)(stream.Length - stream.Position);
+                    }
+
+                    //Ensure all bytes read are equal to the initial bytes and in the exact same order
+                    if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
+
+                    //Reset Position to 0.
+                    stream.Position = 0;
+
+                    //Test against memory stream (Fix the capacity to help with GC)
+                    using (System.IO.MemoryStream memoryStream = new System.IO.MemoryStream(TestBytesLength))
+                    {
+                        //Ensure Read returns 0 at end of stream
+                        stream.CopyTo(memoryStream);
+
+                        //Create the array from the memory stream
+                        byte[] actual = memoryStream.ToArray();
+
+                        //Ensure that the bytes read are exactly equal
+                        if (false == actual.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
+
+                        //Test ToArray
+                        actual = stream.ToArray();
+
+                        //Ensure that the bytes read are exactly equal
+                        if (false == actual.SequenceEqual(randomBytes)) throw new System.Exception("ToArray");
+
+                        //Test CopyTo
+                        if (TestBytesLength != stream.CopyTo(actual, 0) || false == actual.SequenceEqual(randomBytes)) throw new System.Exception("CopyTo");
+                    }
+
+                    //Reads at the end of the stream should return 0 bytes read.
+                    if (stream.Read(randomBytes, 0, 1) != 0) throw new System.Exception("Read");
+
+                    //Reads at the end of the stream should return -1 for the result of ReadByte
+                    if (stream.ReadByte() != -1) throw new System.Exception("ReadByte");
+
+                    //Ensure all bytes read are equal to the initial bytes and in the exact same order
+                    if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
+
+                    //Reset Position to 0.
+                    stream.Position = 0;
+
+                    //Iterate for all bytes that should be in the stream
+                    for (int i = 0; i < TestBytesLength; ++i)
+                    {
+                        //Check the result of Read
+                        if (1 != stream.Read(buffer, i, 1) || buffer[i] != randomBytes[i]) throw new System.Exception("Read");
+                    }
+
+                    if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
+
+                    //Reset Position to 0.
+                    stream.Position = 0;
+
+                    //Iterate for all bytes that should be in the stream
+                    for (int i = 0; i < TestBytesLength; ++i)
+                    {
+                        //Check the result of ReadByte
+                        if (randomBytes[i] != stream.ReadByte()) throw new System.Exception("ReadByte");
+                    }
+
+                    //Reset Position to 0.
+                    stream.Position = 0;
+
+                    //Iterate for all bytes that should be in the stream
+                    for (int i = 0; i < TestBytesLength; ++i)
+                    {
+                        //Ensure the position
+                        if (stream.Position != i) throw new System.Exception("Position");
+
+                        //Check the byte at Position
+                        if (randomBytes[i] != stream.ReadByte()) throw new System.Exception("ReadByte");
+
+                        //Set the position back by 1 using Seek.Begin
+                        stream.Position = i;
+
+                        //Ensure the position
+                        if (stream.Position != i) throw new System.Exception("Position");
+
+                        //Read the byte again
+                        if (randomBytes[i] != stream.ReadByte()) throw new System.Exception("ReadByte");
+
+                        //Set the position back by 1 using Seek.Begin
+                        stream.Position = i;
+
+                        //Ensure the position
+                        if (stream.Position != i) throw new System.Exception("Position");
+
+                        //Check the result of Read
+                        if (1 != stream.Read(buffer, i, 1) || buffer[i] != randomBytes[i]) throw new System.Exception("Read");
+
+                        //Set the position back by 1 using Current
+                        if (i != stream.Seek(-1, System.IO.SeekOrigin.Current)) throw new System.Exception("Seek.Current");
+
+                        //Ensure the position
+                        if (stream.Position != i) throw new System.Exception("Position");
+
+                        //Read the byte again
+                        if (randomBytes[i] != stream.ReadByte()) throw new System.Exception("ReadByte");
+
+                        //Set the position back by 1 using Current
+                        if (i != stream.Seek(-1, System.IO.SeekOrigin.Current)) throw new System.Exception("Seek.Current");
+
+                        //Ensure the position
+                        if (stream.Position != i) throw new System.Exception("Position");
+
+                        //Check the result of Read
+                        if (1 != stream.Read(buffer, i, 1) || buffer[i] != randomBytes[i]) throw new System.Exception("Read");
+
+                        //Set the position back to i using End (Not working because of 0 based offsets in reverse)
+                        if (i != stream.Seek(-(stream.Length - i), System.IO.SeekOrigin.End)) throw new System.Exception("Seek.End");
+
+                        //Ensure the position
+                        if (stream.Position != i) throw new System.Exception("Position");
+
+                        //Read the byte again
+                        if (randomBytes[i] != stream.ReadByte()) throw new System.Exception("ReadByte");
+
+                        //Set the position back to i using End (Not working because of 0 based offsets in reverse)
+                        if (i != stream.Seek(-(stream.Length - i), System.IO.SeekOrigin.End)) throw new System.Exception("Seek.End");
+
+                        //Ensure the position
+                        if (stream.Position != i) throw new System.Exception("Position");
+
+                        //Check the result of Read
+                        if (1 != stream.Read(buffer, i, 1) || buffer[i] != randomBytes[i]) throw new System.Exception("Read");
+                    }
+
+                    //Ensure all bytes read are equal to the initial bytes and in the exact same order
+                    if (false == buffer.SequenceEqual(randomBytes)) throw new System.Exception("Not equal");
+
+                    //Test Seeking to random points and reading the byte at that offset and after it, test also seeking backwards by one byte.
+                    for (int i = 0; i < stream.Length; ++i)
+                    {
+                        //Log previous
+                        //Console.WriteLine("Previously@: " + stream.Position);
+
+                        //Access a random point
+                        int point = (int)Utility.Random.Next(i, (int)(stream.Length - 1));
+
+                        //Test setting the position
+                        stream.Position = point;
+
+                        //Log Current
+                        //Console.WriteLine("Currently@: " + stream.Position);
+
+                        //Ensure the position is what is expected
+                        if (stream.Position != point) throw new System.Exception("Position");
+
+                        //Seek Begin with point < offset may be wrong.
 
                         //Check for the byte expected
                         if (randomBytes[point] != stream.ReadByte()) throw new System.Exception("ReadByte");
 
-                        //Check for the byte expected
-                        if (randomBytes[point + 1] != stream.ReadByte()) throw new System.Exception("ReadByte");
-                    }
-                    else
-                    {
-                        //Check for the byte expected
-                        if (randomBytes[point + 2] != stream.ReadByte()) throw new System.Exception("ReadByte");
-
-                        //Test seeking backwards from this position
-                        stream.Position -= 2;
+                        //Test moving the position
+                        stream.Position++;
 
                         //Ensure the position is what is expected
-                        if (stream.Position != point + 1) throw new System.Exception("Position");
+                        if (stream.Position != Common.Binary.Min(TestBytesLength, point + 2)) throw new System.Exception("Position");
 
-                        //Check for the byte expected
-                        if (randomBytes[point + 1] != stream.ReadByte()) throw new System.Exception("ReadByte");
+                        if (point + 2 >= TestBytesLength)
+                        {
+                            //Check for the byte expected
+                            if (-1 != stream.ReadByte()) throw new System.Exception("ReadByte");
+
+                            //Test seeking backwards from this position using begin.
+                            point = (int)(stream.Position -= 2);
+
+                            //Check for the byte expected
+                            if (randomBytes[point] != stream.ReadByte()) throw new System.Exception("ReadByte");
+
+                            //Check for the byte expected
+                            if (randomBytes[point + 1] != stream.ReadByte()) throw new System.Exception("ReadByte");
+
+                            //Test seeking backwards from this position using begin.
+                            point = (int)stream.Seek(-2, System.IO.SeekOrigin.Current);
+
+                            //Check for the byte expected
+                            if (randomBytes[point] != stream.ReadByte()) throw new System.Exception("ReadByte");
+
+                            //Check for the byte expected
+                            if (randomBytes[point + 1] != stream.ReadByte()) throw new System.Exception("ReadByte");
+                        }
+                        else
+                        {
+                            //Check for the byte expected
+                            if (randomBytes[point + 2] != stream.ReadByte()) throw new System.Exception("ReadByte");
+
+                            //Test seeking backwards from this position
+                            stream.Position -= 2;
+
+                            //Ensure the position is what is expected
+                            if (stream.Position != point + 1) throw new System.Exception("Position");
+
+                            //Check for the byte expected
+                            if (randomBytes[point + 1] != stream.ReadByte()) throw new System.Exception("ReadByte");
+
+                            //Test seeking backwards from this position
+                            if (point + 1 != (int)stream.Seek(-1, System.IO.SeekOrigin.Current)) throw new System.Exception("Seek.Current");
+
+                            //Check for the byte expected
+                            if (randomBytes[point + 1] != stream.ReadByte()) throw new System.Exception("ReadByte");
+                        }
                     }
+
+                    //Todo, test writing into segments at boundaries.
+                    //Todo, test SetLength
+                    
+                    //Close the stream
+                    stream.Close();
+
+                    //Ensure Disposed after Close for now...
+                    if (false == stream.IsDisposed) throw new System.Exception("IsDisposed");
+
+                    //Dispose is also called
                 }
-
-
-                //Todo, test writing into segments at boundaries.
-
-                stream.Close();
-
-                stream.Dispose();
 
                 //Console.WriteLine(segments.Count);
             }
@@ -1265,7 +1329,7 @@ namespace Media.UnitTests
 
         //TestAppend
 
-
+        //Test whatever else.
 
     }
 }

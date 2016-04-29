@@ -15,6 +15,10 @@ using System.Threading.Tasks;
 
 namespace Media.Codecs.Audio
 {
+
+    //See also https://gist.github.com/benkitzelman/5458854
+    //has a fairly complete API for merging and playing.
+
     /// <summary>
     /// Class WAVEFORMATEX
     /// Implementation of a standard WAVEFORMATEX structure

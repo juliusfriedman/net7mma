@@ -143,6 +143,8 @@ namespace Media.Common
 
         public const int One = Binary.Ūnus;
 
+        public const int Two = Binary.Duo;
+
         public const int Three = Binary.Tres;
 
         public const int ThirtyOne = Binary.TrīgintāŪnus;
@@ -981,7 +983,7 @@ namespace Media.Common
         /// <summary>
         /// Determine BitOrder, ByteOrder and Build Bit Tables
         /// </summary>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static Binary()
         {
             //ensure not already called.
@@ -993,7 +995,7 @@ namespace Media.Common
             //Todo, Determine MaxBits (BitSize)
             //Todo, Determine x64 or x86 paths.
 
-            bool x64 = Environment.Is64BitProcess;
+            bool x64 = Machine.IsX64();
 
             unchecked
             {
@@ -1014,62 +1016,64 @@ namespace Media.Common
                     //Take a copy of the byte at the offset in memory
                     byte atOffset = memoryOf[offset];
 
-                    //If the value is non 0
-                    if (atOffset != Binary.Nihil)
+                    //If the value is 0 continue
+                    if (atOffset == Binary.Nihil) continue;
+
+                    //Determine the BitOrder using the value
+                    
+                    switch (m_SystemBitOrder = ((BitOrder)atOffset))
                     {
+                        case BitOrder.LeastSignificant:
+                            {
 
-                        //Determine the BitOrder using the value
-                        //GetBit 0?
-                        switch (m_SystemBitOrder = ((BitOrder)atOffset))
-                        {
-                            case BitOrder.LeastSignificant:
-                                {
+                                m_MostSignificantBit = Binary.Nihil;
 
-                                    m_MostSignificantBit = Binary.Nihil;
+                                m_LeastSignificantBit = Binary.Septem;
 
-                                    m_LeastSignificantBit = Binary.Septem;
-
-                                    break;
-                                }
-                            case BitOrder.MostSignificant:
-                                {
-                                    m_MostSignificantBit = Binary.Septem;
-
-                                    m_LeastSignificantBit = Binary.Nihil;
-
-                                    break;
-                                }
-                            default:
-                                {
-                                    throw new NotSupportedException("Create an Issue for your Architecture to be supported.");
-                                }
-                        }
-
-                        //Determine the ByteOrder using the offset where the value was found
-                        switch (offset)
-                        {
-                            case Binary.Nihil:
-                                m_SystemByteOrder = ByteOrder.Little;
                                 break;
-                            case Binary.Ūnus:
-                                m_SystemByteOrder = ByteOrder.MiddleLittle;
-                                break;
-                            case Binary.Duo:
-                                m_SystemByteOrder = ByteOrder.MiddleBig;
-                                break;
-                            case Binary.Tres:
-                                m_SystemByteOrder = ByteOrder.Big;
-                                break;
-                        }
+                            }
+                        case BitOrder.MostSignificant:
+                            {
+                                m_MostSignificantBit = Binary.Septem;
 
-                        //Done once a non 0 value was found
-                        break;
+                                m_LeastSignificantBit = Binary.Nihil;
+
+                                break;
+                            }
+                        default:
+                            {
+                                throw new NotSupportedException("Create an Issue for your Architecture to be supported.");
+                            }
                     }
+
+                    //Determine the ByteOrder using the offset where the value was found
+
+                    switch (offset)
+                    {
+                        case Binary.Nihil:
+                            m_SystemByteOrder = ByteOrder.Little;
+                            break;
+                        case Binary.Ūnus:
+                            m_SystemByteOrder = ByteOrder.MiddleLittle;
+                            break;
+                        case Binary.Duo:
+                            m_SystemByteOrder = ByteOrder.MiddleBig;
+                            break;
+                        case Binary.Tres:
+                            m_SystemByteOrder = ByteOrder.Big;
+                            break;
+                    }
+
+
+                    //Could also determine if the Binary Representation is One or Twos Complement..
+                    goto Verify;
                 }
 
-                if ((int)m_SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
+            Verify:
 
                 if (GetBit((byte)m_SystemBitOrder, m_MostSignificantBit)) throw new InvalidOperationException("Did not correctly detect BitOrder");
+
+                if ((int)m_SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
 
                 memoryOf = null;
 
@@ -1097,7 +1101,7 @@ namespace Media.Common
                 //Todo, optimize...
 
                 //Some bytes cannot be reversed and should skipped. (mod 3, mod 2)
-                //There are at least 16 values out of 255 which are palindromes. (All are products of 3)
+                //There are at least 16 values out of 256 which are palindromes. (All are products of 3) 
                 //http://stackoverflow.com/questions/845772/how-to-check-if-the-binary-representation-of-an-integer-is-a-palindrome
 
                 /*
@@ -1123,7 +1127,7 @@ namespace Media.Common
                 //This implies that it should only take 83 total operations to populate the reverse table. (85 including 0 and 255)
                 //All other values should be shifts from those values
                 //Since there are 8 bits in a byte, 8 * 8 possible permuatations would be 64, half of those values are reversed of the prior so there are 32 unique permutations.
-                //....
+                //16 * 8 = 128.... so probably this can be done in 16 total operations...
 
                 #endregion
 
@@ -1253,13 +1257,13 @@ namespace Media.Common
         {
             switch (value)
             {
-                case 0: return BitsPerInteger;                
+                case 0: return BitsPerInteger;                                
                 case uint.MaxValue:
                 case int.MaxValue: return 0;
                 default:
                     {
                         //Use the 64 bit method if possible. (Machine may also be helpful)
-                        if (Environment.Is64BitProcess)
+                        if (Machine.IsX64())
                         {
                             return (int)Mod37BitPosition[(-value & value) % 37];
                         }
@@ -1322,6 +1326,8 @@ namespace Media.Common
 
             if (a == 0) return b;
             if (b == 0) return a;
+
+            //Todo, check that CountTrailingZeros work with ulong types.
 
             int shift = Common.Binary.CountTrailingZeros((uint)(a | b));
             a >>= Common.Binary.CountTrailingZeros((uint)a);
@@ -2528,12 +2534,14 @@ namespace Media.Common
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void WriteU8(byte[] buffer, int index, bool reverse, byte value)
         {
             buffer[index] = reverse ? ReverseU8(value) : value;
         }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Write8(byte[] buffer, int index, bool reverse, sbyte value)
         {
             buffer[index] = reverse ? ReverseU8((byte)value) : (byte)value;
@@ -2655,10 +2663,8 @@ namespace Media.Common
         /// <param name="source">The unsigned 8 bit value which is requried to be reversed</param>
         /// <returns>The reversed unsigned 8 bit value</returns>
         [CLSCompliant(false)]
-        public static byte ReverseU8(ref byte source)
-        {            
-            return BitsReverseTable[source];
-        }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static byte ReverseU8(ref byte source) { return BitsReverseTable[source]; }
 
         public static byte ReverseU8(byte source) { return ReverseU8(ref source); }
 
@@ -2667,12 +2673,14 @@ namespace Media.Common
         /// </summary>
         /// <notes><see href="http://graphics.stanford.edu/~seander/bithacks.html">Bit Twiddling Hacks</see></notes>
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte MultiplyReverseU8_64(ref byte source)
         {
             return (byte)(((source * 0x80200802UL) & 0x0884422110UL) * 0x0101010101UL >> QuadrupleBitSize);
         }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte MultiplyReverseU8_32(ref byte source)
         {
             return (byte)(((source * 0x0802LU & 0x22110LU) | (source * 0x8020LU & 0x88440LU)) * 0x10101LU >> DoubleBitSize);
@@ -2689,6 +2697,7 @@ namespace Media.Common
         public static ushort ReverseUnsignedShort(ushort source) { return ReverseUnsignedShort(ref source); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static ushort ReverseUnsignedShort(ref ushort source)
         {
             return (ushort)(((source & 0xFFU) << 8) | ((source >> 8) & 0xFFU));
@@ -2698,6 +2707,7 @@ namespace Media.Common
         public static uint ReverseUnsignedInt(uint source) { return ReverseUnsignedInt(ref source); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static uint ReverseUnsignedInt(ref uint source)
         {
             return (uint)((((source & 0x000000FFU) << 24) | ((source & 0x0000FF00U) << 8) | ((source & 0x00FF0000U) >> 8) | ((source & 0xFF000000U) >> 24)));
@@ -2708,6 +2718,7 @@ namespace Media.Common
         public static ulong ReverseUnsignedLong(ulong source) { return ReverseUnsignedLong(ref source); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static ulong ReverseUnsignedLong(ref ulong source)
         {
             return (source & 0x00000000000000FFUL) << 56 | (source & 0x000000000000FF00UL) << 40 | (source & 0x0000000000FF0000UL) << 24 | (source & 0x00000000FF000000UL) << 8 |

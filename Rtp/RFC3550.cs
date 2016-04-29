@@ -1223,15 +1223,9 @@ namespace Media
             {
                 if (IsDisposed) return 0;
 
-                int copied = 0;
-
                 Common.MemorySegmentExtensions.CopyTo(m_Memory, dest, offset);
 
-                copied += m_Memory.Count;
-
-                offset += m_Memory.Count;
-
-                return copied;
+                return m_Memory.Count;
             }
 
             #endregion

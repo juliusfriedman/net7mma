@@ -490,8 +490,6 @@ namespace Media.Rtcp
             offset += Header.CopyTo(destination, offset);
 
             Common.MemorySegmentExtensions.CopyTo(Payload, destination, offset);
-
-            offset += Payload.Count;
         }
 
         /// <summary>
@@ -532,6 +530,9 @@ namespace Media.Rtcp
         {
             if (IsReadOnly) throw new InvalidOperationException("Can only set the AddBytesToPayload when IsReadOnly is false.");
 
+            //Should also handle inSetLengthInWordsMinusOne
+            //if (Common.Binary.BytesToMachineWords(Length + count) > ushort.MaxValue) throw new InvalidOperationException("RtcpPacket's cannot have more than 65535 bytes.");
+
             //Build a seqeuence from the existing octets and the data in the ReportBlock
 
             //If there are existing owned octets (which may include padding)
@@ -551,10 +552,11 @@ namespace Media.Rtcp
             else if (m_OwnedOctets == null) m_OwnedOctets = octets.Skip(offset).Take(count - offset).ToArray();
             else m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(count - offset)).ToArray();
 
-            //Create a pointer to the owned octets.
-            Payload = new Common.MemorySegment(m_OwnedOctets);
-
-            //Old Payload GC
+            using (Common.MemorySegment previousPayload = Payload)
+            {
+                //Create a pointer to the owned octets.
+                Payload = new Common.MemorySegment(m_OwnedOctets);
+            }
 
             //Set the length in words minus one in the header
             if(setLength) SetLengthInWordsMinusOne();

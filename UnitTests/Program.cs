@@ -61,6 +61,7 @@ namespace Media.UnitTests
             TestStopWatch,
             TestClock,
             TestTimer,
+            TestMachine,
             //Cryptography
             TestCryptography,
             //Common
@@ -2829,6 +2830,11 @@ a=appversion:1.0");
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.EncodingExtensionsTests), TypeOfVoid);
         }
 
+        static void TestMachine()
+        {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MachineUnitTests), TypeOfVoid);
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -3398,12 +3404,15 @@ a=appversion:1.0");
                 if (toSend == max) using (client.SendRtspMessage(message)) parsed.Dispose();
                 else
                 {
+                    //Take the message bytes into the buffer.
+                    buffer = message.ToBytes();
+
                     int sent = 0;
                     //Send only some of the data
-                    do sent = client.RtspSocket.Send(buffer, 0, toSend, System.Net.Sockets.SocketFlags.None);
+                    do sent = client.RtspSocket.Send(buffer, 0, Common.Binary.Min(ref toSend, ref max), System.Net.Sockets.SocketFlags.None);
                     while (sent == 0);
 
-                    string output = message.ContentEncoding.GetString(message.ToBytes(), 0, sent);
+                    string output = message.ContentEncoding.GetString(buffer, 0, sent);
 
                     Console.WriteLine(client.InternalId + " - Sent Partial(" + sent + "/" + message.Length + "): " + output);
 
@@ -3412,6 +3421,8 @@ a=appversion:1.0");
                     parsed = Media.Rtsp.RtspMessage.FromString(output);
 
                     Console.WriteLine(client.InternalId + " - Parsed: " + parsed);
+
+                    buffer = null;
 
                     //Send the real request with the same data
                     using (client.SendRtspMessage(message)) parsed.Dispose();

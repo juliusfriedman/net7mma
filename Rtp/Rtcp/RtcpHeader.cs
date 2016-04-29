@@ -402,17 +402,13 @@ namespace Media.Rtcp
         {
             if (IsDisposed) return 0;
 
-            int copied = 0;
-
-            copied += First16Bits.CopyTo(dest, offset);
+            int copied = First16Bits.CopyTo(dest, offset);
 
             offset += copied;
 
             Common.MemorySegmentExtensions.CopyTo(PointerToLast6Bytes, dest, offset);
 
             copied += PointerToLast6Bytes.Count;
-
-            offset += PointerToLast6Bytes.Count;
 
             return copied;
         }

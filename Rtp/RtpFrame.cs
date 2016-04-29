@@ -294,11 +294,6 @@ namespace Media.Rtp
         #region Properties
 
         /// <summary>
-        /// Gets a value indicating if the <see cref="PayloadType"/> was specified.
-        /// </summary>
-        public bool SpecifiedPayloadType { get { return m_PayloadType >= 0; } }
-
-        /// <summary>
         /// Gets the expected PayloadType of all contained packets or -1 if has not <see cref="SpecifiedPayloadType"/>
         /// </summary>
         public int PayloadType
@@ -339,17 +334,7 @@ namespace Media.Rtp
 
         //Could also indicate if any have extensions... possibly provide methods for doing things with them
 
-        //SourceList which should be added to each packet int the frame?
-
-        /// <summary>
-        /// Indicates if there are any packets have been <see cref="Depacketize">depacketized</see>
-        /// </summary>
-        public bool HasDepacketized { get { return Depacketized.Count > 0; } }
-
-        /// <summary>
-        /// Indicates if the <see cref="Buffer"/> is not null and CanRead.
-        /// </summary>
-        public bool HasBuffer { get { return false == (m_Buffer == null) && m_Buffer.CanRead; } }
+        //SourceList which should be added to each packet int the frame?      
 
         //Public means this can be disposed. virtual is not necessary
         //This would have to be a System.IO.Stream
@@ -377,21 +362,17 @@ namespace Media.Rtp
             //}
         }
 
-
         /// <summary>
         /// Gets or sets the SynchronizationSourceIdentifier of All Packets Contained or -1 if not assigned.
         /// </summary>
         public int SynchronizationSourceIdentifier
         {
             get { return m_Ssrc; }
-            set
+            internal protected set
             {
                 m_Ssrc = value;
 
-                foreach (RtpPacket p in Packets)
-                {
-                    p.SynchronizationSourceIdentifier = m_Ssrc;
-                }
+                foreach (RtpPacket p in Packets) p.SynchronizationSourceIdentifier = m_Ssrc;
             }
         }
 
@@ -401,7 +382,7 @@ namespace Media.Rtp
         public int Timestamp
         {
             get { return m_Timestamp; }
-            set { m_Timestamp = value; }
+            internal protected set { m_Timestamp = value; }
         }
 
         /// <summary>
@@ -412,11 +393,28 @@ namespace Media.Rtp
         internal protected RtpPacket this[int index]
         {
             get { return Packets[index]; }
+            #region Unused set
             /*private*/
             //set { Packets[index] = value; }
+            #endregion
         }
 
         #region Readonly Properties
+
+        /// <summary>
+        /// Gets a value indicating if the <see cref="PayloadType"/> was specified.
+        /// </summary>
+        public bool SpecifiedPayloadType { get { return m_PayloadType >= 0; } }
+
+        /// <summary>
+        /// Indicates if there are any packets have been <see cref="Depacketize">depacketized</see>
+        /// </summary>
+        public bool HasDepacketized { get { return Depacketized.Count > 0; } }
+
+        /// <summary>
+        /// Indicates if the <see cref="Buffer"/> is not null and CanRead.
+        /// </summary>
+        public bool HasBuffer { get { return false == (m_Buffer == null) && m_Buffer.CanRead; } }
 
         /// <summary>
         /// Indicates if all contained RtpPacket instances have a Transferred Value otherwise false.
@@ -782,6 +780,9 @@ namespace Media.Rtp
         /// <returns>True if the packet is contained, otherwise false.</returns>
         public bool Contains(int sequenceNumber) { return IndexOf(ref sequenceNumber) >= 0; }
 
+        //[CLSCompliant(false)]
+        internal bool Contains(ref int sequenceNumber) { return IndexOf(ref sequenceNumber) >= 0; }
+
         [CLSCompliant(false)]
         internal protected int IndexOf(int sequenceNumber) { return IndexOf(ref sequenceNumber); }
 
@@ -870,7 +871,10 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="sequenceNumber">The sequence number of the RtpPacket to remove</param>
         /// <returns>A RtpPacket with the sequence number if removed, otherwise null</returns>
-        public RtpPacket Remove(int sequenceNumber) //ref
+        public RtpPacket Remove(int sequenceNumber) { return Remove(ref sequenceNumber); }
+        
+        [CLSCompliant(false)]
+        public RtpPacket Remove(ref int sequenceNumber) //ref
         {
             int count = Count;
 
@@ -1011,7 +1015,7 @@ namespace Media.Rtp
 
 
                 //Remove the packet at index 0 as well as free depacketized memory related to it.
-                Remove(m_LowestSequenceNumber);
+                Remove(ref m_LowestSequenceNumber);
             }
 
             ////Different than most collections
@@ -1199,11 +1203,11 @@ namespace Media.Rtp
                 //if null, disposed or empty skip
                 if (Common.IDisposedExtensions.IsNullOrDisposed(value) || value.Count == 0) continue;
 
-                //Accumulate the total.
-                total += value.Count;
-
                 //Write it to the Buffer
                 System.Array.Copy(value.Array, value.Offset, buffer, offset, value.Count);
+
+                //Accumulate the total.
+                total += value.Count;
 
                 //Move the offset
                 offset += value.Count;

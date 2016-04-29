@@ -36,10 +36,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-namespace Media.Concepts.Classes
+namespace Media.Common
 {
     /// <summary>
-    /// Provides functionality which can be though of based on machine concepts
+    /// Provides functionality which can be though of based on machine concepts of the current architecture.
     /// </summary>
     /// <note><see href="http://blogs.msdn.com/b/vcblog/archive/2012/10/26/10362875.aspx">Hello ARM</see></note>
     /// <note><see href="https://msdn.microsoft.com/en-us/magazine/jj553518.aspx">.NET Development for ARM Processors</see></note>
@@ -75,7 +75,7 @@ namespace Media.Concepts.Classes
         /// <summary>
         /// Provides an implementation of sign extended shifting
         /// </summary>
-        public class MachineShift : Shift
+        public class SignExtendedShift : Shift
         {
             public override int Left(int value, int amount)
             {
@@ -100,6 +100,7 @@ namespace Media.Concepts.Classes
                 bits = System.Math.DivRem(bitcount, 8, out rem);
 
                 byte[] temp = new byte[length];
+
                 if (bitcount >= 8)
                 {
                     System.Array.Copy(value, bits, temp, 0, length - bits);
@@ -269,6 +270,7 @@ namespace Media.Concepts.Classes
 
         internal static int m_BitPatternSize = 0;
 
+        //If the static doesn't inline then would have to be a Method
         /// <summary>
         /// The maximum amount of shifting which can occur before the bit pattern space repeats
         /// </summary>
@@ -276,19 +278,41 @@ namespace Media.Concepts.Classes
 
         #endregion
 
-        public static bool FiniteBitPattern() { return BitPatternSize > 0; }
+        #region Methods
 
+        /// <summary>
+        /// Indicates if the Machine has a finite bit pattern.
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool HasFiniteBitPattern() { return BitPatternSize > 0; }
+
+        /// <summary>
+        /// Indicates if the Machine can execute ARM instructions
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsArm()
         {
             //Directly uses the CPU Bit Pattern Space if compilation supports
             return 0 == 1 << Media.Common.Binary.BitsPerInteger;
         }
 
+        /// <summary>
+        /// Indicates if the Machine can execute x86 instructions
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]        
         public static bool IsX86()
         {
             return 1 == (((uint)1) << Media.Common.Binary.BitsPerInteger);
         }
 
+        /// <summary>
+        /// Indicates if the Machine can execute x64 instructions
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsX64()
         {
             return 4294967296 == (((ulong)1) << 96); //Should always be 96
@@ -296,6 +320,9 @@ namespace Media.Concepts.Classes
 
         //Detection? (Model, Speed, Stepping, Instruction Support ...)
 
+        #endregion
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static Machine()
         {
             //No overflow anyway
@@ -356,6 +383,9 @@ namespace Media.Concepts.Classes
                 #endregion               
             }
         }
+
+        //See also
+        //http://apichange.codeplex.com/SourceControl/changeset/view/76c98b8c7311#ApiChange.Api/src/Introspection/CorFlagsReader.cs
     }
 }
 
@@ -365,43 +395,43 @@ namespace Media.UnitTests
     {
         public void ShowBitPatternSize()
         {
-            System.Console.WriteLine("BitPatternSize:" + Media.Concepts.Classes.Machine.BitPatternSize);
+            System.Console.WriteLine("BitPatternSize:" + Media.Common.Machine.BitPatternSize);
         }
 
         public void ShowCodeCompilation()
         {
-            System.Console.WriteLine("CodeType:" + Media.Concepts.Classes.Machine.CodeType);
-            
-            System.Console.WriteLine("MachineType:" + Media.Concepts.Classes.Machine.MachineType);
+            System.Console.WriteLine("CodeType:" + Media.Common.Machine.CodeType);
+
+            System.Console.WriteLine("MachineType:" + Media.Common.Machine.MachineType);
         }
 
         public void ShowCpuType()
         {
-            System.Console.WriteLine("IsX86:" + Media.Concepts.Classes.Machine.IsX86());
+            System.Console.WriteLine("IsX86:" + Media.Common.Machine.IsX86());
 
-            System.Console.WriteLine("IsX64:" + Media.Concepts.Classes.Machine.IsX64());
+            System.Console.WriteLine("IsX64:" + Media.Common.Machine.IsX64());
 
-            System.Console.WriteLine("IsArm:" + Media.Concepts.Classes.Machine.IsArm());
+            System.Console.WriteLine("IsArm:" + Media.Common.Machine.IsArm());
         }
     
-        public void TestMachineShift()
-        {
-            //throw new System.NotImplementedException();
-        }
+        //public void TestSignExtendedShift()
+        //{
+        //    //throw new System.NotImplementedException();
+        //}
 
-        public void TestLogicalShift()
-        {
-            //throw new System.NotImplementedException();
-        }
+        //public void TestLogicalShift()
+        //{
+        //    //throw new System.NotImplementedException();
+        //}
 
-        public void TestCircularShift()
-        {
-            //throw new System.NotImplementedException();
-        }
+        //public void TestCircularShift()
+        //{
+        //    //throw new System.NotImplementedException();
+        //}
 
-        public void TestReverseShift()
-        {
-            //throw new System.NotImplementedException();
-        }
+        //public void TestReverseShift()
+        //{
+        //    //throw new System.NotImplementedException();
+        //}
     }
 }
