@@ -329,6 +329,10 @@ namespace Media.Common
             //Use a temp stream to allow for threading...
             using (var tempStream = new SegmentStream(Segments))
             {
+                //This stream should not dispose, the GC will manage it.
+                //If it disposes then the current stream will be cleared...
+                tempStream.ShouldDispose = false;
+
                 //Seek to the given position
                 tempStream.Seek(streamOffset, System.IO.SeekOrigin.Begin);
 
@@ -589,19 +593,24 @@ namespace Media.Common
                 //How much can be copied to the current segment with respect to count.
                 len = Common.Binary.Min(WorkingSegment.m_Length - m_Cursor, count);
 
-                //Copy it
-                Array.Copy(buffer, offset, WorkingSegment.Array, m_Cursor, len);
-
+                //Copy len from the buffer at the offset to the working segment's array at the offset + the cursor
+                Array.Copy(buffer, offset, WorkingSegment.Array, WorkingSegment.Offset + m_Cursor, len);
+                
+                //Move the cursor
                 m_Cursor += len;
 
                 //Move the position
                 m_Position += len;
 
-                //Adjust count for len copied.
-                count -= (int)len;
+                //Move the offset
+                offset += (int)len;
 
-                //If not at the end
-                if (m_Cursor == WorkingSegment.m_Length && m_Position < m_Count)
+                //Adjust count for len copied.
+                //If there is nothing left to do return.
+                if(0 == (count -= (int)len)) return;
+
+                //If at the end of the current segment and not at the end of the stream
+                if (m_Cursor >= WorkingSegment.m_Length && m_Position < m_Count)
                 {
                     //Advance the segment
                     WorkingSegment = Segments[++m_Index];
@@ -614,9 +623,6 @@ namespace Media.Common
                 }
 
                 //m_Position is >= m_Count
-
-                //if there is nothing left to do return.
-                if (count == 0) return;
 
                 //Add a copy of the memory which remains and set the WorkingSegment (could give via out)
                 WritePersisted(buffer, offset, count);
@@ -701,6 +707,8 @@ namespace Media.Common
 
                             //Combined for performance, if the data is not wihin the segment we search from the beginning anyway.
 
+                            //This could be optomized by searching backward but current should handle that, this implies the locations will always be somewhere in the segment or at the beginning of the stream.
+
                             //If the offset is within the current segment then there is no change of index
                             if ((m_Cursor -= m_Position - offset) >= 0)
                             {
@@ -779,8 +787,7 @@ namespace Media.Common
                         //If the offset is referring to a index <= 0 goto the 0th position
                         if (-offset >= m_Count)
                         {
-                            offset = 0;
-
+                            //<= 0 offset mean 0 to begin.
                             goto case System.IO.SeekOrigin.Begin;
 
                             //////If the offset desired is within the working segment no index change is required.
@@ -1061,9 +1068,15 @@ namespace Media.UnitTests
                         //Ensure the bytes read correspond to the original bytes added
                         if (false == randomBytes.Skip(ms.Offset).Take(ms.Count).SequenceEqual(expected)) throw new System.Exception("Not equal original");
 
+                        //Read that many bytes and ensure the amount read
+                        if (stream.ReadAt(ms.Offset, expected, 0, ms.Count) != ms.Count) throw new System.Exception("Read");
+
+                        //Ensure the bytes read are equal to the existing memory
+                        if (false == expected.SequenceEqual(ms)) throw new System.Exception("Not equal");
+
                         //Todo, fix bugs with Write
                         //Write that same data in the stream at the exact same position (writes to randomBytes)
-                        //stream.WriteAt(ms.Offset, expected, 0, ms.Count);
+                        stream.WriteAt(ms.Offset, expected, 0, ms.Count);
 
                         //Seek backward
                         stream.Seek(-ms.Count, System.IO.SeekOrigin.Current);

@@ -216,6 +216,7 @@ namespace Media.Common
         /// <param name="breakForResume">Indicates if the function should attach the debugger.</param>
         public static void RaiseAndAttachIfUnhandled<T>(this TaggedException<T> exception, bool breakForResume = true)
         {
+            //If not attaching then fall back to TryRaise which hides the exception and return.
             if (false == breakForResume)
             {
                 exception.TryRaise();

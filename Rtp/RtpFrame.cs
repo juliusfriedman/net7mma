@@ -1083,6 +1083,8 @@ namespace Media.Rtp
 
         //Todo, virtual here increases complexity and overhead.
 
+        //Should return true if new data has been depacketized.
+
         /// <summary>
         /// Depacketizes all contained packets ignoring <see cref="IsComplete"/>.
         /// </summary>

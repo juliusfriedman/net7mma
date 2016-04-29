@@ -477,6 +477,8 @@ namespace Media.Common
             return Min(ref min, ref max);
         }
 
+        //mixed overloads with ref....??
+
         /// <summary>
         /// Returns the maximum value which is bounded inclusively by min and max.
         /// </summary>
@@ -992,10 +994,7 @@ namespace Media.Common
                 BitsSetTable != null || 
                 BitsReverseTable != null) return;
 
-            //Todo, Determine MaxBits (BitSize)
-            //Todo, Determine x64 or x86 paths.
-
-            bool x64 = Machine.IsX64();
+            //Todo, Determine MaxBits (BitSize)            
 
             unchecked
             {
@@ -1005,27 +1004,27 @@ namespace Media.Common
                 //Not because you can't but because of the implications
                 //If Unsafe is used then only the Non - Generic Subset will be supported although you could just as well have Generics too...
 
-                //Ensure integer, short and byte ...
+                //Todo, Ensure integer, short and byte ...
 
                 //Use 128 as a value and get the memory associated with the integer representation of the value
-                byte[] memoryOf = BitConverter.GetBytes((int)Binary.SedecimBitSize); //Use ByteOrder
+                //byte[] memoryOf = BitConverter.GetBytes((int)Binary.SedecimBitSize); //Use ByteOrder
 
                 //Iterate the memory looking for a non 0 value
                 for (int offset = 0, endOffset = BytesPerInteger; offset < endOffset; ++endOffset)
                 {
+                    //Read a single byte from memory out of the constant value of 128 (0x0080) at offset 0 in memory  (This constant was chosen because it should only have the least significant bit set)                  
                     //Take a copy of the byte at the offset in memory
-                    byte atOffset = memoryOf[offset];
+                    byte atOffset = System.Runtime.InteropServices.Marshal.ReadByte(Binary.SedecimBitSize, offset);// memoryOf[offset];
 
                     //If the value is 0 continue
                     if (atOffset == Binary.Nihil) continue;
-
-                    //Determine the BitOrder using the value
                     
+                    //Determine the BitOrder using the value read out of memory
                     switch (m_SystemBitOrder = ((BitOrder)atOffset))
                     {
+                        //Set the indexes of the bits accordingly.
                         case BitOrder.LeastSignificant:
                             {
-
                                 m_MostSignificantBit = Binary.Nihil;
 
                                 m_LeastSignificantBit = Binary.Septem;
@@ -1046,8 +1045,14 @@ namespace Media.Common
                             }
                     }
 
-                    //Determine the ByteOrder using the offset where the value was found
+                    //This check is engineered by the fact that the enumeration of BitOrder is defined by how the value should be laid on in memory accordingly.
+                    //only 1 bit is set in the value 0x0080 value and it should be the logical 0 based index of the LeastSignificantBit
 
+                    //Makes two checks in parallel
+                    //If the LeastSignificantBit is not set or the MostSignificantBit is set then throw an exception
+                    if (GetBit(ref atOffset, m_MostSignificantBit) | false == GetBit(ref atOffset, m_LeastSignificantBit)) throw new InvalidOperationException("Did not correctly detect BitOrder");
+
+                    //Determine the ByteOrder using the offset where the value was found
                     switch (offset)
                     {
                         case Binary.Nihil:
@@ -1064,18 +1069,21 @@ namespace Media.Common
                             break;
                     }
 
+                    //This check is engineered by the fact that the enumeration of ByteOrder is defined by how the value should be laid on in memory accordingly.
+                    //Since BigEndian is reversed then little should be equal to big when read integer is called without reversing the bytes.
+
+                    //If the native read of the value of m_SystemByteOrder from memory does not match the value expected throw an exception.
+                    if ((int)m_SystemByteOrder != System.Runtime.InteropServices.Marshal.ReadInt32((int)m_SystemByteOrder, 0)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
+
+                    //If the result of reading an integer of the native bytes of ByteOrder.Little does not match the expected value throw an exception.
+                    //if ((int)m_SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
+
+                    break;
 
                     //Could also determine if the Binary Representation is One or Twos Complement..
-                    goto Verify;
+
+                    //memoryOf = null;
                 }
-
-            Verify:
-
-                if (GetBit((byte)m_SystemBitOrder, m_MostSignificantBit)) throw new InvalidOperationException("Did not correctly detect BitOrder");
-
-                if ((int)m_SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
-
-                memoryOf = null;
 
                 #endregion
 
@@ -1096,7 +1104,7 @@ namespace Media.Common
 
                 BitsReverseTable[byte.MaxValue] = byte.MaxValue;
 
-                #region Palindromes
+                #region Palindromes Notes
 
                 //Todo, optimize...
 
@@ -1131,12 +1139,36 @@ namespace Media.Common
 
                 #endregion
 
+                //Todo, Determine x64 or x86 paths.
+
+                bool x64 = Machine.IsX64();
+
                 //253 Operations [2 -> 254]
                 for (byte i = Binary.Duo; i < byte.MaxValue; ++i)
                 {
-                    byte reverse = x64 ? MultiplyReverseU8_64(ref i) : MultiplyReverseU8_32(ref i);
+                    //Calulcate the reverse of i only when it is not a Palindrome.
+                    byte reverse = IsPalindrome(ref i) ? i : x64 ? MultiplyReverseU8_64(ref i) : MultiplyReverseU8_32(ref i);
 
+                    //Set the reverse value
                     BitsReverseTable[i] = reverse;
+
+                    //Set the BitSet table entry for the reverse value and i at the same time
+                    //i & 1 produces the a value which is the number of new bits i which is added with the value in the BitSetTable of i / 2 which corresponds to the previous amount of bits set in i - 1.
+
+                    // 0 / 2 = 0
+                    // 1 / 2 = 1
+                    // 2 / 2 = 1
+                    // 3 / 2 = 1(.5)
+                    // 4 / 2 = 2
+                    // 5 / 2 = 2(.5)
+                    // 6 / 2 = 2
+                    // 7 / 2 = 3(.5)
+                    // 8 / 2 = 4
+                    // 9 / 2 = 4(.5)
+                    // 10 / 2 = 5
+                    // 11 / 2 = 5(.5)
+                    // 12 / 2 = 6
+                    //  etc
 
                     BitsSetTable[reverse] = BitsSetTable[i] = (byte)((i & Binary.Ūnus) + BitsSetTable[i / Binary.Duo]);
                 }
@@ -1152,11 +1184,23 @@ namespace Media.Common
 
         #region CountTrailing / CountLeading Zeros
 
-        internal static int[] DeBruijnPositions =
+        internal static byte[] DeBruijnPositions =
 	    {
 	        0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
 	        31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9
 	    };
+
+        //https://gist.github.com/andrewrk/1883543
+        // map a bit value mod 37 to its position for 64 bit..
+        // about 3x slower than __builtin_ctz
+        internal static byte[] Mod37BitPosition = new byte[]
+        {
+            0, //-1
+            0, 1, 26, 2, 23, 27, 0, 3, 16, 24, 30, 28, 11, 0, 13, 4,
+            7, 17, 0, 25, 22, 31, 15, 29, 10, 12, 6, 0, 21, 14, 9, 5,
+            20, 8, 19, 18
+        };
+
 
         /// <summary>
         /// builtin_ctz implementation
@@ -1176,17 +1220,11 @@ namespace Media.Common
                     {
                         unchecked
                         {
-                            //Convert the value if it's not a power of two
-                            //if (false == IsPowerOfTwo(ref value))
-                            //{
-                            //    int valueCopy = value;
-                            //    valueCopy |= valueCopy >> 1;
-                            //    valueCopy |= valueCopy >> 2;
-                            //    valueCopy |= valueCopy >> 4;
-                            //    valueCopy |= valueCopy >> 8;
-                            //    valueCopy |= valueCopy >> 16;
-                            //    return DeBruijnPositions[(valueCopy * 0x07C4ACDD) >> 27];
-                            //}
+                            //Use the 64 bit method if possible. (Machine may also be helpful)
+                            if (Machine.IsX64())
+                            {
+                                return (int)Mod37BitPosition[(-value & value) % 37];
+                            }
 
                             //Uses a lookup based on the magic constant
 
@@ -1199,10 +1237,14 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static int CountTrailingZeros(uint value) { return CountTrailingZeros(ref value); }
 
-        public static int CountTrailingZeros(int value) { uint temp = (uint)value; return CountTrailingZeros(ref temp); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int CountTrailingZeros(int value)
+        {
+            uint temp = (uint)value; return Common.Binary.Max(0, CountTrailingZeros(ref temp) - 1);
+        }
 
         /// <summary>
-        /// builtin_ctz implementation
+        /// builtin_ctzll implementation
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
@@ -1219,7 +1261,7 @@ namespace Media.Common
                 case int.MaxValue: return 0;
                 default:
                     {
-                        return CountTrailingZeros((uint)(value & int.MaxValue)) + CountTrailingZeros((uint)(value >> BitsPerInteger));
+                        return CountTrailingZeros((uint)(value & uint.MaxValue)) + CountTrailingZeros((uint)(value >> BitsPerInteger));
                     }
             }
         }
@@ -1227,24 +1269,11 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static int CountTrailingZeros(ulong value) { return CountTrailingZeros(ref value); }
 
-        public static int CountTrailingZeros(long value) { ulong temp = (ulong)value;  return CountTrailingZeros(ref temp); }
-
-        internal static int[] ReverseDeBruijnPositions =
-	    {
-	         0, 31, 9, 30, 3, 8, 13, 29, 2, 5, 7, 21, 12, 24, 28, 19,
-             1, 10, 4, 14, 6, 22, 25, 20, 11, 15, 23, 26, 16, 27, 17, 18
-	    };
-
-        //https://gist.github.com/andrewrk/1883543
-        // map a bit value mod 37 to its position for 64 bit..
-        //about 3x slower than __builtin_ctz
-        internal static uint[] Mod37BitPosition = new uint[]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int CountTrailingZeros(long value)
         {
-            4294967295, //-1
-            0, 1, 26, 2, 23, 27, 0, 3, 16, 24, 30, 28, 11, 0, 13, 4,
-            7, 17, 0, 25, 22, 31, 15, 29, 10, 12, 6, 0, 21, 14, 9, 5,
-            20, 8, 19, 18
-        };
+            ulong temp = (ulong)value; return Common.Binary.Max(0, CountTrailingZeros(ref temp) - 1);
+        }
 
         /// <summary>
         /// builtin_clz implementation
@@ -1257,24 +1286,19 @@ namespace Media.Common
         {
             switch (value)
             {
-                case 0: return BitsPerInteger;                                
-                case uint.MaxValue:
-                case int.MaxValue: return 0;
+                case 0: return BitsPerInteger;
+                case uint.MaxValue: return 0;
+                case int.MaxValue: return 1;
                 default:
                     {
-                        //Use the 64 bit method if possible. (Machine may also be helpful)
-                        if (Machine.IsX64())
-                        {
-                            return (int)Mod37BitPosition[(-value & value) % 37];
-                        }
-
                         //Could reverse the int and return CountTrailing...
-
+                        
                         //Could use rebase
                         //int lz = (int)(32 - Math.Log((double)value + 1, 2d));
                         //lz += (int)((value - (0x80000000u >> lz)) >> 31);
 
                         //Ensure a power of two, could also use a different sequence and constant to avoid
+                        //https://en.wikipedia.org/wiki/Find_first_set
 
                         //uint x = value;
                         value |= value >> 1;
@@ -1284,16 +1308,34 @@ namespace Media.Common
                         value |= value >> 16;
                         value++;
 
-                        return ReverseDeBruijnPositions[value * 0x076be629 >> 27];
+                        //Without a lookup
+                        //return Common.Binary.BitsPerInteger - HammingWeight((int)(value & (-value)) - 1);
+
+                        //using the BitsSet lookup (also allocates 4 bytes)
+                        //return Common.Binary.BitsPerInteger - BitsSet((int)(value & (-value)) - 1)
+
+                        //This uses CountTrailingZeros because of the benefit for 32 or 64 bit...
+                        return Common.Binary.BitsPerInteger - CountTrailingZeros(ref value);
+
+                        //Could also precompute a better table.
                     }
             }
         }
 
-        public static int CountLeadingZeros(int value) { uint temp = (uint)value; return CountLeadingZeros(ref temp); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int CountLeadingZeros(int value)
+        {
+            uint temp = (uint)value; return Max(0, CountLeadingZeros(ref temp) - 1);
+        }
 
         [CLSCompliant(false)]
         public static int CountLeadingZeros(uint value) { return CountLeadingZeros(ref value); }
 
+        /// <summary>
+        /// builtin_clzll implementation
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int CountLeadingZeros(ref ulong value)
@@ -1301,18 +1343,24 @@ namespace Media.Common
             switch (value)
             {
                 case 0: return BitsPerLong;
-                case ulong.MaxValue:
-                case long.MaxValue:
-                case uint.MaxValue:
-                case int.MaxValue: return 0;
+                case long.MaxValue: return 1;
+                case uint.MaxValue: return BitsPerInteger; // 32
+                case int.MaxValue: return BitsPerInteger + 1; // 33
                 default:
                     {
-                        return CountLeadingZeros((uint)(value & int.MaxValue)) + CountLeadingZeros((uint)(value << BitsPerInteger));
+                        return  CountLeadingZeros((uint)(value << BitsPerInteger)) + CountLeadingZeros((uint)(value & uint.MaxValue));
                     }
             }
         }
 
-        public static int CountLeadingZeros(long value) { ulong temp = (ulong)value; return CountLeadingZeros(ref temp); }
+        [CLSCompliant(false)]
+        public static int CountLeadingZeros(ulong value) { return CountLeadingZeros(ref value); }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int CountLeadingZeros(long value)
+        {
+            ulong temp = (ulong)value; return Max(0, CountLeadingZeros(ref temp) - 1);
+        }
 
         public static long GreatestCommonDivisor(long a, long b)
         {
@@ -1327,7 +1375,7 @@ namespace Media.Common
             if (a == 0) return b;
             if (b == 0) return a;
 
-            //Todo, check that CountTrailingZeros work with ulong types.
+            //Rather than subtracting 32 from the result cast to uint
 
             int shift = Common.Binary.CountTrailingZeros((uint)(a | b));
             a >>= Common.Binary.CountTrailingZeros((uint)a);
@@ -1403,9 +1451,23 @@ namespace Media.Common
 
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int BitsSet(ref uint i) { return Binary.GetBytes(i).Sum(b => BitsSet(b)); }
+
+        [CLSCompliant(false)]
+        public static int BitsSet(uint i) { return BitsSet(ref i); }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int BitsUnSet(ref int i) { return QuadrupleBitSize - Binary.GetBytes(i).Sum(b => BitsSet(b)); }
 
         public static int BitsUnSet(int i) { return BitsUnSet(ref i); }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int BitsUnSet(ref uint i) { return QuadrupleBitSize - Binary.GetBytes(i).Sum(b => BitsSet(b)); }
+
+        [CLSCompliant(false)]
+        public static int BitsUnSet(uint i) { return BitsUnSet(ref i); }
 
         #endregion
 
@@ -2244,7 +2306,7 @@ namespace Media.Common
                 long value = Binary.Nihil;
 
                 //Select the range
-                var selected = octets.Skip(offset).Take(sizeInBytes);
+                IEnumerable<byte> selected = octets.Skip(offset).Take(sizeInBytes);
 
                 //Reverse it
                 if (reverse) selected = selected.Reverse();
@@ -2609,6 +2671,8 @@ namespace Media.Common
 
         //double, decimal
 
+        //ref methods which move index / offset.
+
         #endregion
 
         #region GetBytes
@@ -2638,6 +2702,14 @@ namespace Media.Common
         }
 
         public static byte[] GetBytes(int i, bool reverse = false)
+        {
+            byte[] result = new byte[Binary.BytesPerInteger];
+            Write32(result, 0, reverse, i);
+            return result;
+        }
+
+        [CLSCompliant(false)]
+        public static byte[] GetBytes(uint i, bool reverse = false)
         {
             byte[] result = new byte[Binary.BytesPerInteger];
             Write32(result, 0, reverse, i);
@@ -2700,6 +2772,7 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static ushort ReverseUnsignedShort(ref ushort source)
         {
+            if (source == ushort.MinValue || source == ushort.MaxValue) return source;
             return (ushort)(((source & 0xFFU) << 8) | ((source >> 8) & 0xFFU));
         }
 
@@ -2710,6 +2783,7 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static uint ReverseUnsignedInt(ref uint source)
         {
+            if (source == uint.MinValue || source == uint.MaxValue) return source;
             return (uint)((((source & 0x000000FFU) << 24) | ((source & 0x0000FF00U) << 8) | ((source & 0x00FF0000U) >> 8) | ((source & 0xFF000000U) >> 24)));
         }
 
@@ -2721,6 +2795,7 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static ulong ReverseUnsignedLong(ref ulong source)
         {
+            if (source == ulong.MinValue || source == ulong.MaxValue) return source;
             return (source & 0x00000000000000FFUL) << 56 | (source & 0x000000000000FF00UL) << 40 | (source & 0x0000000000FF0000UL) << 24 | (source & 0x00000000FF000000UL) << 8 |
                    (source & 0x000000FF00000000UL) >> 8 | (source & 0x0000FF0000000000UL) >> 24 | (source & 0x00FF000000000000UL) >> 40 | (source & 0xFF00000000000000UL) >> 56;
         }
@@ -2733,13 +2808,11 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static ushort ReverseU16(ushort source)
         {
-            if (source == 0 || source == ushort.MaxValue) return source;
             return ReverseUnsignedShort(ref source);
         }
         
         public static short Reverse16(short source)
         {
-            if (source == 0 || source == short.MaxValue) return source;
             ushort unsigned = (ushort) source;
             return (short)ReverseUnsignedShort(ref unsigned);
         }
@@ -2752,13 +2825,11 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static uint ReverseU32(uint source)
         {
-            if (source == 0 || source == uint.MaxValue) return source;
             return ReverseUnsignedInt(ref source);
         }
 
         public static int Reverse32(int source)
         {
-            if (source == 0) return source;
             uint unsigned = (uint)source;
             return (int)ReverseUnsignedInt(ref unsigned);
         }
@@ -2766,7 +2837,6 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static ulong ReverseU64(ulong source)
         {
-            if (source == 0 || source == ulong.MaxValue) return source;
             return ReverseUnsignedLong(ref source);
         }
 
@@ -2775,7 +2845,6 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static long Reverse64(ref long source)
         {
-            if (source == 0 || source == long.MaxValue) return source;
             ulong unsigned = (ulong)source;
             return (long)ReverseUnsignedLong(ref unsigned);
         }
@@ -2961,9 +3030,9 @@ namespace Media.UnitTests
                     //Test the logic of BitsUnSet and verify the result
                     if (bitsNotSet != Media.Common.Binary.BitsUnSet(testBits)) throw new Exception("GetBit Does not Work");
 
-                    if (Media.Common.Binary.HammingWeight(test) != bitsSet) throw new Exception("HammingWeight Does not Work");
+                    if (Media.Common.Binary.HammingWeight(test) != bitsSet) throw new Exception("BitSetTable Does not Work");
 
-                    if (Media.Common.Binary.BitsPerByte - Media.Common.Binary.HammingWeight(test) != bitsNotSet) throw new Exception("HammingWeight Does not Work");
+                    if (Media.Common.Binary.BitsPerByte - Media.Common.Binary.HammingWeight(test) != bitsNotSet) throw new Exception("BitSetTable Does not Work");
 
                     //Console.WriteLine("Bits Set:" + bitsSet);
 
@@ -3189,7 +3258,83 @@ namespace Media.UnitTests
             }
         }
 
-        public static void TestGCD()
+        public static void Test_CountLeadingZeros()
+        {
+            //Loop all negitive values in the 16 bit range and 0
+            for (int i = short.MinValue; i <= ushort.MinValue; ++i)
+            {
+                //Get the amount of leading zeros in i (31 bits)
+                int slz = Common.Binary.CountLeadingZeros(i);
+
+                //Check for any result when i was less than 0 because the sign bit should be present.
+                if (i < Common.Binary.Zero && slz > Common.Binary.Zero) throw new Exception("CountLeadingZeros");
+
+                //Get the amount of leading zeros in the 32 bit conversion of i
+                int clz = Common.Binary.CountLeadingZeros((uint)i);
+
+                //Verify the difference
+                if (clz > slz && clz - slz != Common.Binary.One) throw new Exception("CountLeadingZeros");
+
+                //Check for any result when i was less than 0 because the sign bit should be present.
+                if (i < 0 && clz > Common.Binary.Zero) throw new Exception("CountLeadingZeros");
+
+                //Get the amount of leading zeros in the 63 bit conversion of i
+                int sclzl = Common.Binary.CountLeadingZeros((long)i);
+
+                //Verify the result
+                if (i == Common.Binary.Zero && sclzl != 63 
+                    || 
+                    i <= -1 && sclzl != Common.Binary.ThirtyOne 
+                    || 
+                    i > 0 && sclzl - slz != Common.Binary.ThirtyOne) throw new Exception("CountLeadingZeros");
+                
+                //Get the amount of leading zeros in the 64 bit conversion of i
+                int clzll = Common.Binary.CountLeadingZeros((ulong)i);
+
+                //Verify the result
+                if (i == Common.Binary.Zero && clzll != Common.Binary.BitsPerLong 
+                    || 
+                    i <= -1 && clzll != Common.Binary.BitsPerInteger 
+                    || 
+                    i > Common.Binary.Zero && sclzl - clzll != Common.Binary.One) throw new Exception("CountLeadingZeros");
+            }
+        }
+
+        public static void Test_CountTrailingZeros()
+        {
+            //Loop all negitive values in the 16 bit range and 0
+            for (int i = short.MinValue; i <= ushort.MinValue; ++i)
+            {
+                //Get the amount of leading zeros in i (31 bits)
+                int stz = Common.Binary.CountTrailingZeros(i);
+
+                //Check for any result when i was less than 0 because the sign bit should be present.
+                if (i == 0 && stz != Common.Binary.ThirtyOne || i < Common.Binary.Zero && stz < Common.Binary.Zero) throw new Exception("CountTrailingZeros");
+
+                //Get the amount of leading zeros in the 32 bit conversion of i
+                int ctz = Common.Binary.CountTrailingZeros((uint)i);
+
+                //Verify the difference
+                if (i == Common.Binary.Zero && ctz != Common.Binary.BitsPerInteger || ctz > stz && ctz - stz != Common.Binary.One) throw new Exception("CountTrailingZeros");
+
+                //Check for any result when i was less than 0 because the sign bit should be present.
+                if (i < Common.Binary.Zero && ctz < Common.Binary.Zero) throw new Exception("CountTrailingZeros");
+
+                //Get the amount of leading zeros in the 63 bit conversion of i
+                int stzl = Common.Binary.CountTrailingZeros((long)i);
+
+                //Verify the result
+                if (i == Common.Binary.Zero && stzl != 63 || i > 0 && stzl - stz != Common.Binary.ThirtyOne) throw new Exception("CountTrailingZeros");
+
+                //Get the amount of leading zeros in the 64 bit conversion of i
+                int tzll = Common.Binary.CountTrailingZeros((ulong)i);
+
+                //Verify the result
+                if (i == Common.Binary.Zero && tzll != Common.Binary.BitsPerLong || i > 0 && tzll - stzl != Common.Binary.One) throw new Exception("CountTrailingZeros");
+            }
+        }
+
+        public static void Test_GreatestCommonDivisor() // Uses CountTrailingZeros
         {
             for (int i = 0; i <= ushort.MaxValue; ++i)
             {
