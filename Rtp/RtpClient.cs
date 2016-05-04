@@ -2574,19 +2574,19 @@ namespace Media.Rtp
                 else if (false == IDisposedExtensions.IsNullOrDisposed(transportContext.CurrentFrame) && 
                     packetTimestamp != transportContext.CurrentFrame.Timestamp)
                 {
-                    //We already set to the value of packet.SequenceNumber in UpdateSequenceNumber.
-                    //Before cycling packets check the packets sequence number.
-                    int pseq = transportContext.RecieveSequenceNumber; //packet.SequenceNumber;
+                    ////We already set to the value of packet.SequenceNumber in UpdateSequenceNumber.
+                    ////Before cycling packets check the packets sequence number.
+                    //int pseq = transportContext.RecieveSequenceNumber; //packet.SequenceNumber;
 
-                    //Only allow newer timestamps but wrapping should be allowed.
-                    //When the timestamp is lower and the sequence number is not in order this is a re-ordered packet. (needs to correctly check for wrapping sequence numbers)
-                    if (packetTimestamp < transportContext.CurrentFrame.Timestamp)
-                    {
-                        //Could jump to case log
-                        Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleFrameChanges Ignored SequenceNumber " + pseq + " @ " + packetTimestamp + ". Current Timestamp =" + transportContext.CurrentFrame.Timestamp + ", Current LowestSequenceNumber = " + transportContext.CurrentFrame.LowestSequenceNumber);
+                    ////Only allow newer timestamps but wrapping should be allowed.
+                    ////When the timestamp is lower and the sequence number is not in order this is a re-ordered packet. (needs to correctly check for wrapping sequence numbers)
+                    //if (packetTimestamp < transportContext.CurrentFrame.Timestamp)
+                    //{
+                    //    //Could jump to case log
+                    //    Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleFrameChanges Ignored SequenceNumber " + pseq + " @ " + packetTimestamp + ". Current Timestamp =" + transportContext.CurrentFrame.Timestamp + ", Current LowestSequenceNumber = " + transportContext.CurrentFrame.LowestSequenceNumber);
 
-                        return;
-                    }
+                    //    return;
+                    //}
 
                     //Dispose the last frame, it's going out of scope.
                     if (transportContext.LastFrame != null)
@@ -3539,7 +3539,61 @@ namespace Media.Rtp
             //Use ToCompoundBytes to ensure that all compound packets are correctly formed.
             //Don't Just `stack` the packets as indicated if sending, assuming they are valid.
 
-            int sent = SendData(RFC3550.ToCompoundBytes(packets).ToArray(), context.ControlChannel, context.RtcpSocket, context.RemoteRtcp, out error);
+            //how manu bytes sent so far.
+            int sent = 0;
+
+#if IListSockets
+            int length = 0;
+
+            List<ArraySegment<byte>> buffers = new System.Collections.Generic.List<ArraySegment<byte>>();
+
+            IList<ArraySegment<byte>> packetBuffers;
+
+            //Try to get the buffer for each packet
+            foreach (RtcpPacket packet in packets)
+            {
+                //If we can
+                if (packet.TryGetBuffers(out packetBuffers))
+                {
+                    //Add those buffers
+                    buffers.AddRange(packetBuffers);
+
+                    //Keep track of the length
+                    length += packet.Length;
+                }
+                else
+                {
+                    //Just send them in their own array.
+                    sent += SendData(RFC3550.ToCompoundBytes(packets).ToArray(), context.ControlChannel, context.RtcpSocket, context.RemoteRtcp, out error);
+
+                    buffers = null;
+
+                    break;
+                }
+            
+            }
+
+            //If nothing was sent and the buffers are not null and the socket is tcp use framing.
+            if (context.IsActive && sent == 0 && buffers != null)
+            {
+                if (context.RtpSocket.ProtocolType == ProtocolType.Tcp)
+                {
+                    //Write the length
+                    framing[1] = context.ControlChannel;
+
+                    Common.Binary.Write16(framing, 2, BitConverter.IsLittleEndian, (short)length);
+
+                    //Add the framing
+                    buffers.Insert(0, new ArraySegment<byte>(framing));
+                }
+                
+                //Send that data.
+                sent += context.RtcpSocket.Send(buffers, SocketFlags.None, out error);
+            }
+#else
+            //Just send them in their own array.
+            sent += SendData(RFC3550.ToCompoundBytes(packets).ToArray(), context.ControlChannel, context.RtcpSocket, context.RemoteRtcp, out error);
+#endif
 
             //If the compound bytes were completely sent then all packets have been sent
             if (error == SocketError.Success)
@@ -3778,6 +3832,8 @@ namespace Media.Rtp
             SendRtpFrame(frame, out error, ssrc);
         }
 
+        static byte[] framing = new byte[4] { BigEndianFrameControl, 0, 0, 0 };
+
         /// <summary>
         /// Sends a RtpPacket to the connected client.
         /// </summary>
@@ -3792,7 +3848,7 @@ namespace Media.Rtp
             TransportContext transportContext = GetContextForPacket(packet);
 
             //If we don't have an transportContext to send on or the transportContext has not been identified
-            if (transportContext == null) return 0;
+            if (IDisposedExtensions.IsNullOrDisposed(transportContext) || false == transportContext.IsActive) return 0;
             
             //Ensure not sending too large of a packet
             if (packet.Length > transportContext.MaximumPacketSize) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(transportContext, "See Tag. The given packet must be smaller than the value in the transportContext.MaximumPacketSize.");
@@ -3807,12 +3863,50 @@ namespace Media.Rtp
 
             #endregion
 
-            //Could use GetAllocate or InternalToBytes to reduce allocations but the ssrc is usually always re-written
-            //Should change this to allow any ssrc to be sent...
+#if IListSockets
+            //Keep track if we have to dispose the packet.
+            bool disp = false;
 
+            IList<ArraySegment<byte>> buffers;
+
+            if (ssrc.HasValue && ssrc != packet.SynchronizationSourceIdentifier)
+            {
+                //Temporarily make a new packet with the same data and new header with the correct ssrc.
+                packet = new RtpPacket(new RtpHeader(packet.Version, packet.Padding, packet.Extension, packet.Marker, packet.PayloadType, packet.ContributingSourceCount, ssrc.Value, packet.SequenceNumber, packet.Timestamp), packet.Payload);
+
+                //mark to dispose the packet instance
+                disp = true;
+            }
+
+            //If we can get the buffer from the packet
+            if (packet.TryGetBuffers(out buffers))
+            {
+                //If Tcp
+                if ((int)transportContext.RtpSocket.ProtocolType == (int)ProtocolType.Tcp)
+                {
+                    //Write the channel
+                    framing[1] = transportContext.DataChannel;
+
+                    //Write the length
+                    Common.Binary.Write16(framing, 2, BitConverter.IsLittleEndian, (short)packet.Length);
+                    
+                    //Add the framing
+                    buffers.Insert(0, new ArraySegment<byte>(framing));
+                }
+
+                //Send that data.
+                sent += transportContext.RtpSocket.Send(buffers, SocketFlags.None, out error);
+            }
+            else
+            {
+                //If the transportContext is changed to automatically update the timestamp by frequency then use transportContext.RtpTimestamp
+                sent += SendData(packet.Prepare(null, ssrc, null, null).ToArray(), transportContext.DataChannel, transportContext.RtpSocket, transportContext.RemoteRtp, out error);
+            }
+#else
             //If the transportContext is changed to automatically update the timestamp by frequency then use transportContext.RtpTimestamp
             sent += SendData(packet.Prepare(null, ssrc, null, null).ToArray(), transportContext.DataChannel, transportContext.RtpSocket, transportContext.RemoteRtp, out error);
-            
+#endif
+
             if (error == SocketError.Success && sent >= packet.Length)
             {
                 packet.Transferred = DateTime.UtcNow;
@@ -3824,6 +3918,12 @@ namespace Media.Rtp
             {
                 ++transportContext.m_FailedRtpTransmissions;
             }
+
+
+#if IListSockets
+             //if the packet needs to be disposed
+            if (disp) packet.Dispose();
+#endif
 
             return sent;
         }

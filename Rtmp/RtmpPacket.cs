@@ -150,6 +150,16 @@ namespace Media.Rtmp
             return m_Packet;
         }
 
+        public bool TryGetBuffers(out System.Collections.Generic.IList<System.ArraySegment<byte>> buffer)
+        {
+            buffer = new System.Collections.Generic.List<System.ArraySegment<byte>>()
+            {
+                new System.ArraySegment<byte>(m_Packet)
+            };
+
+            return true;
+        }
+
         public override void Dispose()
         {
             if (!ShouldDispose || IsDisposed) return;

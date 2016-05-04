@@ -1901,6 +1901,25 @@ namespace Media.Http
             //Etc
         }
 
+        public bool TryGetBuffers(out System.Collections.Generic.IList<System.ArraySegment<byte>> buffer)
+        {
+            ArraySegment<byte> existingBuffer;
+
+            buffer = default(System.Collections.Generic.IList<System.ArraySegment<byte>>);
+
+            if (m_Buffer.TryGetBuffer(out existingBuffer))
+            {
+                buffer = new System.Collections.Generic.List<System.ArraySegment<byte>>()
+                {
+                    existingBuffer
+                };
+
+                return true;
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// Creates a Packet from the HttpMessage which can be sent on the network, If the Location is null the <see cref="WildCardLocation will be used."/>
         /// </summary>

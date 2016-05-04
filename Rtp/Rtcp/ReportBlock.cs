@@ -77,19 +77,33 @@ namespace Media.Rtcp
 
         #region Properties
 
-        public virtual bool IsComplete { get { return false == IsDisposed && Memory.Count >= ReportBlockSize; } }
+        public virtual bool IsComplete
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { return false == IsDisposed && Memory.Count >= ReportBlockSize; }
+        }
 
         /// <summary>
         /// The size in octets of this ReportBlock instance
         /// </summary>
-        public virtual int Size { get { return IsDisposed ? 0 : Common.Binary.Clamp(Memory.Count, 0, ReportBlockSize); } } //ReportBlockSize
+        public virtual int Size
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { return IsDisposed ? 0 : Common.Binary.Clamp(Memory.Count, 0, ReportBlockSize); }
+        }//ReportBlockSize
 
         /// <summary>
         /// The identifier or identity to which this ReportBlock corresponds to.
         /// </summary>
         public int SendersSynchronizationSourceIdentifier
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             protected set { Binary.Write32(Memory.Array, Memory.Offset, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -99,7 +113,11 @@ namespace Media.Rtcp
         /// </summary>
         public byte FractionsLost
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return Binary.ReadU8(Memory.Array, Memory.Offset + 4, false); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             protected set { Binary.WriteU8(Memory.Array, Memory.Offset + 4, false, value); }
         }
 
@@ -109,8 +127,12 @@ namespace Media.Rtcp
         /// </summary>
         public int CumulativePacketsLost
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             //Read 32 at offset 4 and shift left 4
             get { return (int)Binary.ReadU24(Memory.Array, Memory.Offset + 5, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             protected set { Binary.Write24(Memory.Array, Memory.Offset + 5, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -120,7 +142,11 @@ namespace Media.Rtcp
         /// </summary>
         public int ExtendedHighestSequenceNumberReceived
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 8, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             protected set { Binary.Write32(Memory.Array, Memory.Offset + 8, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -129,7 +155,11 @@ namespace Media.Rtcp
         /// </summary>
         public int InterarrivalJitterEstimate
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 12, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             protected set { Binary.Write32(Memory.Array, Memory.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -138,7 +168,11 @@ namespace Media.Rtcp
         /// </summary>
         public int LastSendersReportTimestamp
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 16, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             protected set { Binary.Write32(Memory.Array, Memory.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -147,17 +181,25 @@ namespace Media.Rtcp
         /// </summary>
         public int DelaySinceLastSendersReport
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 20, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             protected set { Binary.Write32(Memory.Array, Memory.Offset + 20, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         int IReportBlock.BlockIdentifier
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return SendersSynchronizationSourceIdentifier; }
         }
 
         IEnumerable<byte> IReportBlock.BlockData
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return Memory; }
         }
 

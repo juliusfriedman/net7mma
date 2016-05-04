@@ -94,6 +94,8 @@ namespace Media.Rtp
         /// </remarks>
         public int ContributingSourceListOctets
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { if (IsDisposed || Payload.Count == 0) return 0; return Binary.Clamp(Header.ContributingSourceCount * 4, 0, 60)/* Math.Min(60, Math.Max(0, Header.ContributingSourceCount * 4))*/; }
         }
 
@@ -102,20 +104,35 @@ namespace Media.Rtp
         /// The maximum value this property can return is 65535.
         /// <see cref="RtpExtension.LengthInWords"/> for more information.
         /// </summary>
-        public int ExtensionOctets { get { if (IsDisposed || false == Header.Extension || Payload.Count == 0) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; } }
+        public int ExtensionOctets
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { if (IsDisposed || false == Header.Extension || Payload.Count == 0) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; }
+        }
 
         /// <summary>
         /// The amount of octets which should exist in the payload and belong either to the SourceList and or the RtpExtension.
         /// This amount does not reflect any padding which may be present because the padding is at the end of the payload.
         /// </summary>
-        public int HeaderOctets { get { if (IsDisposed || Payload.Count == 0) return 0; return ContributingSourceListOctets + ExtensionOctets; } }
+        public int HeaderOctets
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { if (IsDisposed || Payload.Count == 0) return 0; return ContributingSourceListOctets + ExtensionOctets; }
+        }
 
         /// <summary>
         /// Gets the amount of octets which are in the Payload property which are part of the padding if IsComplete is true.            
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public int PaddingOctets { get { if (IsDisposed || false == Header.Padding) return 0; return Media.RFC3550.ReadPadding(Payload.Array, Payload.Offset + Payload.Count - 1, 1); } }
+        public int PaddingOctets
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { if (IsDisposed || false == Header.Padding) return 0; return Media.RFC3550.ReadPadding(Payload.Array, Payload.Offset + Payload.Count - 1, 1); }
+        }
 
         /// <summary>
         /// Indicates if the RtpPacket is formatted in a complaince to RFC3550 and that all data required to read the RtpPacket is available.
@@ -141,7 +158,7 @@ namespace Media.Rtp
                 if (octetsContained < 0) return false;
 
                 //Check the Extension bit in the header, if set the RtpExtension must be complete
-                if (Header.Extension) using (var extension = GetExtension())
+                if (Header.Extension) using (RtpExtension extension = GetExtension())
                     {
                         if (extension == null || false == extension.IsComplete) return false;
 
@@ -165,7 +182,8 @@ namespace Media.Rtp
         /// </summary>
         public int Length
         {
-            //Proably don't have to check...
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return IsDisposed ? 0 : RtpHeader.Length + Payload.Count; }
         }
 
@@ -193,7 +211,12 @@ namespace Media.Rtp
         /// the coding of which can be determined by a combination of the PayloadType and SDP information which was used to being the participation 
         /// which resulted in the transfer of this RtpPacket instance.
         /// </summary>
-        public IEnumerable<byte> PayloadData { get { return PayloadDataSegment; } }
+        public IEnumerable<byte> PayloadData
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { return PayloadDataSegment; }
+        }
 
         internal protected Common.MemorySegment PaddingDataSegment 
         {
@@ -214,7 +237,12 @@ namespace Media.Rtp
             }
         }
 
-        public IEnumerable<byte> PaddingData { get { return PaddingDataSegment; } }
+        public IEnumerable<byte> PaddingData
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { return PaddingDataSegment; }
+        }
 
         /// <summary>
         /// Copies the given octets to the Payload before any Padding and calls <see cref="SetLengthInWordsMinusOne"/>.
@@ -601,15 +629,6 @@ namespace Media.Rtp
             }
         }
 
-        //ensure to use correct offset which is lower of all offsets, length if given with Length
-        ////internal byte[] GetAllocatedBytes()
-        ////{
-        ////    if (Header.First16Bits.m_Memory.Array == Header.PointerToLast10Bytes.Array &&
-        ////       Header.PointerToLast10Bytes.Array == Payload.Array) return Payload.Array;
-
-        ////    return Prepare().ToArray();
-        ////}
-
         /// <summary>
         /// Provides a sample implementation of what would be required to complete a RtpPacket that has the IsComplete property False.
         /// </summary>
@@ -842,7 +861,10 @@ namespace Media.Rtp
                  other.GetHashCode() == GetHashCode();
         }
 
-        public override int GetHashCode() { return Created.GetHashCode() ^ Header.GetHashCode(); }
+        //Packet equals...
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override int GetHashCode() { return Created.GetHashCode() ^ Header.GetHashCode(); }        
 
         /// <summary>
         /// Copies all of the data in the packet to the given destination. The amount of bytes copied is given by <see cref="Length"/>
@@ -860,20 +882,37 @@ namespace Media.Rtp
 
         #region Operators
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(RtpPacket a, RtpPacket b)
         {
             object boxA = a, boxB = b;
             return boxA == null ? boxB == null : a.Equals(b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(RtpPacket a, RtpPacket b) { return false == (a == b); }
 
         #endregion
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         object ICloneable.Clone()
         {
             return this.Clone(true, true, true, true, false);
         }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool TryGetBuffers(out System.Collections.Generic.IList<System.ArraySegment<byte>> buffer)
+        {
+            buffer  = new System.Collections.Generic.List<ArraySegment<byte>>()
+            {
+                Common.MemorySegmentExtensions.ToByteArraySegment(Header.First16Bits.m_Memory),
+                Common.MemorySegmentExtensions.ToByteArraySegment(Header.PointerToLast10Bytes),
+                Common.MemorySegmentExtensions.ToByteArraySegment(Payload),
+            };
+
+            return true;
+        }
+
     }
 
     #endregion

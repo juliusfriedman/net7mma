@@ -133,6 +133,8 @@ namespace Media.Rtcp
         /// </summary>
         public bool HasExtensionData
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return IsDisposed ? false : Payload.Count - ReportBlockOctets - PaddingOctets > 0; }
         }
 
@@ -142,6 +144,8 @@ namespace Media.Rtcp
         /// </summary>
         public virtual bool HasReports
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return IsDisposed ? false : Header.BlockCount > 0; }
         }
 
@@ -151,10 +155,12 @@ namespace Media.Rtcp
         /// </summary>
         public virtual int ReportBlockOctets
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return false == IsDisposed && HasReports ? ReportBlock.ReportBlockSize * Header.BlockCount : 0; }
         }
 
-        //Todo Segment properties.
+        //Todo Segment properties an inline
 
         /// <summary>
         /// Retrieves the segment of data which corresponds to all <see cref="ReportBlock"/>'s contained in the RtcpReport.
@@ -201,13 +207,20 @@ namespace Media.Rtcp
         /// </summary>
         public int ExtensionDataOctets
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return Payload.Count - ReportBlockOctets - PaddingOctets; }
         }
 
         /// <summary>
         /// Calulcates the amount of blocks remaining in the RtcpReport given the value in the <see cref="RtcpHeaer.BlockCount"/>
         /// </summary>
-        public int ReportBlocksRemaining { get { return IsDisposed ? 0 : Binary.FiveBitMaxValue - Header.BlockCount; } }
+        public int ReportBlocksRemaining
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { return IsDisposed ? 0 : Binary.FiveBitMaxValue - Header.BlockCount; }
+        }
 
         /// <summary>
         /// 

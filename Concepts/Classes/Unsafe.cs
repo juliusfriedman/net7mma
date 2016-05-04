@@ -52,6 +52,12 @@ namespace Media.Concepts.Classes
     {
         #region AddressOf
 
+        /// <summary>
+        /// Provides the current address of the given object.
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static System.IntPtr AddressOf(object obj)
         {
             if (obj == null) return System.IntPtr.Zero;
@@ -64,10 +70,39 @@ namespace Media.Concepts.Classes
         }
 
         /// <summary>
+        /// Provides the current address of the given element
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="t"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static System.IntPtr AddressOf<T>(T t)
+            //refember ReferenceTypes are references to the CLRHeader
+            //where TOriginal : struct
+        {
+            System.TypedReference reference = __makeref(t);
+
+            return *(System.IntPtr*)(&reference);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        static System.IntPtr AddressOfRef<T>(ref T t)
+        //refember ReferenceTypes are references to the CLRHeader
+        //where TOriginal : struct
+        {
+            System.TypedReference reference = __makeref(t);
+
+            System.TypedReference* pRef = &reference;
+
+            return (System.IntPtr)pRef; //(&pRef)
+        }
+
+        /// <summary>
         /// Returns the unmanaged address of the given array.
         /// </summary>
         /// <param name="array"></param>
         /// <returns><see cref="IntPtr.Zero"/> if null, otherwise the address of the array</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static System.IntPtr AddressOfByteArray(byte[] array)
         {
             if (array == null) return System.IntPtr.Zero;
@@ -86,9 +121,22 @@ namespace Media.Concepts.Classes
         /// <param name="t"></param>
         /// <param name="fieldName"></param>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static System.IntPtr OffsetOf(System.Type t, string fieldName)
         {
             return System.Runtime.InteropServices.Marshal.OffsetOf(t, fieldName);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static System.IntPtr OffsetOf(object o, string fieldName)
+        {
+            return System.Runtime.InteropServices.Marshal.OffsetOf(o.GetType(), fieldName);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static System.IntPtr OffsetOf<T>(string fieldName)
+        {
+            return System.Runtime.InteropServices.Marshal.OffsetOf(typeof(T).GetType(), fieldName);
         }
 
         #endregion
@@ -99,6 +147,7 @@ namespace Media.Concepts.Classes
 
         internal static class ArrayOfTwoElements<T> { internal static readonly T[] Value = new T[2]; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal static uint BytesPer<T>()
         {
             System.TypedReference
@@ -118,7 +167,8 @@ namespace Media.Concepts.Classes
         /// <typeparam name="T"></typeparam>
         /// <param name="address"></param>
         /// <returns></returns>
-        static T Read<T>(System.IntPtr address)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static T Read<T>(System.IntPtr address)
         {
             T obj = default(T);
 
@@ -126,7 +176,7 @@ namespace Media.Concepts.Classes
 
             *(System.IntPtr*)(&tr) = address;
 
-            return __refvalue( tr,T);
+            return __refvalue(tr, T);
         }
 
         /// <summary>
@@ -136,6 +186,7 @@ namespace Media.Concepts.Classes
         /// </summary>
         /// <param name="address"></param>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static object Read(System.IntPtr address)
         {
             //Create memory for a boxed object
@@ -162,27 +213,198 @@ namespace Media.Concepts.Classes
 
         #region Write
 
-        //public void Write(where, what){ }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void Write<T>(System.IntPtr address, ref T what)
+        {
+            uint size = BytesPer<T>(); System.Buffer.MemoryCopy((void*)AddressOf(what), (void*)address, size, size);
+        }
 
-        //public void Write<T>(where, what){ }
+        #endregion
+        
+        #region Create
 
-        //public void Write(where, what, offset, length){ }
+        //Here for reference, I couldn't get them to work as they advertised.
+
+        [System.CLSCompliant(false)]
+        public unsafe static T[] Create<T>(void* source, int length)
+        {
+            System.Type type = typeof(T);
+
+            int sizeInBytes = System.Runtime.InteropServices.Marshal.SizeOf(typeof(T));
+
+            T[] output = new T[length];
+
+            if (type.IsPrimitive)
+            {
+                // Make sure the array won't be moved around by the GC 
+                System.Runtime.InteropServices.GCHandle handle = default(System.Runtime.InteropServices.GCHandle);
+
+                try
+                {
+                     handle = System.Runtime.InteropServices.GCHandle.Alloc(output, System.Runtime.InteropServices.GCHandleType.Pinned);
+
+                     int byteLength = length * sizeInBytes;
+
+                     // There are faster ways to do this, particularly by using wider types or by 
+                     // handling special lengths.                     
+                     //for (int i = 0; i < byteLength; i++)
+                     //    destination[i] = ((byte*)source)[i];
+
+                    //E,g, like this... the problem is that handle doesn't point to the array elements...
+                    //Could instead give a T[] source or IntPtr.
+
+                     System.Buffer.MemoryCopy(source, handle.AddrOfPinnedObject().ToPointer(), sizeInBytes, length);
+                }
+                finally
+                {
+                    if(handle.IsAllocated) handle.Free();
+                }
+            }
+            else if (type.IsValueType)
+            {
+                if (false == type.IsLayoutSequential && false == type.IsExplicitLayout)
+                {
+                    throw new System.InvalidOperationException(string.Format("{0} does not define a StructLayout attribute", type));
+                }
+
+                System.IntPtr sourcePtr = new System.IntPtr(source);
+
+                for (int i = 0; i < length; i++)
+                {
+                    System.IntPtr p = new System.IntPtr((byte*)source + i * sizeInBytes);
+
+                    output[i] = (T)System.Runtime.InteropServices.Marshal.PtrToStructure(p, typeof(T));
+                }
+            }
+            else
+            {
+                throw new System.InvalidOperationException(string.Format("{0} is not supported", type));
+            }
+
+            return output;
+        }
+
+        static unsafe T[] MakeArray<T>(void* t, int length, int tSizeInBytes) where T : struct
+        {
+            T[] result = new T[length];
+            for (int i = 0; i < length; i++)
+            {
+                System.IntPtr p = new System.IntPtr((byte*)t + (i * tSizeInBytes));
+                result[i] = (T)System.Runtime.InteropServices.Marshal.PtrToStructure(p, typeof(T));
+            }
+
+            return result;
+        }
+        
+        //byte[] b = MakeArray<byte>(pBytes, lenBytes, sizeof(byte));
+
+        //unsafe static void CreateUsage(string[] args)
+        //{
+        //    var arrayDouble = Enumerable.Range(1, 1024)
+        //                                .Select(i => (double)i)
+        //                                .ToArray();
+
+        //    fixed (double* p = arrayDouble)
+        //    {
+        //        var array2 = Create<double>(p, arrayDouble.Length);
+
+        //        Assert.AreEqual(arrayDouble, array2);
+        //    }
+
+        //    var arrayPoint = Enumerable.Range(1, 1024)
+        //                               .Select(i => new Point(i, i * 2 + 1))
+        //                               .ToArray();
+
+        //    fixed (Point* p = arrayPoint)
+        //    {
+        //        var array2 = Create<Point>(p, arrayPoint.Length);
+
+        //        Assert.AreEqual(arrayPoint, array2);
+        //    }
+        //}
 
         #endregion
 
+        #region MakeTypedReference
+
+        //http://stackoverflow.com/questions/26998758/why-is-typedreference-maketypedreference-so-constrained
+
+        //private static readonly System.Reflection.MethodInfo InternalMakeTypedReferenceMethod = typeof(System.TypedReference).GetMethod("InternalMakeTypedReference", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance);
+        //Needs DelegatExtensions
+        //private static readonly System.Type InternalMakeTypedReferenceDelegateType = ReflectionTools.NewCustomDelegateType(InternalMakeTypedReferenceMethod.ReturnType, InternalMakeTypedReferenceMethod.GetParameters().Select(p => p.ParameterType).ToArray());
+        //private static readonly System.Delegate InternalMakeTypedReference = System.Delegate.CreateDelegate(InternalMakeTypedReferenceDelegateType, InternalMakeTypedReferenceMethod);
+
+        //public static void MakeTypedReference([System.Runtime.InteropServices.Out]System.TypedReference* result, object target, params System.Reflection.FieldInfo[] fields)
+        //{
+        //    System.IntPtr ptr = (System.IntPtr)result;
+        //    System.IntPtr[] flds = new System.IntPtr[fields.Length];
+        //    System.Type lastType = target.GetType();
+        //    for (int i = 0; i < fields.Length; i++)
+        //    {
+        //        var field = fields[i];
+        //        if (field.IsStatic)
+        //        {
+        //            throw new System.ArgumentException("Field cannot be static.", "fields");
+        //        }
+        //        flds[i] = field.FieldHandle.Value;
+        //        lastType = field.FieldType;
+        //    }
+        //    //InternalMakeTypedReference.DynamicInvoke(ptr, target, flds, lastType);
+        //}
+
+        #endregion
+
+        //returns Index of difference
+        //bool MemCmp(source, dst, offset, size) => MemCmp(source, st, offset, size) >= 0
+        //int MemCmp(source, dst, offset, size)
+        
+        //labs MemoryUtils has a fairly good implementation, a similar approach could be taken here using Read and Write.
+
+        #region Conversions
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe static TResult ReinterpretCast<TOriginal, TResult>(/*this*/ TOriginal orig)
+            //refember ReferenceTypes are references to the CLRHeader
+            //where TOriginal : struct
+            //where TResult : struct
+        {
+            return Read<TResult>(AddressOf(orig));
+        }
+
+        //Not really needed when you have ReinterpretCast
+        //The only methods which would be useful then are pointer (*) methods which unfortunately can't be Generic type arguments
+
         [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe int UInt32ToInt32Bits(uint * x)
+        {
+            return *((int*)(void*)x);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe int UInt32ToInt32Bits(uint x)
         {
             return *((int*)(void*)&x);
         }
 
         [System.CLSCompliant(false)]
-        public static unsafe int Int32ToInt16Bits(int x)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe short Int32ToInt16Bits(int x) //Int15Bits
         {
             return *((short*)(void*)&x);
         }
 
-        //Should use Write
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe ushort Int32ToUInt16Bits(int x)
+        {
+            return *((ushort*)(void*)&x);
+        }
+
+        #endregion
+
+        #region String
 
         /// <summary>
         /// Attempts to modify the given string at the given index with the new value.
@@ -190,6 +412,7 @@ namespace Media.Concepts.Classes
         /// <param name="toModify"></param>
         /// <param name="index"></param>
         /// <param name="newValue"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public unsafe static bool UnsafeTryModifyString(string toModify, int index, char newValue)
         {
             try
@@ -204,6 +427,7 @@ namespace Media.Concepts.Classes
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public unsafe static void UnsafeModifyString(string toModify, ref int index, ref char newValue)
         {
             fixed (char* str = toModify)
@@ -211,6 +435,20 @@ namespace Media.Concepts.Classes
                 str[index] = newValue;
             }
         }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static void NativeModifyString(string toModify, ref int index, ref char newValue)
+        {
+            System.Runtime.InteropServices.Marshal.WriteInt16(toModify, index, newValue);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static void NativeReadString(string toModify, ref int index, out char value)
+        {
+            value = (char)System.Runtime.InteropServices.Marshal.ReadInt16(toModify, index);
+        }
+
+        #endregion
     }
 }
 

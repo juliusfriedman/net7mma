@@ -95,6 +95,33 @@ namespace Media.Common
         /// <returns>The sequence</returns>
         IEnumerable<byte> Prepare();
 
+        /// <summary>
+        /// Attempts to get all buffers assoicated with the data of the packet.
+        /// </summary>
+        /// <param name="bufferList">The list of buffers</param>
+        /// <returns>True if the operation succeeds, otherwise false.</returns>
+        bool TryGetBuffers(out IList<ArraySegment<byte>> bufferList);
+        
+        #region Notes 
+
+        //unsafe could return byte* but the buffers are potentially seperated. (header and payload etc)
+
+        //Could probably use the same api the Socket.Send Ilist is using but with different pointers in the list which correspond to the correct data.
+        //MemorySegment is exactly like ArraySegment anyway,
+        //Therefore, I Could probably unsafely change the type of the reference to ArraySegment<byte> and it would probably work in place...
+
+        //Mono - Xamarin
+        //Supports send with ArraySegment but also has a Send_nochecks and Send_internal / Xamarin may not implement.
+        //It may be easier to just stub a method for sending (and recieving) rather than trying to act differently depending on the RunTime but the RunTimes are different to a degree.
+
+        //Microsoft -
+        //BufferOffsetSize is used in 4.6 http://referencesource.microsoft.com/#System/net/System/Net/Sockets/Socket.cs
+        //DoMultipleSend, BeginMultipleSend, EndMultipleSend
+        //MultipleConnect
+        //This could call those methods with the MemorySegment especially if MemorySegment was able to used as a BufferOffsetSize structure.
+
+        #endregion
+
         //May want to include source address / port and destination address / port
 
         //System.Net.EndPoint To { get; }

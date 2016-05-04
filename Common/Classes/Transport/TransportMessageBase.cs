@@ -67,5 +67,7 @@ namespace Media.Common
         public abstract int CompleteFrom(System.Net.Sockets.Socket socket, MemorySegment buffer);
 
         public abstract IEnumerable<byte> Prepare();
+
+        public abstract bool TryGetBuffers(out IList<ArraySegment<byte>> buffer);
     }
 }

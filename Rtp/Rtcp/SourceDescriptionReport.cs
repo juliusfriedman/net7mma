@@ -343,7 +343,12 @@ namespace Media.Rtcp
             /// <summary>
             /// The amount of bytes this instance occupied when serialied with ToArray
             /// </summary>
-            public int Size { get { return Data.Count(); } }
+            public int Size
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+                get { return Data.Count(); }
+            }
 
             /// <summary>
             /// Provides the binary data of the SourceDescriptionItem not including the Type and Length fields.
@@ -355,6 +360,8 @@ namespace Media.Rtcp
             /// </remarks>
             public IEnumerable<byte> ItemData
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
                 get { return ItemType == default(byte) ? Data.TakeWhile(o => o == default(byte)) : Data.Skip(ItemHeaderSize).Take(ItemLength); }
             }
 
@@ -380,11 +387,13 @@ namespace Media.Rtcp
 
             #endregion
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
             {
                 return Data.GetEnumerator();
             }
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
             {
                 return Data.GetEnumerator();
@@ -895,6 +904,7 @@ namespace Media.Rtcp
             /// </summary>
             public int ChunkIdentifer
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return (int)Binary.ReadU32(m_ChunkData, 0, BitConverter.IsLittleEndian); }
             }
 
@@ -902,18 +912,27 @@ namespace Media.Rtcp
             /// Indicates if the SourceDesriptionChunk has any <see cref="SourceDescriptionItem"/>'s present.
             /// The <see cref="SourceDescriptionItem"/>'s can be obtained with a <see cref="SourceDescriptionItemList"/>
             /// </summary>
-            public bool HasItems { get { return m_ChunkData.Count() > IdentifierSize; } }
+            public bool HasItems
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_ChunkData.Count() > IdentifierSize; }
+            }
 
             /// <summary>
             /// The size in octets of this instance.
             /// </summary>
-            public int Size { get { return m_ChunkData.Count(); } }
+            public int Size
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_ChunkData.Count(); }
+            }
 
             /// <summary>
             /// Gets a sequence containing the binary data of the chunk. (Including the ChunkIdentifier)
             /// </summary>
             public IEnumerable<byte> ChunkData
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return m_ChunkData;
@@ -921,7 +940,11 @@ namespace Media.Rtcp
             }
 
 
-            public IEnumerable<SourceDescriptionItem> Items { get { return GetSourceDescriptionItemList(); } }
+            public IEnumerable<SourceDescriptionItem> Items
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return GetSourceDescriptionItemList(); }
+            }
 
             #endregion
 

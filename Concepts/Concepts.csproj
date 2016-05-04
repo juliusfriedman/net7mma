@@ -60,6 +60,7 @@
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
     <Compile Include="Classes\ArithmeticLogicUnit.cs" />
+    <Compile Include="Classes\Arrays.cs" />
     <Compile Include="Classes\Asm.cs" />
     <Compile Include="Classes\BindableBase.cs" />
     <Compile Include="Classes\BitEnumerator.cs" />
@@ -70,7 +71,6 @@
     <Compile Include="Classes\Composed.cs" />
     <Compile Include="Classes\Disposable.cs" />
     <Compile Include="Classes\Experimental.cs" />
-    <Compile Include="Classes\MemoryStreamEx.cs" />
     <Compile Include="Classes\Stopwatch.cs" />
     <Compile Include="Classes\Timer.cs" />
     <Compile Include="Classes\Unmanaged.cs" />

@@ -65,6 +65,41 @@ namespace Media.Common
 
         public static readonly char[] TabCharacters = System.Text.Encoding.UTF8.GetChars(TabBytes);
 
+        //Todo, move to UTF8
+
+        /// <summary>
+        /// ISO 8859-1 characters with the most-significant bit set are represented as 1100001x 10xxxxxx. (See RFC 2279 [21])
+        /// </summary>
+        const byte SurrogateMask = 0xC3; //11000011
+
+        /// <summary>
+        /// Checks the first two bits and the last two bits of each byte while moving the count to the correct position while doing so.
+        /// The function does not check array bounds or preserve the stack and prevents math overflow.
+        /// </summary>
+        /// <param name="buffer">The array to check</param>
+        /// <param name="start">The offset to start checking</param>
+        /// <param name="count">The amount of bytes in the buffer</param>
+        /// <param name="reverse">optionally indicates if the bytes being checked should be reversed before being checked</param>
+        /// <returns></returns>
+        /// <remarks>If knew the width did you, faster it could be..</remarks>
+        public static bool FoundValidUniversalTextFormat(byte[] buffer, ref int start, ref int count, bool reverse = false)
+        {
+
+            //Todo, unsafe and native
+
+            unchecked //unaligned
+            {
+                //1100001 1
+#if NATIVE
+                //Copies the byte but skips the bounds checks.
+                while (((reverse ? Common.Binary.ReverseU8(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, start))) : System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, start))) & SurrogateMask) == 0) start++;
+#else
+                while (((reverse ? (Common.Binary.ReverseU8(ref buffer[start])) : buffer[start]) & SurrogateMask) == 0 && start < --count) ++start;
+#endif
+                return count > 0;
+            }
+        }
+
         //Todo, Encode / Decode
 
         //See https://github.com/dotnet/corefxlab/tree/master/src/System.Text.Utf8

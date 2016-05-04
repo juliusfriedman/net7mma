@@ -62,8 +62,6 @@ namespace Media
 
         #endregion
 
-        //Todo, Unsafe and Native
-
         /// <summary>
         /// Indicates the position of the match in a given buffer to a given set of octets.
         /// If the match fails the start parameter will reflect the position of the last partial match, otherwise it will be incremented by <paramref name="octetCount"/>
@@ -108,7 +106,13 @@ namespace Media
             {
                 //Find the next occurance of the required octet storing the result in lastPosition
                 //If the result occured after the start
+#if NATIVE
+                if ((lastPosition = Array.IndexOf<byte>(buffer,
+                    System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(octets, checkedBytes++)),
+                    position, depth)) >= start)
+#else
                 if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes++], position, depth)) >= start)
+#endif
                 {
                     //Check for completion
                     if (++matchedBytes == octetCount) break;
@@ -143,8 +147,6 @@ namespace Media
             return lastPosition;
         }
 
-        //Todo, Unsafe and Native
-
         public static int Find(byte[] array, byte[] needle, int startIndex, int sourceLength)
         {
             int needleLen = needle.Length;
@@ -153,9 +155,16 @@ namespace Media
 
             while (sourceLength >= needleLen)
             {
+
+#if NATIVE
+
+                index = Array.IndexOf(array, 
+                    System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(needle, 0)), 
+                    startIndex, sourceLength - needleLen + 1);
+#else
                 // find needle's starting element
                 index = Array.IndexOf(array, needle[0], startIndex, sourceLength - needleLen + 1);
-
+#endif
                 // if we did not find even the first element of the needls, then the search is failed
                 if (index == -1)
                     return -1;
@@ -164,10 +173,16 @@ namespace Media
                 // check for needle
                 for (i = 0, p = index; i < needleLen; i++, p++)
                 {
+#if NATIVE
+                    if (System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(array, p))
+                        !=
+                        System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(needle, i))) break;
+#else
                     if (array[p] != needle[i])
                     {
                         break;
                     }
+#endif
                 }
 
                 if (i == needleLen)

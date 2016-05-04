@@ -170,7 +170,11 @@ namespace Media.Rtp
         /// </summary>
         public int Version
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { /*CheckDisposed();*/ return First16Bits.Version; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ First16Bits.Version = value; }
         }
 
@@ -179,7 +183,11 @@ namespace Media.Rtp
         /// </summary>
         public bool Padding
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { /*CheckDisposed();*/ return First16Bits.Padding; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ First16Bits.Padding = value; }
         }
 
@@ -188,7 +196,11 @@ namespace Media.Rtp
         /// </summary>
         public bool Extension
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { /*CheckDisposed();*/ return First16Bits.Extension; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ First16Bits.Extension = value; }
         }
 
@@ -197,7 +209,11 @@ namespace Media.Rtp
         /// </summary>
         public int ContributingSourceCount
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { /*CheckDisposed();*/ return First16Bits.RtpContributingSourceCount; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ First16Bits.RtpContributingSourceCount = value; }
         }
 
@@ -206,7 +222,11 @@ namespace Media.Rtp
         /// </summary>
         public bool Marker
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { /*CheckDisposed();*/ return First16Bits.RtpMarker; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ First16Bits.RtpMarker = value; }
         }
 
@@ -215,8 +235,12 @@ namespace Media.Rtp
         /// </summary>
         public int PayloadType
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             //The value is revealed by clearing the 0th bit in the second octet.
             get { /*CheckDisposed();*/ return First16Bits.RtpPayloadType; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ First16Bits.RtpPayloadType = value; }
         }
 
@@ -229,6 +253,8 @@ namespace Media.Rtp
 
         public bool IsCompressed
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return PointerToLast10Bytes.Count < 10; }
         }
 
@@ -242,8 +268,12 @@ namespace Media.Rtp
         /// </summary>
         public int SequenceNumber
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             //The sequence number is stored in Netword Byte Order @ + 0x00 from the second octet (relative offset of 0x02 from the beginning of any header pointer)
             get { /*CheckDisposed();*/ return (ushort)Binary.ReadU16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ Binary.Write16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value); }
         }
 
@@ -255,8 +285,12 @@ namespace Media.Rtp
         /// </remarks>
         public int Timestamp
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             //The sequence number is stored in Netword Byte Order  @ + 0x02 from the second octet (relative offset of 0x04 from the beginning of any header pointer)
             get { /*CheckDisposed();*/ return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian); } //Always read in reverse
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ Binary.Write32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -265,8 +299,12 @@ namespace Media.Rtp
         /// </summary>
         public int SynchronizationSourceIdentifier
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             //The sequence number is stored in Netword Byte Order @ + 0x06 from the second octet (relative offset of 0x08 from the beginning of any header pointer)
             get { /*CheckDisposed();*/ return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ Binary.Write32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian, (uint)value); }
         }
 

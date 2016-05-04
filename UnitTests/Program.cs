@@ -61,6 +61,8 @@ namespace Media.UnitTests
             TestStopWatch,
             TestClock,
             TestTimer,
+            TestExperimental,
+            //
             TestMachine,
             //Cryptography
             TestCryptography,
@@ -403,9 +405,6 @@ namespace Media.UnitTests
 
             //Should randomize values and verify sent and received data.
 
-            //No tcp test right now.
-            if (tcp) tcp = false;
-
             //Start a test to send a single frame as quickly as possible to a single party.
             //Disconnect after sending said frame test the disposable implementation, packets not yet received will be lost at that time.
             using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))
@@ -487,9 +486,9 @@ namespace Media.UnitTests
                                 //Get the socket used
                                 var acceptedSocket = sendersSocket.EndAccept(iar);
 
-                                sendersContext.Initialize(acceptedSocket);
+                                sendersContext.Initialize(acceptedSocket, acceptedSocket);
 
-                                receiversContext.Initialize(acceptedSocket);
+                                receiversContext.Initialize(acceptedSocket, acceptedSocket);
 
                                 //Connect the sender
                                 sender.Activate();
@@ -508,7 +507,6 @@ namespace Media.UnitTests
                             //acceptedSocket is now rr
 
                             while (!acceptResult.IsCompleted) { }
-
                         }
                         else //For Udp a port should be found unless the MediaDescription indicates a specific port.
                         {
@@ -539,8 +537,10 @@ namespace Media.UnitTests
                         //Send it
                         sender.SendRtpFrame(testFrame);
 
+                        if (tcp) sender.SendReports();
+
                         //Wait for the senders report to be sent AND for the frame to be sent at least one time while the sender is connected
-                        while (sender.IsActive && (sendersContext.SendersReport == null || false == sendersContext.SendersReport.Transferred.HasValue) || false == testFrame.Transferred) System.Threading.Thread.Yield();
+                        while (sender.IsActive && tcp ? sendersContext.Goodbye == null : (sendersContext.SendersReport == null || false == sendersContext.SendersReport.Transferred.HasValue) || false == testFrame.Transferred) System.Threading.Thread.Yield();
 
                         //Print the report information
                         if (sendersContext.SendersReport != null)
@@ -554,8 +554,10 @@ namespace Media.UnitTests
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "\t *** Sent RtpFrame, Sending Reports and Goodbye ***");
 
+                        if (tcp) receiver.SendReports();
+
                         //Wait for a receivers report to be sent while the receiver is connected
-                        while (receiver.IsActive && (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Yield();
+                        while (receiver.IsActive && tcp ? receiversContext.Goodbye == null : (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Yield();
 
                         //Print the report information
                         if (receiversContext.ReceiversReport != null)
@@ -2835,6 +2837,11 @@ a=appversion:1.0");
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MachineUnitTests), TypeOfVoid);
         }
 
+        static void TestExperimental()
+        {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ExperimentalTests), TypeOfVoid);
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -3141,6 +3148,7 @@ a=appversion:1.0");
                 }
 
                 ConsoleKey input = Console.ReadKey(true).Key;
+
                 switch (input)
                 {
                     case ConsoleKey.W:

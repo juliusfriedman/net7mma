@@ -49,6 +49,16 @@ namespace Media.Common
     /// </summary>
     public class SegmentStream : System.IO.Stream, IDisposed
     {
+        ///// <summary>
+        ///// Combines all given instances into a single instance.
+        ///// </summary>
+        ///// <param name="streams"></param>
+        ///// <returns>The combined instance.</returns>
+        //public static SegmentStream Combine(params SegmentStream[] streams)
+        //{
+        //    return new SegmentStream(streams.SelectMany(s=> s.Segments));
+        //}
+
         #region Fields
 
         long m_Position, m_Count;
@@ -68,13 +78,25 @@ namespace Media.Common
 
         #region Constructor
 
-        public SegmentStream() { }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public SegmentStream() { Segments = new System.Collections.Generic.List<Common.MemorySegment>(); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public SegmentStream(IList<Common.MemorySegment> existing)
         {
             if (existing == null) throw new ArgumentNullException();
 
+            //Use the existing list
             Segments = existing;
+
+            m_Count = Segments.Sum(s => Common.IDisposedExtensions.IsNullOrDisposed(s) ? 0 : s.m_Length);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public SegmentStream(IEnumerable<Common.MemorySegment> existing)
+        {
+            //Create a new list.
+            Segments = new System.Collections.Generic.List<Common.MemorySegment>(existing);
 
             m_Count = Segments.Sum(s => Common.IDisposedExtensions.IsNullOrDisposed(s) ? 0 : s.m_Length);
         }
@@ -394,16 +416,19 @@ namespace Media.Common
 
         public override bool CanRead
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return false == IsDisposed; }
         }
 
         public override bool CanSeek
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return false == IsDisposed; }
         }
 
         public override bool CanWrite
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return false == IsDisposed; }
         }
 
@@ -414,15 +439,18 @@ namespace Media.Common
 
         public override long Length
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return (long)m_Count; }
         }
 
         public override long Position
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return (long)m_Position; // + m_Cursor causes a calc for each position but makes it slightly more accurate and makes individual movement faster in some cases.. (Determine how much)
             }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
                 Seek(value, System.IO.SeekOrigin.Begin);
@@ -434,7 +462,11 @@ namespace Media.Common
         /// <summary>
         /// The amount of bytes remaining in the stream based on <see cref="Position"/>
         /// </summary>
-        public long Remains { get { return m_Count - m_Position; } }
+        public long Remains
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Count - m_Position; }
+        }
 
         #endregion
 
@@ -444,6 +476,7 @@ namespace Media.Common
         /// Reads a single byte from the underlying stream without an intermediate allocation.
         /// </summary>
         /// <returns>-1 if at the end of stream or <see cref="IsDisposed"/>, otherwise the byte read.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override int ReadByte()
         {
             //If at the end of data return 0 unless closed...
@@ -458,8 +491,13 @@ namespace Media.Common
                 m_Cursor = 0;
             }
 
+#if UNSAFE
+            byte result = *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.Array, (int)(WorkingSegment.Offset + m_Cursor++));
+#elif NATIVE
+            byte result = System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.Array, (int)(WorkingSegment.Offset + m_Cursor++)));
+#else
             byte result = WorkingSegment.Array[WorkingSegment.Offset + m_Cursor++];
-
+#endif
             ++m_Position;
 
             return result;
@@ -471,6 +509,7 @@ namespace Media.Common
         /// If before the end of the stream the byte is written directly to the segment available, otherwise a new segment is added to <see cref="Segments"/> with only one byte.
         /// </summary>
         /// <param name="value"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override void WriteByte(byte value)
         {
             //If at the end of data return 0 unless closed...
@@ -504,9 +543,14 @@ namespace Media.Common
 
                 m_Cursor = 0;
             }
-
+#if UNSAFE
+            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.Array, (int)(WorkingSegment.Offset + m_Cursor++)) = value;
+#elif NATIVE
+            System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.Array, (int)(WorkingSegment.Offset + m_Cursor++)), value);
+#else
             //Write the value
             WorkingSegment.Array[WorkingSegment.Offset + m_Cursor++] = value;
+#endif
 
             //Move the position
             ++m_Position;
@@ -876,6 +920,20 @@ namespace Media.Common
             }
         }
 
+        /// <summary>
+        /// Calls <see cref="Dispose"/> with the value of ShouldDispose. Called by base Dispose.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override void Close()
+        {
+            //IsClosed = true;
+            //LeaveOpen...
+
+            //If the stream should dispose then call base Close to call Dispose(true) and Supress the finalizer
+            if (ShouldDispose) base.Close();
+            else System.GC.SuppressFinalize(this);
+        }
+
         #region Task Based
 
         //The only way to avoid the allocation in the base class with CopyTo is to handly the copying here....
@@ -926,23 +984,11 @@ namespace Media.Common
             }
         }
 
-        #endregion
-
-        /// <summary>
-        /// Calls <see cref="Dispose"/> with the value of ShouldDispose. Called by base Dispose.
-        /// </summary>
-        public override void Close()
-        {
-            //IsClosed = true;
-            //LeaveOpen...
-
-            //If the stream should dispose then call base Close to call Dispose(true) and Supress the finalizer
-            if (ShouldDispose) base.Close();
-        }
+        #endregion        
 
         #endregion
 
-        #region IDisposed
+        #region Destructor / IDisposed
 
         internal protected bool ShouldDispose = true, IsDisposed;
 
@@ -981,9 +1027,11 @@ namespace Media.Common
             get { return ShouldDispose; }
         }
 
-        void IDisposable.Dispose() { Dispose(ShouldDispose); }
+        //Keep the same semantics as Stream...
 
-        ~SegmentStream() { Dispose(); }
+        void IDisposable.Dispose() { Close(); }
+
+        ~SegmentStream() { Close(); }
 
         #endregion
     }
