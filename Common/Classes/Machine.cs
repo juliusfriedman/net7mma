@@ -278,7 +278,12 @@ namespace Media.Common
         //Should work in netMf also
         //https://github.com/NETMF/netmf-interpreter/blob/d28c5365e35fa7c861312b702cde5b73e2ef3808/Framework/Subset_of_CorLib/System/Reflection/AssemblyNameFlags.cs
 
-        public static System.Reflection.ProcessorArchitecture AssemblyNameProcessorArchitecture { get { return m_AssemblyNameProcessorArchitecture; } }
+        public static System.Reflection.ProcessorArchitecture AssemblyNameProcessorArchitecture
+        {
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_AssemblyNameProcessorArchitecture; }
+        }
 
         /// <summary>
         /// Indicates the Platform the code was compiled for.
@@ -286,14 +291,22 @@ namespace Media.Common
         /// </summary>
         internal static System.Reflection.ProcessorArchitecture m_AssemblyNameProcessorArchitecture = AssemblyName.ProcessorArchitecture;
 
-        public static System.Reflection.PortableExecutableKinds CodeType { get { return m_CodeType; } }
+        public static System.Reflection.PortableExecutableKinds CodeType
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_CodeType; }
+        }
 
         /// <summary>
         /// Indicates the type of machine code produced by JIT when the code is compiled.
         /// </summary>
         internal static System.Reflection.PortableExecutableKinds m_CodeType;
 
-        public static System.Reflection.ImageFileMachine MachineType { get { return m_MachineType; } }
+        public static System.Reflection.ImageFileMachine MachineType
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_MachineType; }
+        }
 
         /// <summary>
         /// Indicates the CPU instructions used by the JIT when the code is compiled.
@@ -306,14 +319,22 @@ namespace Media.Common
         /// <summary>
         /// The maximum amount of shifting which can occur before the bit pattern space repeats
         /// </summary>
-        public static int BitPatternSize { get { return m_BitPatternSize; } }
+        public static int BitPatternSize
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_BitPatternSize; }
+        }
 
         internal static BinaryRepresentation m_SystemBinaryRepresentation = BinaryRepresentation.Unknown;
 
         /// <summary>
         /// The <see cref="BinaryRepresentation"/> of the current architecture used for the <see cref="int"/> type.
         /// </summary>
-        public static BinaryRepresentation SystemBinaryRepresentation { get { return m_SystemBinaryRepresentation; } }
+        public static BinaryRepresentation SystemBinaryRepresentation
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_SystemBinaryRepresentation; }
+        }
 
         #endregion
 

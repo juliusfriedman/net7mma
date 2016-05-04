@@ -2222,6 +2222,10 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 foreach (Rtp.RtpPacket packet in Packets) ProcessPacket(packet, allowLegacyPackets, useRfcQuantizer);
 
+                //Create the buffer one time and store it.
+
+                //m_Buffer = Buffer;
+
                 base.PrepareBuffer();
             }
 
@@ -2238,9 +2242,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 try
                 {
-                    if (m_Buffer == null || false == m_Buffer.CanRead) PrepareBuffer();
+                    if (false == HasDepacketized || (m_Buffer == null || false == m_Buffer.CanRead)) PrepareBuffer();
 
-                    return System.Drawing.Image.FromStream(Buffer, useEmbeddedColorManagement, validateImageData); 
+                    return System.Drawing.Image.FromStream(m_Buffer, useEmbeddedColorManagement, validateImageData); 
                 }
                 catch
                 {

@@ -66,14 +66,44 @@ namespace Media.Common
 
         //IReadOnly
 
-        public int Count { get { return (int)m_Length; } protected set { m_Length = value; } }
+        public int Count
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-        public long LongLength { get { return m_Length; } protected set { m_Length = value; } }
+            get { return (int)m_Length; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-        public int Offset { get { return (int)m_Offset; } protected set { m_Offset = value; } }
+            protected set { m_Length = value; }
+        }
 
-        public byte[] Array { get { return m_Array; } /* protected set { m_Array = value; } */ }
+        public long LongLength
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
+            get { return m_Length; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            protected set { m_Length = value; }
+        }
+
+        public int Offset
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { return (int)m_Offset; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            protected set { m_Offset = value; }
+        }
+
+        public byte[] Array
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { return m_Array; } /* protected set { m_Array = value; } */
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(byte[] reference, bool shouldDispose = true)
             : base(shouldDispose)
         {
@@ -86,6 +116,7 @@ namespace Media.Common
             //ByteOrder = Binary.SystemEndian;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(byte[] reference, int offset, bool shouldDispose = true)
             : this(reference, shouldDispose)
         {
@@ -94,6 +125,7 @@ namespace Media.Common
             if (m_Offset > m_Length) throw new ArgumentOutOfRangeException("offset");
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(byte[] reference, int offset, int length, bool shouldDispose = true)
             : this(reference, offset, shouldDispose)
         {
@@ -101,7 +133,8 @@ namespace Media.Common
 
             if (m_Offset + m_Length > m_Array.LongLength) throw new ArgumentOutOfRangeException("length");
         }
-        
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(long size, bool shouldDispose = true)
         {
             if (size < 0) throw new ArgumentException("size");
@@ -116,7 +149,8 @@ namespace Media.Common
 
             //ByteOrder = Binary.SystemEndian;
         }
-        
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(MemorySegment other)
         {
             IsDisposed = other.IsDisposed;
@@ -148,6 +182,7 @@ namespace Media.Common
 
         //Make an Enumerator implementation to help with Skip and Copy?
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
         {
             for (int i = 0; i < m_Length; ++i)
@@ -170,6 +205,7 @@ namespace Media.Common
         //    }
         //}
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
             return ((IEnumerable<byte>)this).GetEnumerator();
@@ -178,16 +214,28 @@ namespace Media.Common
         public byte this[int index]
         {
 #if UNSAFE
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             //Could also use UnsafeAddrOfPinnedArrayElement
             //get { unsafe { return *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, m_Offset + index); } }
             get { unsafe { fixed (byte* p = &m_Array[m_Offset]) return *(p + index); } }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             //set { unsafe { *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, m_Offset + index) = value; } }
             set { unsafe { fixed (byte* p = &m_Array[m_Offset]) *(p + index) = value; } }
 #elif NATIVE
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, (int)m_Offset + index)); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, (int)m_Offset + index), value); }
 #else
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return m_Array[m_Offset + index]; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { m_Array[m_Offset + index] = value; }
 #endif
         }
@@ -217,6 +265,42 @@ namespace Media.Common
 
         //Methods for copying an array of memory or constructor?
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override int GetHashCode()
+        {
+            return (int)(m_Array.GetHashCode() ^ m_Offset ^ m_Length);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override bool Equals(object obj)
+        {
+            if (System.Object.ReferenceEquals(this, obj)) return true;
+
+            if (false == (obj is MemorySegment)) return false;
+
+            MemorySegment other = obj as MemorySegment;
+
+            return Equals(other);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Equals(MemorySegment other)
+        {
+            if (other == null) return false;
+            return other.GetHashCode() == GetHashCode();
+        }
+
+        //use Find to offset and index searches ...
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool operator ==(MemorySegment a, MemorySegment b)
+        {
+            object boxA = a, boxB = b;
+            return boxA == null ? boxB == null : a.Equals(b);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool operator !=(MemorySegment a, MemorySegment b) { return false == (a == b); }
     }
 
     //Should probably enforce usability with additional derivations, Todo
@@ -233,14 +317,34 @@ namespace Media.Common
     {
         long m_BitOffset, m_BitCount;
 
-        public int BitCount { get { return (int)m_BitCount; } protected set { m_BitCount = value; } }
+        public int BitCount
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return (int)m_BitCount; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            protected set { m_BitCount = value; }
+        }
 
-        public long LongBitCount { get { return m_BitCount; } protected set { m_BitCount = value; } }
+        public long LongBitCount
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_BitCount; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            protected set { m_BitCount = value; }
+        }
 
-        public int BitOffset { get { return (int)m_BitOffset; } protected set { m_BitOffset = value; } }
+        public int BitOffset
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return (int)m_BitOffset; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            protected set { m_BitOffset = value; }
+        }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public BitSegment(int bitSize, bool shouldDispose = true) : base(Common.Binary.BitsToBytes(ref bitSize), shouldDispose) { m_BitCount = bitSize; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public BitSegment(byte[] reference, int bitOffset, int bitCount, bool shouldDispose = true)
             : base(reference, Common.Binary.BitsToBytes(ref bitOffset), Common.Binary.BitsToBytes(ref bitCount), shouldDispose)
         {
@@ -250,9 +354,10 @@ namespace Media.Common
         }
 
         //reference may be null
-
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public BitSegment(byte[] reference, int bitOffset, bool shouldDispose = true) : this(reference, bitOffset, Common.Binary.BytesToBits(reference.Length) - bitOffset, shouldDispose) { }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public BitSegment(byte[] reference) : this(reference, 0, Common.Binary.BytesToBits(reference.Length)) { }
 
 

@@ -375,7 +375,12 @@ namespace Media.Rtcp
         /// </summary>
         public MemorySegment Payload { get; protected set; } //should be backed field
 
-        public bool IsReadOnly { get { return false == m_OwnsHeader; } }
+        public bool IsReadOnly
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { return false == m_OwnsHeader; }
+        }
 
         /// <summary>
         /// Indicates if there is data past the Payload which is not accounted for by the <see cref="Header"/>
@@ -387,7 +392,12 @@ namespace Media.Rtcp
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public int PaddingOctets { get { return IsDisposed || Header.Padding == false ? 0 : Media.RFC3550.ReadPadding(Payload.Array, Payload.Offset + Payload.Count - 1, 1); } }
+        public int PaddingOctets
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
+            get { return IsDisposed || Header.Padding == false ? 0 : Media.RFC3550.ReadPadding(Payload.Array, Payload.Offset + Payload.Count - 1, 1); }
+        }
 
         //Todo Segment properties.
 
@@ -396,6 +406,8 @@ namespace Media.Rtcp
         /// </summary>
         public int Length
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get
             {
                 //Proably don't have to check IsDisposed
@@ -408,6 +420,8 @@ namespace Media.Rtcp
         /// </summary>
         public bool IsComplete
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return IsDisposed || Header.IsDisposed ? false : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * Binary.BytesPerInteger)) - RtcpHeader.Length; }
         }
 
@@ -416,7 +430,11 @@ namespace Media.Rtcp
         /// </summary>
         public int Version
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return Header.Version; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set
             {
                 if (IsReadOnly) throw new InvalidOperationException("Version can only be set when IsReadOnly is false.");
@@ -429,7 +447,11 @@ namespace Media.Rtcp
         /// </summary>
         public bool Padding
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return Header.Padding; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set
             {
                 if (IsReadOnly) throw new InvalidOperationException("Padding can only be set when IsReadOnly is false.");
@@ -442,7 +464,11 @@ namespace Media.Rtcp
         /// </summary>
         public int PayloadType
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return Header.PayloadType; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set
             {
                 if (IsReadOnly) throw new InvalidOperationException("PayloadType can only be set when IsReadOnly is false.");
@@ -455,7 +481,11 @@ namespace Media.Rtcp
         /// </summary>
         public int BlockCount
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return Header.BlockCount; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set
             {
                 if (IsReadOnly) throw new InvalidOperationException("BlockCount can only be set when IsReadOnly is false.");
@@ -468,7 +498,11 @@ namespace Media.Rtcp
         /// </summary>
         public int SynchronizationSourceIdentifier
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return Header.SendersSynchronizationSourceIdentifier; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set
             {
                 if (IsReadOnly) throw new InvalidOperationException("SynchronizationSourceIdentifier can only be set when IsReadOnly is false.");
@@ -891,25 +925,43 @@ namespace Media.Rtcp
                 other.GetHashCode() == GetHashCode();
         }
 
+        //Packet equals...
+
         public override int GetHashCode() { return Created.GetHashCode() ^ Header.GetHashCode(); }
 
         #endregion
 
         #region Operators
-
+        
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(RtcpPacket a, RtcpPacket b)
         {
             object boxA = a, boxB = b;
             return boxA == null ? boxB == null : a.Equals(b);
         }
-
+        
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(RtcpPacket a, RtcpPacket b) { return false == (a == b); }
 
         #endregion
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         object ICloneable.Clone()
         {
             return this.Clone(true, true, false);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool TryGetBuffers(out System.Collections.Generic.IList<System.ArraySegment<byte>> buffer)
+        {
+            buffer = new System.Collections.Generic.List<ArraySegment<byte>>()
+            {
+                Common.MemorySegmentExtensions.ToByteArraySegment(Header.First16Bits.m_Memory),
+                Common.MemorySegmentExtensions.ToByteArraySegment(Header.PointerToLast6Bytes),
+                Common.MemorySegmentExtensions.ToByteArraySegment(Payload),
+            };
+
+            return true;
         }
     }
 

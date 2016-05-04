@@ -214,12 +214,20 @@ namespace Media.Rtcp
         /// Calculates the amount of octets contained in the Payload which belong to the SourceList.
         /// The BlockCount is obtained from the Header.
         /// </summary>
-        public override int ReportBlockOctets { get { return RFC3550.SourceList.ItemSize * Header.BlockCount; } }
+        public override int ReportBlockOctets
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return RFC3550.SourceList.ItemSize * Header.BlockCount; }
+        }
 
         /// <summary>
         /// Indicates if the GoodbyeReport contains a ReasonForLeaving based on the length of SourceList contained in the GoodbyeReport.
         /// </summary>
-        public bool HasReasonForLeaving { get { return ReasonLength > 0; } }
+        public bool HasReasonForLeaving
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return ReasonLength > 0; }
+        }
 
         /// <summary>
         /// Gets the data assoicated with the ReasonForLeaving denoted by the length of field if present.

@@ -123,6 +123,8 @@ namespace Media.Rtcp
 
         public bool IsCompressed
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return Size < Length; } //E.g. Size < Length would look better as Length < Size ... :p
         } 
 
@@ -130,6 +132,8 @@ namespace Media.Rtcp
         /// Creates a 32 bit value which can be used to detect validity of the RtcpHeader when used in conjunction with the CreateRtcpValidMask function.
         /// </summary>
         /// <returns>The 32 bit value which is interpreted as a result of reading the RtcpHeader as a 32bit integer</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        
         internal int ToInt32()
         {
             //Create a 32 bit system endian value
@@ -139,6 +143,8 @@ namespace Media.Rtcp
         /// <summary>
         /// Indicates if the RtcpPacket is valid by checking the header for the given parameters.
         /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        
         public bool IsValid(int? version = 0, int? payloadType = 0, bool? padding = false)
         {
             if (version.HasValue && version != Version) return false;
@@ -173,7 +179,11 @@ namespace Media.Rtcp
         /// </summary>
         public int BlockCount
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { /*CheckDisposed();*/ return First16Bits.RtcpBlockCount; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ First16Bits.RtcpBlockCount = value; }
         }
 
@@ -182,8 +192,12 @@ namespace Media.Rtcp
         /// </summary>
         public int PayloadType
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             //The value is revealed by clearing the 0th bit in the second octet.
             get { /*CheckDisposed();*/ return First16Bits.RtcpPayloadType; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set { /*CheckDisposed();*/ First16Bits.RtcpPayloadType = value; }
         }
 
@@ -203,6 +217,7 @@ namespace Media.Rtcp
           scanning a compound RTCP packet, while counting 32-bit words
           avoids a validity check for a multiple of 4.)             
          */
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
             get
             {
@@ -211,6 +226,8 @@ namespace Media.Rtcp
                 //Read the value
                 return Binary.ReadU16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian);
             }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             //Set the value
             set
             {
@@ -230,6 +247,8 @@ namespace Media.Rtcp
         /// <notes><see cref="PointerToLast6Bytes"/>.Count MUST be >= 6 for a SSRC to occur in the header.</notes>
         public int SendersSynchronizationSourceIdentifier
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get
             { 
 
@@ -245,6 +264,9 @@ namespace Media.Rtcp
 
                //return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian);
             }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             set
             { 
                 /*CheckDisposed();*/
@@ -267,6 +289,8 @@ namespace Media.Rtcp
         /// </summary>
         public int Size
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get
             {
                 if (IsDisposed) return 0;

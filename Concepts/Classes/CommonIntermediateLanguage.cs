@@ -52,8 +52,11 @@ namespace Media.Concepts.Classes
 
         public static readonly System.Action<System.IntPtr, System.IntPtr, int> CpyblkDelegate;
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static CommonIntermediateLanguage()
         {
+            if (InitblkDelegate != null | CpyblkDelegate != null) return;
+
             #region Initblk
             System.Reflection.Emit.DynamicMethod initBlkMethod = new System.Reflection.Emit.DynamicMethod("Initblk",
                 System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
@@ -91,6 +94,7 @@ namespace Media.Concepts.Classes
 
         //Could possibly avoid pinning using the addresss but already have the unsafe variants
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Initblk(byte[] array, byte what, int length)
         {
             System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
@@ -193,16 +197,20 @@ namespace Media.Concepts.Classes
             //=>Internal Memove and Memcopy uses optomized copy impl which can be replicated for other types also.
             //https://github.com/dotnet/corefx/issues/493
 
-        //Todo, offsets
-        //Remember that offsets are based on sizeof(T)
-        //public static void Cpyblk<T>(T[] src, T[] dst, int length)
-        //{
-        //    System.Runtime.InteropServices.GCHandle srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
-        //    System.Runtime.InteropServices.GCHandle dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
-        //    CpyblkDelegate(dstHandle.AddrOfPinnedObject(), srcHandle.AddrOfPinnedObject(), length);
-        //    srcHandle.Free();
-        //    dstHandle.Free();
-        //}
+        public unsafe static void Cpyblk<T>(T[] src, int srcOffset, T[] dst, int dstOffset, int length)
+        {
+            System.Buffer.MemoryCopy((void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(src, srcOffset), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(dst, dstOffset), Unsafe.BytesPer<T>(), length);
+
+            //System.Runtime.InteropServices.GCHandle srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
+            //System.Runtime.InteropServices.GCHandle dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
+
+            //System.Buffer.MemoryCopy((void*)srcHandle.AddrOfPinnedObject(), (void*)dstHandle.AddrOfPinnedObject(), Unsafe.BytesPer<T>(), length);
+
+            
+
+            //srcHandle.Free();
+            //dstHandle.Free();
+        }
 
 
         //internal static void UsageTest()

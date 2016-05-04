@@ -977,27 +977,47 @@ namespace Media.Common
         /// <summary>
         /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture.
         /// </summary>
-        public static int MostSignificantBit { get { return m_MostSignificantBit; } }
+        public static int MostSignificantBit
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_MostSignificantBit; }
+        }
 
         /// <summary>
         /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture.
         /// </summary>
-        public static int LeastSignificantBit { get { return m_LeastSignificantBit; } }
+        public static int LeastSignificantBit
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_LeastSignificantBit; }
+        }
 
         /// <summary>
         /// The <see cref="BitOrder"/> of the current architecture
         /// </summary>
-        public static ByteOrder SystemByteOrder { get { return m_SystemByteOrder; } }
+        public static ByteOrder SystemByteOrder
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_SystemByteOrder; }
+        }
 
         /// <summary>
         /// The <see cref="BitOrder"/> of the current architecture
         /// </summary>
-        public static BitOrder SystemBitOrder { get { return m_SystemBitOrder; } }
+        public static BitOrder SystemBitOrder
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_SystemBitOrder; }
+        }
 
         /// <summary>
         /// Gets a value indicating if the system's byte order is Big Endian.
         /// </summary>
-        public static bool IsBigEndian { get { return m_SystemByteOrder == ByteOrder.Big; } }
+        public static bool IsBigEndian
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_SystemByteOrder == ByteOrder.Big; }
+        }
 
         #endregion
 
@@ -1010,12 +1030,12 @@ namespace Media.Common
         static Binary()
         {
             //ensure not already called.
-            if (m_SystemBitOrder != BitOrder.Unknown ||
-                m_SystemByteOrder != ByteOrder.Unknown || 
-                BitsSetTable != null || 
+            if (m_SystemBitOrder != BitOrder.Unknown |
+                m_SystemByteOrder != ByteOrder.Unknown | 
+                BitsSetTable != null | 
                 BitsReverseTable != null) return;
 
-            //Todo, Determine MaxBits (BitSize)            
+            //Todo, Determine MaxBits (BitSize)              
 
             unchecked
             {
@@ -1027,15 +1047,25 @@ namespace Media.Common
 
                 //Todo, Ensure integer, short and byte ...
 
-                //Use 128 as a value and get the memory associated with the integer representation of the value
-                //byte[] memoryOf = BitConverter.GetBytes((int)Binary.SedecimBitSize); //Use ByteOrder
+#if false == NATIVE
 
+                //Use 128 as a value and get the memory associated with the integer representation of the value
+                byte[] memoryOf = BitConverter.GetBytes((int)Binary.SedecimBitSize); //Use ByteOrder
+#endif
                 //Iterate the memory looking for a non 0 value
-                for (int offset = 0, endOffset = BytesPerInteger; offset < endOffset; ++endOffset)
+                for (int offset = 0, endOffset = BytesPerInteger; offset < endOffset; ++offset)
                 {
-                    //Read a single byte from memory out of the constant value of 128 (0x0080) at offset 0 in memory  (This constant was chosen because it should only have the least significant bit set)                  
+
+                    //Read a single byte from memory out of the constant value of 128 (0x00000080) at offset 0 in memory  (This constant was chosen because it should only have one bit set)
                     //Take a copy of the byte at the offset in memory
-                    byte atOffset = System.Runtime.InteropServices.Marshal.ReadByte(Binary.SedecimBitSize, offset);// memoryOf[offset];
+
+#if false == NATIVE
+
+                    byte atOffset = memoryOf[offset];
+#else
+
+                    byte atOffset = System.Runtime.InteropServices.Marshal.ReadByte(Binary.SedecimBitSize, offset);
+#endif
 
                     //If the value is 0 continue
                     if (atOffset == Binary.Nihil) continue;
@@ -1093,24 +1123,30 @@ namespace Media.Common
                     //This check is engineered by the fact that the enumeration of ByteOrder is defined by how the value should be laid on in memory accordingly.
                     //Since BigEndian is reversed then little should be equal to big when read integer is called without reversing the bytes.
 
-                    //If the native read of the value of m_SystemByteOrder from memory does not match the value expected throw an exception.
-                    if ((int)m_SystemByteOrder != System.Runtime.InteropServices.Marshal.ReadInt32((int)m_SystemByteOrder, 0)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
-
+#if false == NATIVE
                     //If the result of reading an integer of the native bytes of ByteOrder.Little does not match the expected value throw an exception.
-                    //if ((int)m_SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
-
-                    break;
+                    if ((int)m_SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");                    
+#else
+                    //If the native read of the value of m_SystemByteOrder from memory does not match the value expected throw an exception.
+                    if ((int)m_SystemByteOrder != System.Runtime.InteropServices.Marshal.ReadInt32((int)m_SystemByteOrder, 0)) throw new InvalidOperationException("Did not correctly detect ByteOrder"); 
+#endif
 
                     //Could also determine if the Binary Representation is One or Twos Complement..
 
-                    //memoryOf = null;
+#if false == NATIVE
+                    //This allocation will be removed
+                    memoryOf = null;
+#endif
+
+                    //Stop detection
+                    break;
                 }
 
                 #endregion
 
                 #region Build Bit Tables
 
-                //http://graphics.stanford.edu/~seander/bithacks.html
+                //Allocate 512 bytes of memory
 
                 BitsSetTable = new byte[Binary.TrīgintāDuoBitSize];
 
@@ -1159,8 +1195,6 @@ namespace Media.Common
                 //16 * 8 = 128.... so probably this can be done in 16 total operations...
 
                 #endregion
-
-                //Todo, Determine x64 or x86 paths.
 
                 bool x64 = Machine.IsX64();
 
@@ -1235,6 +1269,9 @@ namespace Media.Common
             switch (value)
             {
                 case 0: return BitsPerInteger;
+                case (byte.MaxValue):
+                case ((ushort)short.MaxValue):
+                case ushort.MaxValue:
                 case uint.MaxValue:
                 case int.MaxValue: return 0;
                 default:
@@ -1276,6 +1313,11 @@ namespace Media.Common
             switch (value)
             {
                 case 0: return BitsPerLong;
+                //128 (0x80)
+                //case ((byte)sbyte.MaxValue): return 7;
+                case (byte.MaxValue):
+                case ((ushort)short.MaxValue):
+                case ushort.MaxValue:
                 case ulong.MaxValue:
                 case long.MaxValue:
                 case uint.MaxValue:
@@ -1310,6 +1352,8 @@ namespace Media.Common
                 case 0: return BitsPerInteger;
                 case uint.MaxValue: return 0;
                 case int.MaxValue: return 1;
+                case byte.MaxValue: return 24;
+                //case 128: return 25;
                 default:
                     {
                         //Could reverse the int and return CountTrailing...
@@ -1364,9 +1408,12 @@ namespace Media.Common
             switch (value)
             {
                 case 0: return BitsPerLong;
-                case long.MaxValue: return 1;
-                case uint.MaxValue: return BitsPerInteger; // 32
+                //short.MaxValue
+                case byte.MaxValue: return BitsPerInteger + 24; //56
+                case ushort.MaxValue: return BitsPerInteger + BitsPerShort; //48
                 case int.MaxValue: return BitsPerInteger + 1; // 33
+                case uint.MaxValue: return BitsPerInteger; // 32
+                case long.MaxValue: return 1;
                 default:
                     {
                         return  CountLeadingZeros((uint)(value << BitsPerInteger)) + CountLeadingZeros((uint)(value & uint.MaxValue));
@@ -1692,7 +1739,15 @@ namespace Media.Common
             //(source index) Always <= 7, then decreases for each iteration
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
+#if UNSAFE
+            if(value)*(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) |= (byte)(Binary.Ūnus << index);
+            else *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) &= (byte)(Binary.Ūnus << index);
+#elif NATIVE
+            if (value) System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) | (byte)(Binary.Ūnus << index)));
+            else System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) & (byte)(Binary.Ūnus << index)));
+#else
             SetBit(ref self[byteIndex], bitIndex, value);
+#endif
 
             return self;
         }
@@ -1708,7 +1763,13 @@ namespace Media.Common
             //(source index) Always <= 7, then decreases for each iteration
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
+#if UNSAFE
+            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) ^= (byte)(~(Binary.Ūnus << index));
+#elif NATIVE
+            System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) ^ (byte)(~(Binary.Ūnus << index))));
+#else
             ToggleBit(ref self[byteIndex], bitIndex);
+#endif
 
             return self;
         }
@@ -1724,7 +1785,13 @@ namespace Media.Common
             //(source index) Always <= 7, then decreases for each iteration
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
+#if UNSAFE
+            return *(byte*)System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) & (Binary.Ūnus << index)) != Binary.Nihil;
+#elif NATIVE
+            return (System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) & (Binary.Ūnus << index)) != Binary.Nihil;
+#else
             return GetBit(ref self[byteIndex], bitIndex);
+#endif
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -1738,7 +1805,13 @@ namespace Media.Common
             //(source index) Always <= 7, then decreases for each iteration
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
+#if UNSAFE
+            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) &= (byte)(~(Binary.Ūnus << index));
+#elif NATIVE
+            System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) & (byte)(~(Binary.Ūnus << index))));
+#else
             ClearBit(ref self[byteIndex], bitIndex);
+#endif
 
             return self;
         }
@@ -2355,12 +2428,14 @@ namespace Media.Common
                     //While there is a value to read
                     while (enumerator.MoveNext())
                     {
+                        //Branchless code because for any x * 0 = 0 and y | 0 = y
+
                         //If the byte is greater than 0
-                        if (enumerator.Current > byte.MinValue)
-                        {
+                        //if (enumerator.Current > byte.MinValue)
+                        //{
                             //Combine the result of the calculation of the calulated value with the binary representation.
                             value |= (uint)enumerator.Current * sign;
-                        }
+                        //}
 
                         //Move the sign shift left
                         sign <<= shift;
@@ -3001,33 +3076,33 @@ namespace Media.UnitTests
     {
         public static void TestSignMinMaxAbs()
         {
-            if (Binary.Sign(1) != Math.Sign(1)) throw new Exception();
+            if (Binary.Sign(1) != Math.Sign(1)) throw new Exception("Sign");
 
-            if (Binary.Sign(-0) != Math.Sign(-0)) throw new Exception();
+            if (Binary.Sign(-0) != Math.Sign(-0)) throw new Exception("Sign");
 
-            if (Binary.Abs(-1) != Math.Abs(-1)) throw new Exception();
+            if (Binary.Abs(-1) != Math.Abs(-1)) throw new Exception("Abs");
 
-            if (Binary.Abs(-0) != Math.Abs(-0)) throw new Exception();
+            if (Binary.Abs(-0) != Math.Abs(-0)) throw new Exception("Abs");
 
-            if (Binary.Min(0, 1) != Math.Min(0, 1)) throw new Exception();
+            if (Binary.Min(0, 1) != Math.Min(0, 1)) throw new Exception("Min");
 
-            if (Binary.Max(0, 1) != Math.Max(0, 1)) throw new Exception();
+            if (Binary.Max(0, 1) != Math.Max(0, 1)) throw new Exception("Max");
 
-            if (Binary.Min(long.MinValue, long.MaxValue) != Math.Min(long.MinValue, long.MaxValue)) throw new Exception();
+            if (Binary.Min(long.MinValue, long.MaxValue) != Math.Min(long.MinValue, long.MaxValue)) throw new Exception("Min");
 
-            if (Binary.Min(int.MinValue, int.MaxValue) != Math.Min(int.MinValue, int.MaxValue)) throw new Exception();
+            if (Binary.Min(int.MinValue, int.MaxValue) != Math.Min(int.MinValue, int.MaxValue)) throw new Exception("Min");
 
-            if (Binary.Min(uint.MinValue, uint.MaxValue) != Math.Min(uint.MinValue, uint.MaxValue)) throw new Exception();
+            if (Binary.Min(uint.MinValue, uint.MaxValue) != Math.Min(uint.MinValue, uint.MaxValue)) throw new Exception("Min");
 
-            if (Binary.Min(ulong.MinValue, ulong.MaxValue) != Math.Min(ulong.MinValue, ulong.MaxValue)) throw new Exception();
+            if (Binary.Min(ulong.MinValue, ulong.MaxValue) != Math.Min(ulong.MinValue, ulong.MaxValue)) throw new Exception("Min");
 
-            if (Binary.Max(long.MinValue, long.MaxValue) != Math.Max(long.MinValue, long.MaxValue)) throw new Exception();
+            if (Binary.Max(long.MinValue, long.MaxValue) != Math.Max(long.MinValue, long.MaxValue)) throw new Exception("Max");
 
-            if (Binary.Max(int.MinValue, int.MaxValue) != Math.Max(int.MinValue, int.MaxValue)) throw new Exception();
+            if (Binary.Max(int.MinValue, int.MaxValue) != Math.Max(int.MinValue, int.MaxValue)) throw new Exception("Max");
 
-            if (Binary.Max(uint.MinValue, uint.MaxValue) != Math.Max(uint.MinValue, uint.MaxValue)) throw new Exception();
+            if (Binary.Max(uint.MinValue, uint.MaxValue) != Math.Max(uint.MinValue, uint.MaxValue)) throw new Exception("Max");
 
-            if (Binary.Max(ulong.MinValue, ulong.MaxValue) != Math.Max(ulong.MinValue, ulong.MaxValue)) throw new Exception();
+            if (Binary.Max(ulong.MinValue, ulong.MaxValue) != Math.Max(ulong.MinValue, ulong.MaxValue)) throw new Exception("Max");
         }
 
         public static void TestManualBitReversal()

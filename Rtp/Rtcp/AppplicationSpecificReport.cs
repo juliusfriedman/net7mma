@@ -163,6 +163,7 @@ namespace Media.Rtcp
         /// </summary>
         public virtual byte[] Name
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return Payload.Take(NameSize).ToArray(); }
             //set
             //{
@@ -183,11 +184,13 @@ namespace Media.Rtcp
         /// </summary>
         public virtual bool HasApplicationDependentData
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return HasExtensionData; }
         }
 
         public virtual int ApplicationDependentOctets
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return ExtensionDataOctets;

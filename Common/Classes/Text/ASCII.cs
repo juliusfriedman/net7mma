@@ -97,6 +97,8 @@ namespace Media.Common
 
         #region Number Extraction
 
+        //Should be in Text extensions which specify the encoding.
+
         public static string ExtractPrecisionNumber(string input, char sign = (char)Common.ASCII.Period)
         {
             if (string.IsNullOrWhiteSpace(input)) throw new System.InvalidOperationException("input cannot be null or consist only of whitespace.");

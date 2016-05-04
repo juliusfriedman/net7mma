@@ -57,6 +57,8 @@ namespace Media.Common.Collections.Generic
     //    }
     //}
 
+    //OrderedDictionary / OrderedSet => Dictionary with the ability to maintain order of keys and values
+
     #region ConcurrentThesaurus
 
     /// <summary>

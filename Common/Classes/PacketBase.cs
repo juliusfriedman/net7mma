@@ -95,6 +95,16 @@
             return m_OwnedOctets;
         }
 
+        public bool TryGetBuffers(out System.Collections.Generic.IList<System.ArraySegment<byte>> buffer)
+        {
+            buffer = new System.Collections.Generic.List<System.ArraySegment<byte>>()
+            {
+                new System.ArraySegment<byte>(m_OwnedOctets)
+            };
+
+            return true;
+        }
+
         #endregion
 
         protected internal override void Dispose(bool disposing)

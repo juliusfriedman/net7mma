@@ -1100,9 +1100,9 @@ namespace Media.Sdp
 
         public override void Dispose()
         {
-            if (IsDisposed) return;
-
             base.Dispose();
+
+            if (false == IsDisposed) return;
 
             m_SessionVersionLine = null;
 

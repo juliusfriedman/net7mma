@@ -120,7 +120,11 @@ namespace Media.Rtcp
         /// </summary>
         public int NtpMSW
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set { Binary.Write32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -129,7 +133,11 @@ namespace Media.Rtcp
         /// </summary>
         public int NtpLSW
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 4, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 4, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -142,7 +150,11 @@ namespace Media.Rtcp
         /// </summary>
         public int RtpTimestamp
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 8, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 8, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -152,7 +164,11 @@ namespace Media.Rtcp
         /// </summary>
         public int SendersPacketCount
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 12, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -163,7 +179,11 @@ namespace Media.Rtcp
         /// </summary>
         public int SendersOctetCount
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 16, BitConverter.IsLittleEndian); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -175,12 +195,16 @@ namespace Media.Rtcp
         /// </remarks>
         public long NtpTimestamp
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get
             {
                 if (BitConverter.IsLittleEndian) return (long)((ulong)NtpMSW << 32 | (uint)NtpLSW);
 
                 return (long)((ulong)NtpLSW << 32 | (uint)NtpMSW);
             }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set
             {
 
@@ -212,7 +236,11 @@ namespace Media.Rtcp
         /// </summary>
         public DateTime NtpDateTime
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             get { return Media.Ntp.NetworkTimeProtocol.NptTimestampToDateTime((ulong)NtpTimestamp); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+
             internal protected set { NtpTimestamp = (long)Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(ref value); }
         }
 

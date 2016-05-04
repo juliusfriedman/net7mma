@@ -246,6 +246,9 @@ namespace Media.Rtp
         //internal Media.Common.Collections.Generic.ConcurrentThesaurus<RtpPacket, PaD> References = new Common.Collections.Generic.ConcurrentThesaurus<RtpPacket, PaD>();
 
         //The only thing left to resolve would be HashCode conflicts due to how GetHashCode is implemented
+        //Could also maybe just use sequenceNumber since it wouldn't change the semantic and would be lighter on memory.
+
+        internal Media.Common.Collections.Generic.ConcurrentThesaurus<int, PaD> References = new Common.Collections.Generic.ConcurrentThesaurus<int, PaD>();
 
         #endregion
 
@@ -287,7 +290,7 @@ namespace Media.Rtp
         /// <summary>
         /// Useful for depacketization.. might not need a field as buffer can be created on demand from SegmentStream, just need to determine if every call to Buffer should maintain position or not.
         /// </summary>
-        internal protected System.IO.MemoryStream m_Buffer;
+        internal protected Common.SegmentStream m_Buffer;
 
         #endregion
 
@@ -298,6 +301,7 @@ namespace Media.Rtp
         /// </summary>
         public int PayloadType
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_PayloadType; }
             #region Unused set
             //internal protected set
@@ -328,7 +332,9 @@ namespace Media.Rtp
         /// </summary>
         public int MarkerCount
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_MarkerCount; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             protected set { m_MarkerCount = value; }
         }
 
@@ -339,23 +345,23 @@ namespace Media.Rtp
         //Public means this can be disposed. virtual is not necessary
         //This would have to be a System.IO.Stream
         //This would have to use the SegmentList to be efficient.
-        public System.IO.MemoryStream Buffer //Stream... or SegmentStream
+        public Common.SegmentStream Buffer
         {
             //There may be multiple repeated calls to this property due to the way it was used previously.
             //Ensure if already has a buffer to use the instance created or return a new one which is stored.
-            //get { return HasBuffer ? m_Buffer : m_Buffer = new Common.SegmentStream(Depacketized.Values); }
-            get
-            {
-                //If the buffer was not already prepared then Prepare it.
-                if (m_Buffer == null || false == m_Buffer.CanRead)
-                {
-                    //Prepare the buffer
-                    PrepareBuffer();
-                }
+            get { return HasBuffer ? m_Buffer : m_Buffer = new Common.SegmentStream(Depacketized.Values); }
+            //get
+            //{
+            //    //If the buffer was not already prepared then Prepare it.
+            //    if (m_Buffer == null || false == m_Buffer.CanRead)
+            //    {
+            //        //Prepare the buffer
+            //        PrepareBuffer();
+            //    }
 
-                //Return it
-                return m_Buffer;
-            }
+            //    //Return it
+            //    return m_Buffer;
+            //}
             //get
             //{
             //    return new System.IO.MemoryStream(m_Buffer.GetBuffer(), 0, (int)m_Buffer.Length, true, true);
@@ -367,7 +373,9 @@ namespace Media.Rtp
         /// </summary>
         public int SynchronizationSourceIdentifier
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_Ssrc; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             internal protected set
             {
                 m_Ssrc = value;
@@ -381,7 +389,9 @@ namespace Media.Rtp
         /// </summary>
         public int Timestamp
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_Timestamp; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             internal protected set { m_Timestamp = value; }
         }
 
@@ -392,6 +402,7 @@ namespace Media.Rtp
         /// <returns></returns>
         internal protected RtpPacket this[int index]
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return Packets[index]; }
             #region Unused set
             /*private*/
@@ -404,28 +415,48 @@ namespace Media.Rtp
         /// <summary>
         /// Gets a value indicating if the <see cref="PayloadType"/> was specified.
         /// </summary>
-        public bool SpecifiedPayloadType { get { return m_PayloadType >= 0; } }
+        public bool SpecifiedPayloadType
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_PayloadType >= 0; }
+        }
 
         /// <summary>
         /// Indicates if there are any packets have been <see cref="Depacketize">depacketized</see>
         /// </summary>
-        public bool HasDepacketized { get { return Depacketized.Count > 0; } }
+        public bool HasDepacketized
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return Depacketized.Count > 0; }
+        }
 
         /// <summary>
         /// Indicates if the <see cref="Buffer"/> is not null and CanRead.
         /// </summary>
-        public bool HasBuffer { get { return false == (m_Buffer == null) && m_Buffer.CanRead; } }
+        public bool HasBuffer
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return false == (m_Buffer == null) && m_Buffer.CanRead; }
+        }
 
         /// <summary>
         /// Indicates if all contained RtpPacket instances have a Transferred Value otherwise false.
         /// </summary>
-        public bool Transferred { get { return IsEmpty ? false : Packets.All(p => p.Transferred.HasValue); } }
+        public bool Transferred
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return IsEmpty ? false : Packets.All(p => p.Transferred.HasValue); }
+        }
 
         //Possible make an Action<bool> / Delegate 'IsCompleteCheck' which represents the functionality to use here and remove virtual.
         /// <summary>
         /// Indicates if the RtpFrame is NotEmpty AND contained a RtpPacket which has the Marker Bit Set AND is not <see cref="IsMissingPackets"/>
         /// </summary>
-        public virtual bool IsComplete { get { return false == IsDisposed && false == IsMissingPackets && HasMarker; } }
+        public virtual bool IsComplete
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return false == IsDisposed && false == IsMissingPackets && HasMarker; }
+        }
 
         //Todo, for Rtcp feedback one would need the sequence numbers of the missing packets...
         //Would be given any arbitrary RtpFrame and would implement that logic there.
@@ -477,29 +508,49 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if a contained packet has the marker bit set. (Usually the last packet in a frame)
         /// </summary>
-        public bool HasMarker { get { return m_MarkerCount > 0; } }
+        public bool HasMarker
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_MarkerCount > 0; }
+        }
 
         /// <summary>
         /// The amount of Packets in the RtpFrame
         /// </summary>
-        public int Count { get { return Packets.Count; } }
+        public int Count
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return Packets.Count; }
+        }
 
         /// <summary>
         /// Indicates if there are packets in the RtpFrame
         /// </summary>
-        public bool IsEmpty { get { return Packets.Count == 0; } }
+        public bool IsEmpty
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return Packets.Count == 0; }
+        }
         
         /// <summary>
         /// Gets the 16 bit unsigned value which is associated with the highest sequence number contained or -1 if no RtpPackets are contained.
         /// Usually the packet at the highest offset
         /// </summary>
-        public int HighestSequenceNumber { get { return m_HighestSequenceNumber; } }
+        public int HighestSequenceNumber
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_HighestSequenceNumber; }
+        }
 
         /// <summary>
         /// Gets the 16 bit unsigned value which is associated with the lowest sequence number contained or -1 if no RtpPackets are contained.
         /// Usually the packet at the lowest offset
         /// </summary>
-        public int LowestSequenceNumber { get { return m_LowestSequenceNumber; } }
+        public int LowestSequenceNumber
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_LowestSequenceNumber; }
+        }
 
         #endregion
 
@@ -645,6 +696,7 @@ namespace Media.Rtp
         /// Gets an enumerator of All Contained Packets at the time of the call
         /// </summary>
         /// <returns>The enumerator of the contained packets</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public IEnumerator<RtpPacket> GetEnumerator() { return Packets.GetEnumerator(); }
 
         //public IEnumerator<Common.MemorySegment> GetEnumerator() { return Depacketized.Values.GetEnumerator(); }
@@ -1157,6 +1209,7 @@ namespace Media.Rtp
 
         /// <summary>
         /// Takes all depacketized segments and writes them to the buffer.
+        /// Disposes any existing buffer. Creates a new buffer.
         /// </summary>
         internal protected void PrepareBuffer() //bool, persist, action pre pre write, post write
         {
@@ -1167,23 +1220,23 @@ namespace Media.Rtp
             DisposeBuffer();
 
             //Create a new buffer
-            m_Buffer = new System.IO.MemoryStream();
+            m_Buffer = new Common.SegmentStream(Depacketized.Values);
 
-            //Iterate ordered segments
-            foreach (KeyValuePair<int, Common.MemorySegment> pair in Depacketized)
-            {
-                //Get the segment
-                Common.MemorySegment value = pair.Value;
+            ////Iterate ordered segments
+            //foreach (KeyValuePair<int, Common.MemorySegment> pair in Depacketized)
+            //{
+            //    //Get the segment
+            //    Common.MemorySegment value = pair.Value;
 
-                //if null, disposed or empty skip
-                if (Common.IDisposedExtensions.IsNullOrDisposed(value) || value.Count == 0) continue;
+            //    //if null, disposed or empty skip
+            //    if (Common.IDisposedExtensions.IsNullOrDisposed(value) || value.Count == 0) continue;
 
-                //Write it to the Buffer
-                m_Buffer.Write(value.Array, value.Offset, value.Count);
-            }
+            //    //Write it to the Buffer
+            //    m_Buffer.Write(value.Array, value.Offset, value.Count);
+            //}
 
-            //Ensure at the begining
-            m_Buffer.Seek(0, System.IO.SeekOrigin.Begin);
+            ////Ensure at the begining
+            //m_Buffer.Seek(0, System.IO.SeekOrigin.Begin);
         }
 
         /// <summary>
@@ -1299,8 +1352,7 @@ namespace Media.Rtp
 
         #endregion
 
-        //Operators... and overloads
-
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
@@ -2255,7 +2307,7 @@ namespace Media.UnitTests
                             //Ideally you should be able to access the buffer also...
                             //This required the SegmentList to work the way we need it to.
 
-                            using (System.IO.MemoryStream buffer = reorder.Buffer)
+                            using (System.IO.Stream buffer = reorder.Buffer)
                             {
                                 //Console.WriteLine("Index:" + index + " reorder.Count: " + reorder.Count);
 
