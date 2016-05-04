@@ -279,6 +279,24 @@ namespace Media.Common.Extensions.Encoding
         }
 
         #endregion
+
+        #region AllocFreeAppend
+
+        ////https://github.com/dotnet/corefx/issues/2102
+        //public static unsafe System.Text.StringBuilder AllocFreeAppend(this System.Text.Encoding encoding, byte* bytes, int byteCount, System.Text.StringBuilder builder)
+        //{
+        //    int charCount = encoding.GetCharCount(bytes, byteCount);
+
+        //    char* chars = stackalloc char[charCount];
+
+        //    int charsWritten = encoding.GetChars(bytes, byteCount, chars, charCount);
+
+        //    builder.Append(chars, charsWritten);
+
+        //    return builder;
+        //}
+
+        #endregion
     }
 }
 

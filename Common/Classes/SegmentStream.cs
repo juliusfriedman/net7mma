@@ -253,21 +253,39 @@ namespace Media.Common
         /// </summary>
         /// <param name="destination">The destination</param>
         /// <param name="offset">The offset in <paramref name="destination"/> to start copying</param>
-        /// <returns>The amount of bytes copied to <paramref name="destination"/></returns>
+        /// <returns>The amount of bytes copied to <paramref name="destination"/>, usually equal to <see cref="Length"/></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public int CopyTo(byte[] destination, int offset)
         {
+            return CopyTo(destination, offset, (int)m_Count);
+        }
+
+        /// <summary>
+        /// Copies the given count of data to the destinaion from the beginning of the stream.
+        /// <see cref="Position"/> is not moved.
+        /// </summary>
+        /// <param name="destination">The destination</param>
+        /// <param name="offset">The offset in <paramref name="destination"/> to start copying</param>
+        /// <param name="count">The amount of bytes to copy</param>
+        /// <returns>The amount of bytes copied to <paramref name="destination"/></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public int CopyTo(byte[] destination, int offset, int count)
+        {
             if (IsDisposed) return 0;
 
-            int total = 0;
+            int total = 0, min;
 
             foreach (Common.MemorySegment ms in Segments)
             {
-                System.Array.Copy(ms.Array, ms.Offset, destination, offset, ms.Count);
+                min = Binary.Min(count, ms.Count);
 
-                offset += ms.Count;
+                System.Array.Copy(ms.Array, ms.Offset, destination, offset, min);
 
-                total += ms.Count;
+                offset += min;
+
+                total += min;
+
+                if ((count -= min) <= 0) break;
             }
 
             return total;
@@ -291,7 +309,7 @@ namespace Media.Common
 
             byte[] result = new byte[m_Count];
 
-            CopyTo(result, 0);
+            CopyTo(result, 0, (int)m_Count);
 
             return result;
         }

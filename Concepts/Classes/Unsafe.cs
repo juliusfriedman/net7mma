@@ -36,6 +36,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
+//Some interesting methods can be found here
+//https://github.com/IllidanS4/SharpUtils/blob/a3b4da490537e361e6a5debc873c303023d83bf1/Unsafe/UnsafeTools.cs
+
 #if NETMF
 
 //The Micro Framework does not support unsafe code.
@@ -208,6 +211,16 @@ namespace Media.Concepts.Classes
             //Convert from the TypedReference back to object
             return System.TypedReference.ToObject(tr);
         }
+
+        //Todo, check alignment..
+
+        //[System.Runtime.CompilerServices.MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public static T ReadUnaligned<T>(ref T p)
+        //{
+        //    //ldarg.0          
+        //    //unaligned. 1 ldobj !!T
+        //    //ret
+        //}
 
         #endregion
 
