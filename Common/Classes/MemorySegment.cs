@@ -287,6 +287,7 @@ namespace Media.Common
         public bool Equals(MemorySegment other)
         {
             if (other == null) return false;
+
             return other.GetHashCode() == GetHashCode();
         }
 

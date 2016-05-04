@@ -36,9 +36,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-//Some interesting methods can be found here
-//https://github.com/IllidanS4/SharpUtils/blob/a3b4da490537e361e6a5debc873c303023d83bf1/Unsafe/UnsafeTools.cs
-
 //Rtti interop example 
 //http://stackoverflow.com/questions/33802676/how-to-get-a-raw-memory-pointer-to-a-managed-class
 

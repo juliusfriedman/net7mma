@@ -3832,8 +3832,10 @@ namespace Media.Rtp
             SendRtpFrame(frame, out error, ssrc);
         }
 
+#if IListSockets
+        //Todo, Rename to m_Framing.
         static byte[] framing = new byte[4] { BigEndianFrameControl, 0, 0, 0 };
-
+#endif
         /// <summary>
         /// Sends a RtpPacket to the connected client.
         /// </summary>

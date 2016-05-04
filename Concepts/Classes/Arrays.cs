@@ -38,6 +38,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Concepts.Classes
 {
+    #region ArrayElement
+
     /// <summary>
     /// Provides an array like structure for a single element.
     /// </summary>
@@ -226,6 +228,8 @@ namespace Media.Concepts.Classes
         //Could actually use Source = Array<T> from here but it feels weird since this came first.
     }
 
+    #endregion
+
     //ArrayLike was renamed to ArrayElement.
 
     //Could probably use ArrayLike to make chars of String accessible
@@ -246,9 +250,11 @@ namespace Media.Concepts.Classes
     //2) make an array header with the desire type (and offset length)
     //3) put that header where the coppied bytes exited.
     //4) cast the pointer from ArrayHeader to T[] which will then point to the header at the first element would be @ the offset, the count would be the offset count.
-    //5) put the data back from the indexes which didn't change (where the forged header was)
+    //5) put the data back from the indexes which didn't change (where the forged header was)    
 
     //The following attempts to do all of the leg work for the above, the only thing which is not yet implemented is the array header forging.
+
+    #region Array
 
     /// <summary>
     /// Provides a generic ArraySegment / Slice class.
@@ -798,8 +804,11 @@ namespace Media.Concepts.Classes
         #endregion
     }
 
-}
+    #endregion
 
+    //ManagedBufferPool
+    //https://github.com/dotnet/corefx/issues/4547
+}
 
 
 namespace Media.UnitTests
