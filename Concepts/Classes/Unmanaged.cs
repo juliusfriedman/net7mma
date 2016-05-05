@@ -57,13 +57,13 @@ namespace Media.Concepts.Classes
         public static void* New<T>(int elementCount)
             where T : struct
         {
-            return System.Runtime.InteropServices.Marshal.AllocHGlobal((int)(Unsafe.BytesPer<T>() * elementCount)).ToPointer();
+            return System.Runtime.InteropServices.Marshal.AllocHGlobal((int)(Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * elementCount)).ToPointer();
         }
 
         public static void* NewAndInit<T>(int elementCount)
             where T : struct
         {
-            int newSizeInBytes = (int)(Unsafe.BytesPer<T>() * elementCount);
+            int newSizeInBytes = (int)(Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * elementCount);
 
             byte* newArrayPointer = (byte*)System.Runtime.InteropServices.Marshal.AllocHGlobal(newSizeInBytes).ToPointer();
 
@@ -82,7 +82,7 @@ namespace Media.Concepts.Classes
             where T : struct
         {
             return (System.Runtime.InteropServices.Marshal.ReAllocHGlobal(new System.IntPtr(oldPointer),
-                new System.IntPtr(Unsafe.BytesPer<T>() * newElementCount))).ToPointer();
+                new System.IntPtr(Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * newElementCount))).ToPointer();
         }
 
         //http://stackoverflow.com/questions/1951290/memory-alignment-of-classes-in-c

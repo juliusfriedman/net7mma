@@ -34,7 +34,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-#endregion
+#endregion 
 
 //Rtti interop example 
 //http://stackoverflow.com/questions/33802676/how-to-get-a-raw-memory-pointer-to-a-managed-class
@@ -43,11 +43,59 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Concepts.Classes
 {
+
+    //See also http://www.codeproject.com/Articles/9927/Fast-Dynamic-Property-Access-with-C
+
+    internal delegate T UnalignedReadDelegate<T>(ref T t);
+
+    //Used to build the UnalignedReadDelegate for each T
+    internal static class Generic<T>
+    {
+        //static System.Action<T> UnalignedReadDelegater<T>(ref T t);
+
+        internal static readonly UnalignedReadDelegate<T> UnalignedRead;
+
+        internal static readonly UnalignedReadDelegate<T> Read;
+
+        internal static readonly UnalignedReadDelegate<T> Write;
+
+        static Generic()
+        {
+            System.Type typeOfT = typeof(T);
+
+            #region UnalignedRead
+
+            System.Type[] args = { typeOfT.MakeByRefType() };
+
+            System.Reflection.Emit.DynamicMethod unalignedReadMethod = new System.Reflection.Emit.DynamicMethod("UnalignedReadDelegate", typeOfT, args);
+
+            System.Reflection.Emit.ILGenerator generator = unalignedReadMethod.GetILGenerator();
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
+            generator.Emit(System.Reflection.Emit.OpCodes.Unaligned);
+            generator.Emit(System.Reflection.Emit.OpCodes.Ldobj);
+            //generator.Emit(System.Reflection.Emit.OpCodes.Unbox_Any);
+            generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+            UnalignedRead = (UnalignedReadDelegate<T>)unalignedReadMethod.CreateDelegate(typeof(UnalignedReadDelegate<T>));
+
+            #endregion
+
+            #region Read
+
+            #endregion
+
+            #region Write
+
+            #endregion
+        }
+    }
+
     public static class CommonIntermediateLanguage
     {
-        public static readonly System.Action<System.IntPtr, byte, int> InitblkDelegate;
+        static readonly System.Action<System.IntPtr, byte, int> InitblkDelegate;
 
-        public static readonly System.Action<System.IntPtr, System.IntPtr, int> CpyblkDelegate;
+        static readonly System.Action<System.IntPtr, System.IntPtr, int> CpyblkDelegate;
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static CommonIntermediateLanguage()
@@ -82,9 +130,62 @@ namespace Media.Concepts.Classes
              generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_1);//src
              generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_2);//len
              generator.Emit(System.Reflection.Emit.OpCodes.Cpblk);
-             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+             generator.Emit(System.Reflection.Emit.OpCodes.Ret);             
 
              CpyblkDelegate = (System.Action<System.IntPtr, System.IntPtr, int>)cpyBlkMethod.CreateDelegate(typeof(System.Action<System.IntPtr, System.IntPtr, int>));
+
+            #endregion
+
+            #region See Generic
+
+            // #region UnalignedRead
+
+            // System.Reflection.AssemblyName asmName = typeof(CommonIntermediateLanguage).Assembly.GetName();
+
+            // //https://msdn.microsoft.com/en-us/library/ms228971(v=vs.110).aspx
+
+            // System.AppDomain domain = System.AppDomain.CurrentDomain;
+
+            // System.Reflection.Emit.AssemblyBuilder demoAssembly = domain.DefineDynamicAssembly(asmName, System.Reflection.Emit.AssemblyBuilderAccess.RunAndSave);
+
+            // // Define the module that contains the code. For an 
+            // // assembly with one module, the module name is the 
+            // // assembly name plus a file extension.
+            // System.Reflection.Emit.ModuleBuilder demoModule = demoAssembly.DefineDynamicModule(asmName.Name, asmName.Name + ".dll");
+
+            // var UnalignedReadTypeBuilder = demoModule.DefineType("UnalignedReader", System.Reflection.TypeAttributes.Public);
+
+            // System.Reflection.Emit.MethodBuilder unalignedReadMethod = UnalignedReadTypeBuilder.DefineMethod("UnalignedReadMethod", System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static);
+
+            // System.Reflection.Emit.GenericTypeParameterBuilder[] genericTypeParameters = unalignedReadMethod.DefineGenericParameters("T");
+
+            // //unalignedReadMethod.DefineParameter(0, System.Reflection.ParameterAttributes.In, "t");
+
+            // unalignedReadMethod.SetReturnType(genericTypeParameters[0]);
+
+            // generator = unalignedReadMethod.GetILGenerator();
+
+            // generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);//dst
+            // generator.Emit(System.Reflection.Emit.OpCodes.Unaligned);
+            // generator.Emit(System.Reflection.Emit.OpCodes.Ldobj);
+            // generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+            // //Create the type now.
+            // //System.Type UnalignedReaderType = UnalignedReadTypeBuilder.CreateType();
+
+            // //var UnalignedReadMethodInfo = UnalignedReadTypeBuilder.GetMethod("UnalignedReadMethod");
+
+            // //var m = UnalignedReadTypeBuilder.GetMethod("UnalignedReadMethod");
+
+            // //m.MakeGenericMethod
+
+            // //var bound = m.MakeGenericMethod();
+
+            ////genericTypeBuilder.CreateType();
+
+            ////UnalignedReadDelegate = unalignedReadMethod.CreateDelegate(genericTypeParameters[0].UnderlyingSystemType);             
+
+            // #endregion
 
             #endregion
         }
@@ -125,6 +226,7 @@ namespace Media.Concepts.Classes
         }
 
         [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe void Initblk(byte* array, byte what, int len)
         {
             InitblkDelegate((System.IntPtr)array, what, len);
@@ -185,6 +287,7 @@ namespace Media.Concepts.Classes
         }
 
         [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe void Cpyblk(byte* src, byte* dst, int len)
         {
             CpyblkDelegate((System.IntPtr)dst, (System.IntPtr)src, len);
@@ -194,9 +297,10 @@ namespace Media.Concepts.Classes
             //=>Internal Memove and Memcopy uses optomized copy impl which can be replicated for other types also.
             //https://github.com/dotnet/corefx/issues/493
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public unsafe static void Cpyblk<T>(T[] src, int srcOffset, T[] dst, int dstOffset, int length)
         {
-            System.Buffer.MemoryCopy((void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(src, srcOffset), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(dst, dstOffset), Unsafe.BytesPer<T>(), length);
+            System.Buffer.MemoryCopy((void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(src, srcOffset), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(dst, dstOffset), Unsafe.ArrayOfTwoElements<T>.AddressingDifference(), length);
 
             //System.Runtime.InteropServices.GCHandle srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
             //System.Runtime.InteropServices.GCHandle dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
@@ -207,6 +311,12 @@ namespace Media.Concepts.Classes
 
             //srcHandle.Free();
             //dstHandle.Free();
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe static T UnalignedRead<T>(ref T t)
+        {
+            return Generic<T>.UnalignedRead(ref t);
         }
 
 

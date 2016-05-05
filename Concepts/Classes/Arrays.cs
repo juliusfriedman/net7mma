@@ -44,13 +44,17 @@ namespace Media.Concepts.Classes
     /// Provides an array like structure for a single element.
     /// </summary>
     /// <typeparam name="T"></typeparam>
+    // Generic types cannot have this layout...
+    //[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
     internal class ArrayElement<T> : System.Collections.Generic.IList<T>
     {
         //bool m_IsReadOnly
 
-        internal T m_Source;
-
+        //[System.Runtime.InteropServices.FieldOffset(0)]
         internal int m_Index = 0;
+
+        //[System.Runtime.InteropServices.FieldOffset(4)]
+        internal T m_Source;
 
         #region Properties
 
@@ -241,8 +245,40 @@ namespace Media.Concepts.Classes
 
     //etc
 
-    //See also
-    //https://gist.github.com/OmerMor/1050703
+    #region ArrayHeader
+
+    ////See also
+    ////https://gist.github.com/OmerMor/1050703
+
+    ////Doens't seem to work well outside of fixed ...
+    //[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential, Pack = 1)]
+    //internal struct /*Fixed*/ArrayHeader
+    //{
+    //    internal System.UIntPtr TypePointer;
+
+    //    internal System.UIntPtr LengthPointer;
+
+    //    //Todo, Rtth ...
+    //    //internal System.Type ResolveType() { return System.Type.GetTypeFromHandle(); }
+
+
+
+    //    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    //    internal unsafe static ArrayHeader* GetArrayHeader(void* pBytes) { return (ArrayHeader*)pBytes - 1; }
+
+    //    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    //    internal unsafe static ArrayHeader* GetArrayHeader(System.IntPtr pBytes) { return GetArrayHeader((void*)pBytes); }
+
+    //    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    //    internal static ArrayHeader Create(System.UIntPtr type, System.UIntPtr length) { return new ArrayHeader() { TypePointer = type, LengthPointer = length }; }
+
+    //    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    //    internal unsafe static ArrayHeader Create<T>(System.UIntPtr length) { return Create(GetArrayHeader((System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(Unsafe.ArrayOfTwoElements<T>.Value, 0)))->TypePointer, length);  }
+    //}
+
+    #endregion
+
+    //The concept still works as in the static ArrayTest method though.
 
     //Shows how an array header can be 'forged'
     //using something like that i can imagine it would be possible to use the forged header to make arrays seem offset 
@@ -267,8 +303,10 @@ namespace Media.Concepts.Classes
     /// </notes>
     /// <typeparam name="T"></typeparam>
     internal class Array<T> : System.Collections.Generic.IList<T>
-    {        
+    {
         #region Fields
+
+        //Unsafe.Inspector m_Source;
 
         /*readonly */ T[] m_Source;
 
@@ -285,16 +323,67 @@ namespace Media.Concepts.Classes
         #region Constructor
 
         /// <summary>
-        /// This is not very useful or stable yet.
+        /// Given any T this will convert the chars in the string to T.
         /// </summary>
         /// <param name="s"></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Array(string s)
         {
-            //The reason why this works is that only what is incorrectly passed as the array of string is assigned into ArrayElement and then copied out of memory as T implicitly.            (The values are garbadge)            
-            m_Source = new ArrayElement<T>(Unsafe.ReinterpretCast<string, T[]>(s));
+            int bytesPerT = Unsafe.ArrayOfTwoElements<T>.AddressingDifference();
 
-            m_Length = 1;
+            ////In chars.
+            m_Length = (int)(bytesPerT <= 2 ? s.Length : bytesPerT / s.Length);
+
+            #region Also works but copies
+
+            ////Create a new array of the needed length.
+            //m_Source = new T[m_Length];
+
+            ////Copy the values as they would be interpreted from the string,
+            //unsafe
+            //{
+            //    //For the number of elements in the array
+            //    for (int i = 0, o = 0; o < m_Length; ++o, i += 2)
+            //    {
+            //        //char is always 2 bytes in size, copy 2 bytes from each offset where the character would reside.
+            //        System.Buffer.MemoryCopy((void*)(Unsafe.AddressOfRef(ref s) + 12 + i), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(m_Source, o), 2, 2);
+            //    }
+            //}
+
+            #endregion
+
+            m_Offset = (int)(Unsafe.AddressOfRef(ref s) + 12);
+
+            #region Musing
+
+            //The reason why this works is that only what is incorrectly passed as the array of string is assigned into ArrayElement and then copied out of memory as T implicitly.            (The values are garbadge)            
+            //m_Source = new ArrayElement<T>(Unsafe.ReinterpretCast<string, T[]>(s));
+
+            //m_Length = 1;
+
+            //m_Source = Unsafe.ReinterpretCast<char[], T[]>(i.CharArray);
+
+            //Keep the string as an array of T.
+            //m_Source = //Unsafe.AddressOfRef<string>(ref s); //Unsafe.ReinterpretCast<System.IntPtr, T[]>(Unsafe.AddressOfRef<string>(ref s));
+
+            //https://blogs.msdn.microsoft.com/calvin_hsia/2012/07/19/examine-the-layout-of-managed-strings-in-memory/
+
+            //Class Type Id
+            //var byts = (*(byte*)System.Runtime.InteropServices.Marshal.ReadIntPtr(new System.IntPtr(&s)));
+
+            //Length
+            //*((byte*)System.Runtime.InteropServices.Marshal.ReadIntPtr(new System.IntPtr(&s)) + 8)
+
+            //*((byte*)Unsafe.AddressOfRef(ref s) + 8)
+
+            //First char
+            //*((byte*)System.Runtime.InteropServices.Marshal.ReadIntPtr(new System.IntPtr(&s)) + 12)
+
+            //*((byte*)Unsafe.AddressOfRef(ref s) + 12)
+
+            //m_Offset = 12; 
+
+            #endregion           
 
             #region Close to working.....
             //needs logic in UnsafeRead but it works...
@@ -446,6 +535,12 @@ namespace Media.Concepts.Classes
 
         #region Contains
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Contains(ArrayElement<T> element)
+        {
+            return UnsafeRead(m_Source, ref element.m_Index).Equals(element.Source);
+        }
+
         //Should be index of.
 
         public bool Contains(T[] array) { return Contains(array, 0, array.Length); }
@@ -470,7 +565,7 @@ namespace Media.Concepts.Classes
 
             for (int i = offset; i < length; ++i)
             {
-                if (UnsafeRead(array, i).Equals(this[i])) ++matched;
+                if (UnsafeRead(array, ref i).Equals(this[i])) ++matched;
                 else matched = 0;
             }
 
@@ -506,8 +601,9 @@ namespace Media.Concepts.Classes
 
         #region IList
 
-        //http://www.codeproject.com/Articles/3467/Arrays-UNDOCUMENTED
+        //See also http://www.codeproject.com/Articles/3467/Arrays-UNDOCUMENTED
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         int System.Collections.Generic.IList<T>.IndexOf(T item)
         {
             return System.Array.IndexOf<T>(m_Source, item, m_Offset, m_Length);
@@ -568,7 +664,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         System.Collections.Generic.IEnumerator<T> System.Collections.Generic.IEnumerable<T>.GetEnumerator()
         {
-            for (int i = 0; i < m_Length; ++i) yield return m_Source[m_Offset + i];
+            for (int i = 0; i < m_Length; ++i) yield return UnsafeRead(this, ref i); //m_Source[m_Offset + i];
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -617,6 +713,12 @@ namespace Media.Concepts.Classes
         #endregion
 
         #region Statics
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        static System.IntPtr ComputeAddress(Array<T> array)
+        {
+            return array.m_Source == null ? new System.IntPtr(array.m_Offset) : System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Offset);
+        }
 
         /// <summary>
         /// Skips a bounds check while reading the index from source.
@@ -673,16 +775,20 @@ namespace Media.Concepts.Classes
 
             #endregion
 
-            return UnsafeRead(array.m_Source, array.m_Offset + index);
+            //return UnsafeRead(array.m_Source, array.m_Offset + index);
 
             //return Unsafe.Read<T>(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Offset + index));
+
+            return Unsafe.Read<T>(ComputeAddress(array) + Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * index);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public unsafe static void UnsafeWrite(Array<T> array, int index, ref T value)
         {
-            UnsafeWrite(array.m_Source, array.m_Offset + index, ref value);
+            //UnsafeWrite(array.m_Source, array.m_Offset + index, ref value);
             //Unsafe.Write<T>(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Offset + index), ref value);
+
+            Unsafe.Write<T>(ComputeAddress(array) + Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * index, ref value);
         }
 
         //Here an empty array could be created and the RTTI modified such that the pointer to the first element points to the offset desired,
@@ -702,8 +808,8 @@ namespace Media.Concepts.Classes
 
             //int overHead = 16;
 
-            ////Check for value type or array type.
-            //if (false == typeof(T).IsValueType)
+            ////Check for value type or ref type.
+            //if (false == typeof(T).IsValueType) //primitive
             //{
             //    overHead -= 4;
             //}
@@ -712,6 +818,8 @@ namespace Media.Concepts.Classes
             //{
             //    overHead += 8;
             //}
+
+            //This works well
 
             ////Copy the ElementType
             ////*(int*)(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(tArray, 0) - 16) = *(int*)(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.Source, 0) - 16);
@@ -1169,6 +1277,10 @@ namespace Media.UnitTests
                     
 
                     char[] unsafeclrChars = Concepts.Classes.Unsafe.ReinterpretCast<string, char[]>(clrString);
+
+                    System.IntPtr ptrCast = Concepts.Classes.Unsafe.ReinterpretCast<string, System.IntPtr>(clrString);
+
+                    System.Console.WriteLine("p@" + ptrCast.ToString());
 
                     //Won't work because the header of string doesn't match Array, would have to manually set Length...
                     System.Console.WriteLine(unsafeclrChars[0]);
