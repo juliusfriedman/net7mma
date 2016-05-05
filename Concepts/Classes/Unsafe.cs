@@ -89,30 +89,34 @@ namespace Media.Concepts.Classes
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        static System.IntPtr AddressOfRef<T>(ref T t)
+        internal static System.IntPtr AddressOfRef<T>(ref T t)
         //refember ReferenceTypes are references to the CLRHeader
         //where TOriginal : struct
         {
             System.TypedReference reference = __makeref(t);
 
-            System.TypedReference* pRef = &reference;
+            //System.IntPtr ptr = **(System.IntPtr**)(&reference); //http://stackoverflow.com/questions/4994277/memory-address-of-an-object-in-c-sharp
 
-            return (System.IntPtr)pRef; //(&pRef)
+            return **(System.IntPtr**)(&reference);
+
+            //System.TypedReference* pRef = &reference;
+
+            //return (System.IntPtr)pRef; //(&pRef)
         }
 
-        /// <summary>
-        /// Returns the unmanaged address of the given array.
-        /// </summary>
-        /// <param name="array"></param>
-        /// <returns><see cref="IntPtr.Zero"/> if null, otherwise the address of the array</returns>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static System.IntPtr AddressOfByteArray(byte[] array)
-        {
-            if (array == null) return System.IntPtr.Zero;
+        ///// <summary>
+        ///// Returns the unmanaged address of the given array.
+        ///// </summary>
+        ///// <param name="array"></param>
+        ///// <returns><see cref="IntPtr.Zero"/> if null, otherwise the address of the array</returns>
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //public static System.IntPtr AddressOfByteArray(byte[] array)
+        //{
+        //    if (array == null) return System.IntPtr.Zero;
 
-            fixed (byte* ptr = array)
-                return (System.IntPtr)(ptr - 2 * sizeof(void*)); //Todo staticaly determine size of void?
-        }
+        //    fixed (byte* ptr = array)
+        //        return (System.IntPtr)(ptr - 2 * sizeof(void*)); //Todo staticaly determine size of void?
+        //}
 
         #endregion
 
@@ -148,7 +152,13 @@ namespace Media.Concepts.Classes
 
         //http://stackoverflow.com/questions/4764573/why-is-typedreference-behind-the-scenes-its-so-fast-and-safe-almost-magical
 
-        internal static class ArrayOfTwoElements<T> { internal static readonly T[] Value = new T[2]; }
+        internal static class ArrayOfTwoElements<T>
+        {
+            internal static readonly T[] Value = new T[2];
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            internal static int AddressingDifference() { return (int)(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(ArrayOfTwoElements<T>.Value, 1).ToInt64() - System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(ArrayOfTwoElements<T>.Value, 0).ToInt64()); }
+        }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal static uint BytesPer<T>()
@@ -182,6 +192,18 @@ namespace Media.Concepts.Classes
             return __refvalue(tr, T);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static bool TryRead<T>(System.IntPtr address, ref T t)
+        {
+            System.TypedReference tr = __makeref(t);
+
+            *(System.IntPtr*)(&tr) = address;
+
+            t = __refvalue(tr,T);
+
+            return true;
+        }
+
         /// <summary>
         /// This bypasses the restriction that you can't have a pointer to.
         /// letting you write very high-performance generic code.
@@ -212,7 +234,7 @@ namespace Media.Concepts.Classes
             return System.TypedReference.ToObject(tr);
         }
 
-        //Todo, check alignment..
+        //Todo, check alignment.. provide via CommonIntermediateLanguage.
 
         //[System.Runtime.CompilerServices.MethodImpl(MethodImplOptions.AggressiveInlining)]
         //public static T ReadUnaligned<T>(ref T p)
@@ -229,32 +251,46 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal static void Write<T>(System.IntPtr address, ref T what)
         {
-            uint size = BytesPer<T>(); System.Buffer.MemoryCopy((void*)AddressOf(what), (void*)address, size, size);
+            int size = Unsafe.ArrayOfTwoElements<T>.AddressingDifference(); System.Buffer.MemoryCopy((void*)AddressOf(what), (void*)address, size, size);
         }
 
         #endregion
         
         #region Create
 
-        //Here for reference, I couldn't get them to work as they advertised.
+        ////Here for reference, I couldn't get them to work as they advertised.
+
+        //public static T[] Create<T>(System.IntPtr source, int length)
+        //{
+        //    T[] output = new T[length];
+
+        //    for (int i = 0; i < length; i++)
+        //    {
+        //        T src = Unsafe.Read<T>(source);
+
+        //        Write<T>(source, src)
+        //    }
+        //}
+
+        //http://stackoverflow.com/questions/621493/c-sharp-unsafe-value-type-array-to-byte-array-conversions/3577227#3577227
 
         [System.CLSCompliant(false)]
         public unsafe static T[] Create<T>(void* source, int length)
         {
             System.Type type = typeof(T);
 
-            int sizeInBytes = System.Runtime.InteropServices.Marshal.SizeOf(typeof(T));
+            int sizeInBytes = System.Runtime.InteropServices.Marshal.SizeOf(type);
 
             T[] output = new T[length];
 
             if (type.IsPrimitive)
             {
                 // Make sure the array won't be moved around by the GC 
-                System.Runtime.InteropServices.GCHandle handle = default(System.Runtime.InteropServices.GCHandle);
+                System.Runtime.InteropServices.GCHandle handleOutput = default(System.Runtime.InteropServices.GCHandle);
 
                 try
                 {
-                     handle = System.Runtime.InteropServices.GCHandle.Alloc(output, System.Runtime.InteropServices.GCHandleType.Pinned);
+                     handleOutput = System.Runtime.InteropServices.GCHandle.Alloc(output, System.Runtime.InteropServices.GCHandleType.Pinned);
 
                      int byteLength = length * sizeInBytes;
 
@@ -264,13 +300,13 @@ namespace Media.Concepts.Classes
                      //    destination[i] = ((byte*)source)[i];
 
                     //E,g, like this... the problem is that handle doesn't point to the array elements...
-                    //Could instead give a T[] source or IntPtr.
+                    //Could instead give a T[] source or IntPtr.                     
 
-                     System.Buffer.MemoryCopy(source, handle.AddrOfPinnedObject().ToPointer(), sizeInBytes, length);
+                     System.Buffer.MemoryCopy(source, (void*)handleOutput.AddrOfPinnedObject(), byteLength, byteLength);
                 }
                 finally
                 {
-                    if(handle.IsAllocated) handle.Free();
+                    if(handleOutput.IsAllocated) handleOutput.Free();
                 }
             }
             else if (type.IsValueType)
@@ -367,6 +403,103 @@ namespace Media.Concepts.Classes
 
         #endregion
 
+        #region Internal
+
+        //Adapted from 'Mash`s' response on StackOverflow @ http://stackoverflow.com/questions/621493/c-sharp-unsafe-value-type-array-to-byte-array-conversions/3577227#3577227
+
+        /// <summary>
+        /// Provides a structure which can be used to inspect objects or convert arrays quickly.
+        /// </summary>
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
+        internal struct Inspector
+        {
+            #region Methods
+
+            public static byte[] GetBytes(float[] floats)
+            {
+                Inspector i = new Inspector();
+                i.FloatArray = floats;
+                i.Length.Value = floats.Length << 2; //* 4;
+                return i.ByteArray;
+            }
+
+            public static float[] GetFloats(byte[] bytes)
+            {
+                Inspector i = new Inspector();
+                i.ByteArray = bytes;
+                i.Length.Value = bytes.Length >> 2; // / 4;
+                return i.FloatArray;
+            }
+
+            public static byte[] GetTop4BytesFrom(object obj)
+            {
+                Inspector i = new Inspector();
+                i.Object = obj;
+                return new byte[]
+                {
+                    i.Octets.Byte_0,
+                    i.Octets.Byte_1,
+                    i.Octets.Byte_2,
+                    i.Octets.Byte_3
+                };
+            }
+
+            public static byte[] GetBytesFrom(object obj, int size)
+            {
+                Inspector i = new Inspector();
+                i.Object = obj;
+                i.Length.Value = size;
+                return i.ByteArray;
+            }
+
+            #endregion
+
+            #region Nested Types
+
+            //See also.
+            //https://blogs.msdn.microsoft.com/abhinaba/2012/02/02/wp7-clr-managed-object-overhead/
+            
+            //allows setting any of the array lengths...
+            internal class ArrayLength { public int Value; }
+
+            internal class Bytes
+            {
+                public byte Byte_0;
+                public byte Byte_1;
+                public byte Byte_2;
+                public byte Byte_3;
+            }
+
+            #endregion
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            internal System.Array Array;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            internal System.Char[] CharArray;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            internal System.Byte[] ByteArray;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            internal System.Single[] FloatArray;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            internal System.Object Object;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            internal System.String String;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            internal ArrayLength Length;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            internal Bytes Octets;
+        }
+
+        #endregion
+
+
         //returns Index of difference
         //bool MemCmp(source, dst, offset, size) => MemCmp(source, st, offset, size) >= 0
         //int MemCmp(source, dst, offset, size)
@@ -376,7 +509,7 @@ namespace Media.Concepts.Classes
         #region Conversions
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public unsafe static TResult ReinterpretCast<TOriginal, TResult>(/*this*/ TOriginal orig)
+        public /*unsafe?*/ static TResult ReinterpretCast<TOriginal, TResult>(/*this*/ TOriginal orig)
             //refember ReferenceTypes are references to the CLRHeader
             //where TOriginal : struct
             //where TResult : struct
