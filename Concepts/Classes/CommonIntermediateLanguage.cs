@@ -138,6 +138,8 @@ namespace Media.Concepts.Classes
 
             #region See Generic
 
+            //It actually makes more sense to just do it here and use IntPtr for the parameters...
+
             // #region UnalignedRead
 
             // System.Reflection.AssemblyName asmName = typeof(CommonIntermediateLanguage).Assembly.GetName();
@@ -300,17 +302,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public unsafe static void Cpyblk<T>(T[] src, int srcOffset, T[] dst, int dstOffset, int length)
         {
-            System.Buffer.MemoryCopy((void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(src, srcOffset), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(dst, dstOffset), Unsafe.ArrayOfTwoElements<T>.AddressingDifference(), length);
-
-            //System.Runtime.InteropServices.GCHandle srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
-            //System.Runtime.InteropServices.GCHandle dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
-
-            //System.Buffer.MemoryCopy((void*)srcHandle.AddrOfPinnedObject(), (void*)dstHandle.AddrOfPinnedObject(), Unsafe.BytesPer<T>(), length);
-
-            
-
-            //srcHandle.Free();
-            //dstHandle.Free();
+            System.Buffer.MemoryCopy((void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(src, srcOffset), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(dst, dstOffset), length, length);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]

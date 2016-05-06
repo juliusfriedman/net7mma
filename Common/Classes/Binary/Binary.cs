@@ -1598,7 +1598,7 @@ namespace Media.Common
         /// <returns>The value which was previously set in the bit where true = 1 and false = 0</returns>
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool SetBit(ref byte source, int index, bool newValue)
+        public static bool ExchangeBit(ref byte source, int index, bool newValue)
         {
             if (index < Binary.Nihil || index > Binary.BitsPerByte) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
@@ -1615,11 +1615,11 @@ namespace Media.Common
             return oldValue;
         }
 
-        public static bool SetBit(byte source, int index, bool newValue) { return SetBit(ref source, index, newValue); }
+        public static bool SetBit(byte source, int index, bool newValue) { return ExchangeBit(ref source, index, newValue); }
 
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool SetBitReverse(ref byte source, int index, bool newValue)
+        public static bool ExchangeBitReverse(ref byte source, int index, bool newValue)
         {
             if (index < Binary.Nihil || index > Binary.BitsPerByte) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
@@ -1637,7 +1637,7 @@ namespace Media.Common
         }
 
 
-        public static bool SetBitReverse(byte source, int index, bool newValue) { return SetBitReverse(ref source, index, newValue); }
+        public static bool SetBitReverse(byte source, int index, bool newValue) { return ExchangeBitReverse(ref source, index, newValue); }
 
         /// <summary>
         /// Provides an implementation of setting the reverse bit in a highly optomized fashion.
@@ -1729,7 +1729,7 @@ namespace Media.Common
         //----- Array Overloads use the above calls.
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static byte[] SetBit(byte[] self, int index, bool value)
+        public static byte[] ExchangeBit(byte[] self, int index, bool value)
         {
             //int bitIndex, byteIndex = Math.DivRem(index, Binary.BitsPerByte, out bitIndex);
 
@@ -1746,7 +1746,7 @@ namespace Media.Common
             if (value) System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) | (byte)(Binary.Ūnus << index)));
             else System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) & (byte)(Binary.Ūnus << index)));
 #else
-            SetBit(ref self[byteIndex], bitIndex, value);
+            ExchangeBit(ref self[byteIndex], bitIndex, value);
 #endif
 
             return self;
@@ -2360,7 +2360,7 @@ namespace Media.Common
                     }
 
                     //Get a bit from the byte at our offset and Set the bit in the result
-                    SetBit(ref destBits[srcByteOffset], srcBitOffset, GetBit(ref srcBits[srcByteOffset], srcBitOffset));
+                    ExchangeBit(ref destBits[srcByteOffset], srcBitOffset, GetBit(ref srcBits[srcByteOffset], srcBitOffset));
 
                     //Increment for the bit consumed
                     ++srcBitOffset;
@@ -3124,7 +3124,7 @@ namespace Media.UnitTests
 
             //Unset the MostSignificantBit and ensure it was set.
 
-            if (Media.Common.Binary.SetBit(ref testBits, Media.Common.Binary.LeastSignificantBit, false) != true) throw new Exception("SetBit Does not Work");
+            if (Media.Common.Binary.ExchangeBit(ref testBits, Media.Common.Binary.LeastSignificantBit, false) != true) throw new Exception("SetBit Does not Work");
 
             //testBits should now equal 126
 
@@ -3142,7 +3142,7 @@ namespace Media.UnitTests
 
             //Set the LeastSignificantBit and ensure it was not set.
 
-            if (Media.Common.Binary.SetBit(ref testBits, Media.Common.Binary.MostSignificantBit, true) != false) throw new Exception("SetBit Does not Work");
+            if (Media.Common.Binary.ExchangeBit(ref testBits, Media.Common.Binary.MostSignificantBit, true) != false) throw new Exception("SetBit Does not Work");
 
             //Get the LeastSignificantBit and ensure it is was set.
 
