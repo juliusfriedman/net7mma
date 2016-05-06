@@ -3905,8 +3905,19 @@ namespace Media.Rtp
                 sent += SendData(packet.Prepare(null, ssrc, null, null).ToArray(), transportContext.DataChannel, transportContext.RtpSocket, transportContext.RemoteRtp, out error);
             }
 #else
-            //If the transportContext is changed to automatically update the timestamp by frequency then use transportContext.RtpTimestamp
+            //If the packet is contigious and ssrc does not have value then it can be sent in place.
             sent += SendData(packet.Prepare(null, ssrc, null, null).ToArray(), transportContext.DataChannel, transportContext.RtpSocket, transportContext.RemoteRtp, out error);
+
+            //if (ssrc.HasValue)
+            //{
+            //    //If the transportContext is changed to automatically update the timestamp by frequency then use transportContext.RtpTimestamp
+            //    sent += SendData(packet.Prepare(null, ssrc, null, null).ToArray(), transportContext.DataChannel, transportContext.RtpSocket, transportContext.RemoteRtp, out error);
+            //}
+            //else
+            //{
+            //    //Needs offset.
+            //    sent += SendData(packet.Header.First16Bits.m_Memory.Array, transportContext.DataChannel, transportContext.RtpSocket, transportContext.RemoteRtp, out error);
+            //}
 #endif
 
             if (error == SocketError.Success && sent >= packet.Length)
@@ -4143,6 +4154,7 @@ namespace Media.Rtp
                         data = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(BigEndianFrameControl), Media.Common.Extensions.Linq.LinqExtensions.Yield(channel.Value))
                             .Concat(Binary.GetBytes((short)dataLen, BitConverter.IsLittleEndian))
                             .Concat(data).ToArray();
+
                         length += InterleavedOverhead;
                     }
                     else

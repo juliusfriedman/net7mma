@@ -314,6 +314,8 @@ namespace Media.Concepts.Classes
 
         int m_Length;
 
+        //m_SizeOfT
+
         internal readonly System.Collections.Generic.HashSet<T[]> Allocations = new System.Collections.Generic.HashSet<T[]>();
 
         //System.Text.StringBuilder m_String;
@@ -322,6 +324,9 @@ namespace Media.Concepts.Classes
 
         #region Constructor
 
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //public Array<T>(){  m_SizeOfT = Unsafe.ArrayOfTwoElements<T>.AddressingDifference(); }
+
         /// <summary>
         /// Given any T this will convert the chars in the string to T.
         /// </summary>
@@ -329,10 +334,69 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Array(string s)
         {
+            #region https://github.com/dotnet/corefxlab/issues/665#issuecomment-217460242
+
+            //Unsafe.Inspector i = new Unsafe.Inspector();
+
+            //i.String = s;            
+
+            //System.Console.WriteLine(i.CharArray.Length);
+
+            //Unsafe.VariadicUnion vu = new Unsafe.VariadicUnion();
+
+            //vu.AsIntPtr = i.IntPtr<T>();
+
+            //i.String = null;
+
+            //System.Console.WriteLine(vu.AsIntPtr);
+
+            ////Allocates new object.
+            //i.AsPointer = new Unsafe.Inspector.Pointer();
+
+            //i.AsPointer.Value = vu.AsIntPtr;
+
+            #endregion
+
             int bytesPerT = Unsafe.ArrayOfTwoElements<T>.AddressingDifference();
 
+            //m_SizeOfT
+
+            //Determine how many elements the array will have.
+            switch (bytesPerT)
+            {
+                    //bytes
+                case 1:
+                    {
+                        m_Length = 2 * s.Length;
+                        
+                        break;
+                    }
+                case 2://char, short, ushort
+                    {
+                        m_Length = s.Length;
+
+                        break;
+                    }
+                default://uint, int, long, etc.
+                    {
+                        m_Length = s.Length * 2;
+
+                        //Handle conversion
+                        if (bytesPerT > m_Length)
+                        {
+                            m_Length /= bytesPerT;
+                        }
+                        else
+                        {
+                            m_Length /= bytesPerT;
+                        }
+
+                        break;
+                    }
+            }
+
             ////In chars.
-            m_Length = (int)(bytesPerT <= 2 ? s.Length : bytesPerT / s.Length);
+            //m_Length = (int)(bytesPerT <= 2 ? s.Length : bytesPerT / s.Length);
 
             #region Also works but copies
 
@@ -352,7 +416,7 @@ namespace Media.Concepts.Classes
 
             #endregion
 
-            m_Offset = (int)(Unsafe.AddressOfRef(ref s) + 12);
+            m_Offset = (int)(Unsafe.AddressOf(ref s) + 12);
 
             #region Musing
 
@@ -578,7 +642,26 @@ namespace Media.Concepts.Classes
 
         #region Indexer
 
-        public T /*System.Collections.Generic.IList<T>.*/this[int index]
+        public T this[ArrayElement<T> arrayIndex]
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                //return m_Source[m_Offset + index];
+
+                return UnsafeRead(this, ref arrayIndex.m_Index);
+            }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set
+            {
+                //m_Source[m_Offset + index] = value;
+
+                UnsafeWrite(this, arrayIndex.m_Index, ref arrayIndex.m_Source);
+            }
+        }
+
+        public T this[int index]
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
@@ -602,6 +685,25 @@ namespace Media.Concepts.Classes
         #region IList
 
         //See also http://www.codeproject.com/Articles/3467/Arrays-UNDOCUMENTED
+
+        //public T System.Collections.Generic.IList<T>. this[int index]
+        //{
+        //    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //    get
+        //    {
+        //        //return m_Source[m_Offset + index];
+
+        //        return UnsafeRead(this, ref index);
+        //    }
+
+        //    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //    set
+        //    {
+        //        //m_Source[m_Offset + index] = value;
+
+        //        UnsafeWrite(this, index, ref value);
+        //    }
+        //}
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         int System.Collections.Generic.IList<T>.IndexOf(T item)
@@ -686,12 +788,44 @@ namespace Media.Concepts.Classes
             //Make a new array
             T[] result = new T[array.m_Length];
 
-            System.Array.Copy(array.m_Source, array.m_Offset, result, 0, array.m_Length);
+            int sz = Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * array.m_Length;
 
-            //Won't work with Strings... (RankException) (Could try to copy the header / forge the header. see ArrayTest method)
+            System.Buffer.MemoryCopy((void*)ComputeAddress(array), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(result, 0), sz, sz);
+
             array.Allocations.Add(result);
 
             return result;
+
+            //System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
+
+            //try
+            //{
+            //    result = new T[array.m_Length];
+
+            //    gcHandle = default(System.Runtime.InteropServices.GCHandle);
+
+            //    int sz = Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * array.m_Length;
+
+            //    gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(result, System.Runtime.InteropServices.GCHandleType.Pinned);
+
+            //    System.Buffer.MemoryCopy((void*)ComputeAddress(array), gcHandle.AddrOfPinnedObject().ToPointer(), sz, sz);
+
+            //    array.Allocations.Add(result);
+
+            //    return result;
+
+            //}
+            //catch { throw; }
+            //finally { if (gcHandle.IsAllocated) gcHandle.Free(); }
+
+            //Are potentially other ways to do the same damn thing.
+            //CommonIntermediateLanguage.Cpyblk<T>(array.m_Source, array.m_Offset, result, 0, sz);
+
+            //have alignment issues here
+            //System.Buffer.BlockCopy(array.m_Source, array.m_Offset, result, 0, sz);
+
+            //Alternatively when array.m_Source is not null
+            //System.Array.Copy(array.m_Source, array.m_Offset, result, 0, array.m_Length);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -717,7 +851,8 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static System.IntPtr ComputeAddress(Array<T> array)
         {
-            return array.m_Source == null ? new System.IntPtr(array.m_Offset) : System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Offset);
+            //Could do something with offset to skip the null check.
+            return array.m_Source == null ? (System.IntPtr)array.m_Offset : System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Offset);
         }
 
         /// <summary>
@@ -775,6 +910,7 @@ namespace Media.Concepts.Classes
 
             #endregion
 
+            //m_Source maybe null...
             //return UnsafeRead(array.m_Source, array.m_Offset + index);
 
             //return Unsafe.Read<T>(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Offset + index));
@@ -788,11 +924,15 @@ namespace Media.Concepts.Classes
             //UnsafeWrite(array.m_Source, array.m_Offset + index, ref value);
             //Unsafe.Write<T>(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Offset + index), ref value);
 
-            Unsafe.Write<T>(ComputeAddress(array) + Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * index, ref value);
+            int size = Unsafe.ArrayOfTwoElements<T>.AddressingDifference();
+
+            Unsafe.Write<T>(ComputeAddress(array) + size * index, ref value, ref size);
         }
 
         //Here an empty array could be created and the RTTI modified such that the pointer to the first element points to the offset desired,
         //Unfortunately there is no such member on the array.
+        //What would be done in a IDisposable pattern or otherwise is to copy the array header to the offset of the first desired element and change the length in that header.
+        //This causes 12 - 16 bytes to be wasted so those bytes need to be swapped out somewhere so they can be put back on dispose.
         static T[] ArrayTest(Array<T> array)
         {
 
@@ -1173,92 +1313,7 @@ namespace Media.UnitTests
             //Which does show the modifications to the original array.
             System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<int, string>(clrArray, System.Convert.ToString)));
 
-            #region ReinterpretCast
-
-            //A different kind of slice... would be useful with fixed...
-            
-            //This hides the Length :( there are someways to fix that but the ArrayHeader itself has to be modified which isn't hard to do but still...
-
-            int total = 0;
-
-            short[] shorts = Concepts.Classes.Unsafe.ReinterpretCast<int[], short[]>(clrArray);
-
-            try
-            {
-                foreach (var shortType in shorts)
-                {
-                    System.Console.WriteLine("shortValue: " + shortType); ++total; 
-                }
-            }
-            catch
-            {
-
-            }
-
-            System.Console.WriteLine("totalShorts:" + total);
-
-            //System.Console.WriteLine(cast[-1]);
-
-            System.Console.WriteLine(shorts[0]);
-
-            System.Console.WriteLine(shorts[1]);
-
-            //Out of bounds.
-            System.Console.WriteLine(shorts[2]);
-
-            //0.....
-            System.Console.WriteLine("shortLength: " + shorts.Length);
-
-            total = 0;
-
-            //Try again from bytes
-            byte[] bytes = Concepts.Classes.Unsafe.ReinterpretCast<int[], byte[]>(clrArray);
-
-            try
-            {
-                foreach (var byteType in bytes)
-                {
-                    System.Console.WriteLine("byteType: " + byteType); ++total; 
-                }
-            }
-            catch
-            {
-
-            }
-            
-
-            System.Console.WriteLine("totalShorts:" + total);
-
-            System.Console.WriteLine(bytes[0]);
-
-            System.Console.WriteLine(bytes[1]);
-
-            System.Console.WriteLine(bytes[2]);
-
-            System.Console.WriteLine(bytes[3]);
-
-            System.Console.WriteLine(bytes[4]);
-
-            //Out of bounds.
-            //System.Console.WriteLine(bytes[5]);
-
-            //System.Console.WriteLine(bytes[15]);
-
-            //0.....
-            System.Console.WriteLine("byteLength: " + bytes.Length);
-
-            //Fails..
-            //System.Console.WriteLine(cast[3]);
-
-            //System.Console.WriteLine(cast[4]);
-
-            //System.Console.WriteLine(cast[5]);
-
-            //System.Console.WriteLine(cast[7]);
-
-            //System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<short, string>(cast, System.Convert.ToString)));
-
-            //String / Char tests (Needs ArrayLike specialization to also work apparently)
+            #region String Tests
 
             string clrString = "test";           
 
@@ -1302,6 +1357,8 @@ namespace Media.UnitTests
 
                     Concepts.Classes.Array<char> testChars = new Concepts.Classes.Array<char>(clrString);
 
+                    Concepts.Classes.Array<long> testLong = new Concepts.Classes.Array<long>(clrString);
+
                     foreach (var byteType in testBytes)
                     {
                         System.Console.WriteLine("charValue Default:" + System.Text.Encoding.Default.GetChars(new byte[] { byteType })[0]);
@@ -1316,16 +1373,39 @@ namespace Media.UnitTests
                         System.Console.WriteLine("charType: " + charType);
                     }
 
-                    //Crash..
-                    //System.Console.WriteLine(test[0]);
+                    foreach (var longType in testLong)
+                    {
+                        System.Console.WriteLine("longType: " + longType.ToString("X"));
+                    }
 
-                    //Fails immediately when the protection has occured.
-                    //System.Collections.Generic.IList<char> cIlist = test;
+                    //System.Collections.Generic.IList<byte> cblist = (System.Collections.Generic.IList<byte>)testChars;
 
-                    //Crash
-                    //System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<char, string>(test, System.Convert.ToString)));
+                    //System.Console.WriteLine(cblist[0]);
+                    //System.Console.WriteLine(cblist[1]);
+                    //System.Console.WriteLine(cblist[2]);
+                    //System.Console.WriteLine(cblist[3]);
 
-                    //System.Console.WriteLine(test[0]);
+                    System.Collections.Generic.IList<char> cIlist = testChars;
+
+                    //Modify the char in the string...
+                    cIlist[0] = 'a';
+
+                    System.Console.WriteLine(cIlist[0]);
+                    System.Console.WriteLine(clrString[0]);
+                    System.Console.WriteLine(testChars[0]);
+
+                    //Write to the low order byte in the first char. (of the string) through the testBytes
+                    testBytes[1] = 0x80;
+
+                    //a, e, s, t
+                    System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<char, string>(testChars, System.Convert.ToString)));
+
+                    //Chars are two bytes, we only modify one at a time...
+
+                    //a, 0x80, e, 0
+                    System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<byte, string>(testBytes, System.Convert.ToString)));
+
+                    System.Console.WriteLine(testLong[0]);
                 }
             }
 
@@ -1334,6 +1414,96 @@ namespace Media.UnitTests
             //etc
 
             #endregion
+
+            //#region ReinterpretCast
+
+            ////A different kind of slice... would be useful with fixed...
+
+            ////This hides the Length :( there are someways to fix that but the ArrayHeader itself has to be modified which isn't hard to do but still...
+
+            //int total = 0;
+
+            //short[] shorts = Concepts.Classes.Unsafe.ReinterpretCast<int[], short[]>(clrArray);
+
+            //try
+            //{
+            //    foreach (var shortType in shorts)
+            //    {
+            //        System.Console.WriteLine("shortValue: " + shortType); ++total;
+            //    }
+            //}
+            //catch
+            //{
+
+            //}
+
+            //System.Console.WriteLine("totalShorts:" + total);
+
+            ////System.Console.WriteLine(cast[-1]);
+
+            //System.Console.WriteLine(shorts[0]);
+
+            //System.Console.WriteLine(shorts[1]);
+
+            ////Out of bounds.
+            //System.Console.WriteLine(shorts[2]);
+
+            ////0.....
+            //System.Console.WriteLine("shortLength: " + shorts.Length);
+
+            //total = 0;
+
+            ////Try again from bytes
+            //byte[] bytes = Concepts.Classes.Unsafe.ReinterpretCast<int[], byte[]>(clrArray);
+
+            //try
+            //{
+            //    foreach (var byteType in bytes)
+            //    {
+            //        System.Console.WriteLine("byteType: " + byteType); ++total;
+            //    }
+            //}
+            //catch
+            //{
+
+            //}
+
+
+            //System.Console.WriteLine("totalBytes:" + total);
+
+            //System.Console.WriteLine(bytes[0]);
+
+            //System.Console.WriteLine(bytes[1]);
+
+            //System.Console.WriteLine(bytes[2]);
+
+            //System.Console.WriteLine(bytes[3]);
+
+            //System.Console.WriteLine(bytes[4]);
+
+            ////Out of bounds.
+            ////System.Console.WriteLine(bytes[5]);
+
+            ////System.Console.WriteLine(bytes[15]);
+
+            ////0.....
+            //System.Console.WriteLine("byteLength: " + bytes.Length);
+
+            ////Fails..
+            ////System.Console.WriteLine(cast[3]);
+
+            ////System.Console.WriteLine(cast[4]);
+
+            ////System.Console.WriteLine(cast[5]);
+
+            ////System.Console.WriteLine(cast[7]);
+
+            ////System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<short, string>(cast, System.Convert.ToString)));
+
+            ////String / Char tests (Needs ArrayLike specialization to also work apparently)
+
+            //#endregion
+
         }
     }
 }

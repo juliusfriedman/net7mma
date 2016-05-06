@@ -88,8 +88,9 @@ namespace Media.Concepts.Classes
             return *(System.IntPtr*)(&reference);
         }
 
+        //Basically As / Reinterpret function which is unsafe.
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static System.IntPtr AddressOfRef<T>(ref T t)
+        public static System.IntPtr AddressOf<T>(ref T t)
         //refember ReferenceTypes are references to the CLRHeader
         //where TOriginal : struct
         {
@@ -98,6 +99,8 @@ namespace Media.Concepts.Classes
             //System.IntPtr ptr = **(System.IntPtr**)(&reference); //http://stackoverflow.com/questions/4994277/memory-address-of-an-object-in-c-sharp
 
             return **(System.IntPtr**)(&reference);
+
+            //Don't want the address of the TypedReferece
 
             //System.TypedReference* pRef = &reference;
 
@@ -234,15 +237,6 @@ namespace Media.Concepts.Classes
             return System.TypedReference.ToObject(tr);
         }
 
-        //Todo, check alignment.. provide via CommonIntermediateLanguage.
-
-        //[System.Runtime.CompilerServices.MethodImpl(MethodImplOptions.AggressiveInlining)]
-        //public static T ReadUnaligned<T>(ref T p)
-        //{
-        //    //ldarg.0          
-        //    //unaligned. 1 ldobj !!T
-        //    //ret
-        //}
 
         #endregion
 
@@ -252,6 +246,18 @@ namespace Media.Concepts.Classes
         internal static void Write<T>(System.IntPtr address, ref T what)
         {
             int size = Unsafe.ArrayOfTwoElements<T>.AddressingDifference(); System.Buffer.MemoryCopy((void*)AddressOf(what), (void*)address, size, size);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void Write<T>(System.IntPtr address, ref T what, int size)
+        {
+            System.Buffer.MemoryCopy((void*)AddressOf(what), (void*)address, size, size);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void Write<T>(System.IntPtr address, ref T what, ref int size)
+        {
+            System.Buffer.MemoryCopy((void*)AddressOf(what), (void*)address, size, size);
         }
 
         #endregion
@@ -403,17 +409,20 @@ namespace Media.Concepts.Classes
 
         #endregion
 
-        #region Internal
+        #region Structures
 
         //Adapted from 'Mash`s' response on StackOverflow @ http://stackoverflow.com/questions/621493/c-sharp-unsafe-value-type-array-to-byte-array-conversions/3577227#3577227
+        //Also SharpUtils UnsafeTools VariadicUnion
 
         /// <summary>
         /// Provides a structure which can be used to inspect objects or convert arrays quickly.
         /// </summary>
         [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
-        internal struct Inspector
+        public struct Inspector
         {
             #region Methods
+
+            internal System.IntPtr IntPtr<T>() { return AddressOf<object>(ref Object); }
 
             public static byte[] GetBytes(float[] floats)
             {
@@ -462,6 +471,14 @@ namespace Media.Concepts.Classes
             //allows setting any of the array lengths...
             internal class ArrayLength { public int Value; }
 
+
+            [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
+            internal class Pointer
+            {
+                [System.Runtime.InteropServices.FieldOffset(0)]
+                public System.IntPtr Value;
+            }
+
             internal class Bytes
             {
                 public byte Byte_0;
@@ -470,7 +487,7 @@ namespace Media.Concepts.Classes
                 public byte Byte_3;
             }
 
-            #endregion
+            #endregion            
 
             [System.Runtime.InteropServices.FieldOffset(0)]
             internal System.Array Array;
@@ -490,11 +507,79 @@ namespace Media.Concepts.Classes
             [System.Runtime.InteropServices.FieldOffset(0)]
             internal System.String String;
 
+            //Probably only need one of these.
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            internal System.Text.StringBuilder StringBuilder;
+
             [System.Runtime.InteropServices.FieldOffset(0)]
             internal ArrayLength Length;
 
             [System.Runtime.InteropServices.FieldOffset(0)]
+            internal Pointer AsPointer;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
             internal Bytes Octets;
+        }
+
+        /// <summary>
+        /// This struct is an union of some basic types. Each field points to the same location.
+        /// </summary>
+        /// <remarks><see href="https://github.com/IllidanS4/SharpUtils/blob/fd0e8fbab9fa45a23c9b380121952ef959df85bd/Unsafe/VariadicUnion.cs"/>SharpUtils</see></remarks>
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
+        public struct VariadicUnion
+        {
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public bool AsBoolean;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public byte AsByte;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public short AsInt16;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public int AsInt32;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public long AsInt64;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            [System.CLSCompliant(false)]
+            public sbyte AsSByte;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            [System.CLSCompliant(false)]
+            public ushort AsUInt16;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            [System.CLSCompliant(false)]
+            public uint AsUInt32;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            [System.CLSCompliant(false)]
+            public ulong AsUInt64;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public float AsSingle;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public double AsDouble;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public decimal AsDecimal;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public char AsChar;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public System.DateTime AsDateTime;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public System.IntPtr AsIntPtr;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public System.Guid AsGuid;
         }
 
         #endregion
@@ -515,6 +600,12 @@ namespace Media.Concepts.Classes
             //where TResult : struct
         {
             return Read<TResult>(AddressOf(orig));
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static TResult ReinterpretCast<TOriginal, TResult>(ref TOriginal orig)
+        {
+            return Read<TResult>(AddressOf<TOriginal>(ref orig));
         }
 
         //Not really needed when you have ReinterpretCast

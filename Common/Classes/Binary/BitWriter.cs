@@ -91,7 +91,7 @@
             }
          
             //Set the bit and move the bit index
-            Binary.SetBit(ref m_ByteCache.Array[m_ByteIndex], m_BitIndex++, value);
+            Binary.ExchangeBit(ref m_ByteCache.Array[m_ByteIndex], m_BitIndex++, value);
         }
 
         //Write8(reverse)
