@@ -95,7 +95,7 @@ namespace Media.Rtp
     {
         #region Constants / Statics
 
-        internal static void ConfigureRtpThread(Thread thread)
+        internal static void ConfigureRtpThread(Thread thread)//,Common.ILogging = null
         {
             thread.TrySetApartmentState(ApartmentState.MTA);
         }
@@ -293,7 +293,7 @@ namespace Media.Rtp
         {
             #region Statics
 
-            internal static void ConfigureRtpRtcpSocket(Socket socket)
+            internal static void ConfigureRtpRtcpSocket(Socket socket) //,Common.ILogging = null
             {
                 if (socket == null) throw new ArgumentNullException("socket");
 

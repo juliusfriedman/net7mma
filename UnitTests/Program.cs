@@ -213,25 +213,48 @@ namespace Media.UnitTests
 
         static void _TestLogicForBeginInvoke(int i)
         {
-            System.Threading.Thread.Sleep(100);
+            System.Threading.Thread.Sleep(10);
 
             System.Console.WriteLine("Tested");
+        }
+
+        static void _Callback(IAsyncResult iar)
+        {
+            System.Threading.Thread.Sleep(10); 
+            
+            System.Console.WriteLine("Callback " + iar.CompletedSynchronously);
+
+            System.Console.WriteLine("Callback " + iar.AsyncState);
         }
 
         static void TestBeginInvoke()
         {
             //Callback is written after Tested and NotDone.
-            var result = new System.Action<int>(_TestLogicForBeginInvoke).BeginInvoke(0, (cb) => { System.Threading.Thread.Sleep(100); System.Console.WriteLine("Callback"); }, null);
+            System.Action<int> call = new System.Action<int>(_TestLogicForBeginInvoke);
 
+            //This variable can be used in either the invocation or the callback but you must access it by reference.
+            int times = 0;
+            
+            //Write output
             System.Console.WriteLine("Output");
 
-            while (false == result.IsCompleted)
+            //Start the call, show what call was made to the callback.
+            IAsyncResult callInvocation = call.BeginInvoke(0, _Callback, call);
+
+            //Wait for the call to be completed a few times
+            while (false == callInvocation.IsCompleted && ++times < 10)
             {
                 System.Console.WriteLine("NotDone");
             }
 
-            System.Console.WriteLine("NotDone");
-        }//Callback 
+            //Probably still not completed.
+            System.Console.WriteLine("IsCompleted " + callInvocation.IsCompleted);
+
+            //Can only be called once, should be called to free the thread assigned to calling the logic assoicated with BeginInvoke and the callback.
+            call.EndInvoke(callInvocation);
+        }//_Callback 
+
+        //Never called EndInvoke...
 
         #endregion
 
@@ -2866,6 +2889,21 @@ a=appversion:1.0");
 
         static void TestExperimental()
         {
+            //Should be in Generic / CommonIntermediateLanguage tests
+            System.Console.WriteLine(Concepts.Classes.Generic<int>.SizeOf());
+
+            System.Console.WriteLine(Concepts.Classes.Generic<byte>.SizeOf());
+
+            System.Console.WriteLine(Concepts.Classes.Generic<int>.SizeOf());
+
+            int test = 1;
+
+            System.Console.WriteLine(Concepts.Classes.Generic<int>.Read(ref test));
+
+            //System.Console.WriteLine(Concepts.Classes.Generic<int>.UnalignedRead(ref test));
+
+            //Concepts.Classes.Generic<int>.Write(ref test);
+
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ExperimentalTests), TypeOfVoid);
         }
 

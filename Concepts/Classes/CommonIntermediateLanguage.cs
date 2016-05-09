@@ -46,46 +46,130 @@ namespace Media.Concepts.Classes
 
     //See also http://www.codeproject.com/Articles/9927/Fast-Dynamic-Property-Access-with-C
 
-    internal delegate T UnalignedReadDelegate<T>(ref T t);
+    internal delegate T GenericFunc<T>(ref T t);
+
+    internal delegate int SizeOfDelegate<T>();
+
+    internal delegate void GenericAction<T>(ref T t);
 
     //Used to build the UnalignedReadDelegate for each T
     internal static class Generic<T>
     {
         //static System.Action<T> UnalignedReadDelegater<T>(ref T t);
 
-        internal static readonly UnalignedReadDelegate<T> UnalignedRead;
+        internal static readonly GenericFunc<T> UnalignedRead;
 
-        internal static readonly UnalignedReadDelegate<T> Read;
+        internal static readonly GenericFunc<T> Read;
 
-        internal static readonly UnalignedReadDelegate<T> Write;
+        internal static readonly GenericAction<T> Write;
+
+        internal static readonly GenericFunc<T> As;
+
+        internal static readonly SizeOfDelegate<T> SizeOf;
 
         static Generic()
         {
-            System.Type typeOfT = typeof(T);
+            System.Type typeOfT = typeof(T), typeOfTRef = typeOfT.MakeByRefType();
+
+            System.Type[] args = { typeOfTRef };
+
+            System.Reflection.Emit.ILGenerator generator;
+
+            //Works
+            #region SizeOf
+
+            System.Reflection.Emit.DynamicMethod sizeOfMethod = new System.Reflection.Emit.DynamicMethod("_SizeOf", typeof(int), System.Type.EmptyTypes);
+
+            generator = sizeOfMethod.GetILGenerator();
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Sizeof, typeOfT);
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+            SizeOf = (SizeOfDelegate<T>)sizeOfMethod.CreateDelegate(typeof(SizeOfDelegate<T>));
+
+            #endregion
+
+            //Need locals or to manually define the IL in the stream.
+
+            //Not yet working,  requires an argument for where to read IntPtr
 
             #region UnalignedRead
 
-            System.Type[] args = { typeOfT.MakeByRefType() };
+            System.Reflection.Emit.DynamicMethod unalignedReadMethod = new System.Reflection.Emit.DynamicMethod("_UnalignedRead", typeOfT, args);
 
-            System.Reflection.Emit.DynamicMethod unalignedReadMethod = new System.Reflection.Emit.DynamicMethod("UnalignedReadDelegate", typeOfT, args);
-
-            System.Reflection.Emit.ILGenerator generator = unalignedReadMethod.GetILGenerator();
+            generator = unalignedReadMethod.GetILGenerator();
 
             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
-            generator.Emit(System.Reflection.Emit.OpCodes.Unaligned);
-            generator.Emit(System.Reflection.Emit.OpCodes.Ldobj);
-            //generator.Emit(System.Reflection.Emit.OpCodes.Unbox_Any);
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Unaligned); //, Size()
+
+            //generator.Emit(System.Reflection.Emit.OpCodes.Unaligned, System.Reflection.Emit.Label label);
+
+            //This would probably work but needs the pointer
+            //generator.Emit(System.Reflection.Emit.OpCodes.Unaligned, long address)
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ldobj, typeOfT);
+
             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
 
-            UnalignedRead = (UnalignedReadDelegate<T>)unalignedReadMethod.CreateDelegate(typeof(UnalignedReadDelegate<T>));
+            UnalignedRead = (GenericFunc<T>)unalignedReadMethod.CreateDelegate(typeof(GenericFunc<T>));
 
             #endregion
 
+            //Not yet working, need alternative generic parameter U
+
+            #region As
+
+            System.Reflection.Emit.DynamicMethod asMethod = new System.Reflection.Emit.DynamicMethod("_As", typeOfT, args);
+
+            generator = asMethod.GetILGenerator();
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+            As = (GenericFunc<T>)asMethod.CreateDelegate(typeof(GenericFunc<T>));
+
+            #endregion
+
+            //Not yet working, requires an argument for where to read IntPtr
+            
             #region Read
 
+            System.Reflection.Emit.DynamicMethod readMethod = new System.Reflection.Emit.DynamicMethod("_Read", typeOfT, args);
+
+            generator = readMethod.GetILGenerator();
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ldobj, typeOfT);
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+            Read = (GenericFunc<T>)readMethod.CreateDelegate(typeof(GenericFunc<T>));
+
             #endregion
 
+            //Not yet working, required an argument for where to write IntPtr
+
             #region Write
+
+            System.Reflection.Emit.DynamicMethod writeMethod = new System.Reflection.Emit.DynamicMethod("_Write", null, args);
+
+            generator = writeMethod.GetILGenerator();
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);// T to write but where...
+
+            //generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_1);
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ldobj, typeOfT);
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Stobj, typeOfT);
+
+            generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+            Write = (GenericAction<T>)writeMethod.CreateDelegate(typeof(GenericAction<T>));
 
             #endregion
         }
@@ -96,6 +180,8 @@ namespace Media.Concepts.Classes
         static readonly System.Action<System.IntPtr, byte, int> InitblkDelegate;
 
         static readonly System.Action<System.IntPtr, System.IntPtr, int> CpyblkDelegate;
+
+        //internal static readonly System.Func<System.Type, int> SizeOfDelegate;
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static CommonIntermediateLanguage()
@@ -137,6 +223,25 @@ namespace Media.Concepts.Classes
             #endregion
 
             #region See Generic
+
+            //Can't do with Emit unless you do a local.
+            //#region SizeOf
+
+            // System.Reflection.Emit.DynamicMethod sizeOfMethod = new System.Reflection.Emit.DynamicMethod("__SizeOf",
+            //     System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
+            //     typeof(int), new System.Type[]{ typeof(System.Type) }, typeof(CommonIntermediateLanguage), true);
+
+            // generator = sizeOfMethod.GetILGenerator();
+
+            // generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
+
+            // generator.Emit(System.Reflection.Emit.OpCodes.Sizeof, 0);
+
+            // generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+            // SizeOfDelegate = (System.Func<System.Type, int>)sizeOfMethod.CreateDelegate(typeof(System.Func<System.Type, int>));
+
+            //#endregion
 
             //It actually makes more sense to just do it here and use IntPtr for the parameters...
 

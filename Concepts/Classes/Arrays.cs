@@ -337,21 +337,21 @@ namespace Media.Concepts.Classes
 
         //Should be the same in unsafe as fixed(int*x = &this){ int*y = x + System.IntPtr.Size; }
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal System.IntPtr AddressOf8() { return Unsafe.AddressOf<object>(ref m_Object); }
+        internal System.IntPtr get_AddressOf8() { return Unsafe.AddressOf<object>(ref m_Object); }
 
         /// <summary>
         /// The length of the data in the array or the low bytes if <see cref="m_IntPtr"/> is assigned
         /// </summary>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public int Length() { return m_Length; }
+        public int get_Length() { return m_Length; }
 
         /// <summary>
         /// The object which can be relocated in memory's reference
         /// </summary>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public object Object() { return m_Object; }
+        public object get_Object() { return m_Object; }
 
         /// <summary>
         /// The array interpretation of <see cref="m_Object"/>
@@ -550,8 +550,8 @@ namespace Media.Concepts.Classes
             //Store the object reference
             m_Header.m_Array = source;
 
-            //Calulcate and store the offset to access the first element of the array.
-            m_Header.m_Offset = ((int)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(source, 0) - (int)Unsafe.AddressOf<System.Array>(ref source)) + offset;
+            //Store the offset to access the first element of the array.
+            m_Header.m_Offset = offset;
 
             //Set the length
             m_Header.m_Length = count;
@@ -608,7 +608,7 @@ namespace Media.Concepts.Classes
         public System.Array OriginalArray //Array name is the same as enclosing type..
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return m_Source ?? m_Header.m_Array; }            
+            get { return m_Header.m_Array; }            
         }
 
         /// <summary>
@@ -617,7 +617,7 @@ namespace Media.Concepts.Classes
         public System.Object OriginalObject
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return m_Header.m_Object ?? m_Source; }
+            get { return m_Header.m_Object; }
         }
 
         /// <summary>
@@ -644,7 +644,7 @@ namespace Media.Concepts.Classes
         public int Length
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return m_Header.m_Length; } //& ~int.MinValue for native pointers.
+            get { return m_Header.m_Length; }
         }
 
         #endregion
@@ -914,54 +914,90 @@ namespace Media.Concepts.Classes
 
         #region Statics
 
+        /// <summary>
+        /// Creates an <see cref="System.ArraySegment"/>&lt;<typeparamref name="T"/>&gt; without causing an allocation of <see cref="System.Array"/>
+        /// </summary>
+        /// <param name="array">The generic array</param>
+        /// <param name="segment">The array segment created</param>
+        /// <returns>True if <paramref name="segment"/> was created.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool TryGetArray(Array<T> array, out System.ArraySegment<T> segment)
+        {
+            //Branch...
+            segment = array.m_Header.m_Offset < 0 ? 
+                //Strings...
+                new System.ArraySegment<T>(array, 0, array.m_Header.m_Length) : 
+                //Everything else
+                new System.ArraySegment<T>(array, array.m_Header.m_Offset, array.m_Header.m_Length);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Updates the given source array using the given generic array's <see cref="UpdateFrom"/> method.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="from"></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Update(/*this */T[] source, Array<T> from) { from.UpdateFrom(source); }
 
+        #region Unused
+
+        ///// <summary>
+        ///// Computes the address of the first element in the array based on offset used to create it.
+        ///// </summary>
+        ///// <param name="array"></param>
+        ///// <returns></returns>
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //static System.IntPtr ComputeAddress(Array<T> array)
+        //{
+        //    //Could do something with offset to skip the null check.
+        //    //return array.m_Source == null ? (System.IntPtr)array.m_Header.m_Offset : System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Header.m_Offset);
+
+        //    //If the object was not null then compute the address using the stored offset, otherwise use the native array.
+        //    //This could also be used for native pointers by using array.m_IntPtr...
+        //    return false == array.m_Header.IsNullObject() ? array.m_Header.get_AddressOf8() + array.m_Header.m_Offset : System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Header.m_Offset);
+
+        //    #region Branchless
+
+        //    //Need to scope an index, and should be able to use when native or string.
+        //    //ComputeElementAlignedAddress(array, array.m_Header.m_Offset)
+
+        //    //Almost works for branchless logic but uses ??, also offset is not checked to be in bounds and automatically aligned to size of element type.
+        //    //return System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Source ?? array.m_Header.m_Array, array.m_Header.m_Offset);
+
+        //    //Almost works but uses math.
+        //    //return array.m_Header.AddressOf8() + array.m_Header.m_Offset;
+
+        //    //return System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Source ?? array.m_Header.m_Array, array.m_Header.m_Offset);
+        //    //Alignment, to work correctly the m_Offset must be in chars and not T...
+        //    //System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, 0) - 6
+        //    //System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, 0)
+
+        //    //Null would be 0 but element access need to be aligned to the pointer type of T to work correctly which is what UnsafeAddrOfPinnedArrayElement adjusts for, we could do this be factoring in sizeof(T)
+        //    //return Unsafe.AddressOf(ref array.m_Source) + 16 + (Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * array.m_Offset);
+
+        //    #endregion
+        //}
+
+        #endregion
+
         /// <summary>
-        /// Computes the address of the first element in the array based on offset used to create it.
+        /// Computes the address of the highest accessible element in the generic array
         /// </summary>
         /// <param name="array"></param>
         /// <returns></returns>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        static System.IntPtr ComputeAddress(Array<T> array)
-        {
-            //Could do something with offset to skip the null check.
-            //return array.m_Source == null ? (System.IntPtr)array.m_Header.m_Offset : System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Header.m_Offset);
-
-            //If the object was not null then compute the address using the stored offset, otherwise use the native array.
-            //This could also be used for native pointers by using array.m_IntPtr...
-            return false == array.m_Header.IsNullObject() ? array.m_Header.AddressOf8() + array.m_Header.m_Offset : System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Header.m_Offset);
-
-            #region Branchless
-
-            //Need to scope an index, and should be able to use when native or string.
-            //ComputeElementAlignedAddress(array, array.m_Header.m_Offset)
-
-            //Almost works for branchless logic but uses ??, also offset is not checked to be in bounds and automatically aligned to size of element type.
-            //return System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Source ?? array.m_Header.m_Array, array.m_Header.m_Offset);
-
-            //Almost works but uses math.
-            //return array.m_Header.AddressOf8() + array.m_Header.m_Offset;
-
-            //return System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Source ?? array.m_Header.m_Array, array.m_Header.m_Offset);
-            //Alignment, to work correctly the m_Offset must be in chars and not T...
-            //System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, 0) - 6
-            //System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, 0)
-
-            //Null would be 0 but element access need to be aligned to the pointer type of T to work correctly which is what UnsafeAddrOfPinnedArrayElement adjusts for, we could do this be factoring in sizeof(T)
-            //return Unsafe.AddressOf(ref array.m_Source) + 16 + (Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * array.m_Offset);
-
-            #endregion
-        }
-
-        //The highest valid address in the array
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static System.IntPtr ComputeMaxAddress(Array<T> array)
         {
             return System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, array.m_Header.m_Length);
         }
 
-        //The lowest valid address in the array
+        /// <summary>
+        /// Computes the address of the lowest accessible element in the generic array
+        /// </summary>
+        /// <param name="array"></param>
+        /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static System.IntPtr ComputeBaseAddress(Array<T> array)
         {
@@ -1277,6 +1313,9 @@ namespace Media.UnitTests
 
             int offset = 2, count = 2;
 
+            //Populate this as a test which should not cause an System.Array allocation.
+            System.ArraySegment<byte> arraySegmentByte;
+
             //Make the generic array.
             Concepts.Classes.Array<int> genericArray = new Concepts.Classes.Array<int>(clrArray, offset, count);
 
@@ -1466,6 +1505,15 @@ namespace Media.UnitTests
             //Which does show the modifications to the original array.
             System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<int, string>(clrArray, System.Convert.ToString)));
 
+            //Get the bytes without causing an allocation
+            if (Concepts.Classes.Array<byte>.TryGetArray(testBytez, out arraySegmentByte))
+            {
+                foreach (var byteType in arraySegmentByte)
+                {
+                    System.Console.WriteLine("byteType: " + byteType);
+                }
+            }
+
             #region String Tests
 
             string clrString = "test";           
@@ -1507,6 +1555,25 @@ namespace Media.UnitTests
                     Concepts.Classes.Array<char> testChars = new Concepts.Classes.Array<char>(clrString);
 
                     Concepts.Classes.Array<long> testLong = new Concepts.Classes.Array<long>(clrString);
+
+                    //Can't use the array :(
+                    //System.Array.Sort(testBytes.m_Header.m_Array)
+                    //'System.Array.Sort(testBytes.m_Header.m_Array)' threw an exception of type 'System.RankException'
+                    //    base: {"Only single dimension arrays are supported here."}
+                    //testBytes.m_Header.m_Array.GetUpperBound()
+                    //No overload for method 'GetUpperBound' takes 0 arguments
+                    //testBytes.m_Header.m_Array.GetUpperBound(0)
+                    //'testBytes.m_Header.m_Array.GetUpperBound(0)' threw an exception of type 'System.ArgumentException'
+                    //    base: {"Cannot find the method on the object instance."}
+                    
+                    //Get the bytes without causing an allocation
+                    if (Concepts.Classes.Array<byte>.TryGetArray(testBytes, out arraySegmentByte))
+                    {
+                        foreach (var byteType in arraySegmentByte)
+                        {
+                            System.Console.WriteLine("byteType: " + byteType);
+                        }
+                    }
 
                     foreach (var byteType in testBytes)
                     {
