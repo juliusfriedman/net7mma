@@ -57,6 +57,7 @@ namespace Media.UnitTests
         /// The UnitTests which will be run to test the implemenation logic
         /// </summary>
         static Action[] LogicTests = new Action[] { 
+            TestBeginInvoke,
             //Experimental Classes (Should not be used in real code)
             TestStopWatch,
             TestClock,
@@ -207,6 +208,32 @@ namespace Media.UnitTests
                     (offsetAfterParsing = Utility.ContainsBytes(haystack, ref offset, ref count, needle, needleBegin, needleLength)) > 0 && offsetAfterParsing - 1 != offset) throw new Exception("Reading from the same offset produced a different result");
             }
         }
+
+        #region http://stackoverflow.com/questions/37077434/async-version-of-generic-extensions?noredirect=1#comment61700684_37077434
+
+        static void _TestLogicForBeginInvoke(int i)
+        {
+            System.Threading.Thread.Sleep(100);
+
+            System.Console.WriteLine("Tested");
+        }
+
+        static void TestBeginInvoke()
+        {
+            //Callback is written after Tested and NotDone.
+            var result = new System.Action<int>(_TestLogicForBeginInvoke).BeginInvoke(0, (cb) => { System.Threading.Thread.Sleep(100); System.Console.WriteLine("Callback"); }, null);
+
+            System.Console.WriteLine("Output");
+
+            while (false == result.IsCompleted)
+            {
+                System.Console.WriteLine("NotDone");
+            }
+
+            System.Console.WriteLine("NotDone");
+        }//Callback 
+
+        #endregion
 
         public static void RtspClientTests()
         {

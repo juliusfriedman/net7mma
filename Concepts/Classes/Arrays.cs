@@ -46,7 +46,7 @@ namespace Media.Concepts.Classes
     /// <typeparam name="T"></typeparam>
     // Generic types cannot have this layout...
     //[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
-    internal class ArrayElement<T> : System.Collections.Generic.IList<T>
+    public class ArrayElement<T> : System.Collections.Generic.IList<T>
     {
         //bool m_IsReadOnly
 
@@ -56,20 +56,31 @@ namespace Media.Concepts.Classes
         //[System.Runtime.InteropServices.FieldOffset(4)]
         internal T m_Source;
 
+        //Todo, could have PseudoArrayHeader.
+
         #region Properties
 
+        /// <summary>
+        /// The element
+        /// </summary>
         public T Source
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_Source; }
         }
 
+        /// <summary>
+        /// The index
+        /// </summary>
         public int Index
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_Index; }
         }
 
+        /// <summary>
+        /// The length
+        /// </summary>
         public int Length
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -208,11 +219,13 @@ namespace Media.Concepts.Classes
             m_Source = t;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode()
         {
             return Source.GetHashCode();
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
             return System.Object.Equals(Source, obj);
@@ -234,6 +247,8 @@ namespace Media.Concepts.Classes
 
     #endregion
 
+    #region Notes
+
     //ArrayLike was renamed to ArrayElement.
 
     //Could probably use ArrayLike to make chars of String accessible
@@ -245,50 +260,158 @@ namespace Media.Concepts.Classes
 
     //etc
 
-    #region ArrayHeader
-
-    ////See also
-    ////https://gist.github.com/OmerMor/1050703
-
-    ////Doens't seem to work well outside of fixed ...
-    //[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential, Pack = 1)]
-    //internal struct /*Fixed*/ArrayHeader
-    //{
-    //    internal System.UIntPtr TypePointer;
-
-    //    internal System.UIntPtr LengthPointer;
-
-    //    //Todo, Rtth ...
-    //    //internal System.Type ResolveType() { return System.Type.GetTypeFromHandle(); }
-
-
-
-    //    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    //    internal unsafe static ArrayHeader* GetArrayHeader(void* pBytes) { return (ArrayHeader*)pBytes - 1; }
-
-    //    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    //    internal unsafe static ArrayHeader* GetArrayHeader(System.IntPtr pBytes) { return GetArrayHeader((void*)pBytes); }
-
-    //    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    //    internal static ArrayHeader Create(System.UIntPtr type, System.UIntPtr length) { return new ArrayHeader() { TypePointer = type, LengthPointer = length }; }
-
-    //    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    //    internal unsafe static ArrayHeader Create<T>(System.UIntPtr length) { return Create(GetArrayHeader((System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(Unsafe.ArrayOfTwoElements<T>.Value, 0)))->TypePointer, length);  }
-    //}
-
-    #endregion
-
     //The concept still works as in the static ArrayTest method though.
 
     //Shows how an array header can be 'forged'
     //using something like that i can imagine it would be possible to use the forged header to make arrays seem offset 
     //1) copy the bytes used in the element at the offset which corresponds to the size of the array header.
     //2) make an array header with the desire type (and offset length)
-    //3) put that header where the coppied bytes exited.
+    //3) put that header where the copied bytes existed.
     //4) cast the pointer from ArrayHeader to T[] which will then point to the header at the first element would be @ the offset, the count would be the offset count.
     //5) put the data back from the indexes which didn't change (where the forged header was)    
+    
+    //Could be done in Finalize etc.
 
-    //The following attempts to do all of the leg work for the above, the only thing which is not yet implemented is the array header forging.
+    //The following attempts to do all of the leg work for the above, the only thing which is not yet implemented is the array header forging with the above class.
+
+    #endregion
+
+    #region PseudoArrayHeader
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
+    struct PseudoArrayHeader //Implement Finalize to have the updates from the implicit copy propagate to the source.
+    {
+        #region Constructor
+
+        //PseudoArrayHeader() : this() { }
+
+        //------------
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public PseudoArrayHeader(object source) : this()
+        {
+            m_IntPtr = Unsafe.AddressOf<object>(ref m_Object);
+
+            //IntPtr may overlap m_Length.
+            //m_Length = Unsafe.ArrayOfTwoElements<object>.AddressingDifference();
+
+            m_Object = source;
+        }
+        
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public PseudoArrayHeader(System.Array source, int offset) 
+            : this(source, offset, source.Length - offset)
+        {
+
+        }
+        
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public PseudoArrayHeader(System.Array source, int offset, int count) : this()
+        {
+            m_Array = source;
+
+            m_Length = count;
+
+            m_Offset = offset;
+        }
+
+        #endregion
+
+        #region Methods
+
+        //------------
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool IsNullPointerOrObject() { return m_IntPtr == System.IntPtr.Zero | m_Object == null; }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool IsNullPointer() { return m_IntPtr == System.IntPtr.Zero; }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool IsNullObject() { return m_Object == null; }
+
+        //Would be used to indicate if the m_IntPtr member has a value which points to what was a managed object at one point.
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //public bool IsNative() { return m_Length == 0 && m_Offset > 0; }
+        //public bool IsNative() { return m_IntPtr == AddressOf8(); }
+
+        //Should be the same in unsafe as fixed(int*x = &this){ int*y = x + System.IntPtr.Size; }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal System.IntPtr AddressOf8() { return Unsafe.AddressOf<object>(ref m_Object); }
+
+        /// <summary>
+        /// The length of the data in the array or the low bytes if <see cref="m_IntPtr"/> is assigned
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public int Length() { return m_Length; }
+
+        /// <summary>
+        /// The object which can be relocated in memory's reference
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public object Object() { return m_Object; }
+
+        /// <summary>
+        /// The array interpretation of <see cref="m_Object"/>
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public System.Array Array() { return m_Array; }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override bool Equals(object obj) { return (m_Object ?? m_IntPtr).Equals(obj); }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override int GetHashCode() { return (m_Object ?? m_IntPtr).GetHashCode(); }
+
+        #endregion
+
+        #region Fields
+
+        //------------
+        
+        //4 or 8 bytes
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        internal System.IntPtr m_IntPtr;
+
+        //4 bytes
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        internal int m_Offset;
+
+        //------------ (always the low bytes of m_IntPtr when assigned)
+
+        //4 bytes
+        [System.Runtime.InteropServices.FieldOffset(4)]
+        internal int m_Length;
+
+        //------------
+
+        //4 or 8 bytes as reference, used to keep a reference local to the header so fixed is not necessary.
+        [System.Runtime.InteropServices.FieldOffset(8)]
+        internal object m_Object;
+
+        [System.Runtime.InteropServices.FieldOffset(8)]
+        internal System.String m_String;
+
+        [System.Runtime.InteropServices.FieldOffset(8)]
+        internal System.Array m_Array;
+
+        //------------ (could be stored higher than the object)
+
+        //[System.Runtime.InteropServices.FieldOffset(16)]
+        //int m_SourceSize;
+
+        //[System.Runtime.InteropServices.FieldOffset(20)]
+        //int m_Version;
+
+        #endregion
+
+        //SizeOf() => 16 on x64 and 12 on x86, +4 for m_SourceSize, +4 for m_Version
+    }
+
+    #endregion
 
     #region Array
 
@@ -296,70 +419,65 @@ namespace Media.Concepts.Classes
     /// Provides a generic ArraySegment / Slice class.
     /// Has static methods for reading and writing Array types without a bounds check.
     /// Has static methods for updating arrays from the slice.
-    /// Has methods to update the source from a different array.    
+    /// Has methods to update the source from a different array.  
+    /// Can be used to convert strings to bytes or modify the bytes in a string in place.
+    /// Can implicitly become an array which is stored as a reference in <see cref="Allocations"/>
     /// </summary>
     /// <notes>
     /// Creates a new array when implicitly assigned from one.. this means this class could track created array instances for whatever purpose...
     /// </notes>
     /// <typeparam name="T"></typeparam>
-    internal class Array<T> : System.Collections.Generic.IList<T>
+    public class Array<T> : System.Collections.Generic.IList<T> //=> ICollection<T>, IEnumerable<T>, IEnumerable, 
+                                                                 //could also be implicitly IList<ArrayElement<T>>
     {
         #region Fields
 
-        //Unsafe.Inspector m_Source;
+        /// <summary>
+        /// The 12 - 16 bytes which reside directly at offset 0. 
+        /// </summary>
+        PseudoArrayHeader m_Header; //Todo, could store source element size, still must convert when reading if sizes are different.
 
+        //16 + bytes, maybe null for strings or pointer types.
         /*readonly */ T[] m_Source;
 
-        int m_Offset;
-
-        int m_Length;
-
-        //m_SizeOfT
-
+        //All implict reads are stored here for whatever purpose necessary, especially if they need to be sychronized or their header has been modified.
         internal readonly System.Collections.Generic.HashSet<T[]> Allocations = new System.Collections.Generic.HashSet<T[]>();
-
-        //System.Text.StringBuilder m_String;
 
         #endregion        
 
         #region Constructor
 
         //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        //public Array<T>(){  m_SizeOfT = Unsafe.ArrayOfTwoElements<T>.AddressingDifference(); }
+        //public Array<T>(){  m_Header.m_SizeOfT = Unsafe.ArrayOfTwoElements<T>.AddressingDifference(); }
 
         /// <summary>
         /// Given any T this will convert the chars in the string to T.
         /// </summary>
-        /// <param name="s"></param>
+        /// <param name="s">The string</param>
+        /// <param name="offset">The offset in the string</param>
+        /// <param name="length">The length of characters to use from the string.</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public Array(string s)
+        public Array(string s, int offset = 0, int length = -1)
         {
-            #region https://github.com/dotnet/corefxlab/issues/665#issuecomment-217460242
-
-            //Unsafe.Inspector i = new Unsafe.Inspector();
-
-            //i.String = s;            
-
-            //System.Console.WriteLine(i.CharArray.Length);
-
-            //Unsafe.VariadicUnion vu = new Unsafe.VariadicUnion();
-
-            //vu.AsIntPtr = i.IntPtr<T>();
-
-            //i.String = null;
-
-            //System.Console.WriteLine(vu.AsIntPtr);
-
-            ////Allocates new object.
-            //i.AsPointer = new Unsafe.Inspector.Pointer();
-
-            //i.AsPointer.Value = vu.AsIntPtr;
-
-            #endregion
-
             int bytesPerT = Unsafe.ArrayOfTwoElements<T>.AddressingDifference();
 
+            //Negitive length means use the whole length.
+            if (length <= -1) length = s.Length;
+
             //m_SizeOfT
+
+            //Store the object reference
+            m_Header.m_String = s;
+
+            #region Remarks
+
+            //It's possible that these two pointers could be made equal but the casting is not necessary now, only when reading.
+            //Since the header structure potentially has 16 + extra bytes the header could also be relocated and reverted with a method set, Prepare, Restore
+            //This would allow pointers given to the source to be natively read and write and start directly at the offset given and maintain the bounds check appropraitely.
+
+            //m_Source = Unsafe.ReinterpretCast<object, T[]>(ref m_Header.m_Object);
+
+            #endregion
 
             //Determine how many elements the array will have.
             switch (bytesPerT)
@@ -367,185 +485,100 @@ namespace Media.Concepts.Classes
                     //bytes
                 case 1:
                     {
-                        m_Length = 2 * s.Length;
+                        m_Header.m_Length = 2 * length; //s.Length;
                         
                         break;
                     }
                 case 2://char, short, ushort
                     {
-                        m_Length = s.Length;
+                        m_Header.m_Length = length; // s.Length;
 
                         break;
                     }
                 default://uint, int, long, etc.
                     {
-                        m_Length = s.Length * 2;
+                        m_Header.m_Length = length * 2; //s.Length * 2;
 
                         //Handle conversion
-                        if (bytesPerT > m_Length)
+                        if (bytesPerT > m_Header.m_Length)
                         {
-                            m_Length /= bytesPerT;
+                            m_Header.m_Length /= bytesPerT;
                         }
                         else
                         {
-                            m_Length /= bytesPerT;
+                            m_Header.m_Length /= bytesPerT;
                         }
 
                         break;
                     }
             }
 
-            ////In chars.
-            //m_Length = (int)(bytesPerT <= 2 ? s.Length : bytesPerT / s.Length);
+            #region Unused
 
-            #region Also works but copies
-
-            ////Create a new array of the needed length.
-            //m_Source = new T[m_Length];
-
-            ////Copy the values as they would be interpreted from the string,
+#if UNSAFE
+            ////Determine the overhead of the clr header.
             //unsafe
             //{
-            //    //For the number of elements in the array
-            //    for (int i = 0, o = 0; o < m_Length; ++o, i += 2)
+            //    fixed (char* t = s)
             //    {
-            //        //char is always 2 bytes in size, copy 2 bytes from each offset where the character would reside.
-            //        System.Buffer.MemoryCopy((void*)(Unsafe.AddressOfRef(ref s) + 12 + i), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(m_Source, o), 2, 2);
+            //        //Store the address in Offset, increase by 12 for the CLR Header. (string is + 12 to the first character in x86 of x64)
+            //        m_Header.m_Offset = (int)((int)(System.IntPtr)t - (int)Unsafe.AddressOf<string>(ref s));
             //    }
             //}
+#else
+            //Determine the overhead of the clr header, element -3 of the array would be at -6 from the first element (2 bytes per char)
+            //m_Header.m_Offset = (int)((int)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(m_Header.m_Array, -3) - (int)Unsafe.AddressOf<string>(ref s));
+#endif
 
             #endregion
 
-            m_Offset = (int)(Unsafe.AddressOf(ref s) + 12);
-
-            #region Musing
-
-            //The reason why this works is that only what is incorrectly passed as the array of string is assigned into ArrayElement and then copied out of memory as T implicitly.            (The values are garbadge)            
-            //m_Source = new ArrayElement<T>(Unsafe.ReinterpretCast<string, T[]>(s));
-
-            //m_Length = 1;
-
-            //m_Source = Unsafe.ReinterpretCast<char[], T[]>(i.CharArray);
-
-            //Keep the string as an array of T.
-            //m_Source = //Unsafe.AddressOfRef<string>(ref s); //Unsafe.ReinterpretCast<System.IntPtr, T[]>(Unsafe.AddressOfRef<string>(ref s));
-
-            //https://blogs.msdn.microsoft.com/calvin_hsia/2012/07/19/examine-the-layout-of-managed-strings-in-memory/
-
-            //Class Type Id
-            //var byts = (*(byte*)System.Runtime.InteropServices.Marshal.ReadIntPtr(new System.IntPtr(&s)));
-
-            //Length
-            //*((byte*)System.Runtime.InteropServices.Marshal.ReadIntPtr(new System.IntPtr(&s)) + 8)
-
-            //*((byte*)Unsafe.AddressOfRef(ref s) + 8)
-
-            //First char
-            //*((byte*)System.Runtime.InteropServices.Marshal.ReadIntPtr(new System.IntPtr(&s)) + 12)
-
-            //*((byte*)Unsafe.AddressOfRef(ref s) + 12)
-
-            //m_Offset = 12; 
-
-            #endregion           
-
-            #region Close to working.....
-            //needs logic in UnsafeRead but it works...
-            ////m_String = new System.Text.StringBuilder(s);
-
-            ////m_Source = Unsafe.ReinterpretCast<System.Text.StringBuilder, T[]>(m_String);
-
-            ////m_Offset = 288;
-
-            //////System.Runtime.InteropServices.Marshal.PtrToStringAuto((System.IntPtr)(&m_String) + 288, s.Length)
-
-            //////System.Runtime.InteropServices.Marshal.PtrToStringAuto((System.IntPtr)(&m_Source) + 304, s.Length)
-
-            ////m_Length = m_String.Length;
-
-            //As a last resort the seemingly only other option would be to walk use stack walking which is more reliable but slower...
-            //That slowerness would defeat the purpose of doing any of this.
-
-            //https://msdn.microsoft.com/en-us/library/e8w969hb(v=vs.110).aspx
-
-            //you can do this with marshal, so there has to be a way to do it in managed code...
-
-            //https://limbioliong.wordpress.com/2011/11/01/using-the-stringbuilder-in-unmanaged-api-calls/
-
-            #endregion
-
-            #region Failed
-
-            //Always given as array with one element which is probably not correct, the only way to fix this is to handle the string conversion in arrayLike..
-            //The other way to be to specialize in ArrayLike for string but then it may not perform as one would think by itself. ArrayElement could be internal only...
-
-            //ArrayElement<string> ae = new ArrayElement<string>(s);
-
-            //m_Source = Unsafe.ReinterpretCast<string, T[]>(ae.m_Source);
-
-            //System.Text.StringBuilder sb = new System.Text.StringBuilder(s);
-
-            //m_Source = Unsafe.ReinterpretCast<System.IntPtr, T[]>(Unsafe.ReinterpretCast<System.Text.StringBuilder, System.IntPtr>(sb)); //Unsafe.ReinterpretCast<System.Text.StringBuilder, T[]>(sb);
-
-            //System.Text.StringBuilder r = Unsafe.ReinterpretCast<System.IntPtr, System.Text.StringBuilder>(Unsafe.ReinterpretCast<System.Text.StringBuilder, System.IntPtr>(sb));
-
-            //System.Console.WriteLine(r);
-
-            ////Just use offset...
-            ////m_Source = Unsafe.ReinterpretCast<System.IntPtr, T[]>(Unsafe.AddressOf(sb) + 25);            
-
-            #endregion
-
-            #region Failed.
-
-            //m_Source = Unsafe.ReinterpretCast<string, T[]>(s); //Unsafe.ReinterpretCast<ArrayLike<System.Text.StringBuilder>, T[]>(new ArrayLike<System.Text.StringBuilder>(new System.Text.StringBuilder(s)));
-
-            //Right now the CLR thinks instances of this class is an array of strings when T = string ...
-            //m_Source = Unsafe.ReinterpretCast<string, T[]>(s);  //Unsafe.ReinterpretCast<char[], T[]>(s.ToCharArray());
-
-            //This is probably not necessary to cast twice.
-            //m_Source = Unsafe.ReinterpretCast<char[], T[]>(Unsafe.ReinterpretCast<string, char[]>(s));
-
-            //This may be better..
-            //m_Source = Unsafe.ReinterpretCast<char[], T[]>(Unsafe.ReinterpretCast<System.Text.StringBuilder, char[]>(new System.Text.StringBuilder(s)));            
-
-            //m_Source = Unsafe.ReinterpretCast<System.IntPtr, T[]>(Unsafe.AddressOf(new System.Text.StringBuilder(s)) + 25); //Unsafe.ReinterpretCast<System.Text.StringBuilder, T[]>(new System.Text.StringBuilder(s)); //
-
-            //m_Source = Unsafe.ReinterpretCast<System.Text.StringBuilder, T[]>(sb);
-
-            //Could probably keep source null and store the address in offset although it would be cleaner to use ArrayLike specialization.
-
-            //Seems to be about 24 - 26 bytes away most times in x64
-
-            //System.Runtime.InteropServices.Marshal.PtrToStringAuto((System.IntPtr)(int*)((&s + 25) + 0), 2 * s.Length);
-            //Unsafe.Read<char>((System.IntPtr)((char*)(&sb + 25)+5))
-
-            //m_Offset = 25; // + offset
-
-            //In chars.
-            //m_Length = (int)(Unsafe.BytesPer<T>() <= 2 ? s.Length : Unsafe.BytesPer<T>() / s.Length);//s.Length; // length - offset;
-
-            #endregion
+            //Adjust for character offset. (Should be done above in switch)...
+            m_Header.m_Offset += -(3 + offset);
         }
+
+        /// <summary>
+        /// Array variant slice, Given any T this will convert the data in source to T.
+        /// </summary>
+        /// <param name="source">The source</param>
+        /// <param name="offset">The offset in the source</param>
+        /// <param name="count">The amount of elements in the span.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Array(System.Array source, int offset, int count)
+        {
+            //if (count + offset > source.Length) throw new System.ArgumentOutOfRangeException();
+
+            //Store the object reference
+            m_Header.m_Array = source;
+
+            //Calulcate and store the offset to access the first element of the array.
+            m_Header.m_Offset = ((int)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(source, 0) - (int)Unsafe.AddressOf<System.Array>(ref source)) + offset;
+
+            //Set the length
+            m_Header.m_Length = count;
+        }
+
+        #region Generic
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Array(T t)
         {
-            m_Source = Common.Extensions.Object.ObjectExtensions.ToArray<T>(t);
+            //Store the object reference (helps with branchless reading / writing)
+            m_Header.m_Array = m_Source = Common.Extensions.Object.ObjectExtensions.ToArray<T>(t);
+            
+            m_Header.m_Offset = 0;
 
-            m_Offset = 0;
-
-            m_Length = 1;
+            m_Header.m_Length = 1;
         }
-
+      
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Array(T[] source, int offset, int count)
         {
-            m_Source = source;
+            //Store the object reference (helps with branchless reading / writing)
+            m_Header.m_Array =  m_Source = source;
 
-            m_Offset = offset;
+            m_Header.m_Offset = offset;
 
-            m_Length = count;
+            m_Header.m_Length = count;
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -556,16 +589,35 @@ namespace Media.Concepts.Classes
 
         #endregion
 
+        #endregion
+
         #region Properties
 
         /// <summary>
-        /// A <see cref="System.Array"/> cast of the <see cref="Source"/>
+        /// Gets the structure at offset 0, used for Native pointers.
+        /// </summary>
+        internal PseudoArrayHeader Header
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Header; }
+        }
+
+        /// <summary>
+        /// A <see cref="System.Array"/> cast of the <see cref="Source"/>.
         /// </summary>
         public System.Array OriginalArray //Array name is the same as enclosing type..
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return m_Source; }
-            //get { return Source; }
+            get { return m_Source ?? m_Header.m_Array; }            
+        }
+
+        /// <summary>
+        /// A <see cref="System.Object"/> case of the <see cref="Source"/>
+        /// </summary>
+        public System.Object OriginalObject
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Header.m_Object ?? m_Source; }
         }
 
         /// <summary>
@@ -583,7 +635,7 @@ namespace Media.Concepts.Classes
         public int Offset
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return m_Offset; }
+            get { return m_Header.m_Offset; }
         }
 
         /// <summary>
@@ -592,7 +644,7 @@ namespace Media.Concepts.Classes
         public int Length
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return m_Length; }
+            get { return m_Header.m_Length; } //& ~int.MinValue for native pointers.
         }
 
         #endregion
@@ -609,17 +661,17 @@ namespace Media.Concepts.Classes
 
         public bool Contains(T[] array) { return Contains(array, 0, array.Length); }
 
-        public bool Contains(Array<T> array) { return Contains(array.m_Source, array.m_Offset, array.m_Length); }
+        public bool Contains(Array<T> array) { return Contains(array.m_Source, array.m_Header.m_Offset, array.m_Header.m_Length); }
 
         public bool Contains(T[] array, int offset, int length)
         {
             //Try the fast way...
             if (array == m_Source &&
                 //Check for the offset to be present in the array
-                0 >= m_Offset - offset
+                0 >= m_Header.m_Offset - offset
                 &&
                 //Check for the length to be present
-                offset <= m_Length && length <= m_Length) return true;
+                offset <= m_Header.m_Length && length <= m_Header.m_Length) return true;
 
             //Check for equality manualy.
 
@@ -708,48 +760,57 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         int System.Collections.Generic.IList<T>.IndexOf(T item)
         {
-            return System.Array.IndexOf<T>(m_Source, item, m_Offset, m_Length);
+            if (false == m_Header.IsNullObject()) return System.Array.IndexOf<T>(m_Source, item, m_Header.m_Offset, m_Header.m_Length);
+            else for (int i = 0; i < m_Header.m_Length; ++i) if(UnsafeRead(this, ref i).Equals(item)) return i; 
+            return -1;
         }
 
         void System.Collections.Generic.IList<T>.Insert(int index, T item)
         {
             throw new System.NotImplementedException();
             //InsertHelper
+            //StringBuilder for strings..
         }
 
         void System.Collections.Generic.IList<T>.RemoveAt(int index)
         {
             throw new System.NotImplementedException();
             //RemoveHelper
+            //StringBuilder for strings..
         }
 
         void System.Collections.Generic.ICollection<T>.Add(T item)
         {
             throw new System.NotImplementedException();
+            //Insert(Count, item);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void System.Collections.Generic.ICollection<T>.Clear()
         {
-            System.Array.Clear(m_Source, m_Offset, m_Length);
+            if (false == m_Header.IsNullObject()) System.Array.Clear(m_Source, m_Header.m_Offset, m_Header.m_Length);
+            else
+            {
+                T toWrite = default(T); for (int i = 0; i < m_Header.m_Length; ++i) UnsafeWrite(this, i, ref toWrite);
+            }
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         bool System.Collections.Generic.ICollection<T>.Contains(T item)
         {
-            return System.Array.IndexOf<T>(m_Source, item, m_Offset, m_Source.Length - m_Length) >= 0;
+            return System.Array.IndexOf<T>(m_Source, item, m_Header.m_Offset, m_Source.Length - m_Header.m_Length) >= 0;
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void System.Collections.Generic.ICollection<T>.CopyTo(T[] array, int arrayIndex)
         {
-            System.Array.Copy(m_Source, m_Offset, array, arrayIndex, m_Length);
+            System.Array.Copy(m_Source, m_Header.m_Offset, array, arrayIndex, m_Header.m_Length);
         }
 
         int System.Collections.Generic.ICollection<T>.Count
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return m_Length; }
+            get { return m_Header.m_Length; }
         }
 
         bool System.Collections.Generic.ICollection<T>.IsReadOnly
@@ -766,34 +827,46 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         System.Collections.Generic.IEnumerator<T> System.Collections.Generic.IEnumerable<T>.GetEnumerator()
         {
-            for (int i = 0; i < m_Length; ++i) yield return UnsafeRead(this, ref i); //m_Source[m_Offset + i];
+            for (int i = 0; i < m_Header.m_Length; ++i) yield return UnsafeRead(this, ref i); //m_Source[m_Offset + i];
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
-            return System.Linq.Enumerable.Skip(m_Source, m_Offset).GetEnumerator();
+            return System.Linq.Enumerable.Skip(m_Source, m_Header.m_Offset).GetEnumerator();
         }
 
         #endregion
 
         #region Operators
 
+        /// <summary>
+        /// Allocates a new native array of T with the contents from the source array T starting at the offset and spanning the length indicated by the instance.
+        /// </summary>
+        /// <param name="array"></param>
+        /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public unsafe static implicit operator T[](Array<T> array)
         {
-            //Doesn't really work well
-            //return Unsafe.Create<T>((void*)Unsafe.AddressOf(array.m_Source), array.m_Length);
+            //Maybe faster to use Array.Empty<T>() and resize.
 
             //Make a new array
-            T[] result = new T[array.m_Length];
+            T[] result = new T[array.m_Header.m_Length];
 
-            int sz = Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * array.m_Length;
+            //Determine the size in bytes of all elements
+            int sz = Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * array.m_Header.m_Length;
 
-            System.Buffer.MemoryCopy((void*)ComputeAddress(array), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(result, 0), sz, sz);
+            //Copy from the starting address to the end of the contents to the result array.
+            //Maybe able to use Buffer.BlockCopy..
+            //System.Buffer.MemoryCopy((void*)ComputeAddress(array), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(result, 0), sz, sz);
 
+            //Brachless
+            System.Buffer.MemoryCopy((void*)ComputeBaseAddress(array), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(result, 0), sz, sz);
+
+            //Add the allocation to the hash
             array.Allocations.Add(result);
 
+            //return the result.
             return result;
 
             //System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
@@ -829,17 +902,10 @@ namespace Media.Concepts.Classes
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static implicit operator Array<T>(T[] array)
-        {
-            return new Array<T>(array);
-        }
+        public static implicit operator Array<T>(T[] array) { return new Array<T>(array); }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool operator ==(Array<T> a, Array<T> b)
-        {
-            object boxA = a, boxB = b;
-            return boxA == null ? boxB == null : a.Equals(b);
-        }
+        public static bool operator ==(Array<T> a, Array<T> b) { object boxA = a, boxB = b; return boxA == null ? boxB == null : a.Equals(b); }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(Array<T> a, Array<T> b) { return false == (a == b); }
@@ -849,11 +915,97 @@ namespace Media.Concepts.Classes
         #region Statics
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static void Update(/*this */T[] source, Array<T> from) { from.UpdateFrom(source); }
+
+        /// <summary>
+        /// Computes the address of the first element in the array based on offset used to create it.
+        /// </summary>
+        /// <param name="array"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static System.IntPtr ComputeAddress(Array<T> array)
         {
             //Could do something with offset to skip the null check.
-            return array.m_Source == null ? (System.IntPtr)array.m_Offset : System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Offset);
+            //return array.m_Source == null ? (System.IntPtr)array.m_Header.m_Offset : System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Header.m_Offset);
+
+            //If the object was not null then compute the address using the stored offset, otherwise use the native array.
+            //This could also be used for native pointers by using array.m_IntPtr...
+            return false == array.m_Header.IsNullObject() ? array.m_Header.AddressOf8() + array.m_Header.m_Offset : System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Header.m_Offset);
+
+            #region Branchless
+
+            //Need to scope an index, and should be able to use when native or string.
+            //ComputeElementAlignedAddress(array, array.m_Header.m_Offset)
+
+            //Almost works for branchless logic but uses ??, also offset is not checked to be in bounds and automatically aligned to size of element type.
+            //return System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Source ?? array.m_Header.m_Array, array.m_Header.m_Offset);
+
+            //Almost works but uses math.
+            //return array.m_Header.AddressOf8() + array.m_Header.m_Offset;
+
+            //return System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Source ?? array.m_Header.m_Array, array.m_Header.m_Offset);
+            //Alignment, to work correctly the m_Offset must be in chars and not T...
+            //System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, 0) - 6
+            //System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, 0)
+
+            //Null would be 0 but element access need to be aligned to the pointer type of T to work correctly which is what UnsafeAddrOfPinnedArrayElement adjusts for, we could do this be factoring in sizeof(T)
+            //return Unsafe.AddressOf(ref array.m_Source) + 16 + (Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * array.m_Offset);
+
+            #endregion
         }
+
+        //The highest valid address in the array
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        static System.IntPtr ComputeMaxAddress(Array<T> array)
+        {
+            return System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, array.m_Header.m_Length);
+        }
+
+        //The lowest valid address in the array
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        static System.IntPtr ComputeBaseAddress(Array<T> array)
+        {
+            return System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, array.m_Header.m_Offset);
+        }
+
+        #region Unused
+
+        ////Not yet working 100% for aligned or unaligned cases
+        ////The amount of bytes between index and the offset in the array, used to calulcate position. result can be +/-, used for BaseAddress + or MaxAddress -
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //static System.IntPtr ComputeElementAlignedAddress/*<ElementType>*/(Array<T> array, ref int index)
+        //{
+        //    //Not correctl because T may be different size than source, would require conversion to dest size from source size.
+        //    //return System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, array.m_Header.m_Offset + index);
+
+        //    //Where is element 0 in the array.
+        //    System.IntPtr baseAddress = ComputeBaseAddress(array);
+
+        //    //Strings... or different sizes...
+        //    //How big is one element in source, array.m_SizeOfT
+        //    //int sourceSize = ((int)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Source ?? array.m_Header.m_Array, 1) - (int)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Source ?? array.m_Header.m_Array, 0));
+
+        //    //destSize is Unsafe.ArrayOfTwoElements<ElementType>.AddressingDifference()
+
+        //    #region Unused
+
+        //    //How far away is the element according to T
+        //    //int distance = (int)baseAddress - (int)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Header.m_Array, index);
+
+        //    //int distance = (int)baseAddress - (int)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array.m_Source ?? array.m_Header.m_Array, 0);
+
+        //    //How far to the first element, add that to the baseAddress.
+        //    //return baseAddress - distance;
+
+        //    #endregion
+
+        //    //Calulcate the address of the elment at index of (T source) according to size of T (dest)
+        //    //return ((baseAddress - (sourceSize * array.m_Header.m_Offset)) + (Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * index));
+
+        //    return baseAddress + (Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * index);
+        //}
+
+        #endregion
 
         /// <summary>
         /// Skips a bounds check while reading the index from source.
@@ -862,10 +1014,13 @@ namespace Media.Concepts.Classes
         /// <param name="index"></param>
         /// <returns>The element</returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static T UnsafeRead(T[] source, int index)
+        public static T UnsafeRead(T[] source, ref int index)
         {
             return Unsafe.Read<T>(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(source, index));
         }
+
+        [System.CLSCompliant(false)]
+        public static T UnsafeRead(T[] source, int index) { return UnsafeRead(source, ref index); }
 
         /// <summary>
         /// Skips a bounds check while writing the index from source.
@@ -874,48 +1029,28 @@ namespace Media.Concepts.Classes
         /// <param name="index">The index into the array</param>
         /// <param name="value">The value to write</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void UnsafeWrite(T[] source, int index, ref T value)
+        public static void UnsafeWrite(T[] source, ref int index, ref T value)
         {
             Unsafe.Write<T>(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(source, index), ref value);
         }
 
+        [System.CLSCompliant(false)]
+        public static void UnsafeWrite(T[] source, int index, ref T value) { UnsafeWrite(source, ref index, ref value); }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="index"></param>
+        /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public unsafe static T UnsafeRead(Array<T> array, ref int index)
         {
-            #region Strings as Char[]
+            //ComputeAddress(array) + ComputeElementAddress(array, ref index)
+            //return Unsafe.Read<T>(ComputeAddress(array) + Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * index);
 
-            //When not using ArrayElement for now..
-
-            //Won't work.
-            //return Unsafe.Read<T>(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<char>(Unsafe.ReinterpretCast<T[], char[]>(array.Source), array.m_Offset + index));
-
-            //Works but is ugly, should use ArrayLike to hide this.
-            //if (typeof(T) == typeof(string)) unsafe
-            //    {
-            //        string temp = Unsafe.ReinterpretCast<T[], string>(array.Source);
-            //        fixed (char* stringPtr = temp)
-            //        {
-            //            return Unsafe.Read<T>((System.IntPtr)stringPtr);
-            //        }
-            //    }
-
-            //kinds of works...
-            //if (typeof(T) == typeof(string)) unsafe
-            //    {
-            //        return Unsafe.ReinterpretCast<char, T>(array.m_String[index]);
-            //        //return Unsafe.Read<T>((System.IntPtr)Unsafe.ReinterpretCast<T[], System.IntPtr>(array.Source));
-            //    }
-
-            //Could check if array.m_Source is null to use the offset and index alone...
-
-            #endregion
-
-            //m_Source maybe null...
-            //return UnsafeRead(array.m_Source, array.m_Offset + index);
-
-            //return Unsafe.Read<T>(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Offset + index));
-
-            return Unsafe.Read<T>(ComputeAddress(array) + Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * index);
+            //Branchless
+            return Unsafe.Read<T>(ComputeBaseAddress(array) + Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * index);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -924,18 +1059,23 @@ namespace Media.Concepts.Classes
             //UnsafeWrite(array.m_Source, array.m_Offset + index, ref value);
             //Unsafe.Write<T>(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(array.m_Source, array.m_Offset + index), ref value);
 
+            //Need the size to address the element correctly
             int size = Unsafe.ArrayOfTwoElements<T>.AddressingDifference();
 
-            Unsafe.Write<T>(ComputeAddress(array) + size * index, ref value, ref size);
+            //Write the element at the computed address
+            //Unsafe.Write<T>(ComputeAddress(array) + size * index, ref value, ref size);
+
+            //Branchless
+            Unsafe.Write<T>(ComputeBaseAddress(array) + size * index, ref value, ref size);
         }
 
         //Here an empty array could be created and the RTTI modified such that the pointer to the first element points to the offset desired,
         //Unfortunately there is no such member on the array.
         //What would be done in a IDisposable pattern or otherwise is to copy the array header to the offset of the first desired element and change the length in that header.
         //This causes 12 - 16 bytes to be wasted so those bytes need to be swapped out somewhere so they can be put back on dispose.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static T[] ArrayTest(Array<T> array)
         {
-
             T[] refArray = array.m_Source;
 
             T[] tArray = refArray;
@@ -1013,11 +1153,13 @@ namespace Media.Concepts.Classes
 
         #region Overrides
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode()
         {
-            return (int)(m_Source.GetHashCode() ^ m_Offset ^ m_Length);
+            return (int)(m_Source.GetHashCode() ^ m_Header.m_Offset ^ m_Header.m_Length);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
             if (false == (obj is Array<T>)) return false;
@@ -1038,26 +1180,31 @@ namespace Media.Concepts.Classes
         //Would have to keep track of all sub arrays generated with the implicit operator...
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public void UpdateFrom(T[] source, int offset, int count) { System.Array.Copy(source, offset, m_Source, m_Offset, count); }
+        public void UpdateFrom(T[] source, int offset, int count) { System.Array.Copy(source, offset, m_Source, m_Header.m_Offset, count); }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void UpdateFrom(T[] source) { UpdateFrom(source, 0, source.Length); }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public void UpdateFrom(Array<T> array) { UpdateFrom(array.m_Source, array.m_Offset, array.m_Length); }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void Update(/*this */T[] source, Array<T> from) { from.UpdateFrom(source); }
+        public void UpdateFrom(Array<T> array) { UpdateFrom(array.m_Source, array.m_Header.m_Offset, array.m_Header.m_Length); }        
 
         #endregion
     }
 
     #endregion
 
-    //ManagedBufferPool
+    #region ManagedBufferPool
+
+    //ManagedBufferPool is another good concept
     //https://github.com/dotnet/corefx/issues/4547
+
+    #endregion
 }
 
+
+//https://github.com/dotnet/corefx/pull/7966
+
+//https://github.com/DotNetCross/Memory.Unsafe/issues/7
 
 namespace Media.UnitTests
 {
@@ -1132,6 +1279,12 @@ namespace Media.UnitTests
 
             //Make the generic array.
             Concepts.Classes.Array<int> genericArray = new Concepts.Classes.Array<int>(clrArray, offset, count);
+
+            //Take 16 bytes from the 4 integer values in the array above.
+            Concepts.Classes.Array<byte> testBytez = new Concepts.Classes.Array<byte>(clrArray, 0, 16);
+
+            //Print the bytes
+            foreach (var byteType in testBytez) System.Console.WriteLine("byteType: " + byteType);
 
             //Cast the generic array as Ilist
             System.Collections.Generic.IList<int> iList = genericArray as System.Collections.Generic.IList<int>;
@@ -1317,6 +1470,7 @@ namespace Media.UnitTests
 
             string clrString = "test";           
 
+            //Unsafe is just for comparison, we don't need unsafe as the Array class keeps a reference to the string or object it was sourced from.
             unsafe
             {
                 fixed (char* p = clrString)
@@ -1331,13 +1485,15 @@ namespace Media.UnitTests
                     System.Console.WriteLine("char@3: " + clrString[3]);
                     
 
-                    char[] unsafeclrChars = Concepts.Classes.Unsafe.ReinterpretCast<string, char[]>(clrString);
+                    char[] unsafeclrChars = Concepts.Classes.Unsafe.ReinterpretCast<string, char[]>(ref clrString);
 
-                    System.IntPtr ptrCast = Concepts.Classes.Unsafe.ReinterpretCast<string, System.IntPtr>(clrString);
+                    System.IntPtr ptrCast = Concepts.Classes.Unsafe.ReinterpretCast<string, System.IntPtr>(ref clrString);
 
                     System.Console.WriteLine("p@" + ptrCast.ToString());
 
-                    //Won't work because the header of string doesn't match Array, would have to manually set Length...
+                    //Won't work because the header of string doesn't match Array, would have to manually set Length and place the header at the correct offset.
+                    //System.Console.WriteLine(unsafeclrChars[0] = 'b');
+
                     System.Console.WriteLine(unsafeclrChars[0]);
 
                     fixed (char* q = unsafeclrChars)
@@ -1345,14 +1501,7 @@ namespace Media.UnitTests
                         System.Console.WriteLine("q@" + (int)q);
                     }
 
-                    /*
-                    System.Console.WriteLine(clrChars[1]);
-                    System.Console.WriteLine(clrChars[2]);
-                    System.Console.WriteLine(clrChars[3]);
-                    */
-
-                    //This works the first time until the protection checks occur.
-                    //Suprisingly byte will fail immediately if you try to access members with the indexer.
+                    //could also make a special UnicodeByteArray / use Span which reads the string at aligned offsets to allow conversion to a byte[]
                     Concepts.Classes.Array<byte> testBytes = new Concepts.Classes.Array<byte>(clrString);
 
                     Concepts.Classes.Array<char> testChars = new Concepts.Classes.Array<char>(clrString);
@@ -1378,13 +1527,6 @@ namespace Media.UnitTests
                         System.Console.WriteLine("longType: " + longType.ToString("X"));
                     }
 
-                    //System.Collections.Generic.IList<byte> cblist = (System.Collections.Generic.IList<byte>)testChars;
-
-                    //System.Console.WriteLine(cblist[0]);
-                    //System.Console.WriteLine(cblist[1]);
-                    //System.Console.WriteLine(cblist[2]);
-                    //System.Console.WriteLine(cblist[3]);
-
                     System.Collections.Generic.IList<char> cIlist = testChars;
 
                     //Modify the char in the string...
@@ -1397,11 +1539,12 @@ namespace Media.UnitTests
                     //Write to the low order byte in the first char. (of the string) through the testBytes
                     testBytes[1] = 0x80;
 
-                    //a, e, s, t
+                    if (clrString[0] != '聡') throw new System.Exception("Failed to set original memory");
+
+                    // '聡', e, s, t
                     System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<char, string>(testChars, System.Convert.ToString)));
 
                     //Chars are two bytes, we only modify one at a time...
-
                     //a, 0x80, e, 0
                     System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<byte, string>(testBytes, System.Convert.ToString)));
 
@@ -1409,100 +1552,98 @@ namespace Media.UnitTests
                 }
             }
 
-
-
             //etc
 
             #endregion
 
-            //#region ReinterpretCast
+            #region ReinterpretCast
 
-            ////A different kind of slice... would be useful with fixed...
+            //A different kind of slice... would be useful with fixed...
 
-            ////This hides the Length :( there are someways to fix that but the ArrayHeader itself has to be modified which isn't hard to do but still...
+            //This hides the Length :( there are someways to fix that but the ArrayHeader itself has to be modified which isn't hard to do but still...
 
-            //int total = 0;
+            int total = 0;
 
-            //short[] shorts = Concepts.Classes.Unsafe.ReinterpretCast<int[], short[]>(clrArray);
+            short[] shorts = Concepts.Classes.Unsafe.ReinterpretCast<int[], short[]>(ref clrArray);
 
-            //try
-            //{
-            //    foreach (var shortType in shorts)
-            //    {
-            //        System.Console.WriteLine("shortValue: " + shortType); ++total;
-            //    }
-            //}
-            //catch
-            //{
+            try
+            {
+                foreach (var shortType in shorts)
+                {
+                    System.Console.WriteLine("shortValue: " + shortType); ++total;
+                }
+            }
+            catch
+            {
 
-            //}
+            }
 
-            //System.Console.WriteLine("totalShorts:" + total);
+            System.Console.WriteLine("totalShorts:" + total);
 
-            ////System.Console.WriteLine(cast[-1]);
+            //System.Console.WriteLine(cast[-1]);
 
-            //System.Console.WriteLine(shorts[0]);
+            System.Console.WriteLine(shorts[0]);
 
-            //System.Console.WriteLine(shorts[1]);
+            System.Console.WriteLine(shorts[1]);
 
-            ////Out of bounds.
-            //System.Console.WriteLine(shorts[2]);
+            //Out of bounds.
+            System.Console.WriteLine(shorts[2]);
 
-            ////0.....
-            //System.Console.WriteLine("shortLength: " + shorts.Length);
+            //0.....
+            System.Console.WriteLine("shortLength: " + shorts.Length);
 
-            //total = 0;
+            total = 0;
 
-            ////Try again from bytes
-            //byte[] bytes = Concepts.Classes.Unsafe.ReinterpretCast<int[], byte[]>(clrArray);
+            //Try again from bytes
+            byte[] bytes = Concepts.Classes.Unsafe.ReinterpretCast<int[], byte[]>(ref clrArray);
 
-            //try
-            //{
-            //    foreach (var byteType in bytes)
-            //    {
-            //        System.Console.WriteLine("byteType: " + byteType); ++total;
-            //    }
-            //}
-            //catch
-            //{
+            try
+            {
+                foreach (var byteType in bytes)
+                {
+                    System.Console.WriteLine("byteType: " + byteType); ++total;
+                }
+            }
+            catch
+            {
 
-            //}
+            }
 
 
-            //System.Console.WriteLine("totalBytes:" + total);
+            System.Console.WriteLine("totalBytes:" + total);
 
-            //System.Console.WriteLine(bytes[0]);
+            System.Console.WriteLine(bytes[0]);
 
-            //System.Console.WriteLine(bytes[1]);
+            System.Console.WriteLine(bytes[1]);
 
-            //System.Console.WriteLine(bytes[2]);
+            System.Console.WriteLine(bytes[2]);
 
-            //System.Console.WriteLine(bytes[3]);
+            System.Console.WriteLine(bytes[3]);
 
-            //System.Console.WriteLine(bytes[4]);
+            System.Console.WriteLine(bytes[4]);
 
-            ////Out of bounds.
-            ////System.Console.WriteLine(bytes[5]);
+            //Out of bounds.
+            //System.Console.WriteLine(bytes[5]);
 
-            ////System.Console.WriteLine(bytes[15]);
+            //System.Console.WriteLine(bytes[15]);
 
-            ////0.....
-            //System.Console.WriteLine("byteLength: " + bytes.Length);
+            //0.....
+            System.Console.WriteLine("byteLength: " + bytes.Length);
 
-            ////Fails..
-            ////System.Console.WriteLine(cast[3]);
+            //Fails..
+            //System.Console.WriteLine(cast[3]);
 
-            ////System.Console.WriteLine(cast[4]);
+            //System.Console.WriteLine(cast[4]);
 
-            ////System.Console.WriteLine(cast[5]);
+            //System.Console.WriteLine(cast[5]);
 
-            ////System.Console.WriteLine(cast[7]);
+            //System.Console.WriteLine(cast[7]);
 
-            ////System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<short, string>(cast, System.Convert.ToString)));
+            //System.Console.WriteLine(string.Join(",", System.Array.ConvertAll<short, string>(cast, System.Convert.ToString)));
 
-            ////String / Char tests (Needs ArrayLike specialization to also work apparently)
+            //String / Char tests (Needs ArrayLike specialization to also work apparently)
 
-            //#endregion
+            #endregion
 
         }
     }
