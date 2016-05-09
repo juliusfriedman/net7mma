@@ -68,14 +68,14 @@ namespace Media.Common
     {
         public static void Log(this ILogging log, string message)
         {
-            if (IDisposedExtensions.IsNullOrDisposed(log)) return;
+            if (string.IsNullOrEmpty(message) || IDisposedExtensions.IsNullOrDisposed(log)) return;
 
             log.Log(message);
         }
 
         public static void LogException(this ILogging log, System.Exception exception)
         {
-            if (IDisposedExtensions.IsNullOrDisposed(log) || exception == null) return;
+            if (exception == null || IDisposedExtensions.IsNullOrDisposed(log)) return;
 
             log.LogException(exception);
         }

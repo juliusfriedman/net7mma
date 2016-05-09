@@ -184,7 +184,7 @@ namespace Media.Concepts.Classes
         /// <param name="address"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static T Read<T>(System.IntPtr address)
+        internal static T Read<T>(System.IntPtr address) //ref T t, maybe better than copying values
         {
             T obj = default(T);
 
@@ -196,7 +196,7 @@ namespace Media.Concepts.Classes
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static bool TryRead<T>(System.IntPtr address, ref T t)
+        internal static bool TryRead<T>(System.IntPtr address, ref T t) //ref T t, maybe better than copying values
         {
             System.TypedReference tr = __makeref(t);
 
@@ -574,7 +574,6 @@ namespace Media.Concepts.Classes
         }
 
         #endregion
-
 
         //returns Index of difference
         //bool MemCmp(source, dst, offset, size) => MemCmp(source, st, offset, size) >= 0
