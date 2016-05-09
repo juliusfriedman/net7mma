@@ -75,13 +75,13 @@ namespace Media.Rtsp
             //SendBufferSize,ReceiveBufferSize and SetSocketOption is supposedly fixed in the latest versions but still do too much option verification...
             
             //Don't buffer send.
-            socket.SendBufferSize = 0;
+            Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.SendBufferSize = 0);
 
             //Don't buffer receive.
-            socket.ReceiveBufferSize = 0;
+            Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.ReceiveBufferSize = 0);
 
             //Dont fragment
-            if (socket.AddressFamily == AddressFamily.InterNetwork) socket.DontFragment = true;
+            if (socket.AddressFamily == AddressFamily.InterNetwork) Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.DontFragment = true);
 
             //Rtsp over Tcp
             if (socket.ProtocolType == ProtocolType.Tcp)
@@ -99,15 +99,15 @@ namespace Media.Rtsp
                 //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpCongestionAlgorithm(socket);
 
                 // Set option that allows socket to close gracefully without lingering.
-                Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(socket);
+                Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(socket));
 
                 //Retransmit for 0 sec
-                if (Common.Extensions.OperatingSystemExtensions.IsWindows) Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket);
+                if (Common.Extensions.OperatingSystemExtensions.IsWindows) Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket));
 
                 //https://en.wikipedia.org/wiki/TCP_delayed_acknowledgment
 
                 //If both send and receieve buffer size are 0 then there is no coalescing when nagle's algorithm is disabled
-                Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(socket);
+                Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(socket));
                 //socket.NoDelay = true;
 
                 //Allow more than one byte of urgent data

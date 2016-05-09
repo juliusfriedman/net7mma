@@ -293,11 +293,11 @@ namespace Media.Rtp
         {
             #region Statics
 
-            internal static void ConfigureRtpSocket(Socket socket)
+            internal static void ConfigureRtpRtcpSocket(Socket socket)
             {
                 if (socket == null) throw new ArgumentNullException("socket");
 
-                Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket);
+                Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket));
 
                 //RtpSocket.Blocking = false;
 
@@ -312,30 +312,32 @@ namespace Media.Rtp
                     //48 is Internetwork Control
                     //56 is Network Control
                     //Set type of service
-                    socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
+
+                    Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47));
 
                     //Tell the network stack what we send and receive has an order
-                    socket.DontFragment = true;
+                    Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.DontFragment = true);
                 }                
 
                 //Don't buffer sending
-                socket.SendBufferSize = 0;
-
+                Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.SendBufferSize = 0);
+                
                 if (socket.ProtocolType == ProtocolType.Tcp)
                 {
                     //Retransmit for 0 sec
-                    if (Common.Extensions.OperatingSystemExtensions.IsWindows) Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket);
+                    if (Common.Extensions.OperatingSystemExtensions.IsWindows) Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket));
 
                     //Don't buffer receiving
-                    socket.ReceiveBufferSize = 0;
+                    Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.ReceiveBufferSize = 0);
+                    
 
                     //If both send and receieve buffer size are 0 then there is no coalescing when nagle's algorithm is disabled
-                    Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(socket);
+                    Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(socket));
                 }
                 else if (socket.ProtocolType == ProtocolType.Udp)
                 {
                     //Set max ttl for slower networks
-                    socket.Ttl = 255;
+                    Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.Ttl = 255);
 
                     //May help if behind a router
                     //Allow Nat Traversal
@@ -1332,7 +1334,7 @@ namespace Media.Rtp
                 MaximumRtcpBandwidthPercentage = DefaultReportInterval.TotalSeconds;
 
                 //Assign the function responsible for configuring the socket
-                ConfigureSocket = configure ?? ConfigureRtpSocket;
+                ConfigureSocket = configure ?? ConfigureRtpRtcpSocket;
             }
 
             public TransportContext(byte dataChannel, byte controlChannel, int ssrc, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int senderSsrc = 0, int minimumSequentialRtpPackets = 2)

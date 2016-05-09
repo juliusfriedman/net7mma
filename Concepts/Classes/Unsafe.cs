@@ -243,22 +243,13 @@ namespace Media.Concepts.Classes
         #region Write
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static void Write<T>(System.IntPtr address, ref T what)
-        {
-            int size = Unsafe.ArrayOfTwoElements<T>.AddressingDifference(); System.Buffer.MemoryCopy((void*)AddressOf(what), (void*)address, size, size);
-        }
+        internal static void Write<T>(System.IntPtr address, ref T what) { Write<T>(address, ref what, Unsafe.ArrayOfTwoElements<T>.AddressingDifference()); }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static void Write<T>(System.IntPtr address, ref T what, int size)
-        {
-            System.Buffer.MemoryCopy((void*)AddressOf(what), (void*)address, size, size);
-        }
+        internal static void Write<T>(System.IntPtr address, ref T what, int size) { Write<T>(address, ref what, ref size); }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static void Write<T>(System.IntPtr address, ref T what, ref int size)
-        {
-            System.Buffer.MemoryCopy((void*)AddressOf(what), (void*)address, size, size);
-        }
+        internal static void Write<T>(System.IntPtr address, ref T what, ref int size) { System.Buffer.MemoryCopy((void*)AddressOf(what), (void*)address, size, size); }
 
         #endregion
         
