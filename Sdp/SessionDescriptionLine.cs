@@ -346,12 +346,13 @@ namespace Media.Sdp
             //a=<flag>|<name>|:<value> where value = {...,...,...;x;y;z}
 
             if (partCount > 0)
+            {
                 m_Parts = new List<string>(line.Substring(2).Split(Common.Extensions.Object.ObjectExtensions.ToArray<string>(m_Seperator), partCount, StringSplitOptions.RemoveEmptyEntries));
-            else
-                m_Parts = new List<string>(line.Substring(2).Split(Common.Extensions.Object.ObjectExtensions.ToArray<string>(m_Seperator), StringSplitOptions.RemoveEmptyEntries));
-
-            //Should have option to throw less parts than expected or truncate extra parts?
-            EnsureParts(partCount);
+                
+                //Should have option to throw less parts than expected or truncate extra parts?
+                EnsureParts(partCount);
+            }
+            else m_Parts = new List<string>(line.Substring(2).Split(Common.Extensions.Object.ObjectExtensions.ToArray<string>(m_Seperator), StringSplitOptions.RemoveEmptyEntries));
 
             //m_Parts = new List<string>(line.Substring(2).Split(SessionDescription.SemiColonSplit));
         }
@@ -360,12 +361,9 @@ namespace Media.Sdp
             : this(sdpLines[index++]) { }
 
         public SessionDescriptionLine(string[] sdpLines, ref int index, string seperator, char expected, int partCount = 0)            
-            :this(sdpLines[index++], seperator)
+            :this(sdpLines[index++], seperator, partCount)
         {
             if (m_Type != expected) throw new InvalidOperationException("Expected: " + expected + ", Found: " + m_Type);
-
-            //Should have option to throw less parts than expected or truncate extra parts?
-            EnsureParts(partCount);            
         }
 
         [CLSCompliant(false)]

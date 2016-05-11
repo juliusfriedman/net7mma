@@ -305,15 +305,9 @@ namespace Media.Sdp
                     default:
                         {
                             ++tokenLength;
-                            goto case 's';
 
                             ////Assume seconds
-                            //if (double.TryParse(token, out temp))
-                            //{
-                            //    result = result.Add(TimeSpan.FromSeconds(temp));
-                            //}
-
-                            //continue;
+                            goto case 's';
                         }
                 }
             }

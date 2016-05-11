@@ -74,14 +74,38 @@ namespace Media.Sdp
         /// If seto to 0 then the session is not bounded,  though it will not become active until after the <see cref="StartTime"/>.  
         /// </summary>
         /// <remarks>These values are the decimal representation of Network Time Protocol (NTP) time values in seconds since 1900 </remarks>
-        public double StartTime { get; private set; }
+        //public double StartTime { get; private set; }
+
+        public string StartTimeString
+        {
+            get { return m_TimeDescriptionLine.StartTimeString; }
+            set { m_TimeDescriptionLine.StartTimeString = value; }
+        }
+
+        public double StartTime
+        {
+            get { return m_TimeDescriptionLine.StartTime; }
+            set { m_TimeDescriptionLine.StartTime = (long)value; }
+        }
 
         /// <summary>
         /// Gets or sets the stop time.
         /// If set to 0 and the <see cref="StartTime"/> is also zero, the session is regarded as permanent.
         /// </summary>
         /// <remarks>These values are the decimal representation of Network Time Protocol (NTP) time values in seconds since 1900 </remarks>
-        public double StopTime { get; private set; }
+        //public double StopTime { get; private set; }
+
+        public double StopTime
+        {
+            get { return m_TimeDescriptionLine.StopTime; }
+            set { m_TimeDescriptionLine.StopTime = (long)value; }
+        }
+
+        public string StopTimeString
+        {
+            get { return m_TimeDescriptionLine.StopTimeString; }
+            set { m_TimeDescriptionLine.StopTimeString = value; }
+        }
 
         /// <summary>
         /// Gets the DateTime representation of <see cref="StarTime"/>
@@ -129,44 +153,43 @@ namespace Media.Sdp
         /// If the <see cref="StopTime"/> is set to zero, then the session is not bounded,  though it will not become active until after the <see cref="StartTime"/>.  
         /// If the <see cref="StartTime"/> is also zero, the session is regarded as permanent.
         /// </summary>
-        public bool IsPermanent { get { return StartTime == 0 && StopTime == 0; } }
+        public bool IsPermanent { get { return m_TimeDescriptionLine.IsPermanent; } }
 
         /// <summary>
         /// Indicates if the <see cref="StartTime"/> is 0
         /// </summary>
-        public bool Unbounded { get { return StartTime == 0; } }
+        public bool Unbounded { get { return m_TimeDescriptionLine.StartTime == 0; } }
 
         internal protected SessionDescriptionLine TimeDescriptionLine
         {
             get
             {
-                return new SessionDescriptionLine(Media.Sdp.Lines.SessionTimeDescriptionLine.TimeType, SessionDescription.SpaceString){
-                    ((ulong)StartTime).ToString(),
-                    ((ulong)StopTime).ToString()
-                };
+                return m_TimeDescriptionLine;
             }
         }
 
-        public IEnumerable<Lines.SessionRepeatTimeLine> RepeatLines
-        {
-            get
-            {
-                foreach (string repeatTime in RepeatTimes)
-                {
-                    yield return new Lines.SessionRepeatTimeLine(repeatTime);
-                }
-            }
-        }
+        //public IEnumerable<Lines.SessionRepeatTimeLine> RepeatLines
+        //{
+        //    get
+        //    {
+        //        foreach (string repeatTime in RepeatTimes)
+        //        {
+        //            yield return new Lines.SessionRepeatTimeLine(repeatTime);
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// Gets or sets any repeat descriptions assoicated with the TimeDescription.
         /// </summary>
-        public List<string> RepeatTimes { get; private set; }
+        //public List<string> RepeatTimes { get; private set; }
+
+        public readonly List<Lines.SessionRepeatTimeLine> RepeatLines;
 
         /// <summary>
         /// Indicates if there are any repeat times.
         /// </summary>
-        public bool HasRepeatTimes { get { return RepeatTimes.Count > 0; } }
+        public bool HasRepeatTimes { get { return RepeatLines.Count > 0; } }
 
         /// <summary>
         /// Calculates the length in bytes of this TimeDescription.
@@ -177,17 +200,22 @@ namespace Media.Sdp
             {
 
                 //(t=)X()Y(\r\n)                      //(r=)X(\r\n)
-                return 5 + (StartTime.ToString().Length + StopTime.ToString().Length) + RepeatTimes.Sum(p => p.Length + 4);
+                //return 5 + (StartTime.ToString().Length + StopTime.ToString().Length) + RepeatTimes.Sum(p => p.Length + 4);
+
+                return m_TimeDescriptionLine.Length + RepeatLines.Sum(l => l.Length);
             }
         }
 
         #endregion
 
+        internal protected readonly Lines.SessionTimeDescriptionLine m_TimeDescriptionLine;
+
         #region Constructor
 
         public TimeDescription()
         {
-            RepeatTimes = new List<string>();
+            m_TimeDescriptionLine = new Lines.SessionTimeDescriptionLine();
+            RepeatLines = new List<Lines.SessionRepeatTimeLine>();
         }
 
         public TimeDescription(int startTime, int stopTime)
@@ -200,98 +228,107 @@ namespace Media.Sdp
         public TimeDescription(string[] sdpLines, ref int index)
             : this()
         {
-            string sdpLine = sdpLines[index++].Trim();
 
-            if (string.IsNullOrWhiteSpace(sdpLine) || sdpLine[0] != Media.Sdp.Lines.SessionTimeDescriptionLine.TimeType) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid Time Description");
+            m_TimeDescriptionLine = new Lines.SessionTimeDescriptionLine(sdpLines, ref index);
 
-            //Char 1 must always be '='...
+            ////string sdpLine = sdpLines[index++].Trim();
 
-            sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
+            ////if (string.IsNullOrWhiteSpace(sdpLine) || sdpLine[0] != Media.Sdp.Lines.SessionTimeDescriptionLine.TimeType) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid Time Description");
 
-            //https://net7mma.codeplex.com/workitem/17032
+            //////Char 1 must always be '='...
 
-            //The OP advised he was recieving a SDP with "now" ... not sure why this is not standard, the grammer seems to only allow seconds.
-            //Now should be parsed as 0 because it should fail parsing as a double.
+            ////sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
-            //Additionally he might have been talking about the Range header in which case "now" is handled propertly.
+            //////https://net7mma.codeplex.com/workitem/17032
 
-            //TODO Use constants...
+            //////The OP advised he was recieving a SDP with "now" ... not sure why this is not standard, the grammer seems to only allow seconds.
+            //////Now should be parsed as 0 because it should fail parsing as a double.
+
+            //////Additionally he might have been talking about the Range header in which case "now" is handled propertly.
+
+            //////TODO Use constants...
 
 
-            /*
-                         5.9.  Timing ("t=")
+            /////*
+            ////             5.9.  Timing ("t=")
 
-                  t=<start-time> <stop-time>
+            ////      t=<start-time> <stop-time>
 
-               The "t=" lines specify the start and stop times for a session.
-               Multiple "t=" lines MAY be used if a session is active at multiple
-               irregularly spaced times; each additional "t=" line specifies an
-               additional period of time for which the session will be active.  If
-               the session is active at regular times, an "r=" line (see below)
-               should be used in addition to, and following, a "t=" line -- in which
-               case the "t=" line specifies the start and stop times of the repeat
-               sequence.
+            ////   The "t=" lines specify the start and stop times for a session.
+            ////   Multiple "t=" lines MAY be used if a session is active at multiple
+            ////   irregularly spaced times; each additional "t=" line specifies an
+            ////   additional period of time for which the session will be active.  If
+            ////   the session is active at regular times, an "r=" line (see below)
+            ////   should be used in addition to, and following, a "t=" line -- in which
+            ////   case the "t=" line specifies the start and stop times of the repeat
+            ////   sequence.
 
-               The first and second sub-fields give the start and stop times,
-               respectively, for the session.  These values are the decimal
-               representation of Network Time Protocol (NTP) time values in seconds
-               since 1900 [13].  To convert these values to UNIX time, subtract
-               decimal 2208988800.
+            ////   The first and second sub-fields give the start and stop times,
+            ////   respectively, for the session.  These values are the decimal
+            ////   representation of Network Time Protocol (NTP) time values in seconds
+            ////   since 1900 [13].  To convert these values to UNIX time, subtract
+            ////   decimal 2208988800.
 
-               NTP timestamps are elsewhere represented by 64-bit values, which wrap
-               sometime in the year 2036.  Since SDP uses an arbitrary length
-               decimal representation, this should not cause an issue (SDP
-               timestamps MUST continue counting seconds since 1900, NTP will use
-               the value modulo the 64-bit limit).
+            ////   NTP timestamps are elsewhere represented by 64-bit values, which wrap
+            ////   sometime in the year 2036.  Since SDP uses an arbitrary length
+            ////   decimal representation, this should not cause an issue (SDP
+            ////   timestamps MUST continue counting seconds since 1900, NTP will use
+            ////   the value modulo the 64-bit limit).
 
-               If the <stop-time> is set to zero, then the session is not bounded,
-               though it will not become active until after the <start-time>.  If
-               the <start-time> is also zero, the session is regarded as permanent.
+            ////   If the <stop-time> is set to zero, then the session is not bounded,
+            ////   though it will not become active until after the <start-time>.  If
+            ////   the <start-time> is also zero, the session is regarded as permanent.
 
-               User interfaces SHOULD strongly discourage the creation of unbounded
-               and permanent sessions as they give no information about when the
-               session is actually going to terminate, and so make scheduling
-               difficult.
+            ////   User interfaces SHOULD strongly discourage the creation of unbounded
+            ////   and permanent sessions as they give no information about when the
+            ////   session is actually going to terminate, and so make scheduling
+            ////   difficult.
 
-               The general assumption may be made, when displaying unbounded
-               sessions that have not timed out to the user, that an unbounded
-               session will only be active until half an hour from the current time
-               or the session start time, whichever is the later.  If behaviour
-               other than this is required, an end-time SHOULD be given and modified
-               as appropriate when new information becomes available about when the
-               session should really end.
+            ////   The general assumption may be made, when displaying unbounded
+            ////   sessions that have not timed out to the user, that an unbounded
+            ////   session will only be active until half an hour from the current time
+            ////   or the session start time, whichever is the later.  If behaviour
+            ////   other than this is required, an end-time SHOULD be given and modified
+            ////   as appropriate when new information becomes available about when the
+            ////   session should really end.
 
-               Permanent sessions may be shown to the user as never being active
-               unless there are associated repeat times that state precisely when
-               the session will be active.
-             */
+            ////   Permanent sessions may be shown to the user as never being active
+            ////   unless there are associated repeat times that state precisely when
+            ////   the session will be active.
+            //// */
 
-            string[] parts = sdpLine.Split(SessionDescription.Space);
+            ////string[] parts = sdpLine.Split(SessionDescription.Space);
 
-            int partsLength = parts.Length;
+            ////int partsLength = parts.Length;
 
-            if (partsLength > 0)
-            {
-                double time;
+            ////if (partsLength > 0)
+            ////{
+            ////    double time;
 
-                if (parts[0] != "now")
-                {
-                    if (double.TryParse(SessionDescription.TrimLineValue(parts[0]), out time)) StartTime = time;
-                }
+            ////    if (parts[0] != "now")
+            ////    {
+            ////        if (double.TryParse(SessionDescription.TrimLineValue(parts[0]), out time)) StartTime = time;
+            ////    }
 
-                if (partsLength > 1)
-                {
-                    if (double.TryParse(SessionDescription.TrimLineValue(parts[1]), out time)) StopTime = time;
-                }
-            }
+            ////    if (partsLength > 1)
+            ////    {
+            ////        if (double.TryParse(SessionDescription.TrimLineValue(parts[1]), out time)) StopTime = time;
+            ////    }
+            ////}
+
+            string sdpLine;
 
             //Iterate remaining lines
-            for (; index < sdpLines.Length; ++index)
+            for (int e = sdpLines.Length; index < e;)
             {
                 //Scope a line
                 sdpLine = sdpLines[index];
 
-                if (string.IsNullOrWhiteSpace(sdpLine)) continue;
+                if (string.IsNullOrWhiteSpace(sdpLine))
+                {
+                    ++index;
+                    continue;
+                }
 
                 //If we are not extracing repeat times then there is no more TimeDescription to parse
                 if (sdpLine[0] != Media.Sdp.Lines.SessionRepeatTimeLine.RepeatType) break;
@@ -300,11 +337,12 @@ namespace Media.Sdp
                 try
                 {
                     //r=<repeat interval> <active duration> <offsets from start-time>
-                    RepeatTimes.Add(SessionDescription.TrimLineValue(sdpLine.Substring(2)));
+                    RepeatLines.Add(new Sdp.Lines.SessionRepeatTimeLine(sdpLines, ref index));
                 }
                 catch (Exception ex)
                 {
                     Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid Repeat Time", ex);
+                    break;
                 }
             }
 
@@ -316,8 +354,11 @@ namespace Media.Sdp
 
             StopTime = other.StopTime;
 
-            if (referenceRepeatTimes) RepeatTimes = other.RepeatTimes;
-            else RepeatTimes.AddRange(other.RepeatTimes);
+            if (referenceRepeatTimes) RepeatLines = other.RepeatLines;
+            else
+            {
+                RepeatLines = new List<Lines.SessionRepeatTimeLine>(other.RepeatLines);
+            }
         }
 
         public TimeDescription(long sessionStart, long sessionStop)
@@ -344,12 +385,9 @@ namespace Media.Sdp
             
             builder.Append(TimeDescriptionLine.ToString());
             
-            foreach (string repeatTime in RepeatTimes)
+            foreach (Lines.SessionRepeatTimeLine repeatTime in RepeatLines)
             {
-                builder.Append(Media.Sdp.Lines.SessionRepeatTimeLine.RepeatType);
-                builder.Append(Sdp.SessionDescription.EqualsSign);
-                builder.Append(repeatTime);
-                builder.Append(SessionDescription.NewLineString);
+                builder.Append(repeatTime.ToString());
             }
 
             return builder.ToString();
@@ -364,9 +402,9 @@ namespace Media.Sdp
         {
             yield return TimeDescriptionLine;
 
-            foreach (string repeatTime in RepeatTimes)
+            foreach (Lines.SessionRepeatTimeLine repeatTime in RepeatLines)
             {
-                yield return new SessionDescriptionLine(Media.Sdp.Lines.SessionRepeatTimeLine.RepeatType) { repeatTime };
+                yield return repeatTime;
             }
         }
 

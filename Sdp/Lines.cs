@@ -301,12 +301,28 @@ namespace Media.Sdp
             /// <summary>
             /// Gets the string value associated with the nettype token.
             /// </summary>
-            public string ConnectionNetworkType { get { return GetPart(0); } internal protected set { SetPart(0, value); } }
+            public string ConnectionNetworkType
+            {
+                get { return GetPart(0); }
+                internal protected set
+                {
+                    if (string.IsNullOrWhiteSpace(value)) throw new System.InvalidOperationException("Cannot be null or consist only of whitespace.");  //Todo, Exceptions in resources.
+                    SetPart(0, value);
+                }
+            }
 
             /// <summary>
             /// Gets the string value associated with the addrtype token.
             /// </summary>
-            public string ConnectionAddressType { get { return GetPart(1); } internal protected set { SetPart(1, value); } }
+            public string ConnectionAddressType
+            {
+                get { return GetPart(1); }
+                internal protected set
+                {
+                    if (string.IsNullOrWhiteSpace(value)) throw new System.InvalidOperationException("Cannot be null or consist only of whitespace.");  //Todo, Exceptions in resources.
+                    SetPart(1, value);
+                }
+            }
 
             /// <summary>
             /// Gets the string value associated with the connection-address token, See 5.7.  Connection Data ("c=")
@@ -314,7 +330,15 @@ namespace Media.Sdp
             /// <remarks>
             /// This may be a DNS fully qualified domain
             /// </remarks>
-            public string ConnectionAddress { get { return GetPart(2); } internal protected set { SetPart(2, value); } }
+            public string ConnectionAddress
+            {
+                get { return GetPart(2); }
+                internal protected set
+                {
+                    if (string.IsNullOrWhiteSpace(value)) throw new System.InvalidOperationException("Cannot be null or consist only of whitespace.");  //Todo, Exceptions in resources.
+                    SetPart(2, value);
+                }
+            }
 
             /// <summary>
             /// Indicates if the '/' character is present. The slash notation for multiple addresses MUST NOT be used for IP unicast addresses.
@@ -467,6 +491,19 @@ namespace Media.Sdp
 
             #region Constructor
 
+            //Todo, constructor with values for Ttl and NumberOfPorts, could call this constructor with them as the connectionAddress..
+
+            public SessionConnectionLine(string connectionNetworkType, string connectionAddressType, string connectionAddress)
+                : this()
+            {
+                ConnectionNetworkType = connectionNetworkType;
+
+                ConnectionAddressType = connectionAddressType;
+
+                ConnectionAddress = connectionAddress;
+            }
+
+
             public SessionConnectionLine(SessionDescriptionLine line)
                 : this()
             {
@@ -506,17 +543,6 @@ namespace Media.Sdp
             }
 
             #endregion
-
-            //ToString should be implemented by GetEnumerator and String.Join(m_Seperator
-
-            //public override string ToString()
-            //{
-            //    return ConnectionType.ToString() + Media.Sdp.SessionDescription.EqualsSign + 
-            //        (m_Parts.Count == 1 ? ConnectionNetworkType : string.Join(SessionDescription.SpaceString, ConnectionNetworkType, ConnectionAddressType, ConnectionAddress))
-            //        + SessionDescription.NewLineString;
-            //}
-
-            //Should override GetEnumerator to include ConnectionParts.
         }
 
         /// <summary>
@@ -553,42 +579,22 @@ namespace Media.Sdp
                     int.TryParse(VersionToken, out result);
 
                     return result;
-
-                    //return m_Parts.Count > 0 ? int.Parse(m_Parts[0], System.Globalization.CultureInfo.InvariantCulture) : 0;
                 }
                 set
                 {
-                    //m_Parts.Clear();
-
-                    //m_Parts.Add(value.ToString());
-
                     VersionToken = value.ToString();
                 }
             }
 
             public SessionVersionLine(int version)
-                : base(VersionType)
+                : base(VersionType, 1)
             {
                 Version = version;
             }
 
             public SessionVersionLine(string[] sdpLines, ref int index)
-                :  base(sdpLines, ref index, SessionDescription.SpaceString, VersionType) //base(VersionType)
+                :  base(sdpLines, ref index, SessionDescription.SpaceString, VersionType, 1) 
             {
-                //try
-                //{
-                //    string sdpLine = sdpLines[index++].Trim();
-
-                //    if (sdpLine[0] != VersionType) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid SessionVersionLine Line");
-
-                //    sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
-
-                //    m_Parts.Add(sdpLine);
-                //}
-                //catch
-                //{
-                //    throw;
-                //}
             }
 
         }
@@ -611,22 +617,6 @@ namespace Media.Sdp
                 get { return GetPart(1); }
                 set { SetPart(1, value); }
             }
-
-            //Should be double...
-            //public long SessionId
-            //{
-            //    get
-            //    {
-            //        string part = GetPart(1);
-
-            //        if (string.IsNullOrWhiteSpace(part)) return 0;
-
-            //        return (long)double.Parse(part);
-
-            //        //return part[0] == Common.ASCII.HyphenSign ? long.Parse(part) : (long)ulong.Parse(part);
-            //    }
-            //    set { SetPart(1, value.ToString()); }
-            //}
 
             public string VersionToken
             {
@@ -713,13 +703,15 @@ namespace Media.Sdp
 
             //Conflicts with base's concept of string constructor
             public SessionOriginLine(string owner)
-                : base(OriginType)
+                : base(OriginType, SessionDescription.SpaceString, 6)
             {
                 if (string.IsNullOrWhiteSpace(owner)) goto EnsureParts;
                 
                 //Check for missing o=? (Adds overhead)
                 if (owner[0] != OriginType)
                 {
+                    m_Parts.Clear();
+
                     //Replace NewLine? TrimLineValue
                     m_Parts.AddRange(owner.Split(SessionDescription.Space));
                 }
@@ -727,44 +719,13 @@ namespace Media.Sdp
 
             EnsureParts:
                 EnsureParts(6);
-
-                //if (m_Parts.Count < 6)
-                //{
-                //    //EnsureParts(6);
-
-                //    //Make a new version if anything was added.
-                //    //SessionVersion++;
-                //}
             }
 
             public SessionOriginLine(string[] sdpLines, ref int index)
-                : base(sdpLines, ref index, SessionDescription.SpaceString, OriginType) //,6
+                : base(sdpLines, ref index, SessionDescription.SpaceString, OriginType, 6) //,6
             {
-                //try
-                //{
-                //    string sdpLine = sdpLines[index++].Trim();
 
-                //    if (sdpLine[0] != OriginType) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid SessionOriginatorLine");
-
-                //    sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
-
-                //    m_Parts.Clear();
-
-                //    m_Parts.AddRange(sdpLine.Split(SessionDescription.Space));
-                //}
-                //catch
-                //{
-                //    throw;
-                //}
             }
-
-            //public override string ToString()
-            //{
-            //    return OriginType.ToString() + Media.Sdp.SessionDescription.EqualsSign + 
-            //        string.Join(SessionDescription.SpaceString, Username, SessionId, SessionVersion, NetworkType, AddressType, Address) 
-            //        + SessionDescription.NewLineString;
-            //}
-
         }
 
         /// <summary>
@@ -782,7 +743,7 @@ namespace Media.Sdp
             }
 
             public SessionNameLine()
-                : base(NameType)
+                : base(NameType, 1)
             {
 
             }
@@ -793,7 +754,7 @@ namespace Media.Sdp
                 if (m_Type != NameType) throw new InvalidOperationException("Not a SessionNameLine line");
             }
 
-            //Conflicts with base's concept of string constructor
+            //Conflicts with base's concept of string constructorm assumes that the param is a value.
             public SessionNameLine(string sessionName)
                 : this()
             {
@@ -803,6 +764,7 @@ namespace Media.Sdp
                 SessionName = sessionName;
             }
 
+            //FromValue
             //public SessionNameLine(string text)
             //    : base(text, SessionDescription.SpaceString)
             //{
@@ -810,28 +772,11 @@ namespace Media.Sdp
             //}
 
             public SessionNameLine(string[] sdpLines, ref int index)
-                : base(sdpLines, ref index, SessionDescription.SpaceString, NameType) //this()
+                : base(sdpLines, ref index, SessionDescription.SpaceString, NameType, 1) //this()
             {
-                //try
-                //{
-                //    string sdpLine = sdpLines[index++].Trim();
-
-                //    if (sdpLine[0] != NameType) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid SessionNameLine");
-
-                //    sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
-
-                //    m_Parts.Add(sdpLine);
-                //}
-                //catch
-                //{
-                //    throw;
-                //}
+               
             }
 
-            //public override string ToString()
-            //{
-            //    return NameType.ToString() + Media.Sdp.SessionDescription.EqualsSign + (string.IsNullOrEmpty(SessionName) ? string.Empty : SessionName) + SessionDescription.NewLineString;
-            //}
         }
 
         /// <summary>
@@ -869,26 +814,9 @@ namespace Media.Sdp
             public SessionInformationLine(string[] sdpLines, ref int index)
                 : base(sdpLines, ref index, SessionDescription.SpaceString, InformationType) //this()
             {
-                //try
-                //{
-                //    string sdpLine = sdpLines[index++].Trim();
-
-                //    if (sdpLine[0] != InformationType) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid SessionInformationLine");
-
-                //    sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
-
-                //    m_Parts.Add(sdpLine);
-                //}
-                //catch
-                //{
-                //    throw;
-                //}
+              
             }
 
-            //public override string ToString()
-            //{
-            //    return InformationType.ToString() + Media.Sdp.SessionDescription.EqualsSign + (string.IsNullOrEmpty(SessionName) ? string.Empty : SessionName) + SessionDescription.NewLineString;
-            //}
         }
 
         /// <summary>
@@ -926,26 +854,8 @@ namespace Media.Sdp
             public SessionPhoneNumberLine(string[] sdpLines, ref int index)
                 : base(sdpLines, ref index, SessionDescription.SpaceString, PhoneType) //this()
             {
-                //try
-                //{
-                //    string sdpLine = sdpLines[index++].Trim();
-
-                //    if (sdpLine[0] != PhoneType) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid SessionPhoneNumberLine");
-
-                //    sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
-
-                //    m_Parts.Add(sdpLine);
-                //}
-                //catch
-                //{
-                //    throw;
-                //}
+               
             }
-
-            //public override string ToString()
-            //{
-            //    return PhoneType.ToString() + Media.Sdp.SessionDescription.EqualsSign + (string.IsNullOrEmpty(PhoneNumber) ? string.Empty : PhoneNumber) + SessionDescription.NewLineString;
-            //}
         }
 
         /// <summary>
@@ -1296,7 +1206,7 @@ namespace Media.Sdp
             /// </summary>
             public int MediaPort
             {
-                get { return int.Parse(PortToken, System.Globalization.CultureInfo.InvariantCulture); }
+                get { return int.Parse(PortToken.Split(SessionDescription.ForwardSlashSplit).FirstOrDefault(), System.Globalization.CultureInfo.InvariantCulture); }
                 set
                 {
                     if (value < ushort.MinValue || value > ushort.MaxValue) throw new ArgumentOutOfRangeException("The port value cannot be less than 0 or exceed 65535");
@@ -1335,6 +1245,8 @@ namespace Media.Sdp
                 set
                 {
                     if (value < ushort.MinValue || value > ushort.MaxValue) throw new ArgumentOutOfRangeException("A value less than 0 or greater than 65535 is not valid.");
+
+                    //if (NumberOfPorts == value) return;
 
                     //Set the first part to the result of joining the existing MediaPort + / + value
                     SetPart(1, string.Join(SessionDescription.ForwardSlash.ToString(), MediaPort, value));
@@ -1749,6 +1661,8 @@ namespace Media.Sdp
                 }
             }
 
+            //checks for either a line to parse or just the line's data, should have a static method FromData which can be used for this as it would simpilify the design across derived instances.
+            //could also have a bool valuesOnly = true which indicates that the data is not in line format...
             //internal...
             public SessionRepeatTimeLine(string text)
                 : this()
