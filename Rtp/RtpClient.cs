@@ -3593,6 +3593,9 @@ namespace Media.Rtp
                 sent += context.RtcpSocket.Send(buffers, SocketFlags.None, out error);
             }
 #else
+
+            //Todo, the packets can be sent using the data already allocated, needs offset and length.
+
             //Just send them in their own array.
             sent += SendData(RFC3550.ToCompoundBytes(packets).ToArray(), context.ControlChannel, context.RtcpSocket, context.RemoteRtcp, out error);
 #endif
@@ -3835,7 +3838,7 @@ namespace Media.Rtp
         }
 
 #if IListSockets
-        //Todo, Rename to m_Framing.
+        //Todo, Rename to m_Framing, should be local to call so that seperate rtp and rtcp threads can have their own framing.
         static byte[] framing = new byte[4] { BigEndianFrameControl, 0, 0, 0 };
 #endif
         /// <summary>
@@ -3910,6 +3913,7 @@ namespace Media.Rtp
             //If the packet is contigious and ssrc does not have value then it can be sent in place.
             sent += SendData(packet.Prepare(null, ssrc, null, null).ToArray(), transportContext.DataChannel, transportContext.RtpSocket, transportContext.RemoteRtp, out error);
 
+            //Needs offset and length in SendData and needs to determine if packet data is contigious.
             //if (ssrc.HasValue)
             //{
             //    //If the transportContext is changed to automatically update the timestamp by frequency then use transportContext.RtpTimestamp
@@ -4161,21 +4165,33 @@ namespace Media.Rtp
                     }
                     else
                     {
+                        //Build the data
+                        IEnumerable<byte> dataz;
+
                         //The length is always present
-                        data = Binary.GetBytes((short)dataLen, BitConverter.IsLittleEndian).Concat(data).ToArray();
+                        dataz = Binary.GetBytes((short)dataLen, BitConverter.IsLittleEndian).Concat(data);
+                        //data = Binary.GetBytes((short)dataLen, BitConverter.IsLittleEndian).Concat(data).ToArray();
+
                         length += 2;
 
                         if (useChannelId)
                         {
-                            data = Media.Common.Extensions.Linq.LinqExtensions.Yield(channel.Value).Concat(data).ToArray();
+                            //data = Media.Common.Extensions.Linq.LinqExtensions.Yield(channel.Value).Concat(data).ToArray();
+                            dataz = Media.Common.Extensions.Linq.LinqExtensions.Yield(channel.Value).Concat(dataz);
+
                             ++length;
                         }
 
                         if (useFrameControl)
                         {
-                            data = Media.Common.Extensions.Linq.LinqExtensions.Yield(BigEndianFrameControl).Concat(data).ToArray();
+                            //data = Media.Common.Extensions.Linq.LinqExtensions.Yield(BigEndianFrameControl).Concat(data).ToArray();
+                            dataz = Media.Common.Extensions.Linq.LinqExtensions.Yield(BigEndianFrameControl).Concat(data);
+
                             ++length;
                         }
+
+                        //Project the array.
+                        data = dataz.ToArray();
                     }
 
                 }

@@ -1814,7 +1814,10 @@ namespace Media.Sdp
                 set { SetPart(0, value); }
             }
 
-            public bool HasFormatValue { get { return FormatToken.IndexOf(SessionDescription.Colon) >= 0; } }
+            public bool HasFormatValue
+            {
+                get { return FormatToken.IndexOf(SessionDescription.Colon) >= 0; }
+            }
 
             public int FormatValue
             {
@@ -1828,7 +1831,10 @@ namespace Media.Sdp
                 }
             }
 
-            public bool HasFormatSpecificParameters { get { return m_Parts.Count > 1; } }
+            public bool HasFormatSpecificParameters
+            {
+                get { return m_Parts.Count > 1; }
+            }
 
             public string FormatSpecificParameterToken
             {
@@ -1836,14 +1842,23 @@ namespace Media.Sdp
                 set { SetPart(1, value); }
             }
 
-            public IEnumerable<string> FormatSpecificParameterParameters
+            string[] m_FormatSpecificParameters;
+
+            public IEnumerable<string> FormatSpecificParameters
             {
-                get { return m_Parts.Skip(1); }
+                get
+                {
+                    if (m_FormatSpecificParameters != null) return m_FormatSpecificParameters;
+
+                    if (string.IsNullOrWhiteSpace(FormatSpecificParameterToken)) return Enumerable.Empty<string>();
+
+                    return m_FormatSpecificParameters = FormatSpecificParameterToken.Split(SessionDescription.SemiColonSplit);
+                }
             }
 
             public int FormatSpecificParametersCount
             {
-                get { return PartsCount - 1; }
+                get { return m_FormatSpecificParameters.Length; }
             }
 
             //Could be verified ina common class given a start type.

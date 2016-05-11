@@ -45,7 +45,6 @@ namespace Media.Common
             }
         }
 
-
         public static void SetReceiveTimeout(this ISocketReference reference, int timeoutMsec)
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())

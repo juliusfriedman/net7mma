@@ -1017,7 +1017,7 @@ namespace Media.UnitTests
                         //Define an event for Rtp Frames Changed.
                         Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame, context, final) =>
                         {
-                            if (rtpFrame.IsDisposed) return;
+                            if (Media.Common.IDisposedExtensions.IsNullOrDisposed(rtpFrame)) return;
                             if (rtpFrame.IsEmpty)
                             {
                                 ++emptyFrames;
@@ -1041,6 +1041,11 @@ namespace Media.UnitTests
                             {
                                 //Correct the count
                                 --incompleteFrames;
+                            }
+
+                            if (final)
+                            {
+                                //Depacketize and write to corresponding out stream
                             }
 
                         };
@@ -2084,13 +2089,15 @@ namespace Media.UnitTests
                     if (/*false == m_InitializedStream && */ false == profileFrame.ContainedUnitTypes.Any(nalType => nalType == Media.Codecs.Video.H264.NalUnitType.SequenceParameterSet || nalType == Media.Codecs.Video.H264.NalUnitType.PictureParameterSet) /*false == profileFrame.ContainsSequenceParameterSet || false == profileFrame.ContainsPictureParameterSet*/)
                     {
                         //From the MediaDescription.FmtpLine from the SessionDescription which describes the media.
-                        Media.Sdp.SessionDescriptionLine fmtp = new Sdp.SessionDescriptionLine("a=fmtp:97 packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==");
+                        Media.Sdp.Lines.FormatTypeLine fmtp = new Media.Sdp.Lines.FormatTypeLine(Media.Sdp.SessionDescriptionLine.Parse("a=fmtp:97 packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg=="));
+
+                        if (false == fmtp.HasFormatSpecificParameters) throw new System.Exception("HasFormatSpecificParameters is false");
 
                         //We will extract the sps and pps from that line.
                         byte[] sps = null, pps = null;
 
                         //If there was a fmtp line then iterate the parts contained.
-                        if (fmtp != null) foreach (string p in fmtp.Parts)
+                        if (fmtp != null) foreach (string p in fmtp.FormatSpecificParameters)
                             {
                                 string trim = p.Trim();
                                 if (trim.StartsWith("sprop-parameter-sets=", StringComparison.InvariantCultureIgnoreCase))
@@ -2117,6 +2124,7 @@ namespace Media.UnitTests
                             //Write the SPS
                             fs.Write(sps, 0, sps.Length);
                         }
+                        else throw new System.Exception("SequenceParameterSet not found");
 
                         //Prepend the PPS if it was found.
                         if (pps != null)
@@ -2130,6 +2138,7 @@ namespace Media.UnitTests
                             //Write the PPS
                             fs.Write(pps, 0, pps.Length);
                         }
+                        else throw new System.Exception("PicutureParameterSet not found");
 
                         //Don't do this again...
                         //m_InitializedStream = true;
@@ -2890,15 +2899,39 @@ a=appversion:1.0");
         static void TestExperimental()
         {
             //Should be in Generic / CommonIntermediateLanguage tests
+            Concepts.Classes.CommonIntermediateLanguage.UsageTest();
+
             System.Console.WriteLine(Concepts.Classes.Generic<int>.SizeOf());
 
             System.Console.WriteLine(Concepts.Classes.Generic<byte>.SizeOf());
 
             System.Console.WriteLine(Concepts.Classes.Generic<int>.SizeOf());
 
+            ///
+
+            System.Console.WriteLine(Concepts.Classes.CommonIntermediateLanguage.SizeOf<int>());
+
+            System.Console.WriteLine(Concepts.Classes.CommonIntermediateLanguage.SizeOf<long>());
+
+            System.Console.WriteLine(Concepts.Classes.CommonIntermediateLanguage.SizeOf<System.Guid>());
+
             int test = 1;
 
             System.Console.WriteLine(Concepts.Classes.Generic<int>.Read(ref test));
+
+            bool dunno = Concepts.Classes.Unsafe.ReinterpretCast<int, bool>(test);
+
+            System.Console.WriteLine(dunno);
+
+            test = 0;
+            
+            //Don't work as expected..
+            dunno = Concepts.Classes.Unsafe.ReinterpretCast<int, bool>(test);
+
+            System.Console.WriteLine(dunno);
+
+            //Could destabalize the runtime...
+            //System.Console.WriteLine(Concepts.Classes.Generic<bool>._As(test)); 
 
             //System.Console.WriteLine(Concepts.Classes.Generic<int>.UnalignedRead(ref test));
 
