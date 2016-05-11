@@ -347,8 +347,8 @@ namespace Media.Sdp
             {
                 get
                 {
-                    //ConnectionParts.Count > 0
-                    return ConnectionAddress.Contains((char)Common.ASCII.ForwardSlash);
+                    return ConnectionParts.Count() > 2;
+                    //return ConnectionAddress.Contains((char)Common.ASCII.ForwardSlash);
                 }
             }
 
@@ -444,28 +444,28 @@ namespace Media.Sdp
 
                     return 0; //Default Ttl
                 }
-                //Todo, Set
+                //Todo, Set (may have ports token)
             }
 
-            /// <summary>
-            /// Indicates if the <see cref="ConnectionAddress"/> contains a ports token.
-            /// </summary>
-            public bool HasMultiplePorts
-            {
-                get
-                {
-                    if (string.IsNullOrWhiteSpace(ConnectionAddress)) return false;
+            ///// <summary>
+            ///// Indicates if the <see cref="ConnectionAddress"/> contains a ports token.
+            ///// </summary>
+            //public bool HasMultiplePorts
+            //{
+            //    get
+            //    {
+            //        if (string.IsNullOrWhiteSpace(ConnectionAddress)) return false;
 
-                    if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
+            //        if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
 
-                    return m_ConnectionParts.Length > 2;
-                }
-            }
+            //        return m_ConnectionParts.Length > 2;
+            //    }
+            //}
 
             /// <summary>
             /// Indicates the amount of ports specified by the <see cref="ConnectionAddress"/> or 1 if unspecified.
             /// </summary>
-            public int NumberOfPorts
+            public int NumberOfAddresses
             {
                 get
                 {
@@ -484,6 +484,8 @@ namespace Media.Sdp
                 //set
                 //{
                 //    if (value < ushort.MinValue || value > ushort.MaxValue) throw new ArgumentOutOfRangeException("A value less than 0 or greater than 65535 is not valid.");
+
+                //    if(value <= 1){ SetPart(2, ConnectionAddress.Split(SessionDescription.ForwardSlashSplit).FirstOrDefault()); return; }
 
                 //    SetPart(2, string.Join(SessionDescription.ForwardSlash.ToString(), ConnectionAddress, value));
                 //}
@@ -1222,7 +1224,10 @@ namespace Media.Sdp
             /// </summary>
             public bool HasMultiplePorts
             {
-                get { return PortToken.IndexOf(SessionDescription.ForwardSlashString) >= 0; }
+                get
+                {
+                    return NumberOfPorts + 1 > 2;
+                }//PortToken.IndexOf(SessionDescription.ForwardSlashString) >= 0; }
             }
 
             /// <summary>
@@ -1247,6 +1252,14 @@ namespace Media.Sdp
                     if (value < ushort.MinValue || value > ushort.MaxValue) throw new ArgumentOutOfRangeException("A value less than 0 or greater than 65535 is not valid.");
 
                     //if (NumberOfPorts == value) return;
+
+                    //If only one port then remove all existing ports except the MediaPort.
+                    if (value <= 1)
+                    {
+                        SetPart(1, MediaPort.ToString());
+
+                        return;
+                    }
 
                     //Set the first part to the result of joining the existing MediaPort + / + value
                     SetPart(1, string.Join(SessionDescription.ForwardSlash.ToString(), MediaPort, value));

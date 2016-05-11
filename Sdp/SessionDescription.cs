@@ -507,6 +507,8 @@ namespace Media.Sdp
             get { return m_OriginatorLine; }
             set
             {
+                if (value == null) return;
+
                 if (UnderModification) return;
 
                 var token = BeginUpdate();
@@ -522,6 +524,8 @@ namespace Media.Sdp
             get { return m_NameLine; }
             set
             {
+                if (value == null) return;
+
                 if (UnderModification) return;
 
                 var token = BeginUpdate();
@@ -548,8 +552,11 @@ namespace Media.Sdp
 
                 var token = BeginUpdate();
 
+                //string oldToken = m_OriginatorLine.VersionToken;
+
                 m_Lines = value.ToList();
 
+                //m_OriginatorLine.VersionToken != oldToken;
                 EndUpdate(token, true);
             }
         }
@@ -563,7 +570,7 @@ namespace Media.Sdp
         /// </summary>
         public bool UnderModification
         {
-            get { return false == m_Update.IsSet || m_UpdateTokenSource.IsCancellationRequested; } //When requested may already be cancelled.
+            get { return false == m_Update.IsSet || m_UpdateTokenSource.IsCancellationRequested; } //When requested may already be cancelled and no longer under modification...
         }
 
         public SessionDescriptionLine ConnectionLine
@@ -574,7 +581,9 @@ namespace Media.Sdp
             }
             set
             {
-                if (value != null && value.m_Type != Sdp.Lines.SessionConnectionLine.ConnectionType)
+                if (value == null) return;
+
+                if (value.m_Type != Sdp.Lines.SessionConnectionLine.ConnectionType)
                 {
                     throw new InvalidOperationException("The ConnectionList must be a ConnectionLine");
                 }

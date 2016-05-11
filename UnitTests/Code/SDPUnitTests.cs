@@ -544,7 +544,7 @@ a=control:track1
 
                 System.Diagnostics.Debug.Assert(Media.Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(System.Net.IPAddress.Parse(cLine.Host)), "Must be a IsMulticast");
 
-                System.Diagnostics.Debug.Assert(cLine.HasMultiplePorts == false, "Unexpected Ports.HasValue");
+                System.Diagnostics.Debug.Assert(cLine.HasMultipleAddresses == false, "Unexpected HasMultipleAddresses");
 
                 System.Diagnostics.Debug.Assert(cLine.HasTimeToLive, "Unexpected HasTimeToLive");
 
@@ -585,9 +585,9 @@ a=control:track1
 
         System.Diagnostics.Debug.Assert(cLine.TimeToLive == 255, "Unexpected TimeToLive value");
 
-        System.Diagnostics.Debug.Assert(cLine.HasMultiplePorts, "Unexpected HasMultiplePorts");
+        System.Diagnostics.Debug.Assert(cLine.HasMultipleAddresses, "Unexpected HasMultipleAddresses");
 
-        System.Diagnostics.Debug.Assert(cLine.NumberOfPorts == 2, "Unexpected Ports value");
+        System.Diagnostics.Debug.Assert(cLine.NumberOfAddresses == 2, "Unexpected NumberOfAddresses value");
 
         System.Diagnostics.Debug.Assert(cLine.ConnectionParts.First() == "232.248.50.1", "Unexpected ConnectionParts");
 
@@ -973,7 +973,7 @@ i=H264 session of stream1
 u=http://10.16.1.22
 c=IN IP4 239.1.1.22/64/1
 t=0 0
-m=video 5006/1 RTP/AVP 102
+m=video 5006/2 RTP/AVP 102
 i=Video stream
 c=IN IP4 239.1.1.22/64/1
 a=fmtp:102 width=1280;height=720;depth=0;framerate=30000;fieldrate=30000;
@@ -1006,18 +1006,33 @@ a=rtpmap:102 H264/90000";
             System.Diagnostics.Debug.Assert(rtpMap != null, "Cannot find RtpMapLine in MediaDescription");
 
             //Verify and set the port range.
-            System.Diagnostics.Debug.Assert(md.HasMultiplePorts, "Cannot find MediaDescription.PortRange");
+            System.Diagnostics.Debug.Assert(md.HasMultiplePorts, "HasMultiplePorts");
 
-            System.Diagnostics.Debug.Assert(md.NumberOfPorts == 1, "Did not find the correct MediaDescription.PortRange");
+            System.Diagnostics.Debug.Assert(md.NumberOfPorts == 2, "NumberOfPorts");
 
             //Remove the port range.
-            //md.PortRange = null;
+            //When set to any value <= 1 the '/' is removed.
 
-            //System.Diagnostics.Debug.Assert(md.PortRange.HasValue == false, "Did not find the correct MediaDescription.PortRange");
+            md.NumberOfPorts = 1;
 
-            string expectedMediaDescription = "m=video 5006/1 RTP/AVP 102\r\ni=Video stream\r\nc=IN IP4 239.1.1.22/64/1\r\na=fmtp:102 width=1280;height=720;depth=0;framerate=30000;fieldrate=30000;\r\na=framerate:30\r\na=rtpmap:102 H264/90000\r\n";
+            System.Diagnostics.Debug.Assert(false == md.HasMultiplePorts, "HasMultiplePorts");
+
+            System.Diagnostics.Debug.Assert(md.NumberOfPorts == 1, "Did not find the correct NumberOfPorts");
+
+            string expectedMediaDescription = "m=video 5006 RTP/AVP 102\r\ni=Video stream\r\nc=IN IP4 239.1.1.22/64/1\r\na=fmtp:102 width=1280;height=720;depth=0;framerate=30000;fieldrate=30000;\r\na=framerate:30\r\na=rtpmap:102 H264/90000\r\n";
 
             string actualMediaDescription = md.ToString();
+
+            //Check the result of the comparsion
+            System.Diagnostics.Debug.Assert(string.Compare(expectedMediaDescription, actualMediaDescription) == 0, "Did not output expected result");
+
+            md.NumberOfPorts = 0;
+
+            System.Diagnostics.Debug.Assert(false == md.HasMultiplePorts, "HasMultiplePorts");
+
+            System.Diagnostics.Debug.Assert(md.NumberOfPorts == 1, "Did not find the correct NumberOfPorts");
+
+            actualMediaDescription = md.ToString();
 
             //Check the result of the comparsion
             System.Diagnostics.Debug.Assert(string.Compare(expectedMediaDescription, actualMediaDescription) == 0, "Did not output expected result");
