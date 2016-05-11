@@ -278,6 +278,7 @@ namespace Media.Concepts.Classes
 
     #region PseudoArrayHeader
 
+    //[System.Runtime.CompilerServices.UnsafeValueType]
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
     struct PseudoArrayHeader //Implement Finalize to have the updates from the implicit copy propagate to the source.
     {
@@ -386,9 +387,9 @@ namespace Media.Concepts.Classes
         [System.Runtime.InteropServices.FieldOffset(4)]
         internal int m_Length;
 
-        //------------
+        //------------ Should be last in structure)
 
-        //4 or 8 bytes as reference, used to keep a reference local to the header so fixed is not necessary.
+        //4 or 8 bytes as reference, used to keep a reference local so fixed is not necessary.
         [System.Runtime.InteropServices.FieldOffset(8)]
         internal object m_Object;
 
@@ -398,17 +399,23 @@ namespace Media.Concepts.Classes
         [System.Runtime.InteropServices.FieldOffset(8)]
         internal System.Array m_Array;
 
-        //------------ (could be stored higher than the object)
+        //------------ (Should be stored at offsets higher than the object, because pointers may be 4 or 8 bytes, especially for when an Array is used.)
 
+        //4 or 8 bytes
+        ////[System.Runtime.InteropServices.FieldOffset(16)]
+        //internal System.IntPtr m_IntPtr2;
+
+        //4 bytes
         //[System.Runtime.InteropServices.FieldOffset(16)]
         //int m_SourceSize;
 
+        //4 bytes, always the low bytes of m_IntPtr2 when assigned.
         //[System.Runtime.InteropServices.FieldOffset(20)]
-        //int m_Version;
+        //int m_Version; // used for various things, maybe m_Reserved is a better name.
 
         #endregion
 
-        //SizeOf() => 16 on x64 and 12 on x86, +4 for m_SourceSize, +4 for m_Version
+        //SizeOf() => 16 on x64 and 12 on x86, (+4 for m_SourceSize, +4 for m_Version) for a total of 20 - 24 bytes.
     }
 
     #endregion
@@ -433,11 +440,11 @@ namespace Media.Concepts.Classes
         #region Fields
 
         /// <summary>
-        /// The 12 - 16 bytes which reside directly at offset 0. 
+        /// The 12 - 16 bytes which reside directly at offset 0. (possibly 20 - 24)
         /// </summary>
         PseudoArrayHeader m_Header; //Todo, could store source element size, still must convert when reading if sizes are different.
 
-        //16 + bytes, maybe null for strings or pointer types.
+        //4 - 8 + bytes (IntPtr), maybe null for strings or pointer types, duplicate of reference stored in header.
         /*readonly */ T[] m_Source;
 
         //All implict reads are stored here for whatever purpose necessary, especially if they need to be sychronized or their header has been modified.
@@ -550,11 +557,18 @@ namespace Media.Concepts.Classes
             //Store the object reference
             m_Header.m_Array = source;
 
+            //Doesn't matter
+            //m_Source = Unsafe.ReinterpretCast<System.Array, T[]>(ref m_Header.m_Array);
+
             //Store the offset to access the first element of the array.
             m_Header.m_Offset = offset;
 
             //Set the length
             m_Header.m_Length = count;
+
+            //Use reserved in the header to indicate source is null
+
+            //store sizes of original elements, could use 0 to indicate source was null.
         }
 
         #region Generic
@@ -574,7 +588,7 @@ namespace Media.Concepts.Classes
         public Array(T[] source, int offset, int count)
         {
             //Store the object reference (helps with branchless reading / writing)
-            m_Header.m_Array =  m_Source = source;
+            m_Header.m_Array = m_Source = source;
 
             m_Header.m_Offset = offset;
 
@@ -915,7 +929,7 @@ namespace Media.Concepts.Classes
         #region Statics
 
         /// <summary>
-        /// Creates an <see cref="System.ArraySegment"/>&lt;<typeparamref name="T"/>&gt; without causing an allocation of <see cref="System.Array"/>
+        /// Creates an <see cref="System.ArraySegment"/>&lt;<typeparamref name="T"/>&gt; without causing an allocation of <see cref="System.Array"/> if the generic array's source was a native array.
         /// </summary>
         /// <param name="array">The generic array</param>
         /// <param name="segment">The array segment created</param>
@@ -923,12 +937,18 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool TryGetArray(Array<T> array, out System.ArraySegment<T> segment)
         {
-            //Branch...
+            //Could have m_Reserved next to m_SizeOfT in m_Header and use m_Reserved to balance offset.
+            //Would also know if source was null and size of T for original
+            //Could be close but may need to branch for when we don't want the implicit array.
+            //new System.ArraySegment<T>(array, array.m_Header.m_Offset + array.m_Header.m_Reserved, array.m_Header.m_Length);
+
+            //Branch...  same as array.m_Source == null but faster because of 0
+            //Uses implicit conversion to array because array.m_Source may be null, (array.m_Source ?? array) works but still branches.
             segment = array.m_Header.m_Offset < 0 ? 
                 //Strings...
-                new System.ArraySegment<T>(array, 0, array.m_Header.m_Length) : 
+                new System.ArraySegment<T>(array /*array.m_Source ?? array*/, 0, array.m_Header.m_Length) : 
                 //Everything else
-                new System.ArraySegment<T>(array, array.m_Header.m_Offset, array.m_Header.m_Length);
+                new System.ArraySegment<T>(array /*array.m_Source ?? array*/, array.m_Header.m_Offset, array.m_Header.m_Length);
 
             return true;
         }
@@ -1074,7 +1094,7 @@ namespace Media.Concepts.Classes
         public static void UnsafeWrite(T[] source, int index, ref T value) { UnsafeWrite(source, ref index, ref value); }
 
         /// <summary>
-        /// 
+        /// Reads a <typeparamref name="T"/> from the array at the index.
         /// </summary>
         /// <param name="array"></param>
         /// <param name="index"></param>
@@ -1089,6 +1109,12 @@ namespace Media.Concepts.Classes
             return Unsafe.Read<T>(ComputeBaseAddress(array) + Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * index);
         }
 
+        /// <summary>
+        /// Writes a <typeparamref name="T"/> from the array at the index.
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="index"></param>
+        /// <param name="value"></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public unsafe static void UnsafeWrite(Array<T> array, int index, ref T value)
         {

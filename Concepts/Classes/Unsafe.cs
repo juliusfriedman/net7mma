@@ -85,6 +85,8 @@ namespace Media.Concepts.Classes
         {
             System.TypedReference reference = __makeref(t);
 
+            //t = __refvalue(reference, T);
+
             return *(System.IntPtr*)(&reference);
         }
 

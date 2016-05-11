@@ -46,16 +46,20 @@ namespace Media.Concepts.Classes
 
     //See also http://www.codeproject.com/Articles/9927/Fast-Dynamic-Property-Access-with-C
 
-    internal delegate T GenericFunc<T>(ref T t);
+    internal delegate T GenericFunc<T>(ref T t); //IntPtr where
+
+    internal delegate void GenericAction<T>(ref T t); //IntPtr where
+
+    internal delegate T GenericActionObject<T>(object o); //As
 
     internal delegate int SizeOfDelegate<T>();
-
-    internal delegate void GenericAction<T>(ref T t);
 
     //Used to build the UnalignedReadDelegate for each T
     internal static class Generic<T>
     {
-        //static System.Action<T> UnalignedReadDelegater<T>(ref T t);
+        //Public API which will be in the framework is at
+        //Try to provide versions of everything @
+        //https://github.com/dotnet/corefx/blob/ca5d1174dbaa12b8b6e55dc494fcd4609ed553cc/src/System.Runtime.CompilerServices.Unsafe/src/System.Runtime.CompilerServices.Unsafe.il
 
         internal static readonly GenericFunc<T> UnalignedRead;
 
@@ -63,19 +67,24 @@ namespace Media.Concepts.Classes
 
         internal static readonly GenericAction<T> Write;
 
-        internal static readonly GenericFunc<T> As;
+        internal static readonly GenericActionObject<T> _As;
 
         internal static readonly SizeOfDelegate<T> SizeOf;
 
+        //AsPointer
+
+        /// <summary>
+        /// Generate method logic for each T.
+        /// </summary>
         static Generic()
         {
             System.Type typeOfT = typeof(T), typeOfTRef = typeOfT.MakeByRefType();
 
-            System.Type[] args = { typeOfTRef };
+            System.Type[] args = { typeOfTRef }; //, typeof(T).MakeGenericType()
 
             System.Reflection.Emit.ILGenerator generator;
 
-            //Works
+            //Works but has to be generated for each type.
             #region SizeOf
 
             System.Reflection.Emit.DynamicMethod sizeOfMethod = new System.Reflection.Emit.DynamicMethod("_SizeOf", typeof(int), System.Type.EmptyTypes);
@@ -117,19 +126,26 @@ namespace Media.Concepts.Classes
 
             #endregion
 
-            //Not yet working, need alternative generic parameter U
+            //Not yet working, would be easier to rewrite a body of a stub method as there is no way to define a GenricMethod on an existing assembly easily or to re-write the method at runtime.
 
+            //https://blogs.msdn.microsoft.com/zelmalki/2009/03/29/msil-injection-rewrite-a-non-dynamic-method-at-runtime/
+            //http://stackoverflow.com/questions/7299097/dynamically-replace-the-contents-of-a-c-sharp-method
+
+            //Could also just define a generic type dynamically and save it out to disk...
+
+            //Could destabalize the runtime
             #region As
 
-            System.Reflection.Emit.DynamicMethod asMethod = new System.Reflection.Emit.DynamicMethod("_As", typeOfT, args);
+            System.Reflection.Emit.DynamicMethod asMethod = new System.Reflection.Emit.DynamicMethod("__As", typeOfT, new System.Type[]{ typeof(object) });
 
             generator = asMethod.GetILGenerator();
 
+            //Not on the evalutation stack..
             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
 
             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
 
-            As = (GenericFunc<T>)asMethod.CreateDelegate(typeof(GenericFunc<T>));
+            _As = (GenericActionObject<T>)asMethod.CreateDelegate(typeof(GenericActionObject<T>));
 
             #endregion
 
@@ -173,6 +189,8 @@ namespace Media.Concepts.Classes
 
             #endregion
         }
+
+        //public static U As<U>(ref T t) { return default(U); }
     }
 
     public static class CommonIntermediateLanguage
@@ -181,7 +199,9 @@ namespace Media.Concepts.Classes
 
         static readonly System.Action<System.IntPtr, System.IntPtr, int> CpyblkDelegate;
 
-        //internal static readonly System.Func<System.Type, int> SizeOfDelegate;
+        //static readonly System.Func<System.Type, int> SizeOfDelegate;
+
+        //static readonly System.Func<int, int> SizeOfDelegate2;
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static CommonIntermediateLanguage()
@@ -191,7 +211,7 @@ namespace Media.Concepts.Classes
             #region Initblk
             System.Reflection.Emit.DynamicMethod initBlkMethod = new System.Reflection.Emit.DynamicMethod("Initblk",
                 System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                null, new[] { typeof(System.IntPtr), typeof(byte), typeof(int) }, typeof(CommonIntermediateLanguage), true);
+                typeof(void), new[] { typeof(System.IntPtr), typeof(byte), typeof(int) }, typeof(CommonIntermediateLanguage), true);
 
             System.Reflection.Emit.ILGenerator generator = initBlkMethod.GetILGenerator();
             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);//src
@@ -208,7 +228,7 @@ namespace Media.Concepts.Classes
 
             System.Reflection.Emit.DynamicMethod cpyBlkMethod = new System.Reflection.Emit.DynamicMethod("Cpyblk",
                 System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                null, new[] { typeof(System.IntPtr), typeof(System.IntPtr), typeof(int) }, typeof(CommonIntermediateLanguage), true);
+                typeof(void), new[] { typeof(System.IntPtr), typeof(System.IntPtr), typeof(int) }, typeof(CommonIntermediateLanguage), true);
 
              generator = cpyBlkMethod.GetILGenerator();
 
@@ -222,85 +242,137 @@ namespace Media.Concepts.Classes
 
             #endregion
 
-            #region See Generic
+            #region Unused
 
-            //Can't do with Emit unless you do a local.
-            //#region SizeOf
+            //void Read could be done with IntPtr where and SizeOf
 
-            // System.Reflection.Emit.DynamicMethod sizeOfMethod = new System.Reflection.Emit.DynamicMethod("__SizeOf",
-            //     System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-            //     typeof(int), new System.Type[]{ typeof(System.Type) }, typeof(CommonIntermediateLanguage), true);
+            //void Write would be done with IntPtr where, IntPtr what and SizeOf
 
-            // generator = sizeOfMethod.GetILGenerator();
+            //As would be difficult to represent, same boat as SizeOf.
 
-            // generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
+            ////#region SizeOf
 
-            // generator.Emit(System.Reflection.Emit.OpCodes.Sizeof, 0);
+            //// System.Reflection.Emit.DynamicMethod sizeOfMethod = new System.Reflection.Emit.DynamicMethod("__SizeOf",
+            ////     System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
+            ////     typeof(int), new System.Type[] { typeof(System.Type) }, typeof(CommonIntermediateLanguage), true);
 
-            // generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+            //// generator = sizeOfMethod.GetILGenerator();
 
-            // SizeOfDelegate = (System.Func<System.Type, int>)sizeOfMethod.CreateDelegate(typeof(System.Func<System.Type, int>));
+            //////Bad class token..
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);            
 
-            //#endregion
+            //////could try to either pass the handle or call for it..
+            //////typeof(System.Type).GetProperty("TypeHandle").GetValue()
 
-            //It actually makes more sense to just do it here and use IntPtr for the parameters...
+            //// //typeof(CommonIntermediateLanguage).GetMethod("SizeOf").GetGenericArguments()[0].MakeGenericType().MetadataToken
 
-            // #region UnalignedRead
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Call, typeof(System.Type).GetMethod("GetTypeFromHandle"));
 
-            // System.Reflection.AssemblyName asmName = typeof(CommonIntermediateLanguage).Assembly.GetName();
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Sizeof);
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Nop);
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Nop);
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Nop);
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Nop);
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Ret);
 
-            // //https://msdn.microsoft.com/en-us/library/ms228971(v=vs.110).aspx
+            //// goto next;
 
-            // System.AppDomain domain = System.AppDomain.CurrentDomain;
+            //// //T is not bound yet.
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Sizeof, typeof(CommonIntermediateLanguage).GetMethod("SizeOf").GetGenericArguments()[0].GetElementType());
 
-            // System.Reflection.Emit.AssemblyBuilder demoAssembly = domain.DefineDynamicAssembly(asmName, System.Reflection.Emit.AssemblyBuilderAccess.RunAndSave);
+            //// //Putting it into the local is only useful for WriteLine
+            //// //Define a local which has the type of Type
+            //// System.Reflection.Emit.LocalBuilder localBuilder = generator.DeclareLocal(typeof(System.Type)); //typeof(System.TypedReference)             
 
-            // // Define the module that contains the code. For an 
-            // // assembly with one module, the module name is the 
-            // // assembly name plus a file extension.
-            // System.Reflection.Emit.ModuleBuilder demoModule = demoAssembly.DefineDynamicModule(asmName.Name, asmName.Name + ".dll");
+            //// //Load an argument address, in short form, onto the evaluation stack.
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Ldarga_S, 0);
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
 
-            // var UnalignedReadTypeBuilder = demoModule.DefineType("UnalignedReader", System.Reflection.TypeAttributes.Public);
+            //// //Loads an object reference as a type O (object reference) onto the evaluation stack indirectly.
+            ////// generator.Emit(System.Reflection.Emit.OpCodes.Ldind_Ref);
 
-            // System.Reflection.Emit.MethodBuilder unalignedReadMethod = UnalignedReadTypeBuilder.DefineMethod("UnalignedReadMethod", System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static);
+            //// //Cast the object reference to System.Type
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Castclass, typeof(System.Type));
 
-            // System.Reflection.Emit.GenericTypeParameterBuilder[] genericTypeParameters = unalignedReadMethod.DefineGenericParameters("T");
+            //// //Pops the current value from the top of the evaluation stack and stores it in a the local variable
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Stloc, localBuilder);
 
-            // //unalignedReadMethod.DefineParameter(0, System.Reflection.ParameterAttributes.In, "t");
+            //// //Stack empty.             
 
-            // unalignedReadMethod.SetReturnType(genericTypeParameters[0]);
+            //// //Correct type...
+            //// generator.EmitWriteLine(localBuilder);
 
-            // generator = unalignedReadMethod.GetILGenerator();
+            //// //Missing type, not read from stack
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Sizeof);
 
-            // generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);//dst
-            // generator.Emit(System.Reflection.Emit.OpCodes.Unaligned);
-            // generator.Emit(System.Reflection.Emit.OpCodes.Ldobj);
-            // generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+            //// //not a token, a type
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Ldtoken, localBuilder);
 
-            // //Create the type now.
-            // //System.Type UnalignedReaderType = UnalignedReadTypeBuilder.CreateType();
+            //// //Loads the local variable at a specific index onto the evaluation stack.
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Ldloc, localBuilder);
 
-            // //var UnalignedReadMethodInfo = UnalignedReadTypeBuilder.GetMethod("UnalignedReadMethod");
+            //// //Not giving the sizeOf the local builders type because it is not bound right here.
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Sizeof, (System.Type)localBuilder.LocalType);
 
-            // //var m = UnalignedReadTypeBuilder.GetMethod("UnalignedReadMethod");
+            //// //need to get a Type instance to give to Sizeof and it can't come from the locals...
 
-            // //m.MakeGenericMethod
+            //// //Even if you pass object the value seen here in the int representation of the type
 
-            // //var bound = m.MakeGenericMethod();
+            //// //Call sizeof on the builders type (always 8 since it is not yet bound)
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Sizeof, (System.Type)localBuilder.LocalType);
 
-            ////genericTypeBuilder.CreateType();
 
-            ////UnalignedReadDelegate = unalignedReadMethod.CreateDelegate(genericTypeParameters[0].UnderlyingSystemType);             
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Stloc_0);
 
-            // #endregion
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Sizeof, localBuilder);
+
+            ////// generator.Emit(System.Reflection.Emit.OpCodes.Ldtoken);
+
+            //// //System.Reflection.MethodInfo getTypeFromHandle = typeof(System.Type).GetMethod("GetTypeFromHandle");
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Call, getTypeFromHandle); 
+            
+            //////Type handle is on the top 
+
+            //// //Works to get the type handle, can't get the type without a local , then would need to read the local's type which is not faster then just writing this in pure il.
+
+            //// //Could also try to pass IntPtr to TypeHandle..
+
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+            ////next:
+
+            //// SizeOfDelegate = (System.Func<System.Type, int>)sizeOfMethod.CreateDelegate(typeof(System.Func<System.Type, int>));
+
+            //// #endregion
+
+            //// #region SizeOf
+
+            //// System.Reflection.Emit.DynamicMethod sizeOfMethod2 = new System.Reflection.Emit.DynamicMethod("__SizeOf2",
+            ////     System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
+            ////     typeof(int), new System.Type[] { typeof(int) }, typeof(CommonIntermediateLanguage), true);
+
+            //// generator = sizeOfMethod2.GetILGenerator();
+
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Sizeof);
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Nop);
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Nop);
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
+            //// generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+            //// SizeOfDelegate2 = (System.Func<int, int>)sizeOfMethod2.CreateDelegate(typeof(System.Func<int, int>));
+
+            //// #endregion
 
             #endregion
         }
 
         //Could possibly avoid pinning using the addresss but already have the unsafe variants
 
+        //Todo, no pinning logic first, then add PinnedBlockCopy.
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void Initblk(byte[] array, byte what, int length)
+        public static void Initblk(byte[] array, byte what, int length) //InitBlock
         {
             System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
 
@@ -316,7 +388,7 @@ namespace Media.Concepts.Classes
             }
         }
 
-        public static void Initblk(byte[] array, int offset, byte what, int length)
+        public static void Initblk(byte[] array, int offset, byte what, int length) //InitBlock
         {
             System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
 
@@ -334,12 +406,12 @@ namespace Media.Concepts.Classes
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static unsafe void Initblk(byte* array, byte what, int len)
+        public static unsafe void Initblk(byte* array, byte what, int len) //InitBlock
         {
             InitblkDelegate((System.IntPtr)array, what, len);
         }
 
-        public static void Cpyblk(byte[] src, byte[] dst, int length)
+        public static void Cpyblk(byte[] src, byte[] dst, int length) //CopyBlock
         {
             System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
             System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
@@ -357,7 +429,7 @@ namespace Media.Concepts.Classes
             }
         }
 
-        public static void Cpyblk(byte[] src, byte[] dst, int offset, int length)
+        public static void Cpyblk(byte[] src, byte[] dst, int offset, int length) //CopyBlock
         {
             System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
             System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
@@ -375,7 +447,7 @@ namespace Media.Concepts.Classes
             }
         }
 
-        public static void Cpyblk(byte[] src, int srcOffset, byte[] dst, int dstOffset, int length)
+        public static void Cpyblk(byte[] src, int srcOffset, byte[] dst, int dstOffset, int length) //CopyBlock
         {
             System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
             System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
@@ -395,7 +467,7 @@ namespace Media.Concepts.Classes
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static unsafe void Cpyblk(byte* src, byte* dst, int len)
+        public static unsafe void Cpyblk(byte* src, byte* dst, int len) //CopyBlock
         {
             CpyblkDelegate((System.IntPtr)dst, (System.IntPtr)src, len);
         }
@@ -405,51 +477,71 @@ namespace Media.Concepts.Classes
             //https://github.com/dotnet/corefx/issues/493
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public unsafe static void Cpyblk<T>(T[] src, int srcOffset, T[] dst, int dstOffset, int length)
+        public unsafe static void Cpyblk<T>(T[] src, int srcOffset, T[] dst, int dstOffset, int length) //CopyBlock (void *)
         {
             System.Buffer.MemoryCopy((void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(src, srcOffset), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(dst, dstOffset), length, length);
         }
 
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //public unsafe static T UnalignedRead<T>(ref T t)
+        //{
+        //    return Generic<T>.UnalignedRead(ref t);
+        //}
+
+        /// <summary>
+        /// <see cref="System.Runtime.InteropServices.Marshal.SizeOf"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public unsafe static T UnalignedRead<T>(ref T t)
+        public static int SizeOf<T>()
         {
-            return Generic<T>.UnalignedRead(ref t);
+            return System.Runtime.InteropServices.Marshal.SizeOf<T>();
+            //typeof(T).TypeHandle.Value is IntPtr but SizeOf will not take a value on the evalutation stack, would be hacky to provide anything useful without a dictionary.
+            //return CommonIntermediateLanguage.SizeOfDelegate2(typeof(T).MetadataToken);
         }
 
+        /// <summary>
+        /// <see cref="typeof(T).MetadataToken"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int MetadataToken<T>() { return typeof(T).MetadataToken; }
 
-        //internal static void UsageTest()
-        //{
-        //    byte[] src = new byte[] { 1, 2, 3, 4 };
+        internal static void UsageTest()
+        {
+            byte[] src = new byte[] { 1, 2, 3, 4 };
 
-        //    byte[] dst = new byte[] { 0, 0, 0, 0 };
+            byte[] dst = new byte[] { 0, 0, 0, 0 };
 
-        //    //Set the value 5 to indicies 0,1,2 in dst 
-        //    Concepts.Classes.CommonIntermediateLanguage.Initblk(dst, 5, 3);
+            //Set the value 5 to indicies 0,1,2 in dst 
+            Concepts.Classes.CommonIntermediateLanguage.Initblk(dst, 5, 3);
 
-        //    //Set the value 5 to indicies 1 & 2 in dst (count is absolute)
-        //    Concepts.Classes.CommonIntermediateLanguage.Initblk(dst, 1, 5, 2);
+            //Set the value 5 to indicies 1 & 2 in dst (count is absolute)
+            Concepts.Classes.CommonIntermediateLanguage.Initblk(dst, 1, 5, 2);
 
-        //    //Show it was set to 5
-        //    System.Console.WriteLine(dst[0]);
+            //Show it was set to 5
+            System.Console.WriteLine(dst[0]);
 
-        //    //Show it was not set to 5
-        //    System.Console.WriteLine(dst[3]);
+            //Show it was not set to 5
+            System.Console.WriteLine(dst[3]);
 
-        //    //Copy values 0 - 3 from src to dst
-        //    Concepts.Classes.CommonIntermediateLanguage.Cpyblk(src, dst, 3);            
+            //Copy values 0 - 3 from src to dst
+            Concepts.Classes.CommonIntermediateLanguage.Cpyblk(src, dst, 3);
 
-        //    Concepts.Classes.CommonIntermediateLanguage.Cpyblk<byte>(src, dst, 3);
+            Concepts.Classes.CommonIntermediateLanguage.Cpyblk<byte>(src, 0, dst, 0, 3);
 
-        //    //Copy values 1 - 3 from src to dst @ 0 (count is absolute)
-        //    Concepts.Classes.CommonIntermediateLanguage.Cpyblk(src, 1, dst, 0, 2);
+            //Copy values 1 - 3 from src to dst @ 0 (count is absolute)
+            Concepts.Classes.CommonIntermediateLanguage.Cpyblk(src, 1, dst, 0, 2);
 
-        //    //Show they were copied
-        //    System.Console.WriteLine(dst[0]);
+            //Show they were copied
+            System.Console.WriteLine(dst[0]);
 
-        //    //Show they were not copied
-        //    System.Console.WriteLine(dst[3]);
+            //Show they were not copied
+            System.Console.WriteLine(dst[3]);
 
-        //}
+        }
 
     }
 }
