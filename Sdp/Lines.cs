@@ -1819,6 +1819,9 @@ namespace Media.Sdp
                 get { return FormatToken.IndexOf(SessionDescription.Colon) >= 0; }
             }
 
+            /// <summary>
+            /// The format value as parsed from the a=fmtp:x portion of the line.
+            /// </summary>
             public int FormatValue
             {
                 get
@@ -1830,6 +1833,8 @@ namespace Media.Sdp
                     return int.Parse(FormatToken.Substring(index));
                 }
             }
+
+            //-----
 
             public bool HasFormatSpecificParameters
             {
@@ -1844,6 +1849,9 @@ namespace Media.Sdp
 
             string[] m_FormatSpecificParameters;
 
+            /// <summary>
+            /// All tokens which are found in the <see cref="FormatSpecificParameterToken"/>
+            /// </summary>
             public IEnumerable<string> FormatSpecificParameters
             {
                 get
@@ -1856,9 +1864,12 @@ namespace Media.Sdp
                 }
             }
 
+            /// <summary>
+            /// The amount of tokens which are present in the <see cref="FormatSpecificParameters"/>
+            /// </summary>
             public int FormatSpecificParametersCount
             {
-                get { return m_FormatSpecificParameters.Length; }
+                get { return FormatSpecificParameters.Count(); }
             }
 
             //Could be verified ina common class given a start type.
