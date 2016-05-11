@@ -57,9 +57,8 @@ namespace Media.Sdp
 
         #region Fields
 
-        internal readonly Lines.SessionMediaDescriptionLine m_MediaDescriptionLine;
-
         //Created from the m= which is the first line, this is a computed line and not found in Lines.
+        internal readonly Lines.SessionMediaDescriptionLine m_MediaDescriptionLine;
 
         /// <summary>
         /// The MediaType of the MediaDescription
@@ -80,11 +79,6 @@ namespace Media.Sdp
         }
 
         /// <summary>
-        /// Defines an optional value which is a port range that augments the MediaPort definition
-        /// </summary>
-        //public int? PortRange { get; set; }
-
-        /// <summary>
         /// The MediaProtocol of the MediaDescription
         /// </summary>
         public string MediaProtocol
@@ -102,24 +96,9 @@ namespace Media.Sdp
         //Keep in mind that adding/removing or changing lines should change the version of the parent SessionDescription
         internal List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
 
-        //List<int> m_PayloadList = new List<int>();
-
-        /// <summary>
-        /// The field which has been generated as a result of parsing or modifying the MediaFormat
-        /// </summary>
-        //string MediaFormatString;
-
         #endregion
 
         #region Properties
-
-        /// <summary>
-        /// Gets the string which is utilized in the Media Field to decribe the port range.
-        /// </summary>
-        //internal protected string PortRangeString
-        //{
-        //    get { return PortRange.HasValue ? string.Join(SessionDescription.ForwardSlashString, MediaPort.ToString(), PortRange.Value) : MediaPort.ToString(); }
-        //}
 
         public bool HasMultiplePorts
         {
@@ -303,7 +282,7 @@ namespace Media.Sdp
 
                 if (connectionLine != null && connectionLine.HasMultipleAddresses)
                 {
-                    int? portSpecifier = connectionLine.NumberOfPorts;
+                    int? portSpecifier = connectionLine.NumberOfAddresses;
 
                     if (portSpecifier.HasValue)
                     {
