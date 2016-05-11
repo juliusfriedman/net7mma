@@ -286,13 +286,13 @@ r=7d 1h 0 25h";
 
         System.Diagnostics.Debug.Assert(line.StopTime == 3042462419, "Expected StopTime not found");
 
-        System.Diagnostics.Debug.Assert(line.RepeatTimes.Count == 2, "Expected RepeatTimes Count not found");
+        System.Diagnostics.Debug.Assert(line.RepeatLines.Count == 2, "Expected RepeatTimes Count not found");
 
         TimeSpan expected = new TimeSpan(8, 2, 0, 0);
 
-        foreach (string repeatTime in line.RepeatTimes)
+        foreach (var repeatTime in line.RepeatLines)
         {
-            TimeSpan found = Media.Sdp.SessionDescription.ParseTime(repeatTime);
+            TimeSpan found = repeatTime.RepeatTimeSpan;
 
             System.Diagnostics.Debug.Assert(found == expected, "Found unexpected repeatTime");
         }
@@ -346,9 +346,9 @@ r=7d 1h 0 25h";
             //Expected
 
             //Check them to be in Ntp Format..
-            System.Diagnostics.Debug.Assert(line.StartTime == Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(now), "Expected SessionStartTime not found");
+            System.Diagnostics.Debug.Assert(line.StartTimeString == Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(now).ToString(), "Expected SessionStartTime not found");
             
-            System.Diagnostics.Debug.Assert(line.StopTime == Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(then), "Expected SessionStopTime not found");
+            System.Diagnostics.Debug.Assert(line.StopTimeString == Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(then).ToString(), "Expected SessionStopTime not found");
         }
     }
 
@@ -469,7 +469,7 @@ r=7d 1h 0 25h";
         //Assert.IsTrue(sdp.Media[0].MediaFormats[0].FormatID == 0, "The highest priority media format ID was incorrect.");
         //Assert.IsTrue(sdp.Media[0].MediaFormats[0].Name == "PCMU", "The highest priority media format name was incorrect.");
         //Assert.IsTrue(sdp.Media[0].MediaFormats[0].ClockRate == 8000, "The highest priority media format clockrate was incorrect.");
-        System.Diagnostics.Debug.Assert("rtpmap:0 PCMU/8000" == sdp.MediaDescriptions.First().RtpMapLine.m_Parts[0], "The rtpmap line for the PCM format was not parsed correctly.");  // ToDo "Parts" should be put into named properties where possible.  
+        System.Diagnostics.Debug.Assert("a=rtpmap:0 PCMU/8000\r\n" == sdp.MediaDescriptions.First().RtpMapLine.ToString(), "The rtpmap line for the PCM format was not parsed correctly.");  // ToDo "Parts" should be put into named properties where possible.  
     }
 
     public void CreateMediaDesciptionTest()
@@ -534,9 +534,9 @@ a=control:track1
             {
                 Media.Sdp.Lines.SessionConnectionLine cLine = new Media.Sdp.Lines.SessionConnectionLine(md.ConnectionLine);
 
-                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionAddressType, Media.Sdp.Lines.SessionConnectionLine.InConnectionToken) == 0, "Unexpected ConnectionAddressType");
+                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionNetworkType, Media.Sdp.Lines.SessionConnectionLine.InConnectionToken) == 0, "Unexpected ConnectionNetworkType");
 
-                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionNetworkType, Media.Sdp.Lines.SessionConnectionLine.IP4) == 0, "Unexpected ConnectionNetworkType");
+                System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionAddressType, Media.Sdp.Lines.SessionConnectionLine.IP4) == 0, "Unexpected ConnectionAddressType");
 
                 System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionAddress, "232.248.50.1/255") == 0, "Unexpected ConnectionAddress");
 
@@ -546,9 +546,9 @@ a=control:track1
 
                 System.Diagnostics.Debug.Assert(cLine.HasMultiplePorts == false, "Unexpected Ports.HasValue");
 
-                System.Diagnostics.Debug.Assert(false == cLine.HasTimeToLive, "Unexpected HasTimeToLive");
+                System.Diagnostics.Debug.Assert(cLine.HasTimeToLive, "Unexpected HasTimeToLive");
 
-                System.Diagnostics.Debug.Assert(cLine.TimeToLive == 0, "Unexpected TimeToLive value");
+                System.Diagnostics.Debug.Assert(cLine.TimeToLive == 255, "Unexpected TimeToLive value");
 
                 System.Diagnostics.Debug.Assert(cLine.ConnectionParts.First() == "232.248.50.1", "Unexpected ConnectionParts");
 
@@ -567,13 +567,13 @@ a=control:track1
 
         Media.Sdp.Lines.SessionConnectionLine cLine = new Media.Sdp.Lines.SessionConnectionLine(testVector);
 
-        System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionAddressType, Media.Sdp.Lines.SessionConnectionLine.InConnectionToken) == 0, "Unexpected ConnectionAddressType");
+        System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionNetworkType, Media.Sdp.Lines.SessionConnectionLine.InConnectionToken) == 0, "Unexpected ConnectionNetworkType");
 
-        System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionNetworkType, Media.Sdp.Lines.SessionConnectionLine.IP4) == 0, "Unexpected ConnectionNetworkType");
+        System.Diagnostics.Debug.Assert(string.Compare(cLine.ConnectionAddressType, Media.Sdp.Lines.SessionConnectionLine.IP4) == 0, "Unexpected ConnectionAddressType");
 
         //Todo
         //IPAddress name of property is wrong. (ConnectionAddress)
-        System.Diagnostics.Debug.Assert(cLine.Host == "232.248.50.1", "Unexpected IPAddress");
+        System.Diagnostics.Debug.Assert(cLine.Host == "232.248.50.1", "Unexpected Host");
 
         System.Diagnostics.Debug.Assert(Media.Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(System.Net.IPAddress.Parse(cLine.Host)), "Must be a IsMulticast");
 
@@ -591,7 +591,7 @@ a=control:track1
 
         System.Diagnostics.Debug.Assert(cLine.ConnectionParts.First() == "232.248.50.1", "Unexpected ConnectionParts");
 
-        System.Diagnostics.Debug.Assert(cLine.ConnectionParts.Last() == "255", "Unexpected ConnectionParts");
+        System.Diagnostics.Debug.Assert(cLine.ConnectionParts.Last() == "2", "Unexpected ConnectionParts");
 
         System.Diagnostics.Debug.Assert(cLine.ToString() == "c=IN IP4 232.248.50.1/255/2\r\n", "Unexpected cLine ToString");
 
@@ -911,14 +911,14 @@ a=control:track2";
 
         System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().StopTime == 0, "Did not parse SessionStopTime");
 
-        System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().RepeatTimes.Count == 2, "First TimeDescription must have 2 RepeatTime entries.");
+        System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().RepeatLines.Count == 2, "First TimeDescription must have 2 RepeatTime entries.");
 
         //Todo RepeatTimes should be an Object with the properties  (RepeatInterval, ActiveDuration, Offsets[start / stop])
         //r=<repeat interval> <active duration> <offsets from start-time>
 
-        System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().RepeatTimes[0] == "604800 3600 0 90000", "Did not parse RepeatTimes");
+        System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().RepeatLines[0].ToString() == "r=604800 3600 0 90000\r\n", "Did not parse RepeatTimes");
 
-        System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().RepeatTimes[1] == "7d 1h 0 25h", "Did not parse RepeatTimes");
+        System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().RepeatLines[1].ToString() == "r=7d 1h 0 25h\r\n", "Did not parse RepeatTimes");
 
         System.Diagnostics.Debug.Assert(sessionDescription.Length == sessionDescription.ToString().Length, "Did not calculate length correctly");
 
@@ -959,7 +959,7 @@ a=mpeg4-esid:101";
 
         System.Diagnostics.Debug.Assert(mpeg4IodLine != null, "Cannot find InitialObjectDescriptor Line");
 
-        System.Diagnostics.Debug.Assert(mpeg4IodLine.Parts.Last() == "base64,AoE8AA8BHgEBAQOBDAABQG5kYXRhOmFwcGxpY2F0aW9uL21wZWc0LW9kLWF1O2Jhc2U2NCxBVGdCR3dVZkF4Y0F5U1FBWlFRTklCRUFGM0FBQVBvQUFBRERVQVlCQkE9PQEbAp8DFQBlBQQNQBUAB9AAAD6AAAA+gAYBAwQNAQUAAMgAAAAAAAAAAAYJAQAAAAAAAAAAA2EAAkA+ZGF0YTphcHBsaWNhdGlvbi9tcGVnNC1iaWZzLWF1O2Jhc2U2NCx3QkFTZ1RBcUJYSmhCSWhRUlFVL0FBPT0EEgINAAAUAAAAAAAAAAAFAwAAQAYJAQAAAAAAAAAA\"", "InitialObjectDescriptor Line Contents invalid.");
+        System.Diagnostics.Debug.Assert(mpeg4IodLine.Parts.Last() == "\"data:application/mpeg4-iod;base64,AoE8AA8BHgEBAQOBDAABQG5kYXRhOmFwcGxpY2F0aW9uL21wZWc0LW9kLWF1O2Jhc2U2NCxBVGdCR3dVZkF4Y0F5U1FBWlFRTklCRUFGM0FBQVBvQUFBRERVQVlCQkE9PQEbAp8DFQBlBQQNQBUAB9AAAD6AAAA+gAYBAwQNAQUAAMgAAAAAAAAAAAYJAQAAAAAAAAAAA2EAAkA+ZGF0YTphcHBsaWNhdGlvbi9tcGVnNC1iaWZzLWF1O2Jhc2U2NCx3QkFTZ1RBcUJYSmhCSWhRUlFVL0FBPT0EEgINAAAUAAAAAAAAAAAFAwAAQAYJAQAAAAAAAAAA\"", "InitialObjectDescriptor Line Contents invalid.");
     }
 
     public void IssueSessionDescriptionWithMediaDescriptionWithPortRange()
@@ -1006,16 +1006,16 @@ a=rtpmap:102 H264/90000";
             System.Diagnostics.Debug.Assert(rtpMap != null, "Cannot find RtpMapLine in MediaDescription");
 
             //Verify and set the port range.
-            System.Diagnostics.Debug.Assert(md.PortRange.HasValue, "Cannot find MediaDescription.PortRange");
+            System.Diagnostics.Debug.Assert(md.HasMultiplePorts, "Cannot find MediaDescription.PortRange");
 
-            System.Diagnostics.Debug.Assert(md.PortRange == 1, "Did not find the correct MediaDescription.PortRange");
+            System.Diagnostics.Debug.Assert(md.NumberOfPorts == 1, "Did not find the correct MediaDescription.PortRange");
 
             //Remove the port range.
-            md.PortRange = null;
+            //md.PortRange = null;
 
-            System.Diagnostics.Debug.Assert(md.PortRange.HasValue == false, "Did not find the correct MediaDescription.PortRange");
+            //System.Diagnostics.Debug.Assert(md.PortRange.HasValue == false, "Did not find the correct MediaDescription.PortRange");
 
-            string expectedMediaDescription = "m=video 5006 RTP/AVP 102\r\ni=Video stream\r\nc=IN IP4 239.1.1.22/64/1\r\na=fmtp:102 width=1280;height=720;depth=0;framerate=30000;fieldrate=30000;\r\na=framerate:30\r\na=rtpmap:102 H264/90000\r\n";
+            string expectedMediaDescription = "m=video 5006/1 RTP/AVP 102\r\ni=Video stream\r\nc=IN IP4 239.1.1.22/64/1\r\na=fmtp:102 width=1280;height=720;depth=0;framerate=30000;fieldrate=30000;\r\na=framerate:30\r\na=rtpmap:102 H264/90000\r\n";
 
             string actualMediaDescription = md.ToString();
 

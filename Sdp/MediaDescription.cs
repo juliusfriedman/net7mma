@@ -55,31 +55,43 @@ namespace Media.Sdp
 
         //public sealed class ProtocolFields { const string RealTimeAudioVideoProfile = "RTP/AVP";  }
 
-        public const char MediaDescriptionLineType = 'm';
-
         #region Fields
+
+        internal readonly Lines.SessionMediaDescriptionLine m_MediaDescriptionLine;
 
         //Created from the m= which is the first line, this is a computed line and not found in Lines.
 
         /// <summary>
         /// The MediaType of the MediaDescription
         /// </summary>
-        public MediaType MediaType { get; set; }
+        public MediaType MediaType
+        {
+            get { return m_MediaDescriptionLine.MediaType; }
+            set { m_MediaDescriptionLine.MediaType = value; }
+        }
 
         /// <summary>
         /// The MediaPort of the MediaDescription
         /// </summary>
-        public int MediaPort { get; set; }
+        public int MediaPort
+        {
+            get { return m_MediaDescriptionLine.MediaPort; }
+            set { m_MediaDescriptionLine.MediaPort = value; }
+        }
 
         /// <summary>
         /// Defines an optional value which is a port range that augments the MediaPort definition
         /// </summary>
-        public int? PortRange { get; set; }
+        //public int? PortRange { get; set; }
 
         /// <summary>
         /// The MediaProtocol of the MediaDescription
         /// </summary>
-        public string MediaProtocol { get; set; }
+        public string MediaProtocol
+        {
+            get { return m_MediaDescriptionLine.MediaProtocol; }
+            set { m_MediaDescriptionLine.MediaProtocol = value; }
+        }
 
         //Maybe add a few Computed properties such as SampleRate
         //OR
@@ -90,12 +102,12 @@ namespace Media.Sdp
         //Keep in mind that adding/removing or changing lines should change the version of the parent SessionDescription
         internal List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
 
-        List<int> m_PayloadList = new List<int>();
+        //List<int> m_PayloadList = new List<int>();
 
         /// <summary>
         /// The field which has been generated as a result of parsing or modifying the MediaFormat
         /// </summary>
-        string MediaFormatString;
+        //string MediaFormatString;
 
         #endregion
 
@@ -104,9 +116,20 @@ namespace Media.Sdp
         /// <summary>
         /// Gets the string which is utilized in the Media Field to decribe the port range.
         /// </summary>
-        internal protected string PortRangeString
+        //internal protected string PortRangeString
+        //{
+        //    get { return PortRange.HasValue ? string.Join(SessionDescription.ForwardSlashString, MediaPort.ToString(), PortRange.Value) : MediaPort.ToString(); }
+        //}
+
+        public bool HasMultiplePorts
         {
-            get { return PortRange.HasValue ? string.Join(SessionDescription.ForwardSlashString, MediaPort.ToString(), PortRange.Value) : MediaPort.ToString(); }
+            get { return m_MediaDescriptionLine.HasMultiplePorts; }            
+        }
+
+        public int NumberOfPorts
+        {
+            get { return m_MediaDescriptionLine.NumberOfPorts; }
+            set { m_MediaDescriptionLine.NumberOfPorts = value; }
         }
 
         /// <summary>
@@ -116,34 +139,11 @@ namespace Media.Sdp
         {
             get
             {
-                try
-                {
-                    if (string.IsNullOrWhiteSpace(MediaFormatString)) return MediaFormat = string.Join(SessionDescription.SpaceString, m_PayloadList);
-                    return MediaFormatString;
-                }
-                catch (InvalidOperationException)
-                {
-                    return MediaFormat;
-                }
-                catch { throw; }
+                return m_MediaDescriptionLine.MediaFormat;
             }
-            set
+            internal protected set
             {
-                m_PayloadList.Clear();
-
-                foreach (var payloadType in value.Split(SessionDescription.SpaceSplit, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    int found;
-
-                    if (int.TryParse(payloadType, out found))
-                    {
-                        m_PayloadList.Add(found);
-
-                        continue;
-                    }
-
-                    MediaFormatString = string.Join(SessionDescription.SpaceString, payloadType);
-                }
+                m_MediaDescriptionLine.MediaFormat = value;
             }
         }
 
@@ -154,13 +154,13 @@ namespace Media.Sdp
         {
             get
             {
-                return m_PayloadList;
+                return m_MediaDescriptionLine.PayloadTypes;
             }
-            set
+            internal protected set
             {
-                m_PayloadList.Clear();
-                MediaFormatString = null;
-                m_PayloadList.AddRange(value);
+                //m_MediaDescriptionLine.PayloadTypes = m_MediaDescriptionLine.PayloadTypes.Concat(value);
+
+                m_MediaDescriptionLine.PayloadTypes = value;
             }
         }
 
@@ -176,7 +176,7 @@ namespace Media.Sdp
         {
             get
             {
-                return MediaDescriptionLine.Length + m_Lines.Sum(l => l.Length);
+                return m_MediaDescriptionLine.Length + m_Lines.Sum(l => l.Length);
             }
         }
 
@@ -198,6 +198,7 @@ namespace Media.Sdp
 
         public MediaDescription(MediaType mediaType, int mediaPort, string mediaProtocol, string mediaFormat)
         {
+            m_MediaDescriptionLine = new Sdp.Lines.SessionMediaDescriptionLine();
             MediaType = mediaType;
             MediaPort = mediaPort;
             MediaProtocol = mediaProtocol;
@@ -210,34 +211,8 @@ namespace Media.Sdp
         [CLSCompliant(false)]
         public MediaDescription(string[] sdpLines, ref int index)
         {
-            string sdpLine = sdpLines[index++].Trim();
-
-            if (false == sdpLine.StartsWith("m=")) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid Media Description");
-
-            sdpLine = sdpLine.Replace("m=", string.Empty);
-
-            string[] parts = sdpLine.Split(SessionDescription.SpaceSplit, 4);
-
-            if (parts.Length != 4) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Invalid Media Description");
-
-            try
-            {
-                MediaType = (MediaType)Enum.Parse(typeof(MediaType), SessionDescription.TrimLineValue(parts[0].ToLowerInvariant()));
-            }
-            catch
-            {
-                MediaType = Sdp.MediaType.unknown;
-            }
-
-            var mediaPorts = SessionDescription.TrimLineValue(parts[1]).Split(SessionDescription.ForwardSlashSplit, 2);
-
-            MediaPort = int.Parse(SessionDescription.TrimLineValue(mediaPorts[0]), System.Globalization.CultureInfo.InvariantCulture);
-
-            if (mediaPorts.Length > 1) PortRange = int.Parse(mediaPorts[1]);
-
-            MediaProtocol = parts[2];
-
-            MediaFormat = parts[3];
+            //Create a MediaDescriptionLine.
+            m_MediaDescriptionLine = new Sdp.Lines.SessionMediaDescriptionLine(sdpLines, ref index);
 
             //Parse remaining optional entries
             for (int e = sdpLines.Length; index < e; )
@@ -323,6 +298,7 @@ namespace Media.Sdp
                   m=video 49170/2 RTP/AVP 31
                 */
 
+                //Todo, maybe use m_Type because the line may not be typed as a ConnectionLine yet.
                 Sdp.Lines.SessionConnectionLine connectionLine = sdp.Lines.OfType<Sdp.Lines.SessionConnectionLine>().FirstOrDefault();
 
                 if (connectionLine != null && connectionLine.HasMultipleAddresses)
@@ -331,7 +307,7 @@ namespace Media.Sdp
 
                     if (portSpecifier.HasValue)
                     {
-                        buffer.Append(MediaDescriptionLineType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(SessionDescription.Space.ToString(), MediaType, MediaPort.ToString() + ((char)Common.ASCII.ForwardSlash).ToString() + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.NewLineString);
+                        buffer.Append(Sdp.Lines.SessionMediaDescriptionLine.MediaDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(SessionDescription.Space.ToString(), MediaType, MediaPort.ToString() + ((char)Common.ASCII.ForwardSlash).ToString() + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.NewLineString);
 
                         goto LinesOnly;
                     }
@@ -339,7 +315,7 @@ namespace Media.Sdp
             }
 
             //Note if Unassigned MediaFormat is used that this might have to be a 'char' to be exactly what was given
-            buffer.Append(MediaDescriptionLine.ToString());
+            buffer.Append(m_MediaDescriptionLine.ToString());
 
         LinesOnly:
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.m_Type != Sdp.Lines.SessionBandwidthLine.BandwidthType && l.m_Type != Sdp.Lines.SessionAttributeLine.AttributeType))
@@ -357,18 +333,12 @@ namespace Media.Sdp
         #endregion
 
         #region Named Lines
-
+        
         internal protected SessionDescriptionLine MediaDescriptionLine
         {
             get
             {
-                return new SessionDescriptionLine(MediaDescriptionLineType, SessionDescription.SpaceString)
-                {
-                    MediaType.ToString(),
-                    PortRangeString,
-                    MediaProtocol,
-                    MediaFormat
-                };
+                return m_MediaDescriptionLine;
             }
         }
 
