@@ -111,11 +111,14 @@ namespace Media.Common.Collections.Generic
         /// </summary>
         /// <param name="t"></param>
         /// <returns></returns>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        
+        /// <remarks>Space Complexity S(1), Time Complexity O(2)</remarks>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]        
         public bool TryDequeue(ref T t)
         {
-            if (Count == 0 || Last == null) return false;
+            if (Count == 0) return false;
+            else if (Last == null && First != null) Last = First.Next;
+
+            if (Last == null) Last = Last.Previous;
 
             t = Last.Value;
 
@@ -129,7 +132,8 @@ namespace Media.Common.Collections.Generic
             }
             else
             {
-                Last = First.Next;
+                do Last = First.Next;
+                while (Last.Next != null);
             }
 
             return true;
@@ -140,6 +144,7 @@ namespace Media.Common.Collections.Generic
         /// </summary>
         /// <param name="t"></param>
         /// <returns></returns>
+        /// <remarks>Space Complexity S(1), Time Complexity O(1)</remarks>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool TryPeek(ref T t)
         {
@@ -151,7 +156,7 @@ namespace Media.Common.Collections.Generic
         }
 
         /// <summary>
-        /// Enque an element
+        /// Enqueue an element
         /// </summary>
         /// <param name="t"></param>
         public void Enqueue(T t)
@@ -161,6 +166,7 @@ namespace Media.Common.Collections.Generic
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        /// <remarks>Space Complexity S(3), Time Complexity O(2) worst cast</remarks>
         public void Enqueue(ref T t)
         {
             //Set the head
@@ -173,6 +179,7 @@ namespace Media.Common.Collections.Generic
         /// <summary>
         /// Sets First and Last to null and Calls Clear on the LinkedList.
         /// </summary>
+        /// <remarks>Space Complexity S(0), Time Complexity O(Count)</remarks>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Clear(bool all = true)
         {

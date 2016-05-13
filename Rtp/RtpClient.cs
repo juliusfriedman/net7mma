@@ -3088,10 +3088,10 @@ namespace Media.Rtp
         /// </summary>
         public bool ThreadEvents
         {
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_ThreadEvents; }
 
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
                 if (false == IsActive) return;
@@ -3100,7 +3100,7 @@ namespace Media.Rtp
 
                 if (value == true)
                 {
-                    if (m_EventThread == null || false == m_EventThread.IsAlive)
+                    if (m_EventThread == null || m_EventThread.ThreadState == ThreadState.Stopped)
                     {
                         //Create the event thread
                         m_EventThread = new Thread(new ThreadStart(HandleEvents), Common.Extensions.Thread.ThreadExtensions.MinimumStackSize);
@@ -3112,15 +3112,19 @@ namespace Media.Rtp
 
                         //Start thread
                         m_EventThread.Start();
-
-                        //Wait for the start while the value was not changed and the thread is not started.
-                        while (m_ThreadEvents && EventsStarted != DateTime.MinValue && m_EventThread != null && (m_EventThread.IsAlive || false == m_StopRequested)) System.Threading.Thread.Sleep(0);
                     }
+                    
+
+                    //Wait for the start while the value was not changed and the thread is not started.
+                    while (EventsStarted == DateTime.MinValue && m_EventThread != null && m_EventThread.ThreadState == ThreadState.Stopped) System.Threading.Thread.Sleep(0);
                 }
                 else
                 {
                     //Stop the thread
                     m_ThreadEvents = false;
+
+                    //Not started
+                    EventsStarted = DateTime.MinValue;
 
                     //Handle any remaining events.
                     while(m_ThreadEvents == false && m_EventData.Count > 0) HandleEvent();
@@ -3872,6 +3876,8 @@ namespace Media.Rtp
                         //Stop here.
                         break;
                     }
+
+                    //Todo, the packets may need to be copied to the framing buffer with CopyTo... this is important depending on if the reciever honors rfc3350 offset 0 checksum rule. (see IsValidRtcpHeader)
 
                     //Send the data from the array which already exits.
                     sent += SendData(packet.Header.First16Bits.m_Memory.Array, packet.Header.First16Bits.m_Memory.Offset, packet.Length, context.ControlChannel, context.RtcpSocket, context.RemoteRtcp, out error);
@@ -5234,13 +5240,13 @@ namespace Media.Rtp
                     while (m_ThreadEvents)
                     {
                         //Wait for the event signal forever
-                        if (false == m_EventReady.Wait(m_EventReady.SpinCount)) continue;
+                        if (m_EventReady != null && false == m_EventReady.Wait(m_EventReady.SpinCount)) continue;
 
                         //handle the event in waiting.
                         HandleEvent();
 
                         //Reset the event when all frames are dispatched
-                        if (m_EventData.Count == 0) m_EventReady.Reset();
+                        if (m_EventData.Count == 0 && m_EventReady != null) m_EventReady.Reset();
                         else if(false == IsActive) break;
                     }
                 }
