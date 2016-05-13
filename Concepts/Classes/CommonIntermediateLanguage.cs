@@ -57,6 +57,14 @@ namespace Media.Concepts.Classes
     //Used to build the UnalignedReadDelegate for each T
     internal static class Generic<T>
     {
+        /// <summary>
+        /// <see cref="typeof(T).MetadataToken"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int MetadataToken<T>() { return typeof(T).MetadataToken; }
+
         //Public API which will be in the framework is at
         //Try to provide versions of everything @
         //https://github.com/dotnet/corefx/blob/ca5d1174dbaa12b8b6e55dc494fcd4609ed553cc/src/System.Runtime.CompilerServices.Unsafe/src/System.Runtime.CompilerServices.Unsafe.il
@@ -371,8 +379,10 @@ namespace Media.Concepts.Classes
 
         //Todo, no pinning logic first, then add PinnedBlockCopy.
 
+        //Maybe add a Pin construct to put the type on the stack to ensure it's not moved.
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void Initblk(byte[] array, byte what, int length) //InitBlock
+        public static void InitBlock(byte[] array, byte what, int length)
         {
             System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
 
@@ -388,7 +398,7 @@ namespace Media.Concepts.Classes
             }
         }
 
-        public static void Initblk(byte[] array, int offset, byte what, int length) //InitBlock
+        public static void InitBlock(byte[] array, int offset, byte what, int length)
         {
             System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
 
@@ -406,12 +416,12 @@ namespace Media.Concepts.Classes
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static unsafe void Initblk(byte* array, byte what, int len) //InitBlock
+        public static unsafe void InitBlock(byte* array, byte what, int len)
         {
             InitblkDelegate((System.IntPtr)array, what, len);
         }
 
-        public static void Cpyblk(byte[] src, byte[] dst, int length) //CopyBlock
+        public static void CopyBlock(byte[] src, byte[] dst, int length)
         {
             System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
             System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
@@ -429,7 +439,7 @@ namespace Media.Concepts.Classes
             }
         }
 
-        public static void Cpyblk(byte[] src, byte[] dst, int offset, int length) //CopyBlock
+        public static void CopyBlock(byte[] src, byte[] dst, int offset, int length)
         {
             System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
             System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
@@ -447,7 +457,7 @@ namespace Media.Concepts.Classes
             }
         }
 
-        public static void Cpyblk(byte[] src, int srcOffset, byte[] dst, int dstOffset, int length) //CopyBlock
+        public static void CopyBlock(byte[] src, int srcOffset, byte[] dst, int dstOffset, int length)
         {
             System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
             System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
@@ -467,26 +477,20 @@ namespace Media.Concepts.Classes
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static unsafe void Cpyblk(byte* src, byte* dst, int len) //CopyBlock
+        public static unsafe void CopyBlock(byte* src, byte* dst, int len) //CopyBlock
         {
             CpyblkDelegate((System.IntPtr)dst, (System.IntPtr)src, len);
         }
 
         //Note that 4.6 Has System.Buffer.MemoryCopy 
-            //=>Internal Memove and Memcopy uses optomized copy impl which can be replicated for other types also.
+            //=>Internal Memove and Memcopy uses optomized copy impl which can be replicated /used for other types also.
             //https://github.com/dotnet/corefx/issues/493
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public unsafe static void Cpyblk<T>(T[] src, int srcOffset, T[] dst, int dstOffset, int length) //CopyBlock (void *)
+        public unsafe static void CopyBlock<T>(T[] src, int srcOffset, T[] dst, int dstOffset, int length) //CopyBlock (void *)
         {
             System.Buffer.MemoryCopy((void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(src, srcOffset), (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<T>(dst, dstOffset), length, length);
         }
-
-        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        //public unsafe static T UnalignedRead<T>(ref T t)
-        //{
-        //    return Generic<T>.UnalignedRead(ref t);
-        //}
 
         /// <summary>
         /// <see cref="System.Runtime.InteropServices.Marshal.SizeOf"/>
@@ -501,14 +505,6 @@ namespace Media.Concepts.Classes
             //return CommonIntermediateLanguage.SizeOfDelegate2(typeof(T).MetadataToken);
         }
 
-        /// <summary>
-        /// <see cref="typeof(T).MetadataToken"/>
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <returns></returns>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static int MetadataToken<T>() { return typeof(T).MetadataToken; }
-
         internal static void UsageTest()
         {
             byte[] src = new byte[] { 1, 2, 3, 4 };
@@ -516,10 +512,10 @@ namespace Media.Concepts.Classes
             byte[] dst = new byte[] { 0, 0, 0, 0 };
 
             //Set the value 5 to indicies 0,1,2 in dst 
-            Concepts.Classes.CommonIntermediateLanguage.Initblk(dst, 5, 3);
+            Concepts.Classes.CommonIntermediateLanguage.InitBlock(dst, 5, 3);
 
             //Set the value 5 to indicies 1 & 2 in dst (count is absolute)
-            Concepts.Classes.CommonIntermediateLanguage.Initblk(dst, 1, 5, 2);
+            Concepts.Classes.CommonIntermediateLanguage.InitBlock(dst, 1, 5, 2);
 
             //Show it was set to 5
             System.Console.WriteLine(dst[0]);
@@ -528,12 +524,12 @@ namespace Media.Concepts.Classes
             System.Console.WriteLine(dst[3]);
 
             //Copy values 0 - 3 from src to dst
-            Concepts.Classes.CommonIntermediateLanguage.Cpyblk(src, dst, 3);
+            Concepts.Classes.CommonIntermediateLanguage.CopyBlock(src, dst, 3);
 
-            Concepts.Classes.CommonIntermediateLanguage.Cpyblk<byte>(src, 0, dst, 0, 3);
+            Concepts.Classes.CommonIntermediateLanguage.CopyBlock<byte>(src, 0, dst, 0, 3);
 
             //Copy values 1 - 3 from src to dst @ 0 (count is absolute)
-            Concepts.Classes.CommonIntermediateLanguage.Cpyblk(src, 1, dst, 0, 2);
+            Concepts.Classes.CommonIntermediateLanguage.CopyBlock(src, 1, dst, 0, 2);
 
             //Show they were copied
             System.Console.WriteLine(dst[0]);

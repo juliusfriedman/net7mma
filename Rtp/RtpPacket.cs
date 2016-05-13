@@ -144,6 +144,8 @@ namespace Media.Rtp
             get
             {
 
+                if (IsDisposed) return false;
+
                 if (Header.IsCompressed) return true;
 
                 //Invalidate certain conditions in an attempt to determine if the instance contains all data required.
@@ -257,6 +259,10 @@ namespace Media.Rtp
 
             //Build a seqeuence from the existing octets and the data in the ReportBlock
 
+            int newBytes = count - offset;
+
+            if (newBytes <= 0) return;
+
             //If there are existing owned octets (which may include padding)
             if (Padding)
             {
@@ -268,15 +274,28 @@ namespace Media.Rtp
                     payloadOctets = payloadCount - paddingOctets;
 
                 //The owned octets is a projection of the Payload existing, without the padding combined with the given octets from offset to count and subsequently the paddingOctets after the payload
-                m_OwnedOctets = Enumerable.Concat(Payload.Take(payloadOctets), octets.Skip(offset).Take(count - offset)).Concat(Payload.Skip(payloadOctets).Take(paddingOctets)).ToArray();
-            }
-            else if (m_OwnedOctets == null) m_OwnedOctets = octets.Skip(offset).Take(count - offset).ToArray();
-            else m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(count - offset)).ToArray();
+                m_OwnedOctets = Enumerable.Concat(m_OwnedOctets.Take(m_OwnedOctets.Length - paddingOctets), Enumerable.Concat(octets.Skip(offset).Take(newBytes), Payload.Skip(payloadOctets).Take(paddingOctets))).ToArray();
 
-            using (Common.MemorySegment previousPayload = Payload)
+                Synchronize();
+
+                Payload.IncreaseLength(newBytes);
+
+            }
+            else if (m_OwnedOctets == null)
             {
-                //Create a pointer to the owned octets.
-                Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
+                m_OwnedOctets = octets.Skip(offset).Take(newBytes).ToArray();
+
+                Payload = new MemorySegment(m_OwnedOctets);
+
+                //Header must not be null
+            }
+            else
+            {
+                m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(newBytes)).ToArray();
+
+                Synchronize();
+
+                Payload.IncreaseLength(newBytes);
             }
 
             //Return
@@ -287,20 +306,22 @@ namespace Media.Rtp
 
         #region Constructor
 
-        ~RtpPacket() { Dispose(); }
+        //~RtpPacket() { Dispose(); }
+
+        //Padding...
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(int version, bool padding, bool extension, byte[] payload)
-            : this(new RtpHeader(version, padding, extension), payload ?? Media.Common.MemorySegment.EmptyBytes)
+            : this(new RtpHeader(version, padding, extension), payload)
         {
 
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(int version, bool padding, bool extension, bool marker, int payloadType, int csc, int ssrc, int seq, int timestamp, byte[] payload = null)
-            : this(new RtpHeader(version, padding, extension, marker, payloadType, csc, ssrc, seq, timestamp), payload ?? Media.Common.MemorySegment.EmptyBytes)
+            : this(new RtpHeader(version, padding, extension, marker, payloadType, csc, ssrc, seq, timestamp), payload)
         {
-
+            
         }
 
         /// <summary>
@@ -318,8 +339,8 @@ namespace Media.Rtp
 
             ShouldDispose = m_OwnsHeader = ownsHeader;
 
-            //Project the octets in the sequence
-            m_OwnedOctets = octets.ToArray();
+            //Project the octets in the sequence of use the empty array
+            m_OwnedOctets = (octets ?? Common.MemorySegment.Empty).ToArray();
 
             //The Payload property must be assigned otherwise the properties will not function in the instance.
             Payload = new MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
@@ -351,30 +372,25 @@ namespace Media.Rtp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(byte[] buffer, int offset, int count)
         {
-            if (buffer == null || buffer.Length == 0) throw new ArgumentException("Must have data in a RtpPacket");
+            if (buffer == null || buffer.Length == 0 || count <= 0) throw new ArgumentException("Must have data in a RtpPacket");
+
+            m_OwnedOctets = new byte[count];
+
+            Array.Copy(buffer, offset, m_OwnedOctets, 0, count);
 
             //Read the header
-            Header = new RtpHeader(buffer, offset);
+            Header = new RtpHeader(new Common.MemorySegment(m_OwnedOctets, offset, count));
 
             ShouldDispose = m_OwnsHeader = true;
 
             if (count > RtpHeader.Length && false == Header.IsCompressed)
             {
-                //Advance the pointer
-                offset += RtpHeader.Length;
-
-                count -= RtpHeader.Length;
-
-                m_OwnedOctets = new byte[count];
-
-                Array.Copy(buffer, offset, m_OwnedOctets, 0, count);
-
                 //Create a segment to the payload deleniated by the given offset and the constant Length of the RtpHeader.
-                Payload = new MemorySegment(m_OwnedOctets, 0, count);
+                Payload = new MemorySegment(m_OwnedOctets, RtpHeader.Length, count - RtpHeader.Length);
             }
             else
             {                
-                m_OwnedOctets = Media.Common.MemorySegment.EmptyBytes; //IsReadOnly should be false
+                //m_OwnedOctets = Media.Common.MemorySegment.EmptyBytes; //IsReadOnly should be false
                 //Payload = new MemoryReference(m_OwnedOctets, 0, 0, m_OwnsHeader);
                 Payload = MemorySegment.Empty;
             }
@@ -552,7 +568,7 @@ namespace Media.Rtp
                 var sourceList = GetSourceList();
                 if (sourceList != null)
                 {
-                    binarySequence = GetSourceList().AsBinaryEnumerable();
+                    binarySequence = GetSourceList().GetBinaryEnumerable();
                 }
                 else binarySequence = Media.Common.MemorySegment.EmptyBytes;
             }
@@ -876,6 +892,30 @@ namespace Media.Rtp
             offset += Header.CopyTo(destination, offset);
 
             Common.MemorySegmentExtensions.CopyTo(Payload, destination, offset);
+        }
+
+        /// <summary>
+        /// Calls <see cref="Update"/> on the <see cref="Payload"/> and <see cref="Synchronize"/> on the <see cref="Header"/>
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        internal protected void Synchronize()
+        {
+            //Should check IsContiguous
+
+            //Rather than allowing set could just have a Resize method.
+            Payload.Update(ref m_OwnedOctets);
+
+            Header.Synchronize(ref m_OwnedOctets);
+        }
+
+        /// <summary>
+        /// Indicates if the <see cref="Header"/> and <see cref="Payload"/> belong to the same array.
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool IsContiguous()
+        {
+            return Header.IsContiguous() && Header.PointerToLast10Bytes.Array == Payload.Array && Header.PointerToLast10Bytes.Offset + Header.PointerToLast10Bytes.Count == Payload.Offset;
         }
 
         #endregion

@@ -1596,7 +1596,7 @@ namespace Media
             /// <param name="offset">The logical offset of the item in the list</param>
             /// <param name="count">the amount of items in the list</param>
             /// <returns>4 bytes for each value indicated by count starting at the given offset.</returns>
-            public IEnumerable<byte> AsBinaryEnumerable(int offset, int count)
+            public IEnumerable<byte> GetBinaryEnumerable(int offset, int count)
             {
                 return m_Binary.Skip(offset * ItemSize).Take(count * ItemSize);
             }
@@ -1605,9 +1605,9 @@ namespace Media
             /// Prepares a binary sequence of 'Size' containing all of the data in the SourceList.
             /// </summary>
             /// <returns>The sequence created.</returns>
-            public IEnumerable<byte> AsBinaryEnumerable()
+            public IEnumerable<byte> GetBinaryEnumerable()
             {
-                return AsBinaryEnumerable(0, m_SourceCount);
+                return GetBinaryEnumerable(0, m_SourceCount);
             }
 
             /// <summary>

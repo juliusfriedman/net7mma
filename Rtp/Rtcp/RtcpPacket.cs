@@ -143,7 +143,7 @@ namespace Media.Rtcp
 
         #region Constructor
 
-        ~RtcpPacket() { Dispose(); }
+        //~RtcpPacket() { Dispose(); }
 
         /// <summary>
         /// Creates a RtcpPacket instance by projecting the given sequence to an array which is subsequently owned by the instance.
@@ -193,13 +193,15 @@ namespace Media.Rtcp
                         headerLength = Header.Size; //Binary.BytesPerLong;
 
                         //Packet length is given by the LengthInWordsMinusOne + 1 * 4
-                        packetLength = ((ushort)((packetLength + 1) * 4));
+                        //packetLength = ((ushort)((packetLength + 1) * 4));
 
                         //The header was consumed and the packet cannot be less than 0 bytes or more than the buffer's length - offset in parsing.
-                        packetLength = Binary.Clamp(packetLength - headerLength, 0, m_OwnedOctets.Length - headerLength);
+                        //packetLength = Binary.Clamp(packetLength - headerLength, 0, m_OwnedOctets.Length - headerLength);
+
+                        packetLength = m_OwnedOctets.Length - headerLength;
 
                         //If there are no bytes then just handle as would for 0xFFFF
-                        if (packetLength == 0) goto case ushort.MaxValue;
+                        if (packetLength <= 0) goto case ushort.MaxValue;
 
                         //Assign the payload
                         Payload = new Common.MemorySegment(m_OwnedOctets, true);
@@ -242,14 +244,17 @@ namespace Media.Rtcp
             //Create the header
             Header = new RtcpHeader(buffer, offset);
 
-            //Determine the amount of bytes in the header and packet
-            int headerLength = RtcpHeader.Length, packetLength = Header.LengthInWordsMinusOne;
+            //Calulate how many bytes the header used
+            int headerSize = Header.Size;
+
+            //Remove that many bytes from the count.
+            count -= headerSize;
 
             //packetLength contains the LengthInWordsMinusOne
-            switch (packetLength)
+            switch (count)
             {
-                case ushort.MaxValue: // FFFF + 1 = 0
-                //case ushort.MinValue:// 0 + 1 = 1 * 4 = 4, header only.???
+                //case ushort.MaxValue: // FFFF + 1 = 0
+                case ushort.MinValue:// 0 + 1 = 1 * 4 = 4, header only.???
                     {
                         Payload = Common.MemorySegment.Empty;
                         
@@ -259,23 +264,26 @@ namespace Media.Rtcp
                     }
                 default:
                     {
-                        //Header has another word
-                        headerLength = Header.Size; //Binary.BytesPerLong;
-
                         //Packet length is given by the LengthInWordsMinusOne + 1 * 4
-                        packetLength = ((ushort)((packetLength + 1) * 4));
+                        int packetLength = Header.LengthInWordsMinusOne + 1;
 
-                        //The header was consumed and the packet cannot be less than 0 bytes or more than the buffer's length - offset in parsing.
-                        packetLength = Binary.Clamp(packetLength - headerLength, 0, buffer.Length - (offset + headerLength));
+                        //Convert to machine words
+                        packetLength = Common.Binary.MachineWordsToBytes(ref packetLength);
+
+                        //The header was already consumed.
+                        packetLength -= headerSize;
+
+                        //Take the smaller value
+                        count = Common.Binary.Min(ref packetLength, ref count);
 
                         //If there are no bytes then just handle as would for 0xFFFF
-                        if (packetLength == 0) goto case ushort.MaxValue;
+                        if (count <= 0) goto case ushort.MinValue;
 
                         //Make the array
-                        m_OwnedOctets = new byte[packetLength];
+                        m_OwnedOctets = new byte[count];
 
                         //Copy it
-                        System.Array.Copy(buffer, offset + headerLength, m_OwnedOctets, 0, packetLength);
+                        System.Array.Copy(buffer, offset + headerSize, m_OwnedOctets, 0, count);
 
                         //Assign the payload
                         Payload = new Common.MemorySegment(m_OwnedOctets, shouldDispose);
@@ -307,11 +315,7 @@ namespace Media.Rtcp
         public RtcpPacket(int version, int payloadType, int padding, int ssrc, int blockCount, int lengthInWords, int blockSize, int extensionSize)
         {
             //If the padding is greater than allow throw an overflow exception
-            if (padding < 0 || padding > byte.MaxValue) Binary.CreateOverflowException("padding", padding, byte.MinValue.ToString(), byte.MaxValue.ToString());
-
-            Header = new RtcpHeader(version, payloadType, padding > 0, blockCount, ssrc, lengthInWords);
-
-            m_OwnsHeader = true;
+            if (padding < 0 || padding > byte.MaxValue) Binary.CreateOverflowException("padding", padding, byte.MinValue.ToString(), byte.MaxValue.ToString());            
 
             extensionSize = Binary.MachineWordsToBytes(Binary.BytesToMachineWords(extensionSize));
 
@@ -325,13 +329,32 @@ namespace Media.Rtcp
 
             payloadSize += nullOctetsRequired + padding;
 
+            int octetsLength = payloadSize + Common.Binary.BytesPerLong;
+
             //Allocate an array of byte equal to the size required
-            m_OwnedOctets = new byte[payloadSize];
+            m_OwnedOctets = new byte[octetsLength];
+
+            //Header = new RtcpHeader(version, payloadType, padding > 0, blockCount, ssrc, lengthInWords);
+
+            Header = new RtcpHeader(new Common.MemorySegment(m_OwnedOctets, 0, Common.Binary.BytesPerLong))
+            {
+                Version = version,
+                PayloadType = payloadType,
+                Padding = padding > 0,
+                BlockCount = blockCount,
+                LengthInWordsMinusOne = lengthInWords,
+                SendersSynchronizationSourceIdentifier = ssrc
+            };
+
+            m_OwnsHeader = true;
+
+            //int headerSize = Header.Size;
 
             //Segment the array to allow property access.
-            Payload = new MemorySegment(m_OwnedOctets, 0, payloadSize);
+            Payload = new MemorySegment(m_OwnedOctets, Common.Binary.BytesPerLong, payloadSize); //, Common.Binary.Max(0, payloadSize - Header.Size));
 
-            if (padding > 0) m_OwnedOctets[payloadSize - 1] = (byte)padding;
+            //If there was padding determine where to put it.
+            if (padding > 0) m_OwnedOctets[Common.Binary.Min(octetsLength - 1, Common.Binary.BytesPerLong + (Payload.Offset + Payload.Count - 1))] = (byte)padding;
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -422,7 +445,7 @@ namespace Media.Rtcp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { return IsDisposed || Header.IsDisposed ? false : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * Binary.BytesPerInteger)) - RtcpHeader.Length; }
+            get { return IsDisposed || Header.IsDisposed ? false : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * Binary.BytesPerInteger)) - Header.Size; }    //((ushort)((Header.LengthInWordsMinusOne + 1) * Binary.BytesPerInteger)) - RtcpHeader.Length; }
         }
 
         /// <summary>
@@ -535,7 +558,10 @@ namespace Media.Rtcp
             if (IsReadOnly) throw new InvalidOperationException("An RtcpPacket cannot be modifed when IsReadOnly is true.");
 
             //Set the LengthInWords property to the lengthInWords minus one
-            Header.LengthInWordsMinusOne = Binary.BytesToMachineWords(Length) - 1; //Binary.BytesToMachineWords(Length - 1); // (ushort)(Length * Binary.BitsPerByte / Binary.BitsPerInteger) - 1;
+            //Header.LengthInWordsMinusOne = (ushort)(Binary.BytesToMachineWords(Length)); //Binary.BytesToMachineWords(Length - 1); // (ushort)(Length * Binary.BitsPerByte / Binary.BitsPerInteger) - 1;
+
+            //Since there is the possibility for the Length of a RtcpPacket to exceed 65535 bytes do not cast outside the getter / setter.
+            Header.LengthInWordsMinusOne = Binary.BytesToMachineWords(Length);
         }
 
         /// <summary>
@@ -569,6 +595,10 @@ namespace Media.Rtcp
 
             //Build a seqeuence from the existing octets and the data in the ReportBlock
 
+            int newBytes = count - offset;
+
+            if (newBytes <= 0) return;
+
             //If there are existing owned octets (which may include padding)
             if (Padding)
             {
@@ -580,20 +610,51 @@ namespace Media.Rtcp
                     payloadOctets = payloadCount - paddingOctets;
 
                 //The owned octets is a projection of the Payload existing, without the padding combined with the given octets from offset to count and subsequently the paddingOctets after the payload
-                m_OwnedOctets = Enumerable.Concat(Payload.Take(payloadOctets), octets.Skip(offset).Take(count - offset))
-                    .Concat(Payload.Skip(payloadOctets).Take(paddingOctets)).ToArray();
-            }
-            else if (m_OwnedOctets == null) m_OwnedOctets = octets.Skip(offset).Take(count - offset).ToArray();
-            else m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(count - offset)).ToArray();
+                //Concat whatever we own with the new data concatenated with the existing padding and project it to an array
+                m_OwnedOctets = Enumerable.Concat(m_OwnedOctets.Take(m_OwnedOctets.Length - paddingOctets), Enumerable.Concat(octets.Skip(offset).Take(newBytes), Payload.Skip(payloadOctets).Take(paddingOctets))).ToArray();
 
-            using (Common.MemorySegment previousPayload = Payload)
+                Synchronize();
+
+                Payload.IncreaseLength(newBytes);
+
+            }
+            else if (m_OwnedOctets == null)
             {
-                //Create a pointer to the owned octets.
-                Payload = new Common.MemorySegment(m_OwnedOctets);
+                m_OwnedOctets = octets.Skip(offset).Take(newBytes).ToArray();
+
+                Payload = new MemorySegment(m_OwnedOctets);
+
+                //Header must not be null
+            }
+            else
+            { 
+                m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(newBytes)).ToArray();
+
+                Synchronize();
+
+                Payload.IncreaseLength(newBytes);
             }
 
             //Set the length in words minus one in the header
             if(setLength) SetLengthInWordsMinusOne();
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        internal protected void Synchronize()
+        {
+
+            //Should check IsContiguous
+
+            //Rather than allowing set could just have a Resize method.
+            Payload.Update(ref m_OwnedOctets);
+
+            Header.Synchronize(ref m_OwnedOctets);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool IsContiguous()
+        {
+            return Header.IsContiguous() && Header.PointerToLast6Bytes.Array == Payload.Array && Header.PointerToLast6Bytes.Offset + Header.PointerToLast6Bytes.Count == Payload.Offset;
         }
 
         /// <summary>
@@ -1017,7 +1078,7 @@ namespace Media.UnitTests
                                         System.Diagnostics.Debug.Assert(p.BlockCount == ReportBlockCounter, "Unexpected BlockCount");
 
                                         //Check the SynchronizationSourceIdentifier
-                                        System.Diagnostics.Debug.Assert(p.SynchronizationSourceIdentifier == 0, "Unexpected SynchronizationSourceIdentifier");
+                                        System.Diagnostics.Debug.Assert(p.SynchronizationSourceIdentifier == 0 || p.SynchronizationSourceIdentifier == 7, "Unexpected SynchronizationSourceIdentifier");
 
                                         //Check the LengthInWordsMinusOne, should not be 0 when padding is used...
                                         System.Diagnostics.Debug.Assert(p.Header.LengthInWordsMinusOne == ushort.MaxValue, "Unexpected LengthInWordsMinusOne");
@@ -1048,22 +1109,23 @@ namespace Media.UnitTests
                                             System.Diagnostics.Debug.Assert(s.Version == VersionCounter, "Unexpected Version");
 
                                             //Check the Padding
-                                            System.Diagnostics.Debug.Assert(p.PaddingOctets == PaddingCounter && s.Padding == PaddingCounter > 0, "Unexpected Padding");
+                                            System.Diagnostics.Debug.Assert(p.PaddingOctets == s.PaddingOctets, "Unexpected Padding");
 
                                             //Check the BlockCount
                                             System.Diagnostics.Debug.Assert(s.BlockCount == ReportBlockCounter, "Unexpected BlockCount");
 
                                             //Check the SynchronizationSourceIdentifier, we specified 0 for the length in words...
-                                            System.Diagnostics.Debug.Assert(s.SynchronizationSourceIdentifier == 0, "Unexpected SynchronizationSourceIdentifier");
+                                            //s.SynchronizationSourceIdentifier == 0 || 
+                                            System.Diagnostics.Debug.Assert(s.SynchronizationSourceIdentifier == p.SynchronizationSourceIdentifier, "Unexpected SynchronizationSourceIdentifier");
 
                                             //Check the LengthInWordsMinusOne
                                             System.Diagnostics.Debug.Assert(s.Header.LengthInWordsMinusOne == p.Header.LengthInWordsMinusOne, "Unexpected LengthInWordsMinusOne");
 
                                             //Check the Length
-                                            //System.Diagnostics.Debug.Assert(s.Length == p.Length, "Unexpected Length");
+                                            System.Diagnostics.Debug.Assert(s.Length == p.Length, "Unexpected Length");
 
                                             //Check the data projects is equal to the data provided
-                                            //System.Diagnostics.Debug.Assert(s.Prepare().SequenceEqual(serialized), "Unexpected Binary Data Serialized");
+                                            System.Diagnostics.Debug.Assert(s.Prepare().SequenceEqual(serialized), "Unexpected Binary Data Serialized");
                                         }
                                     }
                                 }

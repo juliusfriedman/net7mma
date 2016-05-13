@@ -137,7 +137,7 @@ namespace Media.Rtcp
         internal int ToInt32()
         {
             //Create a 32 bit system endian value
-            return (int)Common.Binary.ReadU32(this, 0, BitConverter.IsLittleEndian);
+            return (int)Common.Binary.ReadU32(this, 0, false == Common.Binary.IsBigEndian);
         }
 
         /// <summary>
@@ -224,7 +224,7 @@ namespace Media.Rtcp
                 /*CheckDisposed();*/
 
                 //Read the value
-                return Binary.ReadU16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian);
+                return Binary.ReadU16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, false == Common.Binary.IsBigEndian);
             }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
@@ -236,7 +236,7 @@ namespace Media.Rtcp
                 //Write the value
                 if (value > RtcpHeader.MinimumLengthInWords) Binary.CreateOverflowException("LengthInWordsMinusOne", value, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
 
-                Binary.Write16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value);
+                Binary.Write16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, false == Common.Binary.IsBigEndian, (ushort)value);
             }
         }
 
@@ -259,10 +259,10 @@ namespace Media.Rtcp
                     //case RtcpHeader.MinimumLengthInWords:
                     case RtcpHeader.MaximumLengthInWords: // -
                         return 0;
-                    default: return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian);
+                    default: return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian);
                 }
 
-               //return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian);
+               //return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian);
             }
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -271,16 +271,16 @@ namespace Media.Rtcp
             { 
                 /*CheckDisposed();*/
 
-                Binary.Write32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value);
+                Binary.Write32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian, (uint)value);
 
                 //If there was no words in the packet (other than the header itself) than indicate another word is present.
-                switch (LengthInWordsMinusOne)
-                {
-                    case RtcpHeader.MinimumLengthInWords://Was 0 + 1
-                    case RtcpHeader.MaximumLengthInWords://Was FFFF + 0
-                        LengthInWordsMinusOne = RtcpHeader.DefaultLengthInWords;
-                        return;
-                }
+                //switch (LengthInWordsMinusOne)
+                //{
+                //    case RtcpHeader.MinimumLengthInWords://Was 0 + 1
+                //    //case RtcpHeader.MaximumLengthInWords://Was FFFF + 0
+                //        LengthInWordsMinusOne = RtcpHeader.DefaultLengthInWords;
+                //        return;
+                //}
             }
         }
 
@@ -329,7 +329,7 @@ namespace Media.Rtcp
             if (octetsLength == 0 || availableOctets < RtcpHeader.Length) throw new ArgumentException("octets must contain at least 4 elements given the deleniation of the offset parameter.", "octets");
 
             //Read a managed representation of the first two octets which are stored in Big ByteOrder / Network Byte Order
-            First16Bits = new Media.RFC3550.CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
+            First16Bits = new Media.RFC3550.CommonHeaderBits(octets, offset);
 
             //Allocate space for the other 6 octets which consist of the 
             //LengthInWordsMinusOne (16 bits)
@@ -422,6 +422,23 @@ namespace Media.Rtcp
 
         #region Instance Methods
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected void Synchronize(ref byte[] source)
+        {
+
+            //Should check IsContiguous
+
+            First16Bits.m_Memory.Update(ref source);
+
+            PointerToLast6Bytes.Update(ref source);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool IsContiguous()
+        {
+            return First16Bits.m_Memory.Array == PointerToLast6Bytes.Array && First16Bits.m_Memory.Offset + First16Bits.m_Memory.Count == PointerToLast6Bytes.Offset;
+        }
+
         public int CopyTo(byte[] dest, int offset)
         {
             if (IsDisposed) return 0;
@@ -445,8 +462,8 @@ namespace Media.Rtcp
         {
             switch (LengthInWordsMinusOne)
             {
-                case RtcpHeader.MinimumLengthInWords:
-                case RtcpHeader.MaximumLengthInWords:
+                //case RtcpHeader.MinimumLengthInWords: // 0, => 65535
+                case RtcpHeader.MaximumLengthInWords: // 65535 => 0
                     return Common.MemorySegment.EmptyBytes;
                 default: return PointerToLast6Bytes.Skip(RFC3550.CommonHeaderBits.Size);
             }

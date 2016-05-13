@@ -343,8 +343,6 @@ namespace Media.Rtp
         //SourceList which should be added to each packet int the frame?      
 
         //Public means this can be disposed. virtual is not necessary
-        //This would have to be a System.IO.Stream
-        //This would have to use the SegmentList to be efficient.
         public Common.SegmentStream Buffer
         {
             //There may be multiple repeated calls to this property due to the way it was used previously.
@@ -450,7 +448,7 @@ namespace Media.Rtp
 
         //Possible make an Action<bool> / Delegate 'IsCompleteCheck' which represents the functionality to use here and remove virtual.
         /// <summary>
-        /// Indicates if the RtpFrame is NotEmpty AND contained a RtpPacket which has the Marker Bit Set AND is not <see cref="IsMissingPackets"/>
+        /// Indicates if the RtpFrame <see cref="Disposed"/> is False AND <see cref="IsMissingPackets"/> is False AND <see cref="HasMarker"/> is True.
         /// </summary>
         public virtual bool IsComplete
         {
@@ -465,6 +463,7 @@ namespace Media.Rtp
         /// If at least 2 packets are contained, Indicates if all contained packets are sequential up the Highest Sequence Number contained in the RtpFrame.
         /// False if less than 2 packets are contained or there is a not a gap in the contained packets sequence numbers.
         /// </summary>
+        /// <remarks>This function does not check <see cref="HasMarker"/></remarks>
         public bool IsMissingPackets
         {
             get
@@ -475,10 +474,10 @@ namespace Media.Rtp
                 {
                     //No packets
                     case 0: return true;
-                    //Single packet, only missing if there is no marker (Should not be checked)?
-                    case 1: return false; //return false == HasMarker; //Could handle as case 0
-                    //Skip the range check for 2 packets but ensure a marker is present.
-                    case 2: return ((short)(m_LowestSequenceNumber - m_HighestSequenceNumber) != -1);
+                    //Single packet only
+                    case 1: return false;
+                    //Skip the range check for 2 packets
+                    case 2: return ((short)(m_LowestSequenceNumber - m_HighestSequenceNumber) != -1); //(should be same as 1 + (short)((m_LowestSequenceNumber - m_HighestSequenceNumber)) == 0 but saves an additional addition)
                     //2 or more packets, cache the m_LowestSequenceNumber and check all packets to be sequential starting at offset 1
                     default: RtpPacket p; for (int nextSeq = m_LowestSequenceNumber == ushort.MaxValue ? ushort.MinValue : m_LowestSequenceNumber + 1, i = 1; i < count; ++i)
                         {
@@ -495,11 +494,8 @@ namespace Media.Rtp
                             nextSeq = nextSeq == ushort.MaxValue ? ushort.MinValue : nextSeq + 1; //++nextSeq;
                         }
 
-                        //Not missing any packets.
+                        //Not missing any packets with respect to sequence number.
                         return false;
-                        
-                        //Verify HasMarker
-                        //goto case 1;
                 }
             }
         }
@@ -699,7 +695,48 @@ namespace Media.Rtp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public IEnumerator<RtpPacket> GetEnumerator() { return Packets.GetEnumerator(); }
 
-        //public IEnumerator<Common.MemorySegment> GetEnumerator() { return Depacketized.Values.GetEnumerator(); }
+        //Could also depacketize in place and only use memory available.
+
+        /// <summary>
+        /// If HasDepacketized is true then returns all data already depacketized otherwise all packets are iterated and depacketized and memory is reclaimed afterwards.
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerator<Common.MemorySegment> GetDepacketizion(bool inplace = true)
+        {
+            //If there is already a Depacketizion use the memory in place.
+            if (HasDepacketized)
+            {
+                foreach (Common.MemorySegment ms in Depacketized.Values)
+                {
+                    yield return ms;
+                }
+
+                yield break;
+            }
+
+            //Iterate the packets
+            foreach (RtpPacket packet in Packets)
+            {
+
+                //An overload which returned the data could then optionally put it into the Depacketized list which would allow the Free portion to not have to occur.
+
+                //Depacketize a single packet
+                Depacketize(packet);
+
+                //If there was anything depacketized
+                if (HasDepacketized)
+                {
+                    //Yeild what was depacketized for this packet.
+                    foreach (Common.MemorySegment ms in Depacketized.Values)
+                    {
+                        yield return ms;
+                    }
+
+                    //clear memory
+                    FreeDepacketizedMemory(inplace);
+                }
+            }
+        }
 
         //The amount of memory used by Depacketized. (When Persisted... otherwise it should be shared...)
 
@@ -743,22 +780,21 @@ namespace Media.Rtp
 
                 return;
             }
-            else //At least 1 packet is contained
-            {
-                //Check payload type if indicated
-                if (AllowsMultiplePayloadTypes == false && pt != PayloadType) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
 
-                if (ssrc != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
+            //At least 1 packet is contained
+            //Check payload type if indicated
+            if (AllowsMultiplePayloadTypes == false && pt != PayloadType) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
 
-                if (ts != m_Timestamp) throw new ArgumentException("packet.Timestamp must match frame Timestamp", "packet");
+            if (ssrc != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
 
-                if (count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
+            if (ts != m_Timestamp) throw new ArgumentException("packet.Timestamp must match frame Timestamp", "packet");
 
-                //Ensure not a duplicate (Must also check PayloadType if multiple types are allowed)
-                if (false == allowDuplicates && (m_LowestSequenceNumber == seq || m_HighestSequenceNumber == seq)) throw new InvalidOperationException("Cannot have duplicate packets in the same frame.");
+            if (count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
 
-                //Could possibly check for < m_LowestSequenceNumber or > m_HighestSequenceNumber here.
-            }
+            //Ensure not a duplicate (Must also check PayloadType if multiple types are allowed)
+            if (false == allowDuplicates && (m_LowestSequenceNumber == seq || m_HighestSequenceNumber == seq)) throw new InvalidOperationException("Cannot have duplicate packets in the same frame.");
+
+            //Could possibly check for < m_LowestSequenceNumber or > m_HighestSequenceNumber here.
 
             //Determine if the packet has a marker
             bool packetMarker = packet.Marker;
@@ -1048,7 +1084,7 @@ namespace Media.Rtp
             //Multiple threads adding packets would not effect count but removing definitely would...
 
             //Iterate in reverse to make the remove as efficient as possible.
-            for (int e = Packets.Count - 1; e >= 0; --e)
+            for (int e = Packets.Count; --e >= 0; --e)
             {
                 //Flag / Mark removing
 
@@ -1184,27 +1220,11 @@ namespace Media.Rtp
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-            //Add the data of the packet which is at the end of the extension and csrc until the padding.
-            
-            //Must / should also be able to determine if packet was previously depacketized.
-                            //packet.SequenceNumber
-
-            //This will fail if packets are added out of order, a standard function to generate the key should be used.
-            //(packet.Timestamp - packet.SequenceNumber,
-                                                 //Assemble(packet, false, 0));
-
-            //Could copy the data here but would increase memory usage, should have option and should track option so removing may be able to ignore.
-
-            //Depacketized.Add(Depacketized.Count, packet.PayloadDataSegment);//new Common.MemorySegment(packet.Payload.Array, (packet.Payload.Offset + headerOctets), packet.Payload.Count - (headerOctets + packet.PaddingOctets)));
-
             int index = (short)packet.SequenceNumber;
 
             if (Depacketized.ContainsKey(index)) return;
 
             Depacketized.Add(index, packet.PayloadDataSegment);
-
-            //Write the packet payload starting at the end of the extension and csrc until the padding
-            //Buffer.Write(packet.Payload.Array, packet.Payload.Offset + headerOctets, packet.Payload.Count - (headerOctets + packet.PaddingOctets));
         }
 
         /// <summary>
@@ -1757,6 +1777,16 @@ namespace Media.Rtp
     //}
 
     #endregion
+
+    //A construct for sending a RtpFrame from an existing byte[] only using a single new RtpHeader and a MemorySegment for the Packetized data would be very efficient for sending.
+    //foreach RtpPacket packet in Packetize(byte[] data, RtpHeader header = null, int bytesPerPacket) while(offset < data.Length) RtpPacket packet = Packetize(data, offset, bytesPerPacket) => Send(packet); offset += bytesPerpacket;
+
+    //Packetize would need IEnumerable<MemorySegment> overload
+
+    //A construct for Depacketizing a RtpFrame such as Depacketized might be better seperate for purposes when you only will decode a single portion of data at a time, the data would not have to be stored for each packet
+    //foreach MemorySegment ms in frame.Depacketized => foreach RtpPacket packet in frame yield return Depacketize(packet)
+
+    //Depacketized would need IEnumerable<MemorySegment> overload or it could even be on the frame if frame was IEnumerable<MemorySegment>
 }
 
 

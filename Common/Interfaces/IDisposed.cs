@@ -70,6 +70,15 @@ namespace Media.Common
         public static bool ShouldDisposed(this IDisposed dispose) { return dispose != null && dispose.ShouldDispose; }
 
         public static void CheckDisposed(this IDisposed dispose) { if(dispose != null && dispose.IsDisposed) throw new System.ObjectDisposedException("IDisposedExtensions.CheckDisposed,true"); }
+
+        //public static void SetShouldDispose(this IDisposed dispose, bool value, bool callDispose = false)
+        //{
+        //    if (IDisposedExtensions.IsNullOrDisposed(dispose)) return;
+
+        //    dispose.ShouldDispose = value;
+
+        //    if (callDispose) dispose.Dispose();
+        //}
     }
 
 }

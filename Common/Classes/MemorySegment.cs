@@ -56,7 +56,7 @@ namespace Media.Common
         //Length can be set by other classes through reflection.
         public static readonly MemorySegment Empty = new MemorySegment(EmptyBytes, false);
 
-        internal protected readonly byte[] m_Array;
+        internal protected byte[] m_Array;
 
         internal protected long m_Offset, m_Length;
 
@@ -93,6 +93,7 @@ namespace Media.Common
             get { return (int)m_Offset; }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
+            //could just have a Resize method
             protected set { m_Offset = value; }
         }
 
@@ -100,7 +101,9 @@ namespace Media.Common
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { return m_Array; } /* protected set { m_Array = value; } */
+            get { return m_Array; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            protected set { m_Array = value; } 
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -121,6 +124,8 @@ namespace Media.Common
             : this(reference, shouldDispose)
         {
             m_Offset = (uint)offset;
+
+            //m_Length -= offset;
 
             if (m_Offset > m_Length) throw new ArgumentOutOfRangeException("offset");
         }
@@ -164,6 +169,19 @@ namespace Media.Common
             m_Length = other.m_Length;
 
             //ByteOrder = other.ByteOrder;
+        }
+
+        public MemorySegment(bool shouldDispose = true)
+            : base(shouldDispose)
+        {
+            //4,6
+            //m_Array = System.Array.Empty<byte>();
+
+            m_Array = System.Linq.Enumerable.Empty<byte>().ToArray();
+
+            m_Offset = 0;
+
+            m_Length = 0;
         }
 
         //public override void Dispose()
@@ -264,6 +282,21 @@ namespace Media.Common
         #endregion
 
         //Methods for copying an array of memory or constructor?
+
+        public void Update(ref byte[] source, ref int offset, ref int length)
+        {
+            m_Array = source;
+
+            m_Offset = offset;
+
+            m_Length = length;
+        }
+
+        public void Update(ref byte[] source) { m_Array = source; }
+
+        public void Update(ref int offset) { m_Offset = offset; }
+
+        public void IncreaseLength(long length) { m_Length += length; }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode()

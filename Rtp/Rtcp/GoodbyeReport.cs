@@ -305,7 +305,7 @@ namespace Media.Rtcp
             //Add the bytes to the payload and set the LengthInWordsMinusOne and increase the BlockCount
             
             //This is not valid when there is a ReasonForLeaving, the data needs to be placed before such reason and padding
-            AddBytesToPayload(sourceList.AsBinaryEnumerable(offset, BlockCount += Binary.Min(reportBlocksRemaining, count)));
+            AddBytesToPayload(sourceList.GetBinaryEnumerable(offset, BlockCount += Binary.Min(reportBlocksRemaining, count)));
         }
 
         public virtual void Add(RFC3550.SourceList sourceList)

@@ -39,6 +39,9 @@ namespace Media.Sdp
     //Maybe useful to have a Parameters class which is a subclass of ParametersBase to achieve the ability to register and remove grammar.
     //public sealed class Parameters{
 
+    /// <summary>
+    /// Contains registered and commonly used datums which coresponds to values in an attribute line.
+    /// </summary>
     public sealed class AttributeFields
     {
         AttributeFields() { }

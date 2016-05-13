@@ -428,6 +428,30 @@ namespace Media.Rtp
 
         #region Instance Methods        
 
+        /// <summary>
+        /// Updates the source array of the <see cref="First16Bits"/> and <see cref="PointerToLast10Bytes"/>
+        /// </summary>
+        /// <param name="source"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected void Synchronize(ref byte[] source)
+        {
+            //Should check IsContiguous
+
+            First16Bits.m_Memory.Update(ref source);
+
+            PointerToLast10Bytes.Update(ref source);
+        }
+
+        /// <summary>
+        /// Indicates if the <see cref="First16Bits"/> and <see cref="PointerToLast10Bytes"/> belong to the same array.
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool IsContiguous()
+        {
+            return First16Bits.m_Memory.Array == PointerToLast10Bytes.Array && First16Bits.m_Memory.Offset + First16Bits.m_Memory.Count == PointerToLast10Bytes.Offset;
+        }
+
         public int CopyTo(byte[] dest, int offset)
         {
             if (IsDisposed) return 0;

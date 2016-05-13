@@ -346,9 +346,9 @@ r=7d 1h 0 25h";
             //Expected
 
             //Check them to be in Ntp Format..
-            System.Diagnostics.Debug.Assert(line.StartTimeString == Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(now).ToString(), "Expected SessionStartTime not found");
+            System.Diagnostics.Debug.Assert(line.StartTimeToken == Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(now).ToString(), "Expected SessionStartTime not found");
             
-            System.Diagnostics.Debug.Assert(line.StopTimeString == Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(then).ToString(), "Expected SessionStopTime not found");
+            System.Diagnostics.Debug.Assert(line.StopTimeToken == Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(then).ToString(), "Expected SessionStopTime not found");
         }
     }
 

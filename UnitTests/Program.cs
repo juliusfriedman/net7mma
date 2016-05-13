@@ -1393,6 +1393,22 @@ namespace Media.UnitTests
 
                                             continue;
                                         }
+                                    case ConsoleKey.T:
+                                        {
+                                            Console.WriteLine("ThreadEvents = " + client.Client.ThreadEvents);
+
+                                            Console.WriteLine("ThreadEvents = " + (client.Client.ThreadEvents = !client.Client.ThreadEvents));
+
+                                            continue;
+                                        }
+                                    case ConsoleKey.S:
+                                        {
+                                            Console.WriteLine("IListSockets = " + client.Client.IListSockets);
+
+                                            Console.WriteLine("client.Client.IListSockets = " + (client.Client.IListSockets = !client.Client.IListSockets));
+
+                                            continue;
+                                        }
                                     case ConsoleKey.L:
                                         {
                                             //Indicate the session is being removed
@@ -2040,27 +2056,29 @@ namespace Media.UnitTests
             {
                 /* NOTE, Apparently it's not clear that when using the RtpClient you would already have access to a RtpFrame via the FrameChanged Event...
                  * 
-                 * 
-                 * 
                  void Client_RtpFrameChanged(object sender, Media.Rtp.RtpFrame frame, Media.Rtp.RtpClient.TransportContext tc = null, bool final = false){
                  
-                 if (frame.IsDisposed || false == frame.IsComplete && false == final) return;
+                 //Check if you want to observe the event, final is the most important because it indicates if the event will be fired again with the same frame instance as an argument.
+                 if (false == final || Media.Common.IDisposedExtensions.IsNullOrDisposed(frame) || false == frame.IsComplete) return;
 
-                var context = tc ?? ((Media.Rtp.RtpClient)sender).GetContextByPayloadType(frame.PayloadTypeByte);
+                 var context = tc ?? ((Media.Rtp.RtpClient)sender).GetContextByPayloadType(frame.PayloadTypeByte);
 
-                if (context == null || context.MediaDescription.MediaType != Media.Sdp.MediaType.video) return;
+                 if (context == null || context.MediaDescription.MediaType != Media.Sdp.MediaType.video) return;
 
                  using (Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame hframe = new Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame(frame))
-                 {
-                    hframe.Depacketize();
-                 * //The rest of the example applies exactly the same, except you would want to skip writing the sps and pps after the very first time.
+                 {                    
+                    //The rest of the example applies exactly the same, except you would want to skip writing the sps and pps after the very first time.
+                    //Depacketize(); if(false == hframe.HasDepacketized) return; ...
                  }
                 }
                  */
-               
+
                 //Create a RFC6184Frame
                 using (Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame profileFrame = new Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame(97))
                 {                    
+
+                    
+
                     //Take each packet in the examples
                     foreach (byte[] packet in packetBytes)
                     {
@@ -2082,7 +2100,7 @@ namespace Media.UnitTests
                     //}
 
                     //If there is no buffer then there is nothing to process.
-                    if (profileFrame.Buffer == null) return;
+                    if (false == profileFrame.HasDepacketized) return;
 
                     //If there is not a sps or pps in band and this is the first frame given to a decoder then it needs to contain a SPS and PPS
                     //This is typically retrieved from the SessionDescription or CodecPrivateData but only the very first time.
@@ -2097,17 +2115,24 @@ namespace Media.UnitTests
                         byte[] sps = null, pps = null;
 
                         //If there was a fmtp line then iterate the parts contained.
-                        if (fmtp != null) foreach (string p in fmtp.FormatSpecificParameters)
+                        foreach (string p in fmtp.FormatSpecificParameters)
                             {
-                                string trim = p.Trim();
-                                if (trim.StartsWith("sprop-parameter-sets=", StringComparison.InvariantCultureIgnoreCase))
+                                //Determine where in the string the desired token in.
+                                string token = Common.Extensions.String.StringExtensions.Substring(p, "sprop-parameter-sets=");
+
+                                //If present extract it.
+                                if (false == string.IsNullOrWhiteSpace(token))
                                 {
-                                    string[] data = trim.Replace("sprop-parameter-sets=", string.Empty).Split(',');
+                                    //Get the strings which corresponds to the data without the datum split by ','
+                                    string[] data = token.Split(',');
+
+                                    //If there is any data then assign it
 
                                     if (data.Length > 0) sps = System.Convert.FromBase64String(data[0]);
 
                                     if (data.Length > 1) pps = System.Convert.FromBase64String(data[1]);
                                     
+                                    //Done
                                     break;
                                 }
                             }
@@ -2140,11 +2165,11 @@ namespace Media.UnitTests
                         }
                         else throw new System.Exception("PicutureParameterSet not found");
 
-                        //Don't do this again...
+                        //Don't do this again for subsequent frames in the stream...
                         //m_InitializedStream = true;
                     }
                     
-                    //Write the data in the frame.
+                    //Write the data in the frame to the FileStream
                     profileFrame.Buffer.CopyTo(fs);
                 }
             }
@@ -3281,6 +3306,8 @@ a=appversion:1.0");
         {
             if (sender is Media.Rtp.RtpClient && (sender as Media.Rtp.RtpClient).IsDisposed) return;
 
+            if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
             ConsoleColor previousForegroundColor = Console.ForegroundColor,
                     previousBackgroundColor = Console.BackgroundColor;
 
@@ -3305,6 +3332,9 @@ a=appversion:1.0");
 
                 if (matched == null)
                 {
+
+                    if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
                     Console.WriteLine("****Unknown RtpPacket context: " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty : "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
                     if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
                         {
@@ -3321,7 +3351,8 @@ a=appversion:1.0");
                         rtpPacket.Length + "\nContributingSourceCount = " + rtpPacket.ContributingSourceCount
                         + "\n Version = " + rtpPacket.Version + "\tSynchronizationSourceIdentifier = " + rtpPacket.SynchronizationSourceIdentifier);
                 }
-                if (rtpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtpPacket.Payload.Array, rtpPacket.Payload.Offset, rtpPacket.Payload.Count)));
+
+                if (false == Media.Common.IDisposedExtensions.IsNullOrDisposed(packet) && rtpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtpPacket.Payload.Array, rtpPacket.Payload.Offset, rtpPacket.Payload.Count)));
             }
             else
             {
@@ -3349,6 +3380,8 @@ a=appversion:1.0");
                 if (matched != null) Console.WriteLine(string.Format(TestingFormat, "Context:", "*******\n\t*********** Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier + " - Channel = " + matched.ControlChannel));
                 else
                 {
+                    if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
                     Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet context -> " + rtcpPacket.PayloadType + " \nAvailables Contexts:", "*******\n\t***********"));
                     if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
                         {

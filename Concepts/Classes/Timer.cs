@@ -75,7 +75,9 @@ namespace Media.Concepts.Classes
         
         //Linked list vs list...
 
-        readonly internal System.Collections.Generic.LinkedList<long> Producer;
+        readonly internal Media.Common.Collections.Generic.ConcurrentLinkedQueue<long> Producer;
+
+        //readonly internal Media.Common.Collections.Generic.ConcurrentLinkedQueue<long> JProducer;
 
         void Count()
         {
@@ -84,7 +86,7 @@ namespace Media.Concepts.Classes
             {
                 System.Threading.Thread.BeginCriticalRegion();
 
-                long sample;
+                long sample = 0;
 
             AfterSample:
 
@@ -95,11 +97,12 @@ namespace Media.Concepts.Classes
 
                     while (m_Enabled && Producer.Count >= 1)
                     {
-                        sample = Producer.Last.Value;
+                        //sample = Producer.Last.Value;
 
-                        Producer.RemoveLast();
-
-                        Tick(ref sample);
+                        if (Producer.TryDequeue(ref sample))
+                        {
+                            Tick(ref sample);
+                        }
                     }
 
                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
@@ -146,11 +149,11 @@ namespace Media.Concepts.Classes
                                 {
                                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
 
-                                    Producer.AddFirst((long)m_Ticks++);
+                                    Producer.Enqueue((long)m_Ticks++);
 
                                     x = (ulong)Common.Binary.Clamp((m_Bias = m_Ops / approximate), 0, m_Bias);
 
-                                    while (1 > --x /*&& Producer.Count <= m_Frequency.Ticks*/) Producer.AddFirst((long)++m_Ticks);
+                                    while (1 > --x /*&& Producer.Count <= m_Frequency.Ticks*/) Producer.Enqueue((long)++m_Ticks);
 
                                     m_Ops += m_Bias;
 
@@ -179,7 +182,7 @@ namespace Media.Concepts.Classes
         {
             m_Frequency = frequency;
 
-            Producer = new System.Collections.Generic.LinkedList<long>();
+            Producer = new Common.Collections.Generic.ConcurrentLinkedQueue<long>();
 
             m_Counter = new System.Threading.Thread(new System.Threading.ThreadStart(Count))
             {

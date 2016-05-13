@@ -53,6 +53,7 @@ namespace Media.Common.Extensions.String
 
         #region Hex Functions
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte HexCharToByte(char c) { c = char.ToUpperInvariant(c); return (byte)(c > '9' ? c - 'A' + 10 : c - '0'); }
 
         /// <summary>
@@ -80,12 +81,14 @@ namespace Media.Common.Extensions.String
             unchecked
             {
                 //Iterate the pointer using the managed length ....
+                //Todo, optomize with reverse or i - 1
                 for (int i = start, e = length; i < e; i += 2)
                 {
                     //to reduce string manipulations pre call
                     //while (str[i] == '-') i++;
 
-                    //Conver 2 Chars to a byte
+                    //Todo, Native and Unsafe
+                    //Convert 2 Chars to a byte
                     result.Add((byte)(HexCharToByte(str[i]) << 4 | HexCharToByte(str[i + 1])));
                 }
             }
@@ -103,6 +106,56 @@ namespace Media.Common.Extensions.String
         /// </summary>
         /// <param name="hex"></param>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte[] ConvertToBytes(this string hex) { return string.IsNullOrWhiteSpace(hex) ? Media.Common.MemorySegment.EmptyBytes : HexStringToBytes(hex); }
+
+        public static string Substring(this string source, string pattern, System.StringComparison comparison = System.StringComparison.OrdinalIgnoreCase)
+        {
+            return Substring(source, 0, -1, pattern, comparison);
+        }
+
+        /// <summary>
+        /// Given a source string find the pattern and extract the data thereafter.
+        /// </summary>
+        /// <param name="source">The source <see cref="System.String"/></param>
+        /// <param name="startIndex">in <paramref name="source"/></param>
+        /// <param name="count">from <paramref name="startIndex"/>, ensured to result in a value outside of the length of <paramref name="source"/></param>
+        /// <param name="pattern">The <see cref="System.String"/> to find in <paramref name="source"/></param>
+        /// <param name="comparison"><see cref="System.StringComparison"/></param>
+        /// <returns>
+        /// <see cref="String.Empty"/> if no result was found or <paramref name="source"/> was null or empty. 
+        /// When <paramref name="pattern"/> is null or empty <paramref name="source"/> is returned. 
+        /// Otherwise the <see cref="System.String"/> which does not include the <paramref name="pattern"/>
+        /// </returns>
+        /// <remarks>8 bytes in worst case space complexity, time complexity is O(count) in worst cast</remarks>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //refs
+        public static string Substring(this string source, int startIndex, int count, string pattern, System.StringComparison comparison = System.StringComparison.OrdinalIgnoreCase) //Ordinal is faster.
+        {
+            if (string.IsNullOrEmpty(source)) return string.Empty;
+            else if (string.IsNullOrEmpty(pattern)) return source;
+
+            int sourceLength = source.Length;
+
+            //Ensure the start is within the string.
+            if (startIndex > sourceLength) startIndex -= sourceLength;
+
+            int patternLength = pattern.Length;
+
+            //Use the source length when count is negitive
+            if (count < 0) count = sourceLength;
+
+            //Only match up to the length of the source.
+            count = Binary.Max(ref count, ref sourceLength);
+
+            //Ensure the startIndex and count are within range.
+            if (startIndex + count > sourceLength) count -= startIndex;
+
+            //Determine where in the source string the substring resides
+            startIndex = source.IndexOf(pattern, startIndex, count, comparison);
+
+            //The substring must be within the source after the length of the pattern.
+            return startIndex >= 0 && startIndex <= sourceLength ? source.Substring(startIndex + patternLength) : string.Empty;
+        }
     }
 }
