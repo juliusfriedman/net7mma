@@ -554,11 +554,10 @@ namespace Media.Rtp
         /// <returns>The RtpPacket cloned as result of calling this function</returns>
         public RtpPacket Clone(bool includeSourceList, bool includeExtension, bool includePadding, bool includeCoeffecients, bool selfReference)
         {
-            //Get the bytes which correspond to the header
-            IEnumerable<byte> binarySequence = Enumerable.Empty<byte>();
-
             //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
             if (includeSourceList && includeExtension && includePadding && includeCoeffecients && selfReference) return new RtpPacket(Header, Payload, false) { Transferred = Transferred };
+
+            IEnumerable<byte> binarySequence = Media.Common.MemorySegment.EmptyBytes;
 
             bool hasSourceList = ContributingSourceCount > 0;
 

@@ -733,7 +733,6 @@ namespace Media.Rtcp
         /// <returns>The RtcpPacket cloned as result of calling this function</returns>
         public RtcpPacket Clone(bool reportBlocks, bool padding, bool selfReference)
         {
-            //Get the bytes which correspond to the header
             IEnumerable<byte> binarySequence = Media.Common.MemorySegment.EmptyBytes;
 
             try

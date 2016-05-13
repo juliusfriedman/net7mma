@@ -40,6 +40,7 @@ namespace Media.Concepts.Classes
 {
     /// <summary>
     /// Provides a Timer implementation which can be used across all platforms and does not rely on the existing Timer implementation.
+    /// This is fast enough to count all cycles and measure micro time, almost nano time.
     /// </summary>
     public class Timer : Common.BaseDisposable
     {
@@ -73,11 +74,7 @@ namespace Media.Concepts.Classes
 
         readonly internal Clock m_Clock = new Clock();
         
-        //Linked list vs list...
-
         readonly internal Media.Common.Collections.Generic.ConcurrentLinkedQueue<long> Producer;
-
-        //readonly internal Media.Common.Collections.Generic.ConcurrentLinkedQueue<long> JProducer;
 
         void Count()
         {
@@ -95,21 +92,13 @@ namespace Media.Concepts.Classes
                 Top:
                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
 
-                    while (m_Enabled && Producer.Count >= 1)
-                    {
-                        //sample = Producer.Last.Value;
-
-                        if (Producer.TryDequeue(ref sample))
-                        {
-                            Tick(ref sample);
-                        }
-                    }
+                    /*do */if (Producer.TryDequeue(ref sample)) Tick(ref sample);
+                    //while (m_Enabled && Producer.Count >= 0);
 
                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
 
                     if (false == m_Enabled) return;
-
-                    while (m_Enabled && Producer.Count == 0) if (m_Counter.IsAlive) m_Counter.Join(0);  //++m_Ops;
+                    else if (Producer.Count == 0) m_Counter.Join(1);  //++m_Ops;
 
                     goto Top;
                 }
@@ -145,7 +134,7 @@ namespace Media.Concepts.Classes
                     {
                         default:
                             {
-                                if (m_Bias + ++m_Ops >= approximate)
+                                if (m_Enabled && m_Bias + ++m_Ops >= approximate)
                                 {
                                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
 
@@ -153,7 +142,7 @@ namespace Media.Concepts.Classes
 
                                     x = (ulong)Common.Binary.Clamp((m_Bias = m_Ops / approximate), 0, m_Bias);
 
-                                    while (1 > --x /*&& Producer.Count <= m_Frequency.Ticks*/) Producer.Enqueue((long)++m_Ticks);
+                                    while (m_Enabled && 1 > --x /*&& Producer.Count <= m_Frequency.Ticks*/) Producer.Enqueue((long)++m_Ticks);
 
                                     m_Ops += m_Bias;
 
@@ -205,13 +194,13 @@ namespace Media.Concepts.Classes
 
             m_Counter.Start();
 
-            var p = System.Threading.Thread.CurrentThread.Priority;
+            System.Threading.ThreadPriority previous = System.Threading.Thread.CurrentThread.Priority;
 
             System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
 
-            while (m_Ops == 0) m_Counter.Join(0); //m_Clock.NanoSleep(0);
+            while (m_Enabled && m_Ops == 0) m_Counter.Join(0); //m_Clock.NanoSleep(0);
             
-            System.Threading.Thread.CurrentThread.Priority = p;
+            System.Threading.Thread.CurrentThread.Priority = previous;
         }
 
         public void Stop()
