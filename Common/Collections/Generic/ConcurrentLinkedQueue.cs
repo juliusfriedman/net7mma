@@ -159,9 +159,11 @@ namespace Media.Common.Collections.Generic
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Enqueue(ref T t)
         {
+            //Set the head
             First = LinkedList.AddFirst(t);
 
-            Last = First;
+            //If the last was not set then update it now.
+            if(Last == null) Last = First;
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
