@@ -335,6 +335,8 @@ namespace Media.Common
         }
         #endregion
 
+        //Todo, maybe move to Machine.
+
         #region Enumerations
 
         /// <summary>
@@ -842,7 +844,7 @@ namespace Media.Common
 
         [CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static int MachineWordsToBytes(ref int machineWords) { return machineWords << Binary.Quinque; }
+        public static int MachineWordsToBytes(ref int machineWords) { return machineWords << Binary.Duo; }
 
         #endregion
 
@@ -975,7 +977,7 @@ namespace Media.Common
         #region Properties
 
         /// <summary>
-        /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture.
+        /// The logical 0 based index of what this library reguards as the most significant bit of an byte according to system architecture when the static constructor was ran.
         /// </summary>
         public static int MostSignificantBit
         {
@@ -984,7 +986,7 @@ namespace Media.Common
         }
 
         /// <summary>
-        /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture.
+        /// The logical 0 based index of what this library reguards as the least significant bit of an byte according to system architecture when the static constructor was ran.
         /// </summary>
         public static int LeastSignificantBit
         {
@@ -993,7 +995,7 @@ namespace Media.Common
         }
 
         /// <summary>
-        /// The <see cref="BitOrder"/> of the current architecture
+        /// The <see cref="BitOrder"/> of the current architecture when the static constructor was ran.
         /// </summary>
         public static ByteOrder SystemByteOrder
         {
@@ -1002,7 +1004,7 @@ namespace Media.Common
         }
 
         /// <summary>
-        /// The <see cref="BitOrder"/> of the current architecture
+        /// The <see cref="BitOrder"/> of the current architecture when the static constructor was ran.
         /// </summary>
         public static BitOrder SystemBitOrder
         {
@@ -1011,13 +1013,15 @@ namespace Media.Common
         }
 
         /// <summary>
-        /// Gets a value indicating if the system's byte order is Big Endian.
+        /// Gets a value indicating if the system's byte order was Big Endian when the static constructor was ran.
         /// </summary>
         public static bool IsBigEndian
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_SystemByteOrder == ByteOrder.Big; }
         }
+
+        //IsLittleEndian
 
         #endregion
 
@@ -1041,106 +1045,57 @@ namespace Media.Common
             {
                 #region DetermineBitOrder and ByteOrder
 
-                //Don't use unsafe code because eventually .Net MF will be completely supported.
-                //Not because you can't but because of the implications
-                //If Unsafe is used then only the Non - Generic Subset will be supported although you could just as well have Generics too...
+                //Probe the BitAndByteOrder currently used
+                Machine.ProbeBitOrderAndByteOrder(ref m_SystemBitOrder, ref m_SystemByteOrder);
 
-                //Todo, Ensure integer, short and byte ...
-
-#if false == NATIVE
-
-                //Use 128 as a value and get the memory associated with the integer representation of the value
-                byte[] memoryOf = BitConverter.GetBytes((int)Binary.SedecimBitSize); //Use ByteOrder
-#endif
-                //Iterate the memory looking for a non 0 value
-                for (int offset = 0, endOffset = BytesPerInteger; offset < endOffset; ++offset)
+                //Determine the BitOrder using the value read out of memory
+                switch (m_SystemBitOrder)
                 {
+                    //Set the indexes of the bits accordingly.
+                    case BitOrder.LeastSignificant:
+                        {
+                            m_MostSignificantBit = Binary.Nihil;
 
-                    //Read a single byte from memory out of the constant value of 128 (0x00000080) at offset 0 in memory  (This constant was chosen because it should only have one bit set)
-                    //Take a copy of the byte at the offset in memory
+                            m_LeastSignificantBit = Binary.Septem;
 
-#if false == NATIVE
-
-                    byte atOffset = memoryOf[offset];
-#else
-
-                    byte atOffset = System.Runtime.InteropServices.Marshal.ReadByte(Binary.SedecimBitSize, offset);
-#endif
-
-                    //If the value is 0 continue
-                    if (atOffset == Binary.Nihil) continue;
-                    
-                    //Determine the BitOrder using the value read out of memory
-                    switch (m_SystemBitOrder = ((BitOrder)atOffset))
-                    {
-                        //Set the indexes of the bits accordingly.
-                        case BitOrder.LeastSignificant:
-                            {
-                                m_MostSignificantBit = Binary.Nihil;
-
-                                m_LeastSignificantBit = Binary.Septem;
-
-                                break;
-                            }
-                        case BitOrder.MostSignificant:
-                            {
-                                m_MostSignificantBit = Binary.Septem;
-
-                                m_LeastSignificantBit = Binary.Nihil;
-
-                                break;
-                            }
-                        default:
-                            {
-                                throw new NotSupportedException("Create an Issue for your Architecture to be supported.");
-                            }
-                    }
-
-                    //This check is engineered by the fact that the enumeration of BitOrder is defined by how the value should be laid on in memory accordingly.
-                    //only 1 bit is set in the value 0x0080 value and it should be the logical 0 based index of the LeastSignificantBit
-
-                    //Makes two checks in parallel
-                    //If the LeastSignificantBit is not set or the MostSignificantBit is set then throw an exception
-                    if (GetBit(ref atOffset, m_MostSignificantBit) | false == GetBit(ref atOffset, m_LeastSignificantBit)) throw new InvalidOperationException("Did not correctly detect BitOrder");
-
-                    //Determine the ByteOrder using the offset where the value was found
-                    switch (offset)
-                    {
-                        case Binary.Nihil:
-                            m_SystemByteOrder = ByteOrder.Little;
                             break;
-                        case Binary.Ūnus:
-                            m_SystemByteOrder = ByteOrder.MiddleLittle;
+                        }
+                    case BitOrder.MostSignificant:
+                        {
+                            m_MostSignificantBit = Binary.Septem;
+
+                            m_LeastSignificantBit = Binary.Nihil;
+
                             break;
-                        case Binary.Duo:
-                            m_SystemByteOrder = ByteOrder.MiddleBig;
-                            break;
-                        case Binary.Tres:
-                            m_SystemByteOrder = ByteOrder.Big;
-                            break;
-                    }
-
-                    //This check is engineered by the fact that the enumeration of ByteOrder is defined by how the value should be laid on in memory accordingly.
-                    //Since BigEndian is reversed then little should be equal to big when read integer is called without reversing the bytes.
-
-#if false == NATIVE
-                    //If the result of reading an integer of the native bytes of ByteOrder.Little does not match the expected value throw an exception.
-                    if ((int)m_SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");                    
-#else
-                    //If the native read of the value of m_SystemByteOrder from memory does not match the value expected throw an exception.
-                    if ((int)m_SystemByteOrder != System.Runtime.InteropServices.Marshal.ReadInt32((int)m_SystemByteOrder, 0)) throw new InvalidOperationException("Did not correctly detect ByteOrder"); 
-#endif
-
-                    //Could also determine if the Binary Representation is One or Twos Complement..
-
-#if false == NATIVE
-                    //This allocation will be removed
-                    memoryOf = null;
-#endif
-
-                    //Stop detection
-                    break;
+                        }
+                    default:
+                        {
+                            throw new NotSupportedException("Create an Issue for your Architecture to be supported.");
+                        }
                 }
+
+                //Verify the BitOrder probe
+#if false == NATIVE
+
+                byte byteOnStack = (byte)m_SystemBitOrder;
+#else
+
+                byte byteOnStack = System.Runtime.InteropServices.Marshal.ReadByte((byte)m_SystemBitOrder, 0);
+#endif
+
+                //This check is engineered by the fact that the enumeration of BitOrder is defined by how the value should be laid on in memory accordingly.
+                //only 1 bit is set in the value 0x0080 value and it should be the logical 0 based index of the LeastSignificantBit
+
+                //Makes two checks in parallel
+                //If the LeastSignificantBit is not set or the MostSignificantBit is set then throw an exception
+                if (GetBit(ref byteOnStack, m_MostSignificantBit) | false == GetBit(ref byteOnStack, m_LeastSignificantBit)) throw new InvalidOperationException("Did not correctly detect BitOrder");
+
+                //Verify the ByteOrder probe
+#if false == NATIVE
+                if ((int)m_SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
+#else
+                if ((int)m_SystemByteOrder != System.Runtime.InteropServices.Marshal.ReadInt32((int)m_SystemByteOrder, 0)) throw new InvalidOperationException("Did not correctly detect ByteOrder"); 
+#endif
 
                 #endregion
 
@@ -1202,10 +1157,10 @@ namespace Media.Common
                 for (byte i = Binary.Duo; i < byte.MaxValue; ++i)
                 {
                     //Calulcate the reverse of i only when it is not a Palindrome.
-                    byte reverse = IsPalindrome(ref i) ? i : x64 ? MultiplyReverseU8_64(ref i) : MultiplyReverseU8_32(ref i);
+                    byteOnStack = IsPalindrome(ref i) ? i : x64 ? MultiplyReverseU8_64(ref i) : MultiplyReverseU8_32(ref i);
 
                     //Set the reverse value
-                    BitsReverseTable[i] = reverse;
+                    BitsReverseTable[i] = byteOnStack;
 
                     //Set the BitSet table entry for the reverse value and i at the same time
                     //i & 1 produces the a value which is the number of new bits i which is added with the value in the BitSetTable of i / 2 which corresponds to the previous amount of bits set in i - 1.
@@ -1225,7 +1180,7 @@ namespace Media.Common
                     // 12 / 2 = 6
                     //  etc
 
-                    BitsSetTable[reverse] = BitsSetTable[i] = (byte)((i & Binary.Ūnus) + BitsSetTable[i / Binary.Duo]);
+                    BitsSetTable[byteOnStack] = BitsSetTable[i] = (byte)((i & Binary.Ūnus) + BitsSetTable[i / Binary.Duo]);
                 }
 
                 #endregion
@@ -2377,11 +2332,11 @@ namespace Media.Common
         public static Guid ReadGuid(IEnumerable<byte> octets, int offset, bool reverse)
         {
             return new Guid(
-                Read32(octets, ref offset, reverse),
+                Read32(octets, ref offset, reverse), //reverse and && IsBigEndian
                 Read16(octets, ref offset, reverse),
                 Read16(octets, ref offset, reverse),
                 //Might not have to reverse these values... (would depend on how 8 bit values were stored in octets)
-                ReadU8(octets, ref offset, reverse), //reverse && isBigEndian
+                ReadU8(octets, ref offset, reverse), //reverse && BitOrder != MostSignificant
                 ReadU8(octets, ref offset, reverse),
                 ReadU8(octets, ref offset, reverse),
                 ReadU8(octets, ref offset, reverse),
@@ -2403,6 +2358,7 @@ namespace Media.Common
         /// <param name="shift">The amount of bits to shift the sign for each byte</param>
         /// <returns>The calculated result</returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //IList<byte> could be better suited
         public static long ReadInteger(IEnumerable<byte> octets, int offset, int sizeInBytes, bool reverse, long sign = Binary.Ūnus, int shift = Binary.BitsPerByte)
         {
             if (sizeInBytes < Binary.Nihil) throw new ArgumentException("sizeInBytes", "Must be at greater than 0.");

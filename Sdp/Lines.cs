@@ -1449,7 +1449,9 @@ namespace Media.Sdp
 
             #region Properties
 
-            public string StartTimeString
+            //Todo, should have string field for formatting time values given to StartTimeSpan.
+
+            public string StartTimeToken
             {
                 get { return GetPart(0); }
                 set { SetPart(0, value); }
@@ -1472,10 +1474,10 @@ namespace Media.Sdp
             public TimeSpan StartTimeSpan
             {
                 get { return SessionDescription.ParseTime(GetPart(0)); }
-                internal set { SetPart(0, value.ToString()); }//Format
+                internal set { SetPart(0, value.ToString()); }//Format, see above.
             }
 
-            public string StopTimeString
+            public string StopTimeToken
             {
                 get { return GetPart(1); }
                 set { SetPart(1, value); }
@@ -1501,7 +1503,6 @@ namespace Media.Sdp
                 internal set { SetPart(1, value.ToString()); }//Format
             }
 
-            //StartDatTime should be enough..
             /// <summary>
             /// Gets the DateTime representation of <see cref="StarTime"/>
             /// Throws an ArgumentOutOfRangeException if SessionStartTime was out of range.
@@ -1549,6 +1550,13 @@ namespace Media.Sdp
             /// If the <see cref="StartTime"/> is also zero, the session is regarded as permanent.
             /// </summary>
             public bool IsPermanent { get { return StartTimeSpan == TimeSpan.Zero && StopTimeSpan == TimeSpan.Zero; } }
+
+            //HasDefinedStartTime !=
+
+            /// <summary>
+            /// Indicates if the <see cref="StartTime"/> is 0
+            /// </summary>
+            public bool Unbounded { get { return StartTimeSpan == TimeSpan.Zero; } }
 
             #endregion
         }
@@ -1644,6 +1652,7 @@ namespace Media.Sdp
             {
                 if (line.m_Type != RepeatType) throw new InvalidOperationException("Not a SessionRepeatTimeLine line");
 
+                //Checking is was previously parsed....
                 if (line.m_Parts.Count == 1)
                 {
                     string temp = line.m_Parts[0];
@@ -1747,7 +1756,7 @@ namespace Media.Sdp
             }
 
             /// <summary>
-            /// The format value as parsed from the a=fmtp:x portion of the line.
+            /// The format value as parsed from the a=fmtp:x portion of the line, -1 if not found.
             /// </summary>
             public int FormatValue
             {
@@ -1765,7 +1774,7 @@ namespace Media.Sdp
 
             public bool HasFormatSpecificParameters
             {
-                get { return m_Parts.Count > 1; }
+                get { return m_Parts.Count > 1 && FormatSpecificParametersCount > 0; }
             }
 
             public string FormatSpecificParameterToken

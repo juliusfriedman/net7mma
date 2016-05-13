@@ -1,4 +1,5 @@
-﻿namespace Media.Sdp
+﻿//This entire file may not ever be used in the libary, it currently is for testing API styles. Please don't rely on it.
+namespace Media.Sdp
 {
     ////Basically composes the Lines list and seperates the functionality for enumerating for some reason.
     //class LineGroup : System.Collections.Generic.IEnumerable<SessionDescriptionLine>
@@ -29,6 +30,8 @@
     //{
     //    //Must enforce the first line to be MediaDescription, must not stop parsing until the next MediaDescription.
     //}
+
+    //Could also be used when encodings or char sets are different for lines, could group them accordingly.
 
     internal class DescriptionLineGroup : SessionDescriptionLine, System.Collections.Generic.IEnumerable<SessionDescriptionLine>
     {

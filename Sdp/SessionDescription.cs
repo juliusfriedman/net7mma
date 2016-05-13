@@ -300,6 +300,17 @@ namespace Media.Sdp
                                 result = result.Add(TimeSpan.FromSeconds(temp));
                             }
 
+                            //The range of double cannot encompass the same of long / ulong, using those would prevent the overflow in some cases when NtpTimes are incorrectly used.
+
+                            //Could always parse as ulong and truncate to double...
+
+                            //ulong res;
+
+                            //if (ulong.TryParse(token.Substring(0, tokenLength), out res))
+                            //{
+                            //    result = result.Add(TimeSpan.FromTicks((long)res));
+                            //}
+
                             continue;
                         }
                     default:
@@ -326,9 +337,9 @@ namespace Media.Sdp
         internal protected Media.Sdp.Lines.SessionOriginLine m_OriginatorLine;
         internal protected Media.Sdp.Lines.SessionNameLine m_NameLine;
         
-        internal protected List<MediaDescription> m_MediaDescriptions = new List<MediaDescription>();
-        internal protected List<TimeDescription> m_TimeDescriptions = new List<TimeDescription>();
-        internal protected List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
+        internal readonly protected List<MediaDescription> m_MediaDescriptions = new List<MediaDescription>();
+        internal readonly protected List<TimeDescription> m_TimeDescriptions = new List<TimeDescription>();
+        internal readonly protected List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
 
         System.Threading.ManualResetEventSlim m_Update = new System.Threading.ManualResetEventSlim(true);
 
@@ -554,7 +565,11 @@ namespace Media.Sdp
 
                 //string oldToken = m_OriginatorLine.VersionToken;
 
-                m_Lines = value.ToList();
+                //m_Lines = value.ToList();
+
+                m_Lines.Clear();
+
+                m_Lines.AddRange(value);
 
                 //m_OriginatorLine.VersionToken != oldToken;
                 EndUpdate(token, true);
@@ -1117,15 +1132,15 @@ namespace Media.Sdp
 
             m_MediaDescriptions.Clear();
 
-            m_MediaDescriptions = null;
+            //m_MediaDescriptions = null;
 
             m_TimeDescriptions.Clear();
 
-            m_TimeDescriptions = null;
+            //m_TimeDescriptions = null;
 
             m_Lines.Clear();
 
-            m_Lines = null;
+            //m_Lines = null;
         }
 
         #endregion

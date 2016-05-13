@@ -16,7 +16,7 @@ namespace Media.Common
         /// <summary>
         /// Provides a function which configures a thread as required.
         /// </summary>
-        Action<System.Threading.Thread/*, Common.ILogging*/> ConfigureThread { get; set; } //ApplyConfiguration
+        Action<System.Threading.Thread/*, string, Common.ILogging*/> ConfigureThread { get; set; } //ApplyConfiguration (Name etc)
     }
 
     /// <summary>

@@ -418,6 +418,12 @@ namespace Media.UnitTests
             //Set a values
             p.SynchronizationSourceIdentifier = 7;
 
+            //Value should be in memory but the LengthInWords is not correctly set.
+
+            System.Diagnostics.Debug.Assert(p.SynchronizationSourceIdentifier == 0, "SynchronizationSourceIdentifier should equal 0");
+
+            p.SetLengthInWordsMinusOne();
+
             System.Diagnostics.Debug.Assert(p.SynchronizationSourceIdentifier == 7, "SynchronizationSourceIdentifier should equal 7");
 
             //Cache a bitValue
@@ -565,6 +571,12 @@ namespace Media.UnitTests
 
                 //Try to make a padded packet with the given amount
                 rtcpPacket = new Media.Rtcp.RtcpPacket(0, 0, paddingAmount, 0, 0, 0);
+
+                //Ensure the amount of padding data octets
+                if (rtcpPacket.PaddingData.Count() != paddingAmount) throw invalidPadding;
+
+                //Ensure the amount is correctly set.
+                if (rtcpPacket.PaddingOctets != paddingAmount) throw invalidPadding;
 
                 //Add 4 bytes which are not padding related
                 rtcpPacket.AddBytesToPayload(Enumerable.Repeat(default(byte), 4), 0, 1);
@@ -732,6 +744,9 @@ namespace Media.UnitTests
 
             //Or manually for some reason
             rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0); // The same as foundPackets[0]
+
+            if(rtcpPacket.Length != 32) throw new Exception("Incorrect Length");
+
             using (Media.Rtcp.ReceiversReport rr = new Media.Rtcp.ReceiversReport(rtcpPacket, false))
             {
                 Console.WriteLine(rr.SynchronizationSourceIdentifier);//1777498448

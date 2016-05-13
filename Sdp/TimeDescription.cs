@@ -74,18 +74,16 @@ namespace Media.Sdp
         /// If seto to 0 then the session is not bounded,  though it will not become active until after the <see cref="StartTime"/>.  
         /// </summary>
         /// <remarks>These values are the decimal representation of Network Time Protocol (NTP) time values in seconds since 1900 </remarks>
-        //public double StartTime { get; private set; }
-
-        public string StartTimeString
+        public string StartTimeToken
         {
-            get { return m_TimeDescriptionLine.StartTimeString; }
-            set { m_TimeDescriptionLine.StartTimeString = value; }
+            get { return TimeDescriptionLine.StartTimeToken; }
+            set { TimeDescriptionLine.StartTimeToken = value; }
         }
 
         public double StartTime
         {
-            get { return m_TimeDescriptionLine.StartTime; }
-            set { m_TimeDescriptionLine.StartTime = (long)value; }
+            get { return TimeDescriptionLine.StartTime; }
+            set { TimeDescriptionLine.StartTime = (long)value; }
         }
 
         /// <summary>
@@ -93,39 +91,26 @@ namespace Media.Sdp
         /// If set to 0 and the <see cref="StartTime"/> is also zero, the session is regarded as permanent.
         /// </summary>
         /// <remarks>These values are the decimal representation of Network Time Protocol (NTP) time values in seconds since 1900 </remarks>
-        //public double StopTime { get; private set; }
-
         public double StopTime
         {
-            get { return m_TimeDescriptionLine.StopTime; }
-            set { m_TimeDescriptionLine.StopTime = (long)value; }
+            get { return TimeDescriptionLine.StopTime; }
+            set { TimeDescriptionLine.StopTime = (long)value; }
         }
 
-        public string StopTimeString
+        public string StopTimeToken
         {
-            get { return m_TimeDescriptionLine.StopTimeString; }
-            set { m_TimeDescriptionLine.StopTimeString = value; }
+            get { return TimeDescriptionLine.StopTimeToken; }
+            set { TimeDescriptionLine.StopTimeToken = value; }
         }
 
         /// <summary>
-        /// Gets the DateTime representation of <see cref="StarTime"/>
+        /// Gets or sets the DateTime representation of <see cref="StarTime"/>
         /// Throws an ArgumentOutOfRangeException if SessionStartTime was out of range.
         /// </summary>
         public DateTime NtpStartDateTime
         {
-            get
-            {
-                return Media.Ntp.NetworkTimeProtocol.UtcEpoch1900.AddSeconds(StartTime);// - Media.Ntp.NetworkTimeProtocol.NtpDifferenceUnix);
-            }
-
-            set
-            {
-                //Convert to SDP timestamp
-                StartTime = (value.ToUniversalTime().Ticks - Ntp.NetworkTimeProtocol.UtcEpoch1900.Ticks) / TimeSpan.TicksPerSecond;
-
-                //Ensure Ntp Difference
-                //StartTime += Ntp.NetworkTimeProtocol.NtpDifferenceUnix;
-            }
+            get { return TimeDescriptionLine.NtpStartDateTime; }
+            set { TimeDescriptionLine.NtpStartDateTime = value; }
         }
 
         /// <summary>
@@ -134,50 +119,22 @@ namespace Media.Sdp
         /// </summary>
         public DateTime NtpStopDateTime
         {
-            get
-            {
-                return Media.Ntp.NetworkTimeProtocol.UtcEpoch1900.AddSeconds(StopTime);// - Media.Ntp.NetworkTimeProtocol.NtpDifferenceUnix);
-            }
-
-            set
-            {
-                //Convert to SDP timestamp
-                StopTime = (value.ToUniversalTime().Ticks - Ntp.NetworkTimeProtocol.UtcEpoch1900.Ticks) / TimeSpan.TicksPerSecond;
-
-                //Ensure Ntp Difference
-                //StopTime += Ntp.NetworkTimeProtocol.NtpDifferenceUnix;
-            }
+            get { return TimeDescriptionLine.NtpStopDateTime; }
+            set { TimeDescriptionLine.NtpStopDateTime = value; }
         }
 
         /// <summary>
         /// If the <see cref="StopTime"/> is set to zero, then the session is not bounded,  though it will not become active until after the <see cref="StartTime"/>.  
         /// If the <see cref="StartTime"/> is also zero, the session is regarded as permanent.
         /// </summary>
-        public bool IsPermanent { get { return m_TimeDescriptionLine.IsPermanent; } }
+        public bool IsPermanent { get { return TimeDescriptionLine.IsPermanent; } }
+
+        //HasDefinedStartTime !=
 
         /// <summary>
         /// Indicates if the <see cref="StartTime"/> is 0
         /// </summary>
-        public bool Unbounded { get { return m_TimeDescriptionLine.StartTime == 0; } }
-
-        internal protected SessionDescriptionLine TimeDescriptionLine
-        {
-            get
-            {
-                return m_TimeDescriptionLine;
-            }
-        }
-
-        //public IEnumerable<Lines.SessionRepeatTimeLine> RepeatLines
-        //{
-        //    get
-        //    {
-        //        foreach (string repeatTime in RepeatTimes)
-        //        {
-        //            yield return new Lines.SessionRepeatTimeLine(repeatTime);
-        //        }
-        //    }
-        //}
+        public bool Unbounded { get { return TimeDescriptionLine.Unbounded; } }
 
         /// <summary>
         /// Gets or sets any repeat descriptions assoicated with the TimeDescription.
@@ -198,23 +155,20 @@ namespace Media.Sdp
         {
             get
             {
-
-                //(t=)X()Y(\r\n)                      //(r=)X(\r\n)
-                //return 5 + (StartTime.ToString().Length + StopTime.ToString().Length) + RepeatTimes.Sum(p => p.Length + 4);
-
-                return m_TimeDescriptionLine.Length + RepeatLines.Sum(l => l.Length);
+                return TimeDescriptionLine.Length + RepeatLines.Sum(l => l.Length);
             }
         }
 
         #endregion
 
-        internal protected readonly Lines.SessionTimeDescriptionLine m_TimeDescriptionLine;
+        internal protected readonly Lines.SessionTimeDescriptionLine TimeDescriptionLine;
 
         #region Constructor
 
         public TimeDescription()
         {
-            m_TimeDescriptionLine = new Lines.SessionTimeDescriptionLine();
+            TimeDescriptionLine = new Lines.SessionTimeDescriptionLine();
+
             RepeatLines = new List<Lines.SessionRepeatTimeLine>();
         }
 
@@ -229,7 +183,7 @@ namespace Media.Sdp
             : this()
         {
 
-            m_TimeDescriptionLine = new Lines.SessionTimeDescriptionLine(sdpLines, ref index);
+            TimeDescriptionLine = new Lines.SessionTimeDescriptionLine(sdpLines, ref index);
 
             string sdpLine;
 

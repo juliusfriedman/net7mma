@@ -46,9 +46,24 @@
             //Memory = new MemorySegment(m_OwnedOctets);
         }
 
+        public PacketBase(byte[] data, int offset, int length, bool shouldDispose) 
+            : this(length, shouldDispose)
+        {
+            System.Array.Copy(data, offset, m_OwnedOctets, 0, length);
+        }
+
         #endregion
 
         #region Properties
+
+        public byte[] Data
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return m_OwnedOctets;
+            }
+        }
 
         public System.DateTime Created
         {

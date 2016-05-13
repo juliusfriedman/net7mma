@@ -1631,6 +1631,8 @@ namespace Media.Rtsp//.Server
                 controlLine = sdp.ControlLine;
             }
 
+            //Todo, check if HasMultipleAddrsses in the connectionLine should be changed...
+
             //Determine if session level control line should be present
             
             //Rewrite a new connection line

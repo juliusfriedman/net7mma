@@ -217,6 +217,7 @@ namespace Media.Rtsp
 
         internal RtpClient m_RtpClient;
 
+        //Todo, Two timers? should use a single thread instead....
         Timer m_KeepAliveTimer, m_ProtocolMonitor;
 
         DateTime? m_BeginConnect, m_EndConnect, m_StartedPlaying;
@@ -266,11 +267,10 @@ namespace Media.Rtsp
         /// </summary>
         public bool InUse
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return false == m_InterleaveEvent.IsSet;
-                    //&& //Waits too long...
-                    //m_InterleaveEvent.Wait((int)((m_RtspSessionTimeout.TotalMilliseconds + 1) / m_ResponseTimeoutInterval));
+                return false == m_InterleaveEvent.IsSet;// && false == m_InterleaveEvent.Wait(m_InterleaveEvent.SpinCount << 2);
             }
         }
 

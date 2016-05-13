@@ -48,6 +48,37 @@ namespace Media.Common
         #region Nested Types
 
         /// <summary>
+        /// Defines a known ByteOrder
+        /// </summary>
+        /// <notes>
+        /// Adopted from the example at <see href="http://en.wikipedia.org/wiki/Endianness">Wikipedia - Endianness</see>
+        /// </notes>
+        public enum ByteOrder
+        {
+            Unknown = Binary.Nihil,
+            //System = 1,
+            Big = 0x0A0B0C0D,
+            Little = 0x0D0C0B0A,
+            MiddleBig = 0x0B0A0D0C,
+            MiddleLittle = 0x0C0D0A0B,
+            Mixed = Big | Little | MiddleBig | MiddleLittle,
+            Any = Mixed,
+            All = int.MaxValue
+        }
+
+        /// <summary>
+        /// Defines a known BitOrder <see href="http://en.wikipedia.org/wiki/Bit_numbering">Wikipedia - Bit numbering</see>
+        /// </summary>
+        public enum BitOrder
+        {
+            Unknown = Binary.Nihil,
+            LeastSignificant = 0x80,
+            MostSignificant = 0x01,
+            Any = LeastSignificant | MostSignificant,
+            All = int.MaxValue
+        }
+
+        /// <summary>
         /// Defines a known <see href="http://en.wikipedia.org/wiki/Signed_number_representations">Signed number representation</see>
         /// </summary>
         public enum BinaryRepresentation
@@ -378,7 +409,116 @@ namespace Media.Common
             return 4294967296 == (((ulong)1) << 96); //Should always be 96
         }
 
-        //Detection? (Model, Speed, Stepping, Instruction Support ...)
+        //Detection
+
+        /// <summary>
+        /// Probes the current <see cref="BitOrder"/> and <see cref="BytOrder"/> the architecture is currrently using
+        /// </summary>
+        /// <param name="bitOrder"></param>
+        /// <param name="byteOrder"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static void ProbeBitOrderAndByteOrder(ref Media.Common.Binary.BitOrder bitOrder, ref Media.Common.Binary.ByteOrder byteOrder)
+        {
+            //Don't use unsafe code because eventually .Net MF will be completely supported.
+            //Not because you can't but because of the implications
+            //If Unsafe is used then only the Non - Generic Subset will be supported although you could just as well have Generics too...
+
+            //Todo, Ensure integer, short and byte ...
+
+#if false == NATIVE
+
+            //Use 128 as a value and get the memory associated with the integer representation of the value
+            byte[] memoryOf = System.BitConverter.GetBytes((int)Binary.SedecimBitSize); //Use ByteOrder
+#endif
+            //Iterate the memory looking for a non 0 value
+            for (int offset = 0, endOffset = Media.Common.Binary.BytesPerInteger; offset < endOffset; ++offset)
+            {
+
+                //Read a single byte from memory out of the constant value of 128 (0x00000080) at offset 0 in memory  (This constant was chosen because it should only have one bit set)
+                //Take a copy of the byte at the offset in memory
+
+#if false == NATIVE
+
+                byte atOffset = memoryOf[offset];
+#else
+
+                byte atOffset = System.Runtime.InteropServices.Marshal.ReadByte(Binary.SedecimBitSize, offset);
+#endif
+
+                //If the value is 0 continue
+                if (atOffset == Binary.Nihil) continue;
+
+                //Assign the result and determine the bit order when the value is not 0.
+                bitOrder = ((Media.Common.Binary.BitOrder)atOffset);
+
+                //Determine the ByteOrder using the offset where the value was found
+                switch (offset)
+                {
+                    case Binary.Zero:
+                        byteOrder = Media.Common.Binary.ByteOrder.Little;
+                        break;
+                    case Binary.One:
+                        byteOrder = Media.Common.Binary.ByteOrder.MiddleLittle;
+                        break;
+                    case Binary.Two:
+                        byteOrder = Media.Common.Binary.ByteOrder.MiddleBig;
+                        break;
+                    case Binary.Three:
+                        byteOrder = Media.Common.Binary.ByteOrder.Big;
+                        break;
+                }
+
+                //This check is engineered by the fact that the enumeration of ByteOrder is defined by how the value should be laid on in memory accordingly.
+                //Since BigEndian is reversed then little should be equal to big when read integer is called without reversing the bytes.
+
+#if false == NATIVE
+                //If the result of reading an integer of the native bytes of ByteOrder.Little does not match the expected value throw an exception.
+                if ((int)byteOrder != Media.Common.Binary.ReadInteger(System.BitConverter.GetBytes((int)Media.Common.Binary.ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new System.InvalidOperationException("Did not correctly detect ByteOrder");
+#else
+                //If the native read of the value of m_SystemByteOrder from memory does not match the value expected throw an exception.
+                if ((int)byteOrder != System.Runtime.InteropServices.Marshal.ReadInt32((int)byteOrder, 0)) throw new System.InvalidOperationException("Did not correctly detect ByteOrder");
+#endif
+
+                //Could also determine if the Binary Representation is One or Twos Complement..
+
+#if false == NATIVE
+                //This allocation will be removed
+                memoryOf = null;
+#endif
+
+                //Stop detection
+                break;
+            }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsLittleEndian()
+        {
+            return IsByteOrder(Binary.ByteOrder.Little);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsBigEndian()
+        {
+            return IsByteOrder(Binary.ByteOrder.Big);
+        }
+
+        public static bool IsByteOrder(Binary.ByteOrder byteOrder) { return IsByteOrder(ref byteOrder); }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsByteOrder(ref Binary.ByteOrder byteOrder)
+        {
+            Media.Common.Binary.BitOrder bitOrder = Binary.BitOrder.Unknown;
+
+            Media.Common.Binary.ByteOrder testByteOrder = Binary.ByteOrder.Unknown;
+
+            ProbeBitOrderAndByteOrder(ref bitOrder, ref testByteOrder);
+
+            return byteOrder == testByteOrder;
+        }
+
+        //(Model, Speed, Stepping, Instruction Support ...)
 
         #endregion
 

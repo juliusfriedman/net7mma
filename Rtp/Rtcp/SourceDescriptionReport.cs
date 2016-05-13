@@ -1292,17 +1292,20 @@ namespace Media.Rtcp
         /// <returns></returns>
         internal IEnumerable<SourceDescriptionChunk> GetChunkIterator()
         {
+
+            //Check offsets why tests fail.
             int logicalChunkIndex = -1,
-                localOffset = 0,
+                localOffset = /*Header.PointerToLast6Bytes.Array == Payload.Array ? Header.Size : */0,
                 currentSize = 0,
                 blockCount = Header.BlockCount,
-                bias;
+                bias = 0,
+                max = Payload.Count - PaddingOctets;
             
             //Label the chunk
             SourceDescriptionChunk currentChunk;
 
             //While there is a chunk to iterate
-            while (++logicalChunkIndex < blockCount && localOffset < Payload.Count)
+            while (++logicalChunkIndex < blockCount && localOffset < max)
             {
                 //Make the chunk
                 switch (logicalChunkIndex)
@@ -1310,17 +1313,18 @@ namespace Media.Rtcp
                     //The first csrc is shared with the header
                     case 0:
                         {
-                            currentChunk = new SourceDescriptionChunk(Header.GetSendersSynchronizationSourceIdentifierSequence().Concat(new Common.MemorySegment(Payload.Array, Payload.Offset + localOffset, Payload.Count - localOffset)));
+                            currentChunk = new SourceDescriptionChunk(Header.GetSendersSynchronizationSourceIdentifierSequence().Concat(new Common.MemorySegment(Payload.Array, Payload.Offset + localOffset, max - localOffset)));
 
                             //Add -4 to the Size below because of this
                             bias = -SourceDescriptionChunk.IdentifierSize;
+                            
 
                             goto UseChunk;
                         }
                     default:
                         {
                             //Make the chunk as usual
-                            currentChunk = new SourceDescriptionChunk(new Common.MemorySegment(Payload.Array, Payload.Offset + localOffset, Payload.Count - localOffset));
+                            currentChunk = new SourceDescriptionChunk(new Common.MemorySegment(Payload.Array, Payload.Offset + localOffset, max - localOffset));
 
                             bias = 0;
 

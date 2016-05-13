@@ -38,18 +38,29 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Concepts.Experimental
 {
+    public interface IComposed//Object
+    {
+        object ComposedObject { get; }
+    }
+
+    //Not really needed
+    //public class Composed : IComposed<object>
+    //{
+    //    public object ComposedObject { get; protected set; }
+
+    //    object IComposed<object>.Composed
+    //    {
+    //        get { return ComposedObject; }
+    //    }
+    //}
+
     /// <summary>
     /// Provides access to a type with no virtual call overhead.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public interface IComposed<T>
+    public interface IComposed/*Element*/<T> : IComposed
     {
-        T Composed { get; }
-    }
-
-    public static class IComposedExtensions
-    {
-        public static object Box<T>(this IComposed<T> t) { return t.Composed; }
+        T ComposedElement { get; }
     }
 
     /// <summary>
@@ -58,12 +69,23 @@ namespace Media.Concepts.Experimental
     /// Provides explicit declaration of a method which corresponds to the <see cref="IComposed"/> interface.
     /// </summary>
     /// <typeparam name="T">The type</typeparam>
-    public class ComposedOf<T> : IComposed<T>
+    public class ComposedOf/*Element*/<T> : IComposed<T>
     {
         T m_Composed;
 
-        public T Composed { get { return m_Composed; } }
+        public T ComposedElement
+        {
+            get { return m_Composed; }
+        }
 
-        public ComposedOf(T t) { m_Composed = t; }
+        public ComposedOf(T t)
+        {
+            m_Composed = t;
+        }
+
+        object IComposed.ComposedObject
+        {
+            get { return m_Composed; }
+        }
     }
 }

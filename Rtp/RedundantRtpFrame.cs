@@ -261,6 +261,8 @@
 
     }
 
+    //These are all in testing right now, don't rely on them for anything
+
     //Could also do something like this where the Packetize and Depacketize are left to the IRtpFrame but the profile information still contains the other relevant data.
     public interface IRtpProfileInformation
     {
@@ -313,6 +315,7 @@
         }
     }
 
+    //Having each class have an individual class would seal but it looks like java.
     /// <summary>
     /// Each instance would only need to define a class or specify a class which adhered to the profile
     /// </summary>

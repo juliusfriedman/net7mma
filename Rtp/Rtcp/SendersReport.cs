@@ -325,7 +325,9 @@ namespace Media.UnitTests
                     using (Media.Rtcp.SendersReport p = new Rtcp.SendersReport(0, PaddingCounter, ReportBlockCounter, RandomId))
                     {
                         //Check SendersInformation
-                        System.Diagnostics.Debug.Assert(p.SendersInformation.Count() == Rtcp.SendersReport.SendersInformationSize && p.SendersInformation.All(s=> s== 0), "Unexpected SendersInformation");
+                        System.Diagnostics.Debug.Assert(p.SendersInformation.Count() == Rtcp.SendersReport.SendersInformationSize, "Unexpected SendersInformation Count");
+
+                        System.Diagnostics.Debug.Assert(p.SendersInformation.All(s => s == 0), "Unexpected SendersInformation Data");
 
                         //Check IsComplete
                         System.Diagnostics.Debug.Assert(p.IsComplete, "IsComplete must be true.");
