@@ -199,6 +199,8 @@ namespace Media.Concepts.Classes
         {
             if (m_Enabled) return;
 
+            if (IsDisposed) throw new System.ObjectDisposedException("The Timer has already been disposed.");
+
             Change(m_Frequency, System.TimeSpan.Zero);
 
             m_Counter.Start();
@@ -214,7 +216,7 @@ namespace Media.Concepts.Classes
 
         public void Stop()
         {
-            m_Enabled = false;
+            m_Enabled = false;            
         }
 
         void Change(System.TimeSpan interval, System.TimeSpan dueTime)
@@ -239,8 +241,10 @@ namespace Media.Concepts.Classes
             try { m_Counter.Abort(m_Frequency); }
             catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
             catch { }
-
-            Tick = null;
+            finally
+            {
+                Tick = null;
+            }
 
             //Producer.Clear();
         }

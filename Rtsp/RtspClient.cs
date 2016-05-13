@@ -270,7 +270,7 @@ namespace Media.Rtsp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return false == m_InterleaveEvent.IsSet;// && false == m_InterleaveEvent.Wait(m_InterleaveEvent.SpinCount << 2);
+                return false == m_InterleaveEvent.IsSet &&  false == m_InterleaveEvent.Wait(m_InterleaveEvent.SpinCount << 2);
             }
         }
 

@@ -127,6 +127,10 @@ namespace Media.Common.Collections.Generic
 
                 LinkedList.Remove(last);
             }
+            else
+            {
+                Last = First.Next;
+            }
 
             return true;
         }
@@ -162,14 +166,19 @@ namespace Media.Common.Collections.Generic
             //Set the head
             First = LinkedList.AddFirst(t);
 
-            //If the last was not set then update it now.
-            if(Last == null) Last = First;
+            //If there is still one element and the last element is null assign it.
+            if(Count > 0 && Last == null) Last = First;
         }
 
+        /// <summary>
+        /// Sets First and Last to null and Calls Clear on the LinkedList.
+        /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public void Clear()
+        public void Clear(bool all = true)
         {
-            LinkedList.Clear();
+            First = Last = null;
+
+            if(all) LinkedList.Clear();
         }
 
         #endregion
