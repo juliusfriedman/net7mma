@@ -3100,7 +3100,7 @@ namespace Media.Rtp
 
                 if (value == true)
                 {
-                    if (m_EventThread == null)
+                    if (m_EventThread == null || false == m_EventThread.IsAlive)
                     {
                         //Create the event thread
                         m_EventThread = new Thread(new ThreadStart(HandleEvents), Common.Extensions.Thread.ThreadExtensions.MinimumStackSize);
@@ -3113,26 +3113,24 @@ namespace Media.Rtp
                         //Start thread
                         m_EventThread.Start();
 
-                        //Wait for the start.
-                        while (EventsStarted != DateTime.MinValue && m_EventThread != null && (m_EventThread.IsAlive || false == m_StopRequested)) System.Threading.Thread.Sleep(0);
+                        //Wait for the start while the value was not changed and the thread is not started.
+                        while (m_ThreadEvents && EventsStarted != DateTime.MinValue && m_EventThread != null && (m_EventThread.IsAlive || false == m_StopRequested)) System.Threading.Thread.Sleep(0);
                     }
                 }
                 else
                 {
-                    //Abort that thread
-                    //Common.Extensions.Thread.ThreadExtensions.AbortAndFree(ref m_EventThread);
-
+                    //Stop the thread
                     m_ThreadEvents = false;
 
                     //Handle any remaining events.
-                    while(m_EventData.Count > 0) HandleEvent();
+                    while(m_ThreadEvents == false && m_EventData.Count > 0) HandleEvent();
 
+                    //Abort and free the thread.
                     Common.Extensions.Thread.ThreadExtensions.AbortAndFree(ref m_EventThread);
                 }
 
                 //Update the value.
                 m_ThreadEvents = value;
-
             }
         }
 
