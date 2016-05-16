@@ -189,13 +189,13 @@ namespace Media.Concepts.Classes
         //Methods or statics for OperationCountToTimeSpan? (Estimate)
         public void NanoSleep(int nanos)
         {
-            var p = System.Threading.Thread.CurrentThread.Priority;
+            System.Threading.ThreadPriority previous = System.Threading.Thread.CurrentThread.Priority;
 
             System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
 
             Clock.NanoSleep((long)nanos, AverageOperationsPerTick);
 
-            System.Threading.Thread.CurrentThread.Priority = p;
+            System.Threading.Thread.CurrentThread.Priority = previous;
         }
 
         public static void NanoSleep(long nanos, long aopt = 1)
@@ -209,25 +209,29 @@ namespace Media.Concepts.Classes
             System.Threading.Thread.EndCriticalRegion();
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static void NanoSleep(ref long nanos, long aopt = 1)
         {
-            try
+            unchecked
             {
-                unchecked
-                {
-                    //convert the average ticks to nanos
-                    nanos = aopt / 100;
+                //convert the average ticks to nanos
+                nanos = aopt / 100; //
 
+                //slightly faster...
+                //nanos = aopt & 0x80;//
+
+                try
+                {
                     while (--nanos >= 2)
-                    { 
+                    {
                         /* if(--nanos % 2 == 0) */
-                            NanoSleep((long)0); //nanos -= 1 + (ops / (ulong)AverageOperationsPerTick);// *10;
+                        NanoSleep((long)0); //nanos -= 1 + (ops / (ulong)AverageOperationsPerTick);// *10;
                     }
                 }
-            }
-            catch
-            {
-                return;
+                catch
+                {
+                    return;
+                }
             }
         }
     }

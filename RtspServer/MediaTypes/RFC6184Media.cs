@@ -410,10 +410,10 @@ namespace Media.Rtsp.Server.MediaTypes
                 //In such cases this step needs to place the packets into a seperate collection for sorting on DON / TSOFFSET before writing to the buffer.
 
                 //From the beginning of the data in the actual payload
-                int payloadOffset = packet.Payload.Offset, 
-                    nonPayloadOctets = packet.HeaderOctets,
-                    offset = payloadOffset + nonPayloadOctets,
-                    count = packet.Payload.Count - (nonPayloadOctets + packet.PaddingOctets); //until the end of the actual payload
+                int offset = packet.Payload.Offset + packet.HeaderOctets,
+                   padding = packet.PaddingOctets,
+                   count = (packet.Payload.Count - padding),
+                   end = packet.Length - padding;
 
                 //Must have at least 2 bytes (When nalUnitType is a FragmentUnit.. 3)
                 if (count <= 2) return;
@@ -425,7 +425,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 byte firstByte = packetData[offset];
 
                 //Should never be set... (unless decoding errors are present)
-                if (false == ignoreForbiddenZeroBit && ((firstByte & 0x80) >> 7) != 0) throw new Exception("forbiddenZeroBit");
+                if (false == ignoreForbiddenZeroBit && ((firstByte & 0x80) >> 7) != 0) return; //throw new Exception("forbiddenZeroBit");
 
                 byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
 

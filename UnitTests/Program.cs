@@ -590,7 +590,7 @@ namespace Media.UnitTests
                         if (tcp) sender.SendReports();
 
                         //Wait for the senders report to be sent AND for the frame to be sent at least one time while the sender is connected
-                        while (sender.IsActive && tcp ? sendersContext.Goodbye == null : (sendersContext.SendersReport == null || false == sendersContext.SendersReport.Transferred.HasValue) || false == testFrame.Transferred) System.Threading.Thread.Yield();
+                        while (sender.IsActive && (sendersContext.Goodbye == null && sendersContext.SendersReport == null || false == sendersContext.SendersReport.Transferred.HasValue && false == testFrame.Transferred)) System.Threading.Thread.Yield();
 
                         //Print the report information
                         if (sendersContext.SendersReport != null)
@@ -607,7 +607,7 @@ namespace Media.UnitTests
                         if (tcp) receiver.SendReports();
 
                         //Wait for a receivers report to be sent while the receiver is connected
-                        while (receiver.IsActive && tcp ? receiversContext.Goodbye == null : (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Yield();
+                        while (receiver.IsActive && (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue) && receiversContext.Goodbye == null) System.Threading.Thread.Yield();
 
                         //Print the report information
                         if (receiversContext.ReceiversReport != null)
@@ -1556,7 +1556,7 @@ namespace Media.UnitTests
             int serverPort = Media.Rtsp.RtspMessage.ReliableTransportDefaultPort + 1;
 
             //
-            var serverIp = System.Net.IPAddress.Parse("192.168.1.158"); //Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
+            var serverIp = System.Net.IPAddress.Parse("192.168.1.151"); //Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
 
             Console.WriteLine("Server Starting on: " + serverIp);
 
@@ -3094,6 +3094,8 @@ a=appversion:1.0");
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MemorySegmentTests), TypeOfVoid);
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SegmentStreamTests), TypeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ConcurrentLinkedQueueTests), TypeOfVoid);
         }
 
         static void TestCodec()

@@ -48,22 +48,127 @@ using System.Linq;//ILookup
 namespace Media.Common.Collections.Generic
 {
     /// <summary>
-    /// Provides an implementation of LinkedList in which entries are only removed at the Head or Tail.
+    /// Provides an implementation of LinkedList in which entries are only removed from the Next Node.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public class ConcurrentLinkedQueue<T>
     {
+        #region Nested Types
+
+        /// <summary>
+        /// A node which has a reference to the next node.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        internal sealed class Node
+        {
+            internal const Node Null = null;
+
+            public T Value;
+
+            public Node Next;
+                     
+            //Create and have no value, Deleted, Has Value
+            //Flags, Allocated, Deleted, Stored
+
+            public Node(ref T data)
+            {
+                this.Value = data;
+            }
+        }
+
+        #endregion
+
+        #region Statics
+
+        //Could make methods to call Set on LinkedListNode<T> using reflection.
+
+        internal static System.Reflection.ConstructorInfo Constructor;
+
+        internal static System.Reflection.PropertyInfo ListProperty, NextProperty, PreviousProperty, ValueProperty;
+
+        static ConcurrentLinkedQueue()
+        {
+            //implementations may change the name
+            //var fields = typeof(LinkedListNode<T>).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+
+            //System.TypedReference tr = __makeref(obj, T);
+            //fields[0].SetValueDirect(tr, obj);
+
+            //or the ctor
+            var ctors = typeof(LinkedListNode<T>).GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+            
+            Constructor = ctors.LastOrDefault();
+            //ctors[0].Invoke(new object[] { list, value });
+
+            //Could also use properties but it's a tad slower...
+            var props = typeof(LinkedListNode<T>).GetProperties();
+
+            ListProperty = props.Where(p => p.Name == "List").FirstOrDefault();
+
+            NextProperty = props.Where(p => p.Name == "Next").FirstOrDefault();
+
+            PreviousProperty = props.Where(p => p.Name == "Previous").FirstOrDefault();
+
+            ValueProperty = props.Where(p => p.Name == "Value").FirstOrDefault();
+
+            //props[0].SetMethod.Invoke(obj, new object[] { list });
+            //props[1].SetMethod.Invoke(obj, new object[] { next });
+            //props[2].SetMethod.Invoke(obj, new object[] { prev });
+            //props[3].SetMethod.Invoke(obj, new object[] { value });
+        }
+
+        public static void Circular(ConcurrentLinkedQueue<T> queue)
+        {
+            //queue.Last.Next = queue.First.Previous = queue.Last;
+
+            //new LinkedListNode<T>(queue.Last.Value)
+            //{
+            //    //List = null, //internal constructor...
+            //    //Next = null,
+            //    //Last = null,
+            //    //Previous = null,
+            //    Value = default(T)
+            //};
+
+            if (queue == null) return;
+
+            ////If the queue was empty
+            //if (queue.IsEmpty)
+            //{
+            //    queue.Last = new LinkedListNode<T>(default(T));
+
+            //    queue.First = new LinkedListNode<T>(default(T));
+            //}
+
+            ////First.Previous = queue.Last
+            //PreviousProperty.SetValue(queue.First, queue.Last);
+
+            ////Last.Next = queue.First
+            //NextProperty.SetValue(queue.Last, queue.First);
+        }
+
+        #endregion
+
         #region Fields
 
-        /// <summary>
-        /// The LinkedList which the Queue utilizes
-        /// </summary>
-        readonly System.Collections.Generic.LinkedList<T> LinkedList = new LinkedList<T>();
+        //Using AddLast / AddFirst
+        //readonly System.Collections.Generic.LinkedList<T> LinkedList = new LinkedList<T>();
+
+        //Using TryEnqueue / TryDequeue
+        //readonly System.Collections.Concurrent.ConcurrentQueue<T> ConcurrentQueue = new System.Collections.Concurrent.ConcurrentQueue<T>();
 
         /// <summary>
-        /// Cache of first and last nodes.
+        /// Cache of first and last nodes before they are added to the list.
         /// </summary>
-        LinkedListNode<T> First, Last;
+        internal Node First, Last;
+
+        /// <summary>
+        /// The count of contained nodes
+        /// </summary>
+        long m_Count = 0;
+
+        //Todo
+        //Capacity, ICollection
 
         #endregion
 
@@ -72,10 +177,10 @@ namespace Media.Common.Collections.Generic
         /// <summary>
         /// Indicates how many elements are contained
         /// </summary>
-        public int Count
+        public long Count
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return LinkedList.Count; }
+            get { return System.Threading.Interlocked.Read(ref m_Count); }
         }
         
         /// <summary>
@@ -84,7 +189,7 @@ namespace Media.Common.Collections.Generic
         public bool IsEmpty
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return LinkedList.Count == 0; }
+            get { return Count.Equals(0); }
         }
 
         #endregion
@@ -111,31 +216,30 @@ namespace Media.Common.Collections.Generic
         /// </summary>
         /// <param name="t"></param>
         /// <returns></returns>
-        /// <remarks>Space Complexity S(1), Time Complexity O(2)</remarks>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]        
-        public bool TryDequeue(ref T t)
+        /// <remarks>Space Complexity S(4), Time Complexity O(2)</remarks>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool TryDequeue(out T t)
         {
-            if (Count == 0) return false;
-            else if (Last == null && First != null) Last = First.Next;
-
-            if (Last == null) Last = Last.Previous;
-
-            t = Last.Value;
-
-            if (Last.List != null)
+            //Compare
+            if (Object.ReferenceEquals(First, Node.Null))
             {
-                LinkedListNode<T> last = Last;
+                //Store
+                t = default(T);
 
-                Last = last.Previous;
-
-                LinkedList.Remove(last);
-            }
-            else
-            {
-                do Last = First.Next;
-                while (Last.Next != null);
+                //Return
+                return false;
             }
 
+            //Load And Store
+            t = First.Value;
+
+            //Exchange
+            System.Threading.Interlocked.Exchange<Node>(ref First, First.Next);
+
+            //Extra compare costs time, same with extra store.
+            System.Threading.Interlocked.Decrement(ref m_Count);
+
+            //Return
             return true;
         }
 
@@ -148,9 +252,9 @@ namespace Media.Common.Collections.Generic
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool TryPeek(ref T t)
         {
-            if (Count == 0) return false;
+            if (First == Node.Null) return false;
 
-            t = Last.Value;
+            t = First.Value;
 
             return true;
         }
@@ -159,36 +263,140 @@ namespace Media.Common.Collections.Generic
         /// Enqueue an element
         /// </summary>
         /// <param name="t"></param>
-        public void Enqueue(T t)
-        {
-            Enqueue(ref t);
-        }
+        public void Enqueue(T t) { TryEnqueue(ref t); }
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        /// <remarks>Space Complexity S(3), Time Complexity O(2) worst cast</remarks>
-        public void Enqueue(ref T t)
+        /// <remarks>Space Complexity S(2), Time Complexity O(2)</remarks>
+        public bool TryEnqueue(ref T t)
         {
-            //Set the head
-            First = LinkedList.AddFirst(t);
+            Node newNode = new Node(ref t);
 
-            //If there is still one element and the last element is null assign it.
-            if(Count > 0 && Last == null) Last = First;
+            if (Object.ReferenceEquals(First, Node.Null)) Last = First = newNode;
+            else Last = Last.Next = newNode;
+
+            System.Threading.Interlocked.Increment(ref m_Count);
+
+            return true;
         }
 
         /// <summary>
         /// Sets First and Last to null and Calls Clear on the LinkedList.
         /// </summary>
-        /// <remarks>Space Complexity S(0), Time Complexity O(Count)</remarks>
+        /// <remarks>Space Complexity S(5), Time Complexity O(Count)</remarks>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal void Clear(bool all, out Node head, out Node tail)
+        {
+            if (false == all)
+            {
+                head = First;
+
+                tail = Last;
+
+                First = Last = Node.Null;
+            }
+            else
+            {
+                System.Threading.Interlocked.Exchange(ref First, Last);
+
+                head = tail = System.Threading.Interlocked.Exchange(ref Last, Node.Null);
+            }
+
+            System.Threading.Interlocked.Exchange(ref m_Count, 0);
+        }
+
         public void Clear(bool all = true)
         {
-            First = Last = null;
+            Node First, Last;
 
-            if(all) LinkedList.Clear();
+            Clear(all, out First, out Last);
         }
 
         #endregion
 
+    }
+}
+
+
+namespace Media.UnitTests
+{
+    internal class ConcurrentLinkedQueueTests
+    {
+        Media.Common.Collections.Generic.ConcurrentLinkedQueue<int> LinkedQueue;
+
+        int LastInputOutput = 0;
+
+        public void TestsEnqueue()
+        {
+            LinkedQueue = new Common.Collections.Generic.ConcurrentLinkedQueue<int>();
+
+            if (LinkedQueue.IsEmpty != true) throw new System.Exception("IsEmpty Not True");
+
+            if (LinkedQueue.Count != 0) throw new System.Exception("Count Not 0");
+
+            LinkedQueue.Enqueue(LastInputOutput++);
+
+            if (LinkedQueue.IsEmpty != false) throw new System.Exception("IsEmpty Not False");
+
+            if (LinkedQueue.Count != 1) throw new System.Exception("Count Not 1");
+
+            if (LinkedQueue.First == null) throw new System.Exception("First is null");
+
+            if (LinkedQueue.Last == null) throw new System.Exception("Last is null");
+
+            if (false == LinkedQueue.TryEnqueue(ref LastInputOutput)) throw new System.Exception("TryEnqueue Not True");
+
+            if (LinkedQueue.IsEmpty != false) throw new System.Exception("IsEmpty Not False");
+
+            if (LinkedQueue.Count != 2) throw new System.Exception("Count Not 2");
+
+            if (LinkedQueue.First == null) throw new System.Exception("First is null");
+
+            if (LinkedQueue.Last == null) throw new System.Exception("Last is null");
+        }
+
+        public void TestsDequeue()
+        {
+            if (LinkedQueue == null) throw new System.Exception("LinkedQueue is null");
+
+            if (LinkedQueue.IsEmpty) throw new System.Exception("LinkedQueue IsEmpty");
+
+            if (LinkedQueue.Count != 2) throw new System.Exception("LinkedQueue Count Not 2");
+
+            if (false == LinkedQueue.TryDequeue(out LastInputOutput)) throw new System.Exception("TryDequeue Not True");
+
+            if (LinkedQueue.First == null) throw new System.Exception("First is null");
+
+            if (LinkedQueue.Last == null) throw new System.Exception("Last is null");
+
+            if (LinkedQueue.IsEmpty) throw new System.Exception("LinkedQueue IsEmpty");
+
+            if (LinkedQueue.Count != 1) throw new System.Exception("LinkedQueue Count Not 1");
+
+            if (LastInputOutput != 0) throw new System.Exception("LastInputOutput Not 0");
+
+            if (false == LinkedQueue.TryDequeue(out LastInputOutput)) throw new System.Exception("TryDequeue Not True");
+
+            if (LinkedQueue.First != null) throw new System.Exception("First is null");
+
+            //The Last node is always left in place to prevent NRE
+            //if (LinkedQueue.Last != null) throw new System.Exception("Last is null");
+
+            if (false == LinkedQueue.IsEmpty) throw new System.Exception("LinkedQueue Not IsEmpty");
+
+            if (LinkedQueue.Count != 0) throw new System.Exception("LinkedQueue Count Not 0");
+
+            if (LastInputOutput != 1) throw new System.Exception("LastInputOutput Not 1");
+
+            if (LinkedQueue.TryDequeue(out LastInputOutput)) throw new System.Exception("TryDequeue Not False");
+        }
+
+        public void TestsThreading()
+        {
+            //In a thread populate
+            //In another thread read
+            //In another thread enumerate
+            //In another thread write
+        }
     }
 }

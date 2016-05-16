@@ -72,6 +72,7 @@
     <Compile Include="Classes\Disposable.cs" />
     <Compile Include="Classes\Experimental.cs" />
     <Compile Include="Classes\Stopwatch.cs" />
+    <Compile Include="Classes\Threading\Threading.cs" />
     <Compile Include="Classes\Timer.cs" />
     <Compile Include="Classes\Unmanaged.cs" />
     <Compile Include="Classes\UpdateableBase.cs" />

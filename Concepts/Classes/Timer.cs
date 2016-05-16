@@ -92,13 +92,13 @@ namespace Media.Concepts.Classes
                 Top:
                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
 
-                    /*do */if (Producer.TryDequeue(ref sample)) Tick(ref sample);
+                    /*do */if (Producer.TryDequeue(out sample)) Tick(ref sample);
                     //while (m_Enabled && Producer.Count >= 0);
 
                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
 
                     if (false == m_Enabled) return;
-                    else if (Producer.Count == 0) m_Counter.Join(1);  //++m_Ops;
+                    else if (Producer.Count == 0) m_Counter.Join(0);  //++m_Ops;
 
                     goto Top;
                 }
@@ -113,6 +113,9 @@ namespace Media.Concepts.Classes
             Event.TrySetApartmentState(System.Threading.ApartmentState.MTA);
 
             Event.Start();
+
+            //to ensure the slice offset is different, e.g. more bias
+            //m_Clock.NanoSleep(0);
 
         Approximate:
 

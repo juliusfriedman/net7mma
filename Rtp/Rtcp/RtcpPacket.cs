@@ -152,16 +152,16 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The header to utilize.</param>
         /// <param name="octets">The octets to project</param>
-        /// <param name="ownsHeader">Indicates if the header should be disposed.</param>
+        /// <param name="shouldDispose">Indicates if the header should be disposed.</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpPacket(RtcpHeader header, IEnumerable<byte> octets, bool ownsHeader = true)
-            //:this(header.Concat(octets).ToArray(), 0, true)
+        public RtcpPacket(RtcpHeader header, IEnumerable<byte> octets, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             //Should probably keep header and just assign octets...  
             //The reason why this doesn't happen is that the amount of bytes to take from octets can only be determined from the header...
 
             //The instance owns the header
-            ShouldDispose = m_OwnsHeader = ownsHeader;
+            m_OwnsHeader = shouldDispose;
 
             //Reference the header
             Header = header;
@@ -219,11 +219,12 @@ namespace Media.Rtcp
         /// <param name="payload">The data contained in the payload</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpPacket(RtcpHeader header, MemorySegment payload, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             if (header == null) throw new ArgumentNullException("header");
 
             //The instance owns the header
-            ShouldDispose = m_OwnsHeader = shouldDispose;
+            m_OwnsHeader = shouldDispose;
 
             Header = header;
 
@@ -236,10 +237,10 @@ namespace Media.Rtcp
         /// <param name="buffer">The buffer which contains the binary RtcpPacket to decode</param>
         /// <param name="offset">The offset to start decoding</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpPacket(byte[] buffer, int offset, int count, bool shouldDispose = true)
+        public RtcpPacket(byte[] buffer, int offset, int count, bool shouldDispose = true) : base(shouldDispose)
         {
             //The instance owns the header
-            ShouldDispose = m_OwnsHeader = shouldDispose;
+            m_OwnsHeader = shouldDispose;
 
             //Create the header
             Header = new RtcpHeader(buffer, offset);
@@ -738,14 +739,12 @@ namespace Media.Rtcp
             try
             {
                 //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-                if (padding && reportBlocks && selfReference) return new RtcpPacket(Header.Clone(selfReference), Payload) { Transferred = Transferred };
-
-                if (padding && reportBlocks) binarySequence = binarySequence.Concat(Payload.Array.Skip(Payload.Offset).Take(Payload.Count));//Take everything that is left if padding and coeffecients are included.
+                if (padding && reportBlocks) return selfReference ? new RtcpPacket(Header.Clone(selfReference), Payload) { Transferred = Transferred } : new RtcpPacket(Prepare().ToArray(), 0) { Transferred = Transferred };
                 else if (reportBlocks) binarySequence = binarySequence.Concat(RtcpData); //Add the binary data to the packet except any padding
                 else if (padding) binarySequence = binarySequence.Concat(Payload.Array.Skip(Payload.Count - PaddingOctets)); //Add only the padding
 
                 //Return the result of creating the new instance with the given binary
-                return new RtcpPacket(new RtcpHeader(Header.Version, Header.PayloadType, padding ? Header.Padding : false, reportBlocks ? Header.BlockCount : 0, Header.SendersSynchronizationSourceIdentifier), binarySequence);// { Transferred = this.Transferred };
+                return new RtcpPacket(new RtcpHeader(Header.Version, Header.PayloadType, padding ? Header.Padding : false, reportBlocks ? Header.BlockCount : 0, Header.SendersSynchronizationSourceIdentifier), binarySequence) { Transferred = Transferred };
                 
             }
             catch { throw; } //If anything goes wrong deliver the exception
@@ -958,7 +957,7 @@ namespace Media.Rtcp
                 //Header = null;
             }
 
-            if (Payload != null)
+            if (false == Common.IDisposedExtensions.IsNullOrDisposed(Payload))
             {
                 //Payload goes away when Disposing
                 Payload.Dispose();
