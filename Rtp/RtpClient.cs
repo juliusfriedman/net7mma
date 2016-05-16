@@ -1945,6 +1945,8 @@ namespace Media.Rtp
         //Doing this in parallel doesn't really offset much because the decoder must be able to handle the data and if you back log the decoder you are just wasting cycles.        
         internal Common.MemorySegment m_Buffer;
 
+        //Todo, ThreadPriorityInformation
+
         //Each session gets its own thread to send and recieve
         internal Thread m_WorkerThread, m_EventThread; // and possibly another for events.
 
@@ -1954,7 +1956,7 @@ namespace Media.Rtp
 
         //Collection to handle the dispatch of events.
         //The context, the item, final, recieved
-        readonly Media.Common.Collections.Generic.ConcurrentLinkedQueue<Tuple<RtpClient.TransportContext, IEnumerable<IPacket>, bool, bool>> m_EventData = new Media.Common.Collections.Generic.ConcurrentLinkedQueue<Tuple<RtpClient.TransportContext, IEnumerable<IPacket>, bool, bool>>();
+        readonly Media.Common.Collections.Generic.ConcurrentLinkedQueue<Tuple<RtpClient.TransportContext, Common.BaseDisposable, bool, bool>> m_EventData = new Media.Common.Collections.Generic.ConcurrentLinkedQueue<Tuple<RtpClient.TransportContext, Common.BaseDisposable, bool, bool>>();
 
         //Todo, LinkedQueue and Clock.
         readonly ManualResetEventSlim m_EventReady = new ManualResetEventSlim(false, 100); //should be caluclated based on memory and speed. SpinWait uses 10 as a default.
@@ -2784,7 +2786,7 @@ namespace Media.Rtp
 
             if (m_ThreadEvents)
             {
-                m_EventData.Enqueue(new Tuple<TransportContext, IEnumerable<IPacket>, bool, bool>(null, Common.Extensions.Linq.LinqExtensions.Yield(new Common.Classes.PacketBase(data, offset, length, false)), true, true));
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(null, new Common.Classes.PacketBase(data, offset, length, false), true, true));
 
                 m_EventReady.Set();
 
@@ -2811,7 +2813,10 @@ namespace Media.Rtp
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) return;
                 try { ((InterleavedDataHandler)(d))(this, packet.Data, 0, (int)packet.Length); }
                 catch { return; }
+                //finally { packet.Dispose(); }
             });
+
+            Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -2824,31 +2829,32 @@ namespace Media.Rtp
 
             RtpPacketHandler action = RtpPacketReceieved;
 
-            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
-
-            //If the frame events are enabled then use the packet otherwise make another reference to keep it alive
-            packet = FrameChangedEventsEnabled ? packet : packet.Clone(true, true, true, true, true);
+            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;            
 
             if (m_ThreadEvents)
             {
                 //If the frame events are enabled then use the packet otherwise clone the packet and data so it can stay alive.
                 packet = FrameChangedEventsEnabled ? packet : packet.Clone(true, true, true, true, false);
 
-                m_EventData.Enqueue(new Tuple<TransportContext, IEnumerable<IPacket>, bool, bool>(tc, Common.Extensions.Linq.LinqExtensions.Yield(packet), false, true));
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, packet, false, true));
 
                 m_EventReady.Set();
 
                 return;
             }
 
-            //Should give reference to packet so that if the reference is disposed the packet will live on.
+            //Don't allow the packet to be disposed before the handlers are invoked
+            Common.BaseDisposable.SetShouldDispose(packet, false, false);
 
             foreach (RtpPacketHandler handler in action.GetInvocationList())
             {
                 if (packet.IsDisposed) break;
                 try { handler(this, packet, tc); }
-                catch { continue; }
+                catch { return; }
             }
+
+            //Allow the packet to be destroyed.
+            Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -2867,19 +2873,23 @@ namespace Media.Rtp
             {
                 packet = m_ThreadEvents ? packet.Clone(true, true, false) : packet;
 
-                m_EventData.Enqueue(new Tuple<TransportContext, IEnumerable<IPacket>, bool, bool>(tc, Common.Extensions.Linq.LinqExtensions.Yield(packet), false, true));
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, packet, false, true));
 
                 m_EventReady.Set();
 
                 return;
             }
 
+            Common.BaseDisposable.SetShouldDispose(packet, false, false);
+
             foreach (RtcpPacketHandler handler in action.GetInvocationList())
             {
                 if (packet.IsDisposed) break;
                 try { handler(this, packet, tc); }
-                catch { continue; }
+                catch { return; }
             }
+
+            Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -2895,11 +2905,11 @@ namespace Media.Rtp
             if (action == null || IDisposedExtensions.IsNullOrDisposed(frame) || frame.IsEmpty) return;
 
             //Don't let the frame dispose before the event is processed.
-            Common.BaseDisposable.SetShouldDispose(frame, false);
+            Common.BaseDisposable.SetShouldDispose(frame, false, false);
 
             if (m_ThreadEvents)
             {
-                m_EventData.Enqueue(new Tuple<TransportContext, IEnumerable<IPacket>, bool, bool>(tc, frame, final, true));
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, frame, final, true));
 
                 m_EventReady.Set();
 
@@ -2908,10 +2918,13 @@ namespace Media.Rtp
 
             foreach (RtpFrameHandler handler in action.GetInvocationList())
             {
-                if (frame.IsDisposed) break;
+                if (IDisposedExtensions.IsNullOrDisposed(frame)) break;
                 try { handler(this, frame, tc, final); }
-                catch { continue; }
+                catch { return; }
             }
+
+            //On final events set ShouldDispose to true, do not call Dispose
+            if (final) Common.BaseDisposable.SetShouldDispose(frame, true, false);
         }
 
         internal void ParallelRtpFrameChanged(RtpFrame frame = null, TransportContext tc = null, bool final = false)
@@ -2927,9 +2940,11 @@ namespace Media.Rtp
             {
                 if (IDisposedExtensions.IsNullOrDisposed(frame)) return;
                 try { ((RtpFrameHandler)(d))(this, frame, tc, final); }
-                catch { return; }
-                //Dispose frame... (could use signal if int was used)
+                catch { return; }                
             });
+
+            //On final events set ShouldDispose to true, do not call Dispose
+            if (final) Common.BaseDisposable.SetShouldDispose(frame, true, false);
         }
 
         //IPacket overload could reduce code but would cost time to check type.
@@ -2949,6 +2964,9 @@ namespace Media.Rtp
                 try { ((RtpPacketHandler)(d))(this, packet, tc); }
                 catch { return; }
             });
+
+            //Allow the packet to be disposed, do not call dispose now.
+            Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         internal void ParallelRtpPacketSent(RtpPacket packet = null, TransportContext tc = null)
@@ -2964,7 +2982,7 @@ namespace Media.Rtp
             {
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) return;
                 try { ((RtpPacketHandler)(d))(this, packet, tc); }
-                catch { return; }
+                catch { return; }                
             });
         }
 
@@ -2982,7 +3000,11 @@ namespace Media.Rtp
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) return;
                 try { ((RtcpPacketHandler)(d))(this, packet, tc); }
                 catch { return; }
+                //finally { packet.Dispose(); }
             });
+
+            //Allow the packet to be disposed, do not call dispose now.
+            Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         internal void ParallelRtcpPacketSent(RtcpPacket packet = null, TransportContext tc = null)
@@ -2999,6 +3021,7 @@ namespace Media.Rtp
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) return;
                 try { ((RtcpPacketHandler)(d))(this, packet, tc); }
                 catch { return; }
+                //finally { packet.Dispose(); }
             });
         }
             
@@ -3019,7 +3042,7 @@ namespace Media.Rtp
             {
                 packet = packet.Clone(true, true, true, true, true);
 
-                m_EventData.Enqueue(new Tuple<TransportContext, IEnumerable<IPacket>, bool, bool>(tc, Common.Extensions.Linq.LinqExtensions.Yield(packet), false, true));
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, packet, false, true));
 
                 m_EventReady.Set();
 
@@ -3028,7 +3051,7 @@ namespace Media.Rtp
 
             foreach (RtpPacketHandler handler in action.GetInvocationList())
             {
-                if (packet.IsDisposed) break;
+                if (IDisposedExtensions.IsNullOrDisposed(packet)) break;
                 try { handler(this, packet, tc); }
                 catch { continue; }
             }
@@ -3050,14 +3073,14 @@ namespace Media.Rtp
             {
                 packet = m_ThreadEvents ? packet.Clone(true, true, true) : packet;
 
-                m_EventData.Enqueue(new Tuple<TransportContext, IEnumerable<IPacket>, bool, bool>(tc, Common.Extensions.Linq.LinqExtensions.Yield(packet), false, true));
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, packet, false, true));
 
                 return;
             }
 
             foreach (RtcpPacketHandler handler in action.GetInvocationList())
             {
-                if (packet.IsDisposed) break;
+                if (IDisposedExtensions.IsNullOrDisposed(packet)) break;
                 try { handler(this, packet, tc); }
                 catch { continue; }
             }
@@ -3072,12 +3095,21 @@ namespace Media.Rtp
         /// </summary>
         public bool IListSockets
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return m_IListSockets;
             }
+            
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
+                //Todo, the objects may be in use on the curent call
+                //if (m_ThreadEvents)
+                //{
+
+                //}
+
                 m_IListSockets = value;
             }
         }
@@ -3096,11 +3128,14 @@ namespace Media.Rtp
             {
                 if (false == IsActive) return;
 
-                if (value == m_ThreadEvents) return;                
+                if (value == m_ThreadEvents) return;
+
+                //Update the value.
+                m_ThreadEvents = value;
 
                 if (value == true)
                 {
-                    if (m_EventThread == null || m_EventThread.ThreadState == ThreadState.Stopped)
+                    if (m_EventThread == null || EventsStarted == DateTime.MinValue)
                     {
                         //Create the event thread
                         m_EventThread = new Thread(new ThreadStart(HandleEvents), Common.Extensions.Thread.ThreadExtensions.MinimumStackSize);
@@ -3108,33 +3143,41 @@ namespace Media.Rtp
                         //Configure
                         ConfigureThread(m_EventThread); //should pass name and logging.
 
+                        //Assign name
                         m_EventThread.Name = "RtpClient-Events-" + InternalId;
+
+                        //Start highest
+                        m_EventThread.Priority = ThreadPriority.Highest;
 
                         //Start thread
                         m_EventThread.Start();
                     }
                     
-
                     //Wait for the start while the value was not changed and the thread is not started.
-                    while (EventsStarted == DateTime.MinValue && m_EventThread != null && m_EventThread.ThreadState == ThreadState.Stopped) System.Threading.Thread.Sleep(0);
+                    while (m_ThreadEvents && EventsStarted == DateTime.MinValue && m_EventThread != null) System.Threading.Thread.Sleep(0);
                 }
                 else
                 {
-                    //Stop the thread
-                    m_ThreadEvents = false;
-
                     //Not started
                     EventsStarted = DateTime.MinValue;
 
-                    //Handle any remaining events.
-                    while(m_ThreadEvents == false && m_EventData.Count > 0) HandleEvent();
+                    //Set lowest priority on event thread.
+                    m_EventThread.Priority = ThreadPriority.Lowest;
 
                     //Abort and free the thread.
                     Common.Extensions.Thread.ThreadExtensions.AbortAndFree(ref m_EventThread);
-                }
 
-                //Update the value.
-                m_ThreadEvents = value;
+                    //Handle any remaining events.
+                    //while (m_ThreadEvents == false && EventsStarted == DateTime.MinValue && false == m_EventData.IsEmpty)
+                    //{
+                    //    HandleEvent();
+
+                    //    //m_EventReady.Wait(m_EventReady.SpinCount >> 2);
+                    //}
+
+                    //Ensure Cleared
+                    //if (m_ThreadEvents == false && EventsStarted == DateTime.MinValue) m_EventData.Clear();
+                }
             }
         }
 
@@ -4261,6 +4304,9 @@ namespace Media.Rtp
                 //Reset stop signal
                 m_StopRequested = false;
 
+                //Start highest.
+                m_WorkerThread.Priority = ThreadPriority.Highest;
+
                 //Start thread
                 m_WorkerThread.Start();                
 
@@ -5201,25 +5247,31 @@ namespace Media.Rtp
         void HandleEvent()
         {
             //Dequeue the event frame
-            Tuple<RtpClient.TransportContext, IEnumerable<IPacket>, bool, bool> tuple = default(Tuple<RtpClient.TransportContext, IEnumerable<IPacket>, bool, bool>);
+            Tuple<RtpClient.TransportContext, Common.BaseDisposable, bool, bool> tuple;
             
             //handle the event frame
-            if (m_EventData.TryDequeue(ref tuple))
+            if (m_EventData.TryDequeue(out tuple))
             {
+                //If the item was already disposed then do nothing
+                if (Common.IDisposedExtensions.IsNullOrDisposed(tuple.Item2)) return;
+
                 //handle for frames
-                if (tuple.Item4 && tuple.Item2 is RtpFrame) ParallelRtpFrameChanged(tuple.Item2 as RtpFrame, tuple.Item1, tuple.Item3);
+                if (tuple.Item4 && tuple.Item2 is RtpFrame)
+                {
+                    ParallelRtpFrameChanged(tuple.Item2 as RtpFrame, tuple.Item1, tuple.Item3);                    
+                }
                 else
                 {
                     //Determine what type of packet
-                    IPacket what = tuple.Item2.FirstOrDefault();
-
-                    //if there was nothing then continue.
-                    if (what == null) return;
+                    IPacket what = tuple.Item2 as IPacket;
 
                     //handle the packet event
                     if (what is RtpPacket) if (tuple.Item4) ParallelRtpPacketRecieved(what as RtpPacket, tuple.Item1); else ParallelRtpPacketSent(what as RtpPacket, tuple.Item1);
                     else if (what is RtcpPacket) if (tuple.Item4) ParallelRtcpPacketRecieved(what as RtcpPacket, tuple.Item1); else ParallelRtcpPacketSent(what as RtcpPacket, tuple.Item1);
                     else ParallelOnInterleavedData(what as Media.Common.Classes.PacketBase);
+
+                    //Free whatever was used now that the event is handled.
+                    //if(false == tuple.Item2.ShouldDispose) Common.BaseDisposable.SetShouldDispose(tuple.Item2, true, true);
                 }
             }
         }
@@ -5239,15 +5291,48 @@ namespace Media.Rtp
                     //While the main thread is active.
                     while (m_ThreadEvents)
                     {
-                        //Wait for the event signal forever
-                        if (m_EventReady != null && false == m_EventReady.Wait(m_EventReady.SpinCount)) continue;
+                        //Wait for the event signal half of the amount of time
+                        if (m_EventReady != null && false == m_EventReady.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick) && m_EventData.IsEmpty)
+                        {
+                            if (false == m_EventReady.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick))
+                            {
+
+                                //Todo, ThreadInfo.
+
+                                //Check if not already below normal priority
+                                if (System.Threading.Thread.CurrentThread.Priority != ThreadPriority.Lowest)
+                                {
+                                    //Relinquish priority
+                                    System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
+                                }
+                            }
+
+                            //Waste time
+                            m_EventReady.Wait();
+                        }
+                       
+                        //Reset the event when all frames are dispatched
+                        if (m_EventData.IsEmpty)
+                        {
+                            m_EventReady.Reset();
+
+                            if (false == m_EventReady.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick))
+                            {
+                                //Check if not already below normal priority
+                                if (System.Threading.Thread.CurrentThread.Priority != ThreadPriority.Lowest)
+                                {
+                                    //Relinquish priority
+                                    System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
+                                }
+                            }
+                        }
+                        else if (false == IsActive) break;
+
+                        //Set priority
+                        System.Threading.Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
 
                         //handle the event in waiting.
                         HandleEvent();
-
-                        //Reset the event when all frames are dispatched
-                        if (m_EventData.Count == 0 && m_EventReady != null) m_EventReady.Reset();
-                        else if(false == IsActive) break;
                     }
                 }
                 catch (ThreadAbortException) { Thread.ResetAbort(); Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@HandleEvents Aborted"); }
@@ -5405,7 +5490,10 @@ namespace Media.Rtp
                             || // OR there was a socket error at the last stage
                             (lastError != SocketError.Success && lastError != SocketError.SocketError))
                         {
-                            //Check if not already lowest priority
+
+                            //Todo, ThreadInfo.
+
+                            //Check if not already below normal priority
                             if (System.Threading.Thread.CurrentThread.Priority != ThreadPriority.Lowest)
                             {
                                 //Relinquish priority

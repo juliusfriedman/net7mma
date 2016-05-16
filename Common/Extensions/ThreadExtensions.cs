@@ -50,6 +50,12 @@ namespace Media.Common.Extensions.Thread
         /// </summary>
         public const int MinimumStackSize = 1;
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsRunning(System.Threading.Thread thread)
+        {
+            return thread != null && (thread.ThreadState & (System.Threading.ThreadState.Stopped | System.Threading.ThreadState.Unstarted)) == 0;
+        }
+
         public static void AbortAndFree(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
         {
             //If the worker IsAlive and has the requested state.
@@ -74,11 +80,11 @@ namespace Media.Common.Extensions.Thread
 
         public static void AbortAndFree(ref System.Threading.Thread thread, System.TimeSpan timeout, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped)
         {
-            //If the worker IsAlive and has the requested state.
-            if (thread != null && (thread.IsAlive && thread.ThreadState.HasFlag(state)))
+            //If the worker IsAlive and has doesn't have the requested state.
+            if (thread != null && false == thread.ThreadState.HasFlag(state)) //IsRunning(thread) &&
             {
-                //Attempt to join
-                if (false == thread.Join(timeout))
+                //Attempt to join if not already, todo check flags are compatible in all implementations.
+                if (false == thread.ThreadState.HasFlag(System.Threading.ThreadState.AbortRequested | System.Threading.ThreadState.Aborted) && false == thread.Join(timeout))
                 {
                     try
                     {
@@ -88,10 +94,10 @@ namespace Media.Common.Extensions.Thread
                     catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
                     catch { throw; } //Cancellation not supported
                 }
-
-                //Reset the state of the thread to indicate success
-                thread = null;
             }
+
+            //Reset the state of the thread to indicate success
+            thread = null;
         }
 
         public static bool TryAbortAndFree(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)

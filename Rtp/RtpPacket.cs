@@ -330,14 +330,14 @@ namespace Media.Rtp
         /// <param name="header">The header to utilize. When Dispose is called this header will be diposed if ownsHeader is true.</param>
         /// <param name="octets">The octets to project</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtpPacket(RtpHeader header, IEnumerable<byte> octets, bool ownsHeader = true)
+        public RtpPacket(RtpHeader header, IEnumerable<byte> octets, bool shouldDispose = true) : base(shouldDispose)
         {
             if (header == null) throw new ArgumentNullException("header");
 
             //Assign the header (maybe referenced elsewhere, when dispose is called the given header will be disposed.)
             Header = header;
 
-            ShouldDispose = m_OwnsHeader = ownsHeader;
+            m_OwnsHeader = shouldDispose;
 
             //Project the octets in the sequence of use the empty array
             m_OwnedOctets = (octets ?? Common.MemorySegment.Empty).ToArray();
@@ -353,13 +353,13 @@ namespace Media.Rtp
         /// <param name="header">The existing RtpHeader</param>
         /// <param name="payload">The data contained in the payload</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtpPacket(RtpHeader header, MemorySegment payload, bool shouldDispose = true)
+        public RtpPacket(RtpHeader header, MemorySegment payload, bool shouldDispose = true) : base(shouldDispose)
         {
             if (header == null) throw new ArgumentNullException("header");
 
             Header = header;
 
-            ShouldDispose = m_OwnsHeader = shouldDispose;
+            m_OwnsHeader = shouldDispose;
 
             Payload = payload;
         }
@@ -370,7 +370,7 @@ namespace Media.Rtp
         /// <param name="buffer">The buffer which contains the binary RtpPacket to decode</param>
         /// <param name="offset">The offset to start copying</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtpPacket(byte[] buffer, int offset, int count)
+        public RtpPacket(byte[] buffer, int offset, int count, bool shouldDispose = true) : base(shouldDispose)
         {
             if (buffer == null || buffer.Length == 0 || count <= 0) throw new ArgumentException("Must have data in a RtpPacket");
 
@@ -381,7 +381,7 @@ namespace Media.Rtp
             //Read the header
             Header = new RtpHeader(new Common.MemorySegment(m_OwnedOctets, offset, count));
 
-            ShouldDispose = m_OwnsHeader = true;
+            m_OwnsHeader = true;
 
             if (count > RtpHeader.Length && false == Header.IsCompressed)
             {
@@ -398,6 +398,24 @@ namespace Media.Rtp
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(byte[] buffer, int offset) : this(buffer, offset, buffer.Length - offset) { }
+
+        /// <summary>
+        /// Creates a packet instance of the given size.
+        /// </summary>
+        /// <param name="size"></param>
+        /// <param name="shouldDispose"></param>
+        public RtpPacket(int size, bool shouldDispose = true) : base(shouldDispose)
+        {
+            size = Common.Binary.Max(0, size);
+
+            m_OwnedOctets = new byte[size];
+
+            Header = new RtpHeader(new Common.MemorySegment(m_OwnedOctets, 0, Common.Binary.Min(size, RtpHeader.Length)));
+
+            m_OwnsHeader = true;
+
+            Payload = new MemorySegment(m_OwnedOctets, RtpHeader.Length, size - Header.Size);
+        }
             
         #endregion
 
@@ -555,7 +573,7 @@ namespace Media.Rtp
         public RtpPacket Clone(bool includeSourceList, bool includeExtension, bool includePadding, bool includeCoeffecients, bool selfReference)
         {
             //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-            if (includeSourceList && includeExtension && includePadding && includeCoeffecients && selfReference) return new RtpPacket(Header, Payload, false) { Transferred = Transferred };
+            if (includeSourceList && includeExtension && includePadding && includeCoeffecients) return selfReference ? new RtpPacket(Header, Payload, false) { Transferred = Transferred } : new RtpPacket(Prepare().ToArray(), 0) { Transferred = Transferred };
 
             IEnumerable<byte> binarySequence = Media.Common.MemorySegment.EmptyBytes;
 
@@ -849,7 +867,7 @@ namespace Media.Rtp
                 Header.Dispose();
             }
 
-            if (Payload != null)
+            if (false == Common.IDisposedExtensions.IsNullOrDisposed(Payload))
             {
                 //Payload goes away when Disposing
                 Payload.Dispose();

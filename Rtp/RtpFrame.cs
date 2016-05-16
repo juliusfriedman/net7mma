@@ -1312,7 +1312,7 @@ namespace Media.Rtp
             {
                 //Set ShouldDispose = true and call Dispose.
                 if (force || pair.Value.ShouldDispose)
-                    Common.BaseDisposable.SetShouldDispose(pair.Value, true, true);
+                    Common.BaseDisposable.SetShouldDispose(pair.Value, true, false);
             }
 
             //Ensure cleared.
