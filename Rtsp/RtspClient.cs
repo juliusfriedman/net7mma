@@ -270,7 +270,7 @@ namespace Media.Rtsp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return false == m_InterleaveEvent.IsSet &&  false == m_InterleaveEvent.Wait(m_InterleaveEvent.SpinCount << 2);
+                return false == m_InterleaveEvent.IsSet &&  false == m_InterleaveEvent.Wait(1);
             }
         }
 
@@ -302,6 +302,11 @@ namespace Media.Rtsp
         /// Indicates if the client will try to automatically reconnect during send or receive operations.
         /// </summary>
         public bool AutomaticallyReconnect { get; set; }
+
+        /// <summary>
+        /// Indicates if the client will automatically disconnect the RtspSocket after StartPlaying is called.
+        /// </summary>
+        public bool AutomaticallyDisconnect { get; set; }
 
         /// <summary>
         /// Indicates if the client will add the Timestamp header to outgoing requests.
@@ -1900,7 +1905,7 @@ namespace Media.Rtsp
             foreach (Sdp.MediaDescription md in toSetup)
             {
                 //Don't setup unwanted streams
-                if (mediaTypes != null && false == mediaTypes.Any(t=> t ==  md.MediaType)) continue;
+                if (mediaTypes != null && false == mediaTypes.Any(t => t == md.MediaType)) continue;
 
                 //Should be able to be SETUP if in the MediaDescriptions....
                 //if (md.MediaType == MediaType.application) continue;
@@ -1913,34 +1918,38 @@ namespace Media.Rtsp
 
                     //If there is a context which is not already playing and has not ended
                     if (context != null) if (false == m_Playing.Contains(context.MediaDescription))
-                    {
-                        //If the context is no longer receiving (should be a property on TransportContext but when pausing the RtpClient doesn't know about this)
-                        if (context.TimeReceiving == context.TimeSending && context.TimeSending == Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan)
                         {
-                            //Remove the context
-                            Client.TryRemoveContext(context);
+                            //If the context is no longer receiving (should be a property on TransportContext but when pausing the RtpClient doesn't know about this)
+                            if (context.TimeReceiving == context.TimeSending && context.TimeSending == Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan)
+                            {
+                                //Remove the context
+                                Client.TryRemoveContext(context);
 
-                            //Dispose it
-                            context.Dispose();
+                                //Dispose it
+                                context.Dispose();
 
-                            //remove the reference
-                            context = null;
+                                //remove the reference
+                                context = null;
+                            }
+                            //else context.Goodbye = null;
                         }
-                        //else context.Goodbye = null;
-                    }
-                    else
-                    {
-                        setupMedia.Add(md);
+                        else
+                        {
+                            setupMedia.Add(md);
 
-                        //The media is already playing
-                        hasContext = true;
+                            //The media is already playing
+                            hasContext = true;
 
-                        continue;
-                    }
+                            continue;
+                        }
                 }
 
-                //Send a setup
-                using (RtspMessage setup = SendSetup(md))
+            SetupTrack:
+
+                bool setupSuccess = false;
+
+                //Send a setup while there was a bad request
+                do using (RtspMessage setup = SendSetup(md))
                 {
 
                     #region Unused feature [Continue Without Setup Response]
@@ -1976,6 +1985,8 @@ namespace Media.Rtsp
 
                         //setup.IsPersistent = false;
 
+                        setupSuccess = true;
+
                         #region Unused Feature [NewSocketEachSetup]
 
                         //Testing if a new socket can be used with each setup
@@ -1987,18 +1998,18 @@ namespace Media.Rtsp
                     //{
                     //    //Check for a 'rtx' connection
                     //}
-                }
+                } while (false == setupSuccess);
             }
 
             //If we have a play context then send the play request.
             if (false == hasContext) throw new InvalidOperationException("Cannot Start Playing, No Tracks Setup.");
 
-            //Send the play request
-            using (RtspMessage play = SendPlay(InitialLocation, start ?? StartTime, end ?? EndTime))
+            //Send the play request while a OKAY response was not received
+            do using (RtspMessage play = SendPlay(InitialLocation, start ?? StartTime, end ?? EndTime))
             {
                 //If there was a response or not fire a playing event.
-                if (play == null || 
-                    play != null && 
+                if (play == null ||
+                    play != null &&
                     play.MessageType == RtspMessageType.Invalid ||
                     play.RtspStatusCode == RtspStatusCode.OK)
                 {
@@ -2013,7 +2024,7 @@ namespace Media.Rtsp
 
                     //Set EndTime
                 }
-            }
+            } while (false == IsPlaying);
 
             TimeSpan halfSessionTimeWithConnection = TimeSpan.FromTicks(m_RtspSessionTimeout.Subtract(m_ConnectionTime).Ticks / 2);
 
@@ -2026,7 +2037,10 @@ namespace Media.Rtsp
             m_ProtocolMonitor = new System.Threading.Timer(new TimerCallback(MonitorProtocol), null, LastMessageRoundTripTime, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
 
             //Don't keep the tcp socket open when not required under Udp.
-            //if (m_RtpProtocol == ProtocolType.Udp) DisconnectSocket();
+
+            //Todo, should check for Udp, but hopefully people who use this know what they are doing...
+            //m_RtpProtocol == ProtocolType.Udp
+            if (AutomaticallyDisconnect) DisconnectSocket();
         }
 
         //Params?
@@ -2266,7 +2280,7 @@ namespace Media.Rtsp
                 int multipliedConnectionTime = (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
 
                 //If it took longer than 50 msec to connect 
-                if (multipliedConnectionTime > 100)
+                if (multipliedConnectionTime > SocketWriteTimeout || multipliedConnectionTime > SocketReadTimeout)
                 {
                     //Set the read and write timeouts based upon such a time (should include a min of the m_RtspSessionTimeout.)
                     if (m_ConnectionTime > TimeSpan.Zero) SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
@@ -2800,7 +2814,9 @@ namespace Media.Rtsp
                         m_SentBytes += sent;
 
                         //Attempt to receive so start attempts back at 0
-                        sent = attempt = 0;
+                        /*sent = */
+                        attempt = 0;
+                        
 
                         //Release the reference to the array
                         buffer = null;
@@ -2887,12 +2903,14 @@ namespace Media.Rtsp
                     else if (false == SharesSocket)
                     {
                         //Check for fatal exceptions
-                        if (error != SocketError.ConnectionAborted && error != SocketError.ConnectionReset && error != SocketError.Interrupted)
+                        if (error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset || error == SocketError.Interrupted) // || error == SocketError.Success, notes below...
                         {
                             if (++attempt <= m_ResponseTimeoutInterval) goto Wait;
                         }
 
-                        //Raise the exception
+                        //Todo, this isn't really needed once there is a thread monitoring the protocol.
+                        //Right now it probably isn't really needed either.
+                        //Raise the exception (may be success to notify timer thread...)
                         if (message != null) throw new SocketException((int)error);
                         else return null;
                     }
