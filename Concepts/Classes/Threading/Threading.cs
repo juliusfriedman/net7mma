@@ -224,13 +224,13 @@ namespace Media.Concepts.Classes.Threading
         /// <param name="value"></param>
         public void Add(System.Delegate value)
         {
-            var holder = new DelegateHolder(value);
+            DelegateHolder Holder = new DelegateHolder(value);
 
-            if (false == DelegateDictionary.TryAdd(value, holder)) return;
+            if (false == DelegateDictionary.TryAdd(value, Holder)) return;
 
             ReadWriteLock.EnterWriteLock();
 
-            DelegateList.AddLast(holder);
+            DelegateList.AddLast(Holder);
 
             ReadWriteLock.ExitWriteLock();
         }
@@ -258,46 +258,46 @@ namespace Media.Concepts.Classes.Threading
         /// <param name="args"></param>
         public void Raise(params object[] args)
         {
-            DelegateHolder holder = null;
+            DelegateHolder Holder = null;
 
             try
             {
                 // get root element
                 ReadWriteLock.EnterReadLock();
 
-                System.Collections.Generic.LinkedListNode<DelegateHolder> cursor = DelegateList.First;
+                System.Collections.Generic.LinkedListNode<DelegateHolder> Cursor = DelegateList.First;
 
                 ReadWriteLock.ExitReadLock();
 
-                while (cursor != null)
+                while (Cursor != null)
                 {
                     // get its value and a next node
                     ReadWriteLock.EnterReadLock();
 
-                    holder = cursor.Value;
+                    Holder = Cursor.Value;
 
-                    System.Collections.Generic.LinkedListNode<DelegateHolder> next = cursor.Next;
+                    System.Collections.Generic.LinkedListNode<DelegateHolder> Next = Cursor.Next;
 
                     ReadWriteLock.ExitReadLock();
 
                     // lock holder and invoke if it is not removed
-                    System.Threading.Monitor.Enter(holder);
+                    System.Threading.Monitor.Enter(Holder);
                     
-                    if (false == holder.IsDeleted) holder.Action.DynamicInvoke(args);
-                    else if (false == holder.IsDeletedFromList)
+                    if (false == Holder.IsDeleted) Holder.Action.DynamicInvoke(args);
+                    else if (false == Holder.IsDeletedFromList)
                     {
                         ReadWriteLock.EnterWriteLock();
 
-                        DelegateList.Remove(cursor);
+                        DelegateList.Remove(Cursor);
 
-                        holder.IsDeletedFromList = true;
+                        Holder.IsDeletedFromList = true;
 
                         ReadWriteLock.ExitWriteLock();
                     }
 
-                    System.Threading.Monitor.Exit(holder);
+                    System.Threading.Monitor.Exit(Holder);
 
-                    cursor = next;
+                    Cursor = Next;
                 }
             }
             catch
@@ -307,7 +307,7 @@ namespace Media.Concepts.Classes.Threading
 
                 if (ReadWriteLock.IsWriteLockHeld) ReadWriteLock.ExitWriteLock();
 
-                if (holder != null && System.Threading.Monitor.IsEntered(holder)) System.Threading.Monitor.Exit(holder);
+                if (Holder != null && System.Threading.Monitor.IsEntered(Holder)) System.Threading.Monitor.Exit(Holder);
 
                 throw;
             }
