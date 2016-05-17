@@ -123,6 +123,18 @@ namespace Media.Common.Extensions.Socket
 
         //}
 
+
+        //public static bool IsFatal(System.Net.Sockets.SocketError error)
+        //{
+        //    switch (error)
+        //    {
+        //        case  System.Net.Sockets.SocketError.ConnectionAborted:
+        //        case  System.Net.Sockets.SocketError.ConnectionReset:
+        //            return true;
+        //        default: return false;
+        //    }
+        //}
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public static System.Net.Sockets.Socket ReservePort(System.Net.Sockets.SocketType socketType, System.Net.Sockets.ProtocolType protocol, System.Net.IPAddress localIp, int port)
         {

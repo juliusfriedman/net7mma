@@ -1678,15 +1678,16 @@ namespace Media.UnitTests
 
                 System.Threading.Thread taker = new System.Threading.Thread(new System.Threading.ParameterizedThreadStart((o) =>
                 {
+
+                Start:
+
                     using (var bmpScreenshot = new System.Drawing.Bitmap(Screen.PrimaryScreen.Bounds.Width,
                                Screen.PrimaryScreen.Bounds.Height,
                                System.Drawing.Imaging.PixelFormat.Format32bppArgb))
                     {
-
                         // Create a graphics object from the bitmap.
                         using (var gfxScreenshot = System.Drawing.Graphics.FromImage(bmpScreenshot))
                         {
-
                             //Could also use mirror.State.
                             while (server.IsRunning)
                             {
@@ -1709,6 +1710,12 @@ namespace Media.UnitTests
                                 catch (Exception ex)
                                 {
                                     server.Logger.LogException(ex);
+
+                                    gfxScreenshot.Dispose();
+
+                                    bmpScreenshot.Dispose();
+
+                                    goto Start;
                                 }
                             }
 

@@ -252,7 +252,7 @@ namespace Media.Common.Collections.Generic
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool TryPeek(ref T t)
         {
-            if (First == Node.Null) return false;
+            if (Object.ReferenceEquals(First, Node.Null)) return false;
 
             t = First.Value;
 

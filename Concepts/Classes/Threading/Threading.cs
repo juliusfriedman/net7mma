@@ -147,17 +147,22 @@ namespace Media.Concepts.Classes.Threading
         /// <param name="thread"></param>
         /// <param name="timeout"></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public void SleepFor(System.Threading.Thread thread, System.TimeSpan timeout)
+        public void SleepFor(System.Threading.Thread thread, System.TimeSpan timeout, System.Threading.ThreadPriority priority)
         {
             if (thread == null || thread.ThreadState.HasFlag(System.Threading.ThreadState.WaitSleepJoin)) return;
 
             System.Threading.ThreadPriority previous = thread.Priority;
 
-            thread.Priority = (System.Threading.ThreadPriority)IdlePriority;
+            thread.Priority = priority;
 
             System.Threading.Thread.Sleep(timeout);
 
             thread.Priority = previous;
+        }
+
+        public void SleepFor(System.Threading.Thread thread, System.TimeSpan timeout)
+        {
+            SleepFor(thread, timeout, (System.Threading.ThreadPriority)IdlePriority);
         }
 
         /// <summary>
