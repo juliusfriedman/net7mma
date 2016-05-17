@@ -270,7 +270,8 @@ namespace Media.Rtsp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return false == m_InterleaveEvent.IsSet &&  false == m_InterleaveEvent.Wait(1);
+                //Todo, this may be able to be shortened.
+                return false == m_InterleaveEvent.IsSet &&  false == m_InterleaveEvent.Wait(ConnectionTime);
             }
         }
 
@@ -525,6 +526,8 @@ namespace Media.Rtsp
                         {
                             return false;
                         }
+
+                        //return true;
 
                         //If the media is playing the RtspClient is only playing if the socket is shared or the Transport is connected.
                         return SharesSocket || m_RtpClient.IsActive;
@@ -1005,7 +1008,14 @@ namespace Media.Rtsp
             if (IsDisposed) return;
 
             //Is was not already playing then set the value
-            if (HandlePlayEvent && false == m_StartedPlaying.HasValue) m_StartedPlaying = DateTime.UtcNow; 
+            if (HandlePlayEvent && false == m_StartedPlaying.HasValue)
+            {
+                //Set started playing
+                m_StartedPlaying = DateTime.UtcNow;
+
+                //Active the RtpClient
+                //if (false == Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) m_RtpClient.Activate();
+            }
 
             RtspClientAction action = OnPlay;
 
@@ -1944,11 +1954,7 @@ namespace Media.Rtsp
                         }
                 }
 
-            SetupTrack:
-
-                bool setupSuccess = false;
-
-                //Send a setup while there was a bad request
+                //Send a setup while there was a bad request or no response.
                 do using (RtspMessage setup = SendSetup(md))
                 {
 
@@ -1972,8 +1978,11 @@ namespace Media.Rtsp
 
                     #endregion
 
+                    //No response?
+                    if (setup == null) continue;
+
                     //If the setup was okay
-                    if (setup != null && setup.RtspStatusCode == RtspStatusCode.OK)
+                    if (setup.RtspStatusCode == RtspStatusCode.OK)
                     {
                         //setup.IsPersistent = true;
 
@@ -1985,7 +1994,7 @@ namespace Media.Rtsp
 
                         //setup.IsPersistent = false;
 
-                        setupSuccess = true;
+                        break;
 
                         #region Unused Feature [NewSocketEachSetup]
 
@@ -1994,11 +2003,12 @@ namespace Media.Rtsp
 
                         #endregion
                     }
+                    else if (setup.RtspStatusCode == RtspStatusCode.NotFound) break;
                     //else if (setup.StatusCode == RtspStatusCode.UnsupportedTransport)
                     //{
                     //    //Check for a 'rtx' connection
                     //}
-                } while (false == setupSuccess);
+                } while (IsConnected); //2 attempts each attempt...
             }
 
             //If we have a play context then send the play request.
@@ -2008,10 +2018,7 @@ namespace Media.Rtsp
             do using (RtspMessage play = SendPlay(InitialLocation, start ?? StartTime, end ?? EndTime))
             {
                 //If there was a response or not fire a playing event.
-                if (play == null ||
-                    play != null &&
-                    play.MessageType == RtspMessageType.Invalid ||
-                    play.RtspStatusCode == RtspStatusCode.OK)
+                if (IsPlaying || m_RtpClient.IsActive || false == Common.IDisposedExtensions.IsNullOrDisposed(play) && play.RtspStatusCode <= RtspStatusCode.OK)                 
                 {
 
                     //play.IsPersistent = true;
@@ -2023,10 +2030,16 @@ namespace Media.Rtsp
                     //play.IsPersistent = false;
 
                     //Set EndTime
-                }
-            } while (false == IsPlaying);
 
-            TimeSpan halfSessionTimeWithConnection = TimeSpan.FromTicks(m_RtspSessionTimeout.Subtract(m_ConnectionTime).Ticks / 2);
+                    break;
+                }
+
+            } while (IsConnected);
+
+            //Initiate a keep alive now if data is still not flowing.
+            if (Client.TotalBytesReceieved == 0) SendKeepAliveRequest(null);
+
+            TimeSpan halfSessionTimeWithConnection = TimeSpan.FromTicks(m_RtspSessionTimeout.Subtract(m_ConnectionTime).Ticks >> 1);
 
             //If dueTime is zero (0), callback is invoked immediately. If dueTime is negative one (-1) milliseconds, callback is not invoked; the timer is disabled, but can be re-enabled by calling the Change method.
             //Setup a timer to send any requests to keep the connection alive and ensure media is flowing.
@@ -2275,16 +2288,20 @@ namespace Media.Rtsp
                 //Calculate the connection time.
                 m_ConnectionTime = m_EndConnect.Value - m_BeginConnect.Value;
 
-                //Possibly in a VM the timing may be off (Hardware Abstraction Layer BUGS) and if the timeout occurs a few times witin the R2 the socket may be closed
-                //To prefent this check the value first.
-                int multipliedConnectionTime = (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
-
-                //If it took longer than 50 msec to connect 
-                if (multipliedConnectionTime > SocketWriteTimeout || multipliedConnectionTime > SocketReadTimeout)
+                //When timeouts are set then ensure they are within the amount of time the connection took to establish
+                if ((SocketWriteTimeout + SocketReadTimeout) > 0)
                 {
-                    //Set the read and write timeouts based upon such a time (should include a min of the m_RtspSessionTimeout.)
-                    if (m_ConnectionTime > TimeSpan.Zero) SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
-                    //....else 
+                    //Possibly in a VM the timing may be off (Hardware Abstraction Layer BUGS) and if the timeout occurs a few times witin the R2 the socket may be closed
+                    //To prefent this check the value first.
+                    int multipliedConnectionTime = (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
+
+                    //If it took longer than 50 msec to connect 
+                    if (multipliedConnectionTime > SocketWriteTimeout || multipliedConnectionTime > SocketReadTimeout)
+                    {
+                        //Set the read and write timeouts based upon such a time (should include a min of the m_RtspSessionTimeout.)
+                        if (m_ConnectionTime > TimeSpan.Zero) SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalMilliseconds * multiplier);
+                        //....else 
+                    }
                 }
 
                 //(otherwise these remains at their current values) SocketWriteTimeout = SocketReadTimeout = 0?
@@ -2816,7 +2833,6 @@ namespace Media.Rtsp
                         //Attempt to receive so start attempts back at 0
                         /*sent = */
                         attempt = 0;
-                        
 
                         //Release the reference to the array
                         buffer = null;
@@ -2842,6 +2858,7 @@ namespace Media.Rtsp
                 //Receive some data (only referenced by the check for disconnection)
                 Receive:
                     #region Receive
+                    
                     //If we can receive 
                     if (m_RtspSocket != null && //Can be polled for data within 1 msec
                         m_RtspSocket.Poll((int)Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Common.Extensions.TimeSpan.TimeSpanExtensions.OneMillisecond), SelectMode.SelectRead))
@@ -2902,10 +2919,11 @@ namespace Media.Rtsp
                     } //Nothing was received, if the socket is not shared
                     else if (false == SharesSocket)
                     {
-                        //Check for fatal exceptions
-                        if (error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset || error == SocketError.Interrupted) // || error == SocketError.Success, notes below...
+                        //Check for non fatal exceptions and continue to wait
+                        if (error != SocketError.ConnectionAborted || error != SocketError.ConnectionReset /*|| error != SocketError.Interrupted || error == SocketError.Success*/)
                         {
-                            if (++attempt <= m_ResponseTimeoutInterval) goto Wait;
+                            //We don't share the socket so go to recieve again (note if this is the timer thread this can delay outgoing requests)
+                            if (++attempt <= m_ResponseTimeoutInterval) goto Receive;
                         }
 
                         //Todo, this isn't really needed once there is a thread monitoring the protocol.
@@ -2937,7 +2955,7 @@ namespace Media.Rtsp
                         else
                         {
                             //Wait a little more
-                            System.Threading.Thread.Sleep(0);
+                            m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
                         }
 
                         //Check for any new messages
@@ -2949,7 +2967,7 @@ namespace Media.Rtsp
                         int readTimeout = SocketReadTimeout;
 
                         //If more time has elapsed than allowed by reading
-                        if (taken > m_LastMessageRoundTripTime && taken.TotalMilliseconds >= readTimeout)
+                        if (readTimeout > 0 && taken > m_LastMessageRoundTripTime && taken.TotalMilliseconds >= readTimeout)
                         {
                             //Check if we can back off further
                             if (taken.TotalMilliseconds >= halfTimeout) break;
@@ -2973,7 +2991,16 @@ namespace Media.Rtsp
                                 if (m_RtspSocket.ProtocolType == ProtocolType.Udp)
                                 {
                                     //Change the Timestamp if TimestampRequests is true
-                                    if (TimestampRequests) goto Timestamp;
+                                    if (TimestampRequests)
+                                    {
+                                        //Reset what to send.
+                                        sent = 0;
+
+                                        goto Timestamp;
+                                    }
+
+                                    //Reset what was sent so far.
+                                    sent = 0;
 
                                     //Retransmit the exact same data
                                     goto Send;
@@ -3002,7 +3029,7 @@ namespace Media.Rtsp
                     //If nothing was received wait for cache to clear.
                     if (null == m_LastTransmitted)
                     {
-                        System.Threading.Thread.Sleep(0);
+                        m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
                     }
                     else if(message != null) //If there was a message sent
                     {
@@ -3681,6 +3708,9 @@ namespace Media.Rtsp
 
             //Todo Setup should only create a TransportContext which COULD then be given to a RtpClient 
             //This will allow for non RTP transports to be used such as MPEG-TS.
+
+            //Could also use out bool allocatedContext...
+
             //Must de-coulple the RtpClient and replace it
 
             //Todo, Add CreateSession logic here and give the session to SendSetup.
@@ -3846,7 +3876,7 @@ namespace Media.Rtsp
                         //RTCP-mux:
 
                         //If there is already a RtpClient with at-least 1 TransportContext
-                        if (m_RtpClient != null && m_RtpClient.GetTransportContexts().Any())
+                        if (m_RtpClient != null)
                         {
                             RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
                             if (lastContext != null) setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), (needsRtcp ? (byte?)(controlChannel = (byte)(lastContext.ControlChannel + 2)) : null), null));
@@ -3915,9 +3945,9 @@ namespace Media.Rtsp
 
                     //if there was no response then don't attempt to parse any but DO attempt to listen.
                     if (false == triedTwoTimes &&
-                        error != SocketError.Success ||
+                        (error != SocketError.Success ||
                             response == null ||
-                            response.MessageType != RtspMessageType.Response)
+                            response.MessageType != RtspMessageType.Response))
                     {
                         if (IsPlaying) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "No response to SETUP." + (false == SupportedMethods.Contains(RtspMethod.SETUP.ToString()) ? " The server may not support SETUP." : string.Empty));
                         else
@@ -3968,7 +3998,9 @@ namespace Media.Rtsp
                     }
 
                     //Ensure there was a response
-                    if (response == null) goto NoResponse;
+                    //if (response == null) goto NoResponse;
+
+                    if (null == response) return response;
 
                     //Response not OK
                     if (response.RtspStatusCode != RtspStatusCode.OK)
@@ -4045,6 +4077,7 @@ namespace Media.Rtsp
 
                     //Handle anything else
 
+                    //When jumping here we return null even though we allocate a context.
                 NoResponse:
                     
                     //We SHOULD have a valid TransportHeader in the response
@@ -4315,6 +4348,8 @@ namespace Media.Rtsp
             catch (Exception ex)
             {
                 Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Unable to setup media. See InnerException", ex);
+
+                return m_LastTransmitted;
             }
 
         //Setup for Interleaved connection
@@ -4533,6 +4568,18 @@ namespace Media.Rtsp
                         //No response or invalid range.
                         if (response == null || response.RtspStatusCode == RtspStatusCode.InvalidRange)
                         {
+                            //if (response == null)
+                            //{
+                            //    //If there is transport
+                            //    if (false == Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient))
+                            //    {
+                            //        //Connect the client now.
+                            //        m_RtpClient.Activate();
+                            //    }
+
+                            //    //return response;
+                            //}
+
                             play.RemoveHeader(Rtsp.RtspHeaders.Range);
 
                             play.RemoveHeader(Rtsp.RtspHeaders.CSeq);
@@ -4544,7 +4591,7 @@ namespace Media.Rtsp
                         else if (response.RtspStatusCode <= RtspStatusCode.OK)
                         {
                             //If there is transport
-                            if (m_RtpClient != null)
+                            if (false == Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient))
                             {
                                 //Connect the client now.
                                 m_RtpClient.Activate();                                
@@ -4746,7 +4793,7 @@ namespace Media.Rtsp
                     //Ensure transport is connected. (will be done in play...)
                     //if (false == m_RtpClient.IsConnected) m_RtpClient.Connect();
 
-                    while (InUse) System.Threading.Thread.Sleep(0);
+                    while (InUse) m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
 
                     DisableKeepAliveRequest = true;
 

@@ -2829,22 +2829,21 @@ namespace Media.Rtp
 
             RtpPacketHandler action = RtpPacketReceieved;
 
-            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;            
+            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
+            bool shouldDispose = packet.ShouldDispose;
+
+            if (shouldDispose) SetShouldDispose(packet, false, false);
 
             if (m_ThreadEvents)
             {
                 //If the frame events are enabled then use the packet otherwise clone the packet and data so it can stay alive.
-                packet = FrameChangedEventsEnabled ? packet : packet.Clone(true, true, true, true, false);
-
-                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, packet, false, true));
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, FrameChangedEventsEnabled ? packet.Clone(true, true, true, true, false) : packet.Clone(true, true, true, true, true), false, true));
 
                 m_EventReady.Set();
 
                 return;
             }
-
-            //Don't allow the packet to be disposed before the handlers are invoked
-            Common.BaseDisposable.SetShouldDispose(packet, false, false);
 
             foreach (RtpPacketHandler handler in action.GetInvocationList())
             {
@@ -2854,7 +2853,7 @@ namespace Media.Rtp
             }
 
             //Allow the packet to be destroyed.
-            Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            if(shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -2867,20 +2866,20 @@ namespace Media.Rtp
 
             RtcpPacketHandler action = RtcpPacketReceieved;
 
-            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
+            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;            
 
             if (m_ThreadEvents)
             {
-                packet = m_ThreadEvents ? packet.Clone(true, true, false) : packet;
-
-                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, packet, false, true));
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, packet.Clone(true, true, false), false, true));
 
                 m_EventReady.Set();
 
                 return;
             }
 
-            Common.BaseDisposable.SetShouldDispose(packet, false, false);
+            bool shouldDispose = packet.ShouldDispose;
+
+            if (shouldDispose) SetShouldDispose(packet, false, false);
 
             foreach (RtcpPacketHandler handler in action.GetInvocationList())
             {
@@ -2889,7 +2888,7 @@ namespace Media.Rtp
                 catch { return; }
             }
 
-            Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            if(shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -2904,8 +2903,9 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(frame) || frame.IsEmpty) return;
 
-            //Don't let the frame dispose before the event is processed.
-            Common.BaseDisposable.SetShouldDispose(frame, false, false);
+            bool shouldDispose = frame.ShouldDispose;
+
+            if (shouldDispose) SetShouldDispose(frame, false, false);
 
             if (m_ThreadEvents)
             {
@@ -2924,7 +2924,7 @@ namespace Media.Rtp
             }
 
             //On final events set ShouldDispose to true, do not call Dispose
-            if (final) Common.BaseDisposable.SetShouldDispose(frame, true, false);
+            if(final) Common.BaseDisposable.SetShouldDispose(frame, true, false);
         }
 
         internal void ParallelRtpFrameChanged(RtpFrame frame = null, TransportContext tc = null, bool final = false)
@@ -2984,6 +2984,9 @@ namespace Media.Rtp
                 try { ((RtpPacketHandler)(d))(this, packet, tc); }
                 catch { return; }                
             });
+            
+            //allow packet to be disposed...
+            Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         internal void ParallelRtcpPacketRecieved(RtcpPacket packet = null, TransportContext tc = null)
@@ -3023,6 +3026,9 @@ namespace Media.Rtp
                 catch { return; }
                 //finally { packet.Dispose(); }
             });
+
+            //Allow the packet to be disposed, do not call dispose now.
+            Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
             
 
@@ -3038,10 +3044,12 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
+            bool shouldDispose = packet.ShouldDispose;
+
+            if (shouldDispose) SetShouldDispose(packet, false, false);
+
             if (m_ThreadEvents)
             {
-                packet = packet.Clone(true, true, true, true, true);
-
                 m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, packet, false, true));
 
                 m_EventReady.Set();
@@ -3055,6 +3063,8 @@ namespace Media.Rtp
                 try { handler(this, packet, tc); }
                 catch { continue; }
             }
+
+            if(shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -3069,10 +3079,12 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
+            bool shouldDispose = packet.ShouldDispose;
+
+            if (shouldDispose) SetShouldDispose(packet, false, false);
+
             if (m_ThreadEvents)
             {
-                packet = m_ThreadEvents ? packet.Clone(true, true, true) : packet;
-
                 m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, packet, false, true));
 
                 return;
@@ -3084,6 +3096,8 @@ namespace Media.Rtp
                 try { handler(this, packet, tc); }
                 catch { continue; }
             }
+
+            if (shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         #endregion
@@ -3884,7 +3898,7 @@ namespace Media.Rtp
                 {
                     if (context.RtcpSocket.ProtocolType == ProtocolType.Tcp)
                     {
-                        //Todo, Int can be used as bytes
+                        //Todo, Int can be used as bytes and there may only be 2 bytes required.
                         byte[] framing = new byte[] { BigEndianFrameControl, context.ControlChannel, 0, 0 };
 
                         Common.Binary.Write16(framing, 2, BitConverter.IsLittleEndian, (short)length);
@@ -3925,11 +3939,12 @@ namespace Media.Rtp
                     //Note, Live555 and LibAV may not be able to handle this, use IListSockets to work around.
                     if (context.RtcpSocket.ProtocolType == ProtocolType.Tcp)
                     {
+                        //Todo, Int can be used as bytes and there may only be 2 bytes required.
                         byte[] framing = new byte[] { BigEndianFrameControl, context.ControlChannel, 0, 0 };
 
                         Common.Binary.Write16(framing, 2, BitConverter.IsLittleEndian, (short)length);
 
-                        while (sent < InterleavedOverhead)
+                        while (sent < InterleavedOverhead && (error != SocketError.ConnectionAborted && error != SocketError.ConnectionReset && error != SocketError.NotConnected))
                         {
                             //Send all the framing.
                             sent += context.RtcpSocket.Send(framing, sent, InterleavedOverhead - sent, SocketFlags.None, out error);
@@ -3958,7 +3973,7 @@ namespace Media.Rtp
                         sent = 0;
                     }
 
-                    //Set set to how many bytes were sent.
+                    //Set sent to how many bytes were sent.
                     sent = length + InterleavedOverhead;
                 }
             }
@@ -4260,15 +4275,13 @@ namespace Media.Rtp
                     disp = true;
                 }
 
-              
-
                 //If we can get the buffer from the packet
                 if (packet.TryGetBuffers(out buffers))
                 {
                     //If Tcp
                     if ((int)transportContext.RtpSocket.ProtocolType == (int)ProtocolType.Tcp)
                     {
-                        //Todo, Int can be used as bytes.
+                        //Todo, Int can be used as bytes and there may only be 2 bytes required.
                         byte[] framing = new byte[] { BigEndianFrameControl, transportContext.DataChannel, 0, 0 };
 
                         //Write the length
@@ -5535,7 +5548,8 @@ namespace Media.Rtp
                                     //Indicate the poll was not successful
                                     lastError = SocketError.TimedOut;
 
-                                    Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRecieve - No RecentActivity and Unable to Poll RtcpSocket, LastReportsReceived = " + tc.LastRtcpReportReceived + ", taken =" + taken);
+                                    /*if(System.Threading.Thread.Yield())*/ 
+                                    if(taken > TimeSpan.Zero) Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRecieve - No RecentActivity and Unable to Poll RtcpSocket, LastReportsReceived = " + tc.LastRtcpReportReceived + ", taken =" + taken);
                                 }
 
                                 //Try to send reports for the latest packets or a goodbye if inactive.

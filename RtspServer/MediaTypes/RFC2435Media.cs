@@ -2587,7 +2587,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         //Dequeue a frame or die
                         Rtp.RtpFrame frame = m_Frames.Dequeue();
 
-                        if (Common.IDisposedExtensions.IsNullOrDisposed(frame)) continue;
+                        if (Common.IDisposedExtensions.IsNullOrDisposed(frame) || frame.IsEmpty) continue;
 
                         //Get the transportChannel for the packet
                         Rtp.RtpClient.TransportContext transportContext = m_RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);
@@ -2611,7 +2611,9 @@ namespace Media.Rtsp.Server.MediaTypes
                             var packets = frame.ToArray();
 
                             //Clear the frame to reset sequence numbers (could add method to do this)
-                            frame.RemoveAllPackets();
+                            //frame.RemoveAllPackets();
+
+                            if (Loop) frame = new Rtp.RtpFrame();
 
                             //Todo, should provide access to property or provide a method which updates this property.
 
@@ -2670,6 +2672,12 @@ namespace Media.Rtsp.Server.MediaTypes
                         {
                             m_Frames.Enqueue(frame);
                         }
+                        else
+                        {
+                            frame.Dispose();
+                        }
+
+                        m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.BelowNormal;
 
                         System.Threading.Thread.Sleep(clockRate);
                     }
