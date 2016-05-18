@@ -1595,7 +1595,7 @@ namespace Media.UnitTests
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
                 //Todo, check why this stream works in client and not server..
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Zeta", "rtsp://admin:pass@118.70.125.33:9554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Zeta", "rtsp://rtsp-v3-spbtv.msk.spbtv.com:554/spbtv_v3_1/332_110.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             
 
@@ -1676,7 +1676,7 @@ namespace Media.UnitTests
 
                 server.TryAddMedia(mirror);
 
-                System.Threading.Thread taker = new System.Threading.Thread(new System.Threading.ParameterizedThreadStart((o) =>
+                System.Threading.Thread captureThread = new System.Threading.Thread(new System.Threading.ParameterizedThreadStart((o) =>
                 {
 
                 Start:
@@ -1715,12 +1715,13 @@ namespace Media.UnitTests
 
                                     bmpScreenshot.Dispose();
 
-                                    goto Start;
+                                    if(server != null && server.IsRunning) goto Start;
                                 }
                             }
 
                             int exit = 1;
 
+                            if(exit == 1) return;
                         }
                     }
                 }));
@@ -1732,7 +1733,12 @@ namespace Media.UnitTests
                 while (false == server.IsRunning) System.Threading.Thread.Sleep(0);
 
                 //Start taking pictures of the desktop and making packets in a seperate thread.
-                if(taker != null) taker.Start();
+                if (captureThread != null)
+                {
+                    //captureThread.Priority = System.Threading.ThreadPriority.BelowNormal;
+
+                    captureThread.Start();
+                }
 
                 //If you add more streams they will be started once the server is started
 

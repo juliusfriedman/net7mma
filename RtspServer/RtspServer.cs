@@ -1433,6 +1433,8 @@ namespace Media.Rtsp
             //Get the client information from the result
             ClientSession session = (ClientSession)ar.AsyncState;
 
+            if (session == null || session.m_RtspSocket == null) return;
+
             try
             {
 

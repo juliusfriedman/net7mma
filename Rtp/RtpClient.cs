@@ -2786,7 +2786,7 @@ namespace Media.Rtp
 
             if (m_ThreadEvents)
             {
-                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(null, new Common.Classes.PacketBase(data, offset, length, false), true, true));
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(null, new Common.Classes.PacketBase(data, offset, length, true, true), true, true));
 
                 m_EventReady.Set();
 
@@ -2816,7 +2816,7 @@ namespace Media.Rtp
                 //finally { packet.Dispose(); }
             });
 
-            Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            Common.BaseDisposable.SetShouldDispose(packet, true, true);
         }
 
         /// <summary>
@@ -2831,19 +2831,19 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-            bool shouldDispose = packet.ShouldDispose;
-
-            if (shouldDispose) SetShouldDispose(packet, false, false);
-
             if (m_ThreadEvents)
             {
                 //If the frame events are enabled then use the packet otherwise clone the packet and data so it can stay alive.
-                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, FrameChangedEventsEnabled ? packet.Clone(true, true, true, true, false) : packet.Clone(true, true, true, true, true), false, true));
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, FrameChangedEventsEnabled ? packet : packet.Clone(true, true, true, true, true), false, true));
 
                 m_EventReady.Set();
 
                 return;
             }
+
+            bool shouldDispose = packet.ShouldDispose;
+
+            if (shouldDispose) SetShouldDispose(packet, false, false);
 
             foreach (RtpPacketHandler handler in action.GetInvocationList())
             {
@@ -3898,6 +3898,7 @@ namespace Media.Rtp
                 {
                     if (context.RtcpSocket.ProtocolType == ProtocolType.Tcp)
                     {
+                        //Todo, should have function to create framing to be compatible with RFC4571
                         //Todo, Int can be used as bytes and there may only be 2 bytes required.
                         byte[] framing = new byte[] { BigEndianFrameControl, context.ControlChannel, 0, 0 };
 
@@ -3932,13 +3933,14 @@ namespace Media.Rtp
                 }
 
                 //If nothing was sent then send the data now.
-                if (sent == 0)
+                if (length > 0 &&sent == 0)
                 {
                     //Send the framing seperately to keep the allocations minimal.
 
                     //Note, Live555 and LibAV may not be able to handle this, use IListSockets to work around.
                     if (context.RtcpSocket.ProtocolType == ProtocolType.Tcp)
                     {
+                        //Todo, should have function to create framing to be compatible with RFC4571
                         //Todo, Int can be used as bytes and there may only be 2 bytes required.
                         byte[] framing = new byte[] { BigEndianFrameControl, context.ControlChannel, 0, 0 };
 
@@ -3963,7 +3965,7 @@ namespace Media.Rtp
                         packetLength = packet.Length;
 
                         //While there is data to send
-                        while (sent < packetLength)
+                        while (sent < packetLength && error != SocketError.ConnectionAborted && error != SocketError.ConnectionReset)
                         {
                             //Send it.
                             sent += context.RtcpSocket.Send(packet.Header.First16Bits.m_Memory.Array, packet.Header.First16Bits.m_Memory.Offset + sent, packetLength - sent, SocketFlags.None, out error);
@@ -4555,7 +4557,7 @@ namespace Media.Rtp
             error = SocketError.SocketError;
 
             //Check there is valid data and a socket which is able to write and that the RtpClient is not stopping
-            if (IsDisposed || socket == null || length == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(data, out length)) return 0;
+            if (IsDisposed || socket == null || length == 0 || data == null) return 0;
 
             int sent = 0;
 
@@ -4601,25 +4603,29 @@ namespace Media.Rtp
                     else
                     {
                         //Build the data
-                        IEnumerable<byte> dataz;
+                        IEnumerable<byte> framingData;
 
                         //The length is always present
-                        dataz = Binary.GetBytes((short)length, BitConverter.IsLittleEndian).Concat(data);
+                        framingData = Binary.GetBytes((short)length, BitConverter.IsLittleEndian).Concat(data);
+
+                        int framingLength = 2;
 
                         if (useChannelId)
                         {
                             //data = Media.Common.Extensions.Linq.LinqExtensions.Yield(channel.Value).Concat(data).ToArray();
-                            dataz = Media.Common.Extensions.Linq.LinqExtensions.Yield(channel.Value).Concat(dataz);
+                            framingData = Media.Common.Extensions.Linq.LinqExtensions.Yield(channel.Value).Concat(framingData);
+                            ++framingLength;
                         }
 
                         if (useFrameControl)
                         {
                             //data = Media.Common.Extensions.Linq.LinqExtensions.Yield(BigEndianFrameControl).Concat(data).ToArray();
-                            dataz = Media.Common.Extensions.Linq.LinqExtensions.Yield(BigEndianFrameControl).Concat(data);
+                            framingData = Media.Common.Extensions.Linq.LinqExtensions.Yield(BigEndianFrameControl).Concat(data);
+                            ++framingLength;
                         }
 
-                        //Project the array.
-                        data = dataz.ToArray();
+                        //Project the framing.
+                        byte[] framing = framingData.ToArray();
 
                         //See if we can write.
                         if (false == socket.Poll((int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, SelectMode.SelectWrite))
@@ -4631,10 +4637,10 @@ namespace Media.Rtp
                         }
 
                         //Send the framing keeping track of the bytes sent
-                        while (sent < length)
+                        while (sent < framingLength)
                         {
                             //Send all the framing.
-                            sent += socket.SendTo(data, sent, InterleavedOverhead - sent, SocketFlags.None, remote);
+                            sent += socket.SendTo(framing, sent, framingLength - sent, SocketFlags.None, remote);
                         }
                     }
 
@@ -4667,7 +4673,7 @@ namespace Media.Rtp
                 while (length > 0)
                 {                    
                     //Send whatever can be sent
-                    justSent = socket.SendTo(data, offset, length - offset, SocketFlags.None, remote);
+                    justSent = socket.SendTo(data, offset, length, SocketFlags.None, remote);
 
                     length -= justSent;
 
@@ -5326,6 +5332,8 @@ namespace Media.Rtp
                 //If the item was already disposed then do nothing
                 if (Common.IDisposedExtensions.IsNullOrDisposed(tuple.Item2)) return;
 
+                //using(tuple.Item2)
+
                 //handle for frames
                 if (tuple.Item4 && tuple.Item2 is RtpFrame)
                 {
@@ -5521,8 +5529,8 @@ namespace Media.Rtp
                             //if Rtcp is enabled
                             if (rtcpEnabled && false == (shouldStop || IsDisposed || m_StopRequested))
                             {
-                                //Check if reports needs to be received
-                                bool needsToReceiveReports = (tc.LastRtcpReportReceived == TimeSpan.MinValue || tc.LastRtcpReportReceived >= tc.m_ReceiveInterval);
+                                //Check if reports needs to be received (Sometimes data doesn't flow immediately)
+                                bool needsToReceiveReports = TotalBytesReceieved > 0 && (tc.LastRtcpReportReceived == TimeSpan.MinValue || tc.LastRtcpReportReceived >= tc.m_ReceiveInterval);
 
                                 if (//The last report was never received or recieved longer ago then required
                                     needsToReceiveReports
@@ -5548,8 +5556,8 @@ namespace Media.Rtp
                                     //Indicate the poll was not successful
                                     lastError = SocketError.TimedOut;
 
-                                    /*if(System.Threading.Thread.Yield())*/ 
-                                    if(taken > TimeSpan.Zero) Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRecieve - No RecentActivity and Unable to Poll RtcpSocket, LastReportsReceived = " + tc.LastRtcpReportReceived + ", taken =" + taken);
+                                    //If data is not yet flowing the do not log.
+                                    Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRecieve - No RecentActivity and Unable to Poll RtcpSocket, LastReportsReceived = " + tc.LastRtcpReportReceived + ", taken =" + taken);
                                 }
 
                                 //Try to send reports for the latest packets or a goodbye if inactive.

@@ -46,9 +46,11 @@
             //Memory = new MemorySegment(m_OwnedOctets);
         }
 
-        public PacketBase(byte[] data, int offset, int length, bool shouldDispose) 
+        public PacketBase(byte[] data, int offset, int length, bool isComplete, bool shouldDispose) 
             : this(length, shouldDispose)
         {
+            IsComplete = isComplete;
+
             System.Array.Copy(data, offset, m_OwnedOctets, 0, length);
         }
 
