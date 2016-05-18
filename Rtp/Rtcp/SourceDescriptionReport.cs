@@ -1168,12 +1168,13 @@ namespace Media.Rtcp
 
             if (ReportBlocksRemaining == 0) throw new InvalidOperationException("A RtcpReport can only hold 31 ReportBlocks");
 
-            //The octets which will be added to the payload consist of the ChunkData without the octets of the ChunkIdentifier in cases where BlockCount == 0
-            IEnumerable<byte> chunkData = chunk.ChunkData;
-
             int chunkSize = chunk.Size;
 
-            if (chunkSize == SourceDescriptionChunk.IdentifierSize) return;
+            //if there was no data in the chunk then there is nothing more to add.
+            if (chunkSize == 0) return;
+
+            //The octets which will be added to the payload consist of the ChunkData without the octets of the ChunkIdentifier in cases where BlockCount == 0
+            IEnumerable<byte> chunkData = chunk.ChunkData;
 
             //In the first SourceDescriptionChunk added to a SourceDescription the header contains the BlockIdentifier. 
             if (BlockCount++ == 0)
@@ -1187,12 +1188,8 @@ namespace Media.Rtcp
                 //Take into account the identifier
                 chunkSize -= SourceDescriptionChunk.IdentifierSize;
 
-                //Check if the header needs to be modified for the data added.
-                if (Header.LengthInWordsMinusOne == 0) Header.LengthInWordsMinusOne = 1;
+                if (Header.Size == 4) Header.LengthInWordsMinusOne = 1;
             }
-
-            //if there was no data in the chunk then there is nothing more to add.
-            if (chunkSize == 0) return;
 
             //If it's okay to pad the item data for octet alignment
             if (pad)
