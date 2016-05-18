@@ -2027,14 +2027,24 @@ namespace Media.Rtsp
 
                         #endregion
                     }
-                    else if (setupStatusCode == RtspStatusCode.NotFound && false == triedAgain)
+                    else if (setupStatusCode == RtspStatusCode.NotFound)
                     {
-                        //Sometimes the host is not yet ready, this could be true for cases when hosts uses dynamic uri's which don't yet exists during pipelining etc.
-                        triedAgain = true;
 
-                        if (InUse) continue;
+                        if (false == triedAgain)
+                        {
+                            //Sometimes the host is not yet ready, this could be true for cases when hosts uses dynamic uri's which don't yet exists during pipelining etc.
+                            triedAgain = true;
 
-                        m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneMillisecond);
+                            if (InUse) continue;
+
+                            m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneSecond);
+                        }
+                        else
+                        {
+                            Reconnect();
+
+                            goto Setup;
+                        }
 
                         continue;
                     }
@@ -2896,7 +2906,7 @@ namespace Media.Rtsp
                     //If we can write before the session will end
                     if (IsConnected
                         &&
-                        m_RtspSocket.Poll((int)Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Common.Extensions.TimeSpan.TimeSpanExtensions.OneMillisecond), SelectMode.SelectWrite))
+                        m_RtspSocket.Poll((int)Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick), SelectMode.SelectWrite))
                     {
                         sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
                     }
@@ -2973,7 +2983,7 @@ namespace Media.Rtsp
                     //If we can receive 
                     if (IsConnected
                         &&
-                        m_RtspSocket.Poll((int)Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Common.Extensions.TimeSpan.TimeSpanExtensions.OneMillisecond), SelectMode.SelectRead))
+                        m_RtspSocket.Poll((int)Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick), SelectMode.SelectRead))
                     {
                         //Receive
                         received += m_RtspSocket.Receive(m_Buffer.Array, offset, m_Buffer.Count, SocketFlags.None, out error);
