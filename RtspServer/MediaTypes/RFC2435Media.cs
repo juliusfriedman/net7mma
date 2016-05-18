@@ -2608,7 +2608,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             //Todo, should not copy packets
 
                             //Take all the packet from the frame                            
-                            var packets = frame.ToArray();
+                            IEnumerable<Rtp.RtpPacket> packets = frame;
 
                             //Clear the frame to reset sequence numbers (could add method to do this)
                             //frame.RemoveAllPackets();
@@ -2642,7 +2642,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 if (false == m_RtpClient.FrameChangedEventsEnabled) m_RtpClient.OnRtpPacketReceieved(packet, transportContext);
 
                                 //Put the packet back to ensure the timestamp and other values are correct.
-                                frame.Add(packet);
+                                if(Loop) frame.Add(packet);
 
                                 //Update the jitter and timestamp
                                 transportContext.UpdateJitterAndTimestamp(packet);

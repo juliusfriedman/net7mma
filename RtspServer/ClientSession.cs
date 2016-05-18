@@ -274,7 +274,7 @@ namespace Media.Rtsp//.Server
             if(SharesSocket) goto NotDisconnected;
 
             //Begin to receive what is available
-            LastRecieve = m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
+            if(m_RtspSocket != null && m_RtspSocket.Connected) LastRecieve = m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
 
         NotDisconnected:
             //Mark as not disconnected.
