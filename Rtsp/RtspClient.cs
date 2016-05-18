@@ -2916,6 +2916,7 @@ namespace Media.Rtsp
                     }
 
                     //Because SocketReadTimeout or SocketWriteTimeout may be 0 do a read to avoid the abort of the connection.
+                    //TCP RST occurs when the ACK is missed so keep the window open.
                     if (IsConnected
                         &&
                         m_RtspSocket.Poll((int)Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick), SelectMode.SelectRead))
@@ -3168,6 +3169,9 @@ namespace Media.Rtsp
 
                             m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
 
+                            //If we have a message to send and did not send it then goto send.
+                            //message.Transferred.HasValue
+                            if (message != null && sent == 0) goto Send;
                             goto Receive;
                         }
                     }
