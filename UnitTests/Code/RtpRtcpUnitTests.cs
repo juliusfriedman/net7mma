@@ -786,6 +786,11 @@ namespace Media.UnitTests
 
                 //Verify RecieversReport byte for byte
                 output = rr.Prepare().ToArray();//should be exactly equal to example
+
+                if (rr.Length != 32) throw new Exception("Result Packet Does Not Match Example");
+
+                if (rr.Header.LengthInWordsMinusOne != 7) throw new Exception("Result Packet Does Not Match Example");
+
                 for (int i = 0, e = rr.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
             }
@@ -799,10 +804,11 @@ namespace Media.UnitTests
             //Make another packet instance from the rest of the example data.
             rtcpPacket = new Media.Rtcp.RtcpPacket(example, output.Length);
 
+            if (rtcpPacket.Header.LengthInWordsMinusOne != 4 || rtcpPacket.Length != 20) throw new Exception("Result Packet Does Not Match Example");
+
             //Create a SourceDescriptionReport from the packet instance to access the SourceDescriptionChunks
             using (Media.Rtcp.SourceDescriptionReport sourceDescription = new Media.Rtcp.SourceDescriptionReport(rtcpPacket, false))
             {
-
                 foreach (var chunk in sourceDescription.GetChunkIterator())
                 {
                     Console.WriteLine(string.Format(TestingFormat, "Chunk Identifier", chunk.ChunkIdentifer));
@@ -822,6 +828,15 @@ namespace Media.UnitTests
                 for (int i = output.Length, e = sourceDescription.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
             }
+
+
+            Rtcp.ReceiversReport report = new Rtcp.ReceiversReport(2, 0, 0);
+
+            if (report.Length != 8 || report.Header.LengthInWordsMinusOne != 1) throw new Exception("Invalid Length");
+
+            report.Add(new Rtcp.ReportBlock(7));
+
+            if (report.Length != 32 || report.Header.LengthInWordsMinusOne != 7) throw new Exception("Invalid Length");
 
             //ApplicationSpecific - qtsi
 
@@ -847,7 +862,7 @@ namespace Media.UnitTests
             byte[] sdOut = sd.Prepare().ToArray();
 
             //1 word when the ssrc is present but would be an invalid sdes because blockCount = 0
-            if (!sd.IsComplete || sd.Length != Media.Rtcp.RtcpHeader.Length || sd.Header.LengthInWordsMinusOne != ushort.MaxValue) throw new Exception("Invalid Length");
+            if (sdOut.Length != 4 || false == sd.IsComplete || sd.Length != Media.Rtcp.RtcpHeader.Length || sd.Header.LengthInWordsMinusOne != ushort.MaxValue) throw new Exception("Invalid Length");
 
             sd = new Media.Rtcp.SourceDescriptionReport(2);
             byte[] itemData = System.Text.Encoding.UTF8.GetBytes("FLABIA-PC");
@@ -860,6 +875,56 @@ namespace Media.UnitTests
             //But null octets are added (Per RFC3550 @ Page 45 [Paragraph 2] / http://tools.ietf.org/html/rfc3550#appendix-A.4)
             //19 + 1 = 20, 20 / 4 = 5 - 1 = 4.
             if (false == rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
+
+            sd = new Rtcp.SourceDescriptionReport(2);
+            
+            itemData = System.Text.Encoding.UTF8.GetBytes("jfriedman@OPERATIONS-PC");//23 bytes, + 2 bytes header = 25 + csrc octets == 29.
+
+            var sdesChunk = new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk((int)0x1AB7C080, new Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem(Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName, itemData.Length, itemData, 0));
+
+            if (sdesChunk.Items.Count() != 1) throw new Exception("Invalid Items Count");
+
+            if (sdesChunk.Items.FirstOrDefault().Size != 25) throw new Exception("Invalid Items Count");
+
+            if (sdesChunk.Size != 29) throw new Exception("Invalid Length");
+
+            sd.Add((Media.Rtcp.IReportBlock)sdesChunk);
+
+            //29 + 4 == 33 + 3 null octets == 36
+
+            if (sd.Length != 36 || sd.Header.LengthInWordsMinusOne != 8 || sd.SynchronizationSourceIdentifier != 0x1AB7C080) throw new Exception("Invalid");
+
+            sdOut = sd.Prepare().ToArray();
+
+            if (sdOut.Length != 36) throw new Exception("Invalid");
+
+            //Wireshark seems to THINK this is not a valid packet or is malformed.
+
+            //Lets explore that....
+            //https://tools.ietf.org/html/rfc3550#section-6.6
+
+            byte[] goodbye = new byte[]
+            {
+                0x81, 0xcb, 0x00, 0x02, //Header (2 more words follow) 3 * 4 = 12.
+                0x40, 0x04, 0x71, 0x59, //SSRC of Sender
+                0x40, 0x04, 0x71, 0x59  //SSRC Leaving == SSRC
+            };
+
+            Rtcp.GoodbyeReport gb = new Rtcp.GoodbyeReport(new Rtcp.RtcpPacket(goodbye, 0));
+
+            if (false == gb.IsComplete) throw new Exception("Not Complete");
+
+            if (gb.BlockCount != 1) throw new Exception("Incorrect BlockCount");
+
+            if (gb.Length != 12) throw new Exception("Incorrect Length");
+
+            var sl = gb.GetSourceList();
+
+            if (sl.Count != 1) throw new Exception("Incorrect Count of SourceList");
+
+            if (sl.First() != 1074032985) throw new Exception("Incorrect CSRC Leaving");
+
+            //As for Wireshark's Expert Info on the Malformed packet I will enquire but as I have said before, Wireshark is wrong.
         }
     }
 }

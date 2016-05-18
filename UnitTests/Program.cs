@@ -969,8 +969,7 @@ namespace Media.UnitTests
                         client.Client.Logger = consoleLogger;
 
                         //Define a connection eventHandler
-                        Media.Rtsp.RtspClient.RtspClientAction connectHandler = null;
-                        connectHandler = (sender, args) =>
+                        Media.Rtsp.RtspClient.RtspClientAction connectHandler = connectHandler = (sender, args) =>
                         {
                             if (client == null || client.IsDisposed) return;
 
@@ -998,6 +997,9 @@ namespace Media.UnitTests
 
                         //Attach it
                         client.OnConnect += connectHandler;
+
+                        //Define an event to handle Disconnection from the RtspClient.
+                        client.OnDisconnect += (sender, args) => Console.WriteLine("\t*****************Disconnected from :" + client.CurrentLocation);
 
                         //Define an event for RtpPackets Received.
                         Media.Rtp.RtpClient.RtpPacketHandler rtpPacketReceived = (sender, rtpPacket, context) => TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtpPacket);
@@ -1097,10 +1099,7 @@ namespace Media.UnitTests
 
                                 Console.ForegroundColor = ConsoleColor.DarkGray;
                             }
-                        };
-
-                        //Define an event to handle Disconnection from the RtspClient.
-                        client.OnDisconnect += (sender, args) => Console.WriteLine("\t*****************Disconnected from :" + client.CurrentLocation);
+                        };                        
 
                         //Define an event to handle Rtsp Response events
                         //Note that this event is also used to handle `pushed` responses which the server sent to the RtspClient without a request.

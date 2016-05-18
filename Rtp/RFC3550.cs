@@ -1554,13 +1554,10 @@ namespace Media
                 if (IsDisposed) return false;
 
                 //If there is a value to read and the binary data encompasses the required offset.
-                if (m_Read < m_SourceCount && m_CurrentOffset + Binary.BytesPerInteger < m_Binary.Count)
+                if (m_Read < m_SourceCount && m_CurrentOffset + Binary.BytesPerInteger <= m_Binary.Count)
                 {
-                    //Read the unsigned 16 bit value from the binary data
-                    m_CurrentSource = Binary.ReadU16(m_Binary.Array, m_CurrentOffset, true);
-
-                    //advance the offset
-                    m_CurrentOffset += Binary.BytesPerInteger;
+                    //Read the unsigned 32 bit value from the binary data
+                    m_CurrentSource = Binary.ReadU32(m_Binary.Array, ref m_CurrentOffset, false == Common.Binary.IsBigEndian);
 
                     ++m_Read;
 

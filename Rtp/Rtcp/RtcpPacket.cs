@@ -562,7 +562,7 @@ namespace Media.Rtcp
             //Header.LengthInWordsMinusOne = (ushort)(Binary.BytesToMachineWords(Length)); //Binary.BytesToMachineWords(Length - 1); // (ushort)(Length * Binary.BitsPerByte / Binary.BitsPerInteger) - 1;
 
             //Since there is the possibility for the Length of a RtcpPacket to exceed 65535 bytes do not cast outside the getter / setter.
-            Header.LengthInWordsMinusOne = Binary.BytesToMachineWords(Length) - 1;
+            Header.LengthInWordsMinusOne = Binary.BytesToMachineWords(Length - RtcpHeader.Length);
         }
 
         /// <summary>

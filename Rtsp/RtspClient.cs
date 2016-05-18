@@ -767,7 +767,7 @@ namespace Media.Rtsp
             get { return m_SessionDescription; }
             set
             {
-                if (value == null) throw new ArgumentNullException("The SessionDescription cannot be null.");
+                //if (value == null) throw new ArgumentNullException("The SessionDescription cannot be null.");
                 m_SessionDescription = value;
             }
         }    
@@ -1883,6 +1883,7 @@ namespace Media.Rtsp
             //Send the options if nothing was received before
             if (m_ReceivedMessages == 0) using (var options = SendOptions()) ;
 
+        Describe:
             //Send describe if we need a session description
             if (SessionDescription == null) using (var describe = SendDescribe())
                 {
@@ -2030,24 +2031,32 @@ namespace Media.Rtsp
                     else if (setupStatusCode == RtspStatusCode.NotFound)
                     {
 
+                        //Sometimes the host is not yet ready, this could be true for cases when hosts uses dynamic uri's which don't yet exists during pipelining etc.
                         if (false == triedAgain)
                         {
-                            //Sometimes the host is not yet ready, this could be true for cases when hosts uses dynamic uri's which don't yet exists during pipelining etc.
                             triedAgain = true;
 
                             if (InUse) continue;
 
-                            m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneSecond);
+                            m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
                         }
                         else
                         {
                             Reconnect();
 
-                            goto Setup;
+                            SessionDescription.Dispose();
+
+                            SessionDescription = null;
+
+                            goto Describe;
                         }
 
                         continue;
                     }
+                    //else if (setupStatusCode == RtspStatusCode.Unauthorized)
+                    //{
+                    //    //Some servers use this when they are restarting and there is no auth loaded yet.
+                    //}
                     //3 or more should switch
                     //else if (setup.StatusCode == RtspStatusCode.UnsupportedTransport)
                     //{
@@ -2077,8 +2086,6 @@ namespace Media.Rtsp
                 //If there was a response
                 if (hasResponse)                 
                 {
-                    triedAgain = false;
-
                     RtspStatusCode playStatusCode = play.RtspStatusCode;
 
                     //If the response was a success
@@ -2100,10 +2107,7 @@ namespace Media.Rtsp
                     {
                         if (serviceUnavailable && triedAgain) throw new InvalidOperationException("Cannot Start Playing, ServiceUnavailable");
 
-                        serviceUnavailable = true;
-
-                        //The host is not yet ready...
-                        continue;
+                        else continue;
                     }
                     else if (playStatusCode == RtspStatusCode.MethodNotAllowed || playStatusCode == RtspStatusCode.MethodNotValidInThisState)
                     {
@@ -2118,11 +2122,19 @@ namespace Media.Rtsp
                 {
                     if (triedAgain)
                     {
+
+                        if (serviceUnavailable)
+                        {
+                            serviceUnavailable = false;
+
+                            continue;
+                        }
+
                         //Disconnect and Reconnect
                         Reconnect();
 
                         //Active the RtpClient
-                        m_RtpClient.Activate();
+                        //m_RtpClient.Activate();
                     }
 
                     triedAgain = true;
@@ -2130,7 +2142,7 @@ namespace Media.Rtsp
 
                 if (InUse) continue;
 
-                m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneMillisecond);
+                m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
 
                 continue;
 
@@ -2901,7 +2913,16 @@ namespace Media.Rtsp
                         ++retransmits;
 
                         ++m_ReTransmits;
-                    }                   
+                    }
+
+                    //Because SocketReadTimeout or SocketWriteTimeout may be 0 do a read to avoid the abort of the connection.
+                    if (IsConnected
+                        &&
+                        m_RtspSocket.Poll((int)Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick), SelectMode.SelectRead))
+                    {
+                        //Receive if data is actually available.
+                        goto Receive;
+                    }
 
                     //If we can write before the session will end
                     if (IsConnected
@@ -3410,7 +3431,7 @@ namespace Media.Rtsp
                 }
                 catch (Exception ex)
                 {
-                    Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRtspMessage: " + ex.Message);
+                    Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRtspMessage: " + ex.Message);                    
                 }
                 finally
                 {
@@ -3419,7 +3440,7 @@ namespace Media.Rtsp
                 }
                 
                 //Return the result
-                return m_LastTransmitted;
+                return message != null && m_LastTransmitted != null && message.CSeq == m_LastTransmitted.CSeq ? m_LastTransmitted : null;
 
             }//Unchecked
         }        
