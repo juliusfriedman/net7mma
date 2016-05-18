@@ -562,7 +562,7 @@ namespace Media.Rtcp
             //Header.LengthInWordsMinusOne = (ushort)(Binary.BytesToMachineWords(Length)); //Binary.BytesToMachineWords(Length - 1); // (ushort)(Length * Binary.BitsPerByte / Binary.BitsPerInteger) - 1;
 
             //Since there is the possibility for the Length of a RtcpPacket to exceed 65535 bytes do not cast outside the getter / setter.
-            Header.LengthInWordsMinusOne = Binary.BytesToMachineWords(Length);
+            Header.LengthInWordsMinusOne = Binary.BytesToMachineWords(Length) - 1;
         }
 
         /// <summary>
@@ -739,7 +739,7 @@ namespace Media.Rtcp
             try
             {
                 //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-                if (padding && reportBlocks) return selfReference ? new RtcpPacket(Header.Clone(selfReference), Payload) { Transferred = Transferred } : new RtcpPacket(Prepare().ToArray(), 0) { Transferred = Transferred };
+                if (padding && reportBlocks) return selfReference ? new RtcpPacket(Header.Clone(selfReference), Payload) { Transferred = Transferred } : new RtcpPacket(Prepare().ToArray(), Length) { Transferred = Transferred };
                 else if (reportBlocks) binarySequence = binarySequence.Concat(RtcpData); //Add the binary data to the packet except any padding
                 else if (padding) binarySequence = binarySequence.Concat(Payload.Array.Skip(Payload.Count - PaddingOctets)); //Add only the padding
 

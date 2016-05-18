@@ -295,6 +295,8 @@ namespace Media.Rtcp
             {
                 if (IsDisposed) return 0;
 
+                //return PointerToLast6Bytes.Count + First16Bits.m_Memory.Count;
+
                 switch (LengthInWordsMinusOne)
                 {
                     case RtcpHeader.MinimumLengthInWords:

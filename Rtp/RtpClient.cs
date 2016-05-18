@@ -3933,7 +3933,7 @@ namespace Media.Rtp
                 }
 
                 //If nothing was sent then send the data now.
-                if (length > 0 &&sent == 0)
+                if (length > 0 && sent == 0)
                 {
                     //Send the framing seperately to keep the allocations minimal.
 

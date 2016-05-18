@@ -1186,6 +1186,9 @@ namespace Media.Rtcp
 
                 //Take into account the identifier
                 chunkSize -= SourceDescriptionChunk.IdentifierSize;
+
+                //Check if the header needs to be modified for the data added.
+                if (Header.LengthInWordsMinusOne == 0) Header.LengthInWordsMinusOne = 1;
             }
 
             //if there was no data in the chunk then there is nothing more to add.
