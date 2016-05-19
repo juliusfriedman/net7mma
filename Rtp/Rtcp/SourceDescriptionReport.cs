@@ -331,12 +331,20 @@ namespace Media.Rtcp
             /// <summary>
             /// Returns the 8 bit ItemType of the SourceDescriptionItem
             /// </summary>
-            public SourceDescriptionItemType ItemType { get { return (SourceDescriptionItemType)Data.First(); } }
+            public SourceDescriptionItemType ItemType
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return (SourceDescriptionItemType)Data.First(); }
+            }
 
             /// <summary>
             /// Returns the 8 bit value of the Length field unless the Type is End Of list, then the amount of null octets is returned.
             /// </summary>
-            public int ItemLength { get { return ItemType == SourceDescriptionItemType.End ? ItemData.Count() - 1 : Data.Skip(1).First(); } }
+            public int ItemLength
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return ItemType == SourceDescriptionItemType.End ? ItemData.Count() - 1 : Data.Skip(1).First(); }
+            }
 
             #endregion
 
@@ -346,7 +354,6 @@ namespace Media.Rtcp
             public int Size
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
                 get { return Data.Count(); }
             }
 
@@ -361,7 +368,6 @@ namespace Media.Rtcp
             public IEnumerable<byte> ItemData
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
                 get { return ItemType == default(byte) ? Data.TakeWhile(o => o == default(byte)) : Data.Skip(ItemHeaderSize).Take(ItemLength); }
             }
 
@@ -1188,6 +1194,7 @@ namespace Media.Rtcp
                 //Take into account the identifier
                 chunkSize -= SourceDescriptionChunk.IdentifierSize;
 
+                //The LengthInWordsMinusOne must be increased to correctly calculate Length.
                 if (Header.Size == 4) Header.LengthInWordsMinusOne = 1;
             }
 
@@ -1616,6 +1623,8 @@ namespace Media.UnitTests
                                 //Check all data in the padding but not the padding octet itself.
                                 System.Diagnostics.Debug.Assert(s.PaddingData.SequenceEqual(p.PaddingData), "Unexpected PaddingData");
                             }
+
+                            //Todo Check HasExtensionData works correctly...
 
                         }
                     }

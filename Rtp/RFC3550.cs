@@ -404,8 +404,17 @@ namespace Media
             //Iterate forwards looking for padding ending at the count of bytes in the segment of memory given
             while (count-- > 0 && offset < dataLength)
             {
+                //Todo, Native and Unsafe.
+
                 //get the val and move the position
+
+#if UNSAFE
+                unsafe { val = *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, offset++); }
+#elif NATIVE
+                val = System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, offset++));
+#else
                 val = buffer[offset++];
+#endif
 
                 //If the value is non 0 this is supposed to be the amount of padding contained in the packet (in octets)
                 if (val != default(byte))
@@ -1321,7 +1330,9 @@ namespace Media
             /// 31 * 4 = 124 bytes.
             /// </summary>
             public const int MaxSize = ItemSize * MaxItems;
-            
+
+            internal static readonly SourceList Empty = new SourceList(0, false);
+
             #endregion
 
             #region Fields
@@ -1415,9 +1426,10 @@ namespace Media
             /// <param name="sourceCount">The count of sources expected in the SourceList</param>
             /// <param name="data">The data contained in the SourceList.</param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public SourceList(int sourceCount)
+            public SourceList(int sourceCount, bool shouldDispose = true) 
+                : base(shouldDispose)
             {
-                m_SourceCount = Common.Binary.Min(SourceList.MaxItems, sourceCount);
+                if (0 == (m_SourceCount = Common.Binary.Min(SourceList.MaxItems, sourceCount))) return;
 
                 m_Binary = new Common.MemorySegment(Binary.BytesPerInteger * m_SourceCount);
 
@@ -1429,14 +1441,46 @@ namespace Media
             /// </summary>
             /// <param name="goodbyeReport">The GoodbyeReport</param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public SourceList(GoodbyeReport goodbyeReport)
+            public SourceList(GoodbyeReport goodbyeReport, bool shouldDispose = true)
+                : base(shouldDispose)
             {
+                //The first entry is in the header.
                 m_SourceCount = goodbyeReport.Header.BlockCount;
 
-                //Make a new reference to the payload at the correct offset
-                m_Binary = new Common.MemorySegment(goodbyeReport.Payload.Array, goodbyeReport.Payload.Offset, Binary.Min(goodbyeReport.Payload.Count, m_SourceCount * Binary.BytesPerInteger));
-                    //new Common.MemorySegment(goodbyeReport.Payload);
+                //Make a new reference to the payload at the correct offset and size
+                m_Binary = m_SourceCount == 1 ? goodbyeReport.Header.GetSendersSynchronizationSourceIdentifierSegment() : new Common.MemorySegment(goodbyeReport.Payload.Array, 
+                    goodbyeReport.Payload.Offset,
+                    goodbyeReport.ReportBlockOctets - goodbyeReport.ReasonForLeavingLength);
+
+                //Can't Reset because the binary data is possibly in two different places..
+
+                //Read the first entry from the header
+                if (m_SourceCount > 0)
+                {
+                    m_CurrentSource = (uint)goodbyeReport.SynchronizationSourceIdentifier;
+
+                    m_Read = 1;
+
+                    m_CurrentOffset = m_Binary.Offset;
+                }
             }
+
+            public SourceList(SourceList other) : base(true) //bool selfReference..
+            {
+                m_Binary = new MemorySegment(other.m_Binary);
+
+                m_Read = other.m_Read;
+
+                m_CurrentOffset = m_Binary.Offset;
+
+                m_CurrentSource = other.m_CurrentSource;
+
+                m_SourceCount = other.m_SourceCount;
+            }
+
+            //Todo, Sdes should be able to return a list which identifies each csrc, same with other reports.
+
+            //This implies that a RtcpReport constructor could be made.
 
             #endregion
 
@@ -1445,13 +1489,18 @@ namespace Media
             /// <summary>
             /// Indicates if there is enough data in the given binary to read the complete source list.
             /// </summary>
-            public bool IsComplete { get { return false == IsDisposed && m_SourceCount * Binary.BytesPerInteger == m_Binary.Count; } }
+            public bool IsComplete
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return false == IsDisposed && m_SourceCount * Binary.BytesPerInteger >= Size; }
+            }
 
             uint IEnumerator<uint>.Current
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    CheckDisposed();
+                    //CheckDisposed();
                     //if (m_CurrentOffset == m_Binary.Offset) throw new InvalidOperationException("Enumeration has not started yet.");
                     if (m_Read <= 0) throw new InvalidOperationException("Enumeration has not started yet.");
                     return m_CurrentSource;
@@ -1463,9 +1512,10 @@ namespace Media
             /// </summary>
             public int CurrentSource
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    if (m_CurrentOffset == m_Binary.Offset) throw new InvalidOperationException("Enumeration has not started yet.");
+                    if (m_Read <= 0) throw new InvalidOperationException("Enumeration has not started yet.");
                     return (int)m_CurrentSource;
                 }
             }
@@ -1478,10 +1528,10 @@ namespace Media
                 get
                 {
                     //Check disposed
-                    CheckDisposed();
+                    //CheckDisposed();
 
                     //Indicate Enumeration has not yet started
-                    if (m_CurrentOffset == m_Binary.Offset) return null;
+                    if (m_Read <= 0) return null;
 
                     //Return the current item
                     return m_CurrentSource;
@@ -1491,32 +1541,56 @@ namespace Media
             /// <summary>
             /// Gets the amount of sources which can be read from the list.
             /// </summary>
-            public int Count { get { return m_SourceCount; } }
+            public int Count
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_SourceCount; }
+            }
 
             /// <summary>
             /// Gets the length in octets of the SourceList.
             /// </summary>
-            public int Size { get { return m_SourceCount * 4; } }
+            public int Size
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_SourceCount * ItemSize; }
+            }
 
             /// <summary>
             /// Indicates how many indexes are left in the SourceList based on the current index.
             /// </summary>
-            public int Remaining { get { return Count - m_Read; } }
+            public int Remaining
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return Count - m_Read; }
+            }
 
             /// <summary>
             /// The Capacity of this SourceList.
             /// </summary>
-            public int Capacity { get { return m_SourceCount; } }
+            public int Capacity
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_SourceCount; }
+            }
 
             /// <summary>
             /// The index to which <see cref="Current"/> corresponds
             /// </summary>
-            public int ItemIndex { get { return m_Read; } }
+            public int ItemIndex
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_Read; }
+            }
 
             /// <summary>
             /// Gets the memory assoicated with the instance
             /// </summary>
-            public Common.MemorySegment Memory { get { return m_Binary; } }
+            public Common.MemorySegment Memory
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_Binary; }
+            }
 
             #endregion
 
@@ -1549,12 +1623,14 @@ namespace Media
             /// Moves to the next offset and parses the next contributing source.
             /// </summary>
             /// <returns>True if a value was read, otherwise false.</returns>
+            /// <remarks><see href="https://msdn.microsoft.com/en-us/library/system.collections.ienumerator.movenext(v=vs.110).aspx">MSDN</see></remarks>
             public bool MoveNext()
             {
+                //if already disposed can't MoveNext
                 if (IsDisposed) return false;
 
                 //If there is a value to read and the binary data encompasses the required offset.
-                if (m_Read < m_SourceCount && m_CurrentOffset + Binary.BytesPerInteger <= m_Binary.Count)
+                if (m_Read <= m_SourceCount && m_CurrentOffset + Binary.BytesPerInteger <= m_Binary.Array.Length)
                 {
                     //Read the unsigned 32 bit value from the binary data
                     m_CurrentSource = Binary.ReadU32(m_Binary.Array, ref m_CurrentOffset, false == Common.Binary.IsBigEndian);
@@ -1565,8 +1641,9 @@ namespace Media
                     return true;
                 }
 
-                //indicate failure
-                return false;
+                //An enumerator remains valid as long as the collection remains unchanged. 
+                //If MoveNext passes the end of the collection, the enumerator is positioned after the last element in the collection and MoveNext returns false. When the enumerator is at this position, subsequent calls to MoveNext also return false until Reset is called.
+                return Remaining > 0;
             }
 
             /// <summary>
@@ -1614,11 +1691,15 @@ namespace Media
             /// <param name="offset">The offset in the vector</param>
             /// <returns>True if the copy succeeded otherwise false.</returns>
             public bool TryCopyTo(byte[] other, int offset)
-            {
+            {                
                 try
                 {
                     CheckDisposed();
-                    Array.Copy(m_Binary.Array, m_Binary.Offset, other, offset, Math.Min(m_SourceCount * Binary.BytesPerInteger, m_Binary.Count));
+
+                    //Array.Copy(m_Binary.Array, m_Binary.Offset, other, offset, Common.Binary.Min(m_SourceCount * Binary.BytesPerInteger, m_Binary.Count));
+
+                    Common.MemorySegmentExtensions.CopyTo(m_Binary, other, offset);
+
                     return true;
                 }
                 catch { return false; }
@@ -1646,7 +1727,6 @@ namespace Media
 
             public sealed override void Dispose()
             {
-
                 if (IsDisposed) return;
 
                 base.Dispose();
@@ -1663,11 +1743,22 @@ namespace Media
 
             IEnumerator<uint> IEnumerable<uint>.GetEnumerator()
             {
-                return this;
+                using (SourceList enumerator = new SourceList(this))
+                {
+                    if (enumerator.m_Read > 0) yield return m_CurrentSource;
+
+                    while (enumerator.Remaining > 0 && enumerator.MoveNext())
+                    {
+                        yield return enumerator.m_CurrentSource;
+                    }
+                }
             }
 
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
             {
+                //Todo
+                //return new SourceList(this);
+
                 return this;
             }
 
@@ -1745,5 +1836,22 @@ namespace Media
         // Register, Unregister, Reassign
       
         #endregion
+    }
+}
+
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the <see cref="Media.RFC3550"/> class is correct
+    /// </summary>
+    internal class RFC3550UnitTests
+    {
+        public static void TestSourceList()
+        {
+            Media.RFC3550.SourceList sourceList = new RFC3550.SourceList(0);
+
+            if (sourceList.Count != 0) throw new System.Exception("Count");
+        }
     }
 }

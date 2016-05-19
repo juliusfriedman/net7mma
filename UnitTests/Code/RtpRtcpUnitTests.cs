@@ -690,7 +690,7 @@ namespace Media.UnitTests
 
             //Next Sub Test
 
-            //Create a GoodbyeReport with no block count
+            //Create a GoodbyeReport with no block count, valid but useless (except for when you want to send a goodbye and not leave)
             using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7))
             {
                 output = testReport.Prepare().ToArray();
@@ -712,7 +712,7 @@ namespace Media.UnitTests
 
                 if (output.Length != testReport.Length || testReport.Header.LengthInWordsMinusOne != 2 || testReport.Length != 12) throw new Exception("Invalid Length");
 
-                if (testReport.BlockCount != 0) throw reportBlockException;
+                if (testReport.BlockCount != 1) throw reportBlockException;
 
                 if (output[7] != 7 || testReport.SynchronizationSourceIdentifier != 7) throw new Exception("Invalid ssrc");
             }
@@ -898,16 +898,12 @@ namespace Media.UnitTests
 
             if (sdOut.Length != 36) throw new Exception("Invalid");
 
-            //Wireshark seems to THINK this is not a valid packet or is malformed.
-
-            //Lets explore that....
             //https://tools.ietf.org/html/rfc3550#section-6.6
-
             byte[] goodbye = new byte[]
             {
                 0x81, 0xcb, 0x00, 0x02, //Header (2 more words follow) 3 * 4 = 12.
                 0x40, 0x04, 0x71, 0x59, //SSRC of Sender
-                0x40, 0x04, 0x71, 0x59  //SSRC Leaving == SSRC
+                0x40, 0x04, 0x71, 0x59  //Extension Data (Reason For Leaving)...
             };
 
             Rtcp.GoodbyeReport gb = new Rtcp.GoodbyeReport(new Rtcp.RtcpPacket(goodbye, 0));
@@ -918,13 +914,18 @@ namespace Media.UnitTests
 
             if (gb.Length != 12) throw new Exception("Incorrect Length");
 
-            var sl = gb.GetSourceList();
+            if (gb.Header.LengthInWordsMinusOne != 2) throw new Exception("Incorrect LengthInWordsMinusOne");
 
-            if (sl.Count != 1) throw new Exception("Incorrect Count of SourceList");
+            using (RFC3550.SourceList sourceList = gb.GetSourceList())
+            {
+                if (sourceList.Count != 1) throw new Exception("Incorrect Count of SourceList");
 
-            if (sl.First() != 1074032985) throw new Exception("Incorrect CSRC Leaving");
+                if (sourceList.CurrentSource != 1074032985) throw new Exception("Incorrect CSRC Leaving");
+            }
 
-            //As for Wireshark's Expert Info on the Malformed packet I will enquire but as I have said before, Wireshark is wrong.
+            if (false == gb.ReasonForLeavingData.SequenceEqual(goodbye.Skip(9))) throw new Exception("Incorrect ReasonForLeavingData");
+
+            if (0x40 != gb.ReasonForLeavingLength) throw new Exception("Incorrect ReasonForLeavingData");
         }
     }
 }

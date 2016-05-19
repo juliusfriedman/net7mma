@@ -775,6 +775,8 @@ namespace Media.Rtsp//.Server
             //Iterate the source's TransportContext's to Augment the RtpInfo header for the current request
             List<string> rtpInfos = new List<string>();
 
+            //rtsp://10.0.57.48/live/4899afda-facf-4332-8cfb-7ff5e79b6d04 
+            //Check for bugs... playRequest.Location.Segments.Last()
             string lastSegment = playRequest.Location.Segments.Last();
 
             Sdp.MediaType mediaType;            

@@ -169,9 +169,6 @@ namespace Media.Rtcp
             //Project the sequence
             m_OwnedOctets = octets.ToArray();
 
-            //Make a MemorySegment indicating what is in the payload based on the values in the header (minus the header) of 4 bytes already read
-            //Payload = new MemorySegment(m_OwnedOctets, 0, ((ushort)((header.LengthInWordsMinusOne + 1) * 4)));
-
             //Determine the amount of bytes in the header and packet
             int headerLength = RtcpHeader.Length, packetLength = Header.LengthInWordsMinusOne;
 
@@ -249,7 +246,7 @@ namespace Media.Rtcp
             int headerSize = Header.Size;
 
             //Remove that many bytes from the count.
-            count -= headerSize;
+            //count -= headerSize;
 
             //packetLength contains the LengthInWordsMinusOne
             switch (count)
@@ -257,7 +254,7 @@ namespace Media.Rtcp
                 //case ushort.MaxValue: // FFFF + 1 = 0
                 case ushort.MinValue:// 0 + 1 = 1 * 4 = 4, header only.???
                     {
-                        Payload = Common.MemorySegment.Empty;
+                        Payload = new MemorySegment();
                         
                         m_OwnedOctets = Payload.Array;
 
@@ -265,30 +262,21 @@ namespace Media.Rtcp
                     }
                 default:
                     {
-                        //Packet length is given by the LengthInWordsMinusOne + 1 * 4
-                        int packetLength = Header.LengthInWordsMinusOne + 1;
-
-                        //Convert to machine words
-                        packetLength = Common.Binary.MachineWordsToBytes(ref packetLength);
-
-                        //The header was already consumed.
-                        packetLength -= headerSize;
-
-                        //Take the smaller value
-                        count = Common.Binary.Min(ref packetLength, ref count);
+                        //only take up to the length of the packet or what remains available to copy.
+                        int remains = count - headerSize;
 
                         //If there are no bytes then just handle as would for 0xFFFF
-                        if (count <= 0) goto case ushort.MinValue;
+                        if (remains <= 0) goto case ushort.MinValue;
 
                         //Make the array
-                        m_OwnedOctets = new byte[count];
+                        m_OwnedOctets = new byte[remains];
 
                         //Copy it
-                        System.Array.Copy(buffer, offset + headerSize, m_OwnedOctets, 0, count);
+                        System.Array.Copy(buffer, offset + headerSize, m_OwnedOctets, 0, remains);
 
                         //Assign the payload
-                        Payload = new Common.MemorySegment(m_OwnedOctets, shouldDispose);
-                        
+                        Payload = new Common.MemorySegment(m_OwnedOctets, 0, Binary.Clamp(0, Binary.MachineWordsToBytes(Header.LengthInWordsMinusOne + 1) - headerSize, remains));
+
                         return;
                     }
             }

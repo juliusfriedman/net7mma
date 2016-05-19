@@ -92,6 +92,8 @@ namespace Media.Ntp
 
             System.TimeSpan elapsedTime = value > baseDate ? value.ToUniversalTime() - baseDate.ToUniversalTime() : baseDate.ToUniversalTime() - value.ToUniversalTime();
 
+            //(uint)Common.Extensions.DateTime.DateTimeExtensions.Microseconds(value)
+
             return ((ulong)(elapsedTime.Ticks / System.TimeSpan.TicksPerSecond) << Common.Binary.BitsPerInteger) | (uint)(elapsedTime.Ticks / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
         }        
 
@@ -135,5 +137,44 @@ namespace Media.Ntp
         public static System.DateTime UtcEpoch1900 = new System.DateTime(1900, 1, 1, 0, 0, 0, System.DateTimeKind.Utc);
 
         public static System.DateTime UtcEpoch1970 = new System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc);
+    }
+}
+
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the <see cref="Media.Ntp.NetworkTimeProtocol"/> class is correct
+    /// </summary>
+    internal class NetworkTimeProtocolUnitTests
+    {
+        /// <summary>
+        /// O( )
+        /// </summary>
+        public static void TestRoundTrip()
+        {
+            System.DateTime now = System.DateTime.UtcNow;
+
+            ulong ntpTimestamp = Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(now);
+
+            System.Console.WriteLine("DateTime.UtcNow = " + now);
+
+            System.Console.WriteLine("DateTimeToNptTimestamp(now) = " + ntpTimestamp);
+
+            System.DateTime fromTimeStamp = Media.Ntp.NetworkTimeProtocol.NptTimestampToDateTime(ref ntpTimestamp);
+
+            System.Console.WriteLine("DateTimeToNptTimestamp(ref ntpTimestamp) = " + fromTimeStamp);
+
+            System.Console.WriteLine("DateTimeToNptTimestamp(fromTimeStamp) = " + Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(fromTimeStamp));
+
+            var diff = (fromTimeStamp - now);
+
+            System.Console.WriteLine("Different by " + diff.TotalMilliseconds + " Milliseconds");
+
+            System.Console.WriteLine("Different by " + diff.Ticks + " Ticks");
+
+            if (diff.TotalSeconds > 1.0) throw new System.Exception("Cannot round trip NTP");
+
+        }
     }
 }

@@ -508,7 +508,7 @@ namespace Media.RtpTools
 
             //if HasReasonForLeaving add
             if (bye.HasReasonForLeaving)//reason=
-                blockString += string.Format(QuotedFormat, "reason", System.Text.Encoding.ASCII.GetString(bye.ReasonForLeaving.ToArray()));
+                blockString += string.Format(QuotedFormat, "reason", System.Text.Encoding.ASCII.GetString(bye.ReasonForLeavingData.ToArray()));
 
             //Write each entry in bye.GetSourceList
             using (var sourceList = bye.GetSourceList())
