@@ -456,6 +456,12 @@ namespace Media.Rtcp
             return copied;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal MemorySegment GetSendersSynchronizationSourceIdentifierSegment()
+        {
+            return new Common.MemorySegment(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + RFC3550.CommonHeaderBits.Size, Common.Binary.Max(0, PointerToLast6Bytes.Count - RFC3550.CommonHeaderBits.Size));
+        }
+
         /// <summary>
         /// Creates a sequence containing  only the octets of the <see cref="SendersSynchronizationSourceIdentifier"/>. 
         /// </summary>
@@ -469,8 +475,6 @@ namespace Media.Rtcp
                     return Common.MemorySegment.EmptyBytes;
                 default: return PointerToLast6Bytes.Skip(RFC3550.CommonHeaderBits.Size);
             }
-            //int lengthInWords = LengthInWordsMinusOne;
-            //return PointerToLast6Bytes.Count >= 6 && lengthInWords != 0 && lengthInWords != ushort.MaxValue ? PointerToLast6Bytes.Skip(RFC3550.CommonHeaderBits.Size) : Media.Common.MemorySegment.EmptyBytes;
         }
 
         /// <summary>

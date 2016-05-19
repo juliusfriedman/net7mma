@@ -56,7 +56,15 @@ namespace Media.Rtcp
     public abstract class RtcpReport : RtcpPacket, IEnumerable<IReportBlock>
     {
 
+        #region Statics
+
+        //Should be extensions because it makes intellisense weird for all derived types.
+        
+        #endregion
+
         #region Constructor
+
+        //Todo, Should have copy data from array constructor also
 
         /// <summary>
         /// Constructs a new instance of a RtcpReport.
@@ -77,7 +85,7 @@ namespace Media.Rtcp
         }
 
         /// <summary>
-        /// Constructs a new instance of a RtcpReport.
+        /// Constructs a new instance of a RtcpReport and calls <see cref="SetLengthInWordsMinusOne"/>
         /// </summary>
         /// <param name="version">The version of the report</param>
         /// <param name="payloadType">The payloadType of the report.</param>
@@ -121,17 +129,17 @@ namespace Media.Rtcp
         {
 
         }
-
-        ~RtcpReport() { Dispose(); }
-
+        
         #endregion
 
         #region Properties
 
+        //Todo, all derived types should call tests for RtcpReport casted ... e.g. => RtcpReportUnitsTests { TestNonVirtualProperties(instance);  }
+
         /// <summary>
-        /// Indicates if there is any data contained in this implementation of RtcpReport.
+        /// Indicates if there is any <see cref="ExtensionData"/> data contained in this implementation of RtcpReport.
         /// </summary>
-        public bool HasExtensionData
+        public virtual bool HasExtensionData
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
@@ -182,15 +190,11 @@ namespace Media.Rtcp
         //Valid in all cases except SDES which is not a RtcpReport.
         //TODO IList Enumerable<byte> / OctetSegment of said indexer? Derived implementations would have the ReportBlock etc.
 
-        public IEnumerable<byte> ExtensionData
+        public virtual IEnumerable<byte> ExtensionData
         {
             get
             {
                 if (false == HasExtensionData) return Common.MemorySegment.Empty;
-
-                //return Payload.Reverse().Skip(PaddingOctets).Reverse();
-
-                //return Payload.Skip(ReportBlockOctets).Take(ExtensionDataOctets);
 
                 return new Common.MemorySegment(Payload.Array, Payload.Offset + ReportBlockOctets, ExtensionDataOctets);
 
@@ -205,7 +209,7 @@ namespace Media.Rtcp
         /// <summary>
         /// Calulcates the size of the octets which are given by <see cref="ExtensionData"/>, usually not part of the <see cref="ReportData"/>
         /// </summary>
-        public int ExtensionDataOctets
+        public virtual int ExtensionDataOctets
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
@@ -249,6 +253,8 @@ namespace Media.Rtcp
 
         internal protected virtual IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)//, int blockSize = ReportBlock.ReportBlockSize)
         {
+            //CheckDisposed();
+
             //Loop for the BlockCount, bounded by BlockCount and count of bytes in the ReportData
             for (int currentSize = 0, count = ReportBlockOctets, blockCounter = BlockCount, localOffset = Payload.Offset + offset; 
                 count > 0 && false == IsDisposed && --blockCounter >= 0; 
@@ -392,4 +398,39 @@ namespace Media.Rtcp
     }
 
     #endregion
+
+    #region RtcpReportExtensions
+
+    public static class RtcpReportExtensions
+    {
+        //Should be extensions because it makes intellisense weird for all derived types.
+
+        /// <summary>
+        /// Throws an <see cref="ArgumentException"/> if the given header is null or disposed or does not have the given payloadType.
+        /// </summary>
+        /// <param name="payloadType"></param>
+        /// <param name="header"></param>
+        internal static void CheckHeaderAndPayloadType(ref int payloadType, RtcpHeader header)
+        {
+            if (Common.IDisposedExtensions.IsNullOrDisposed(header)) throw new ArgumentException("header IsNullOrDisposed");
+
+            int headerPayloadType = header.PayloadType;
+
+            if (headerPayloadType != payloadType) throw new ArgumentException(string.Format("Header.PayloadType is not equal to the expected type of {0}, found {1}.", payloadType, headerPayloadType), "header");
+        }
+
+        internal static void CheckHeaderAndPayloadType(int payloadType, RtcpHeader header) { CheckHeaderAndPayloadType(ref payloadType, header); }
+
+        /// <summary>
+        /// Throws an <see cref="ArgumentException"/> if the given <see cref="RtcpReport"/> is null or disposed or does not have the same <see cref="System.Type"/> which is expected as the <see cref="PayloadType"/> implemented.
+        /// </summary>
+        /// <param name="report">The <see cref="RtcpReport"/> to verify</param>
+        internal static void VerifyPayloadType(this RtcpReport report)
+        {
+            if (RtcpPacket.GetImplementationForPayloadType(report.PayloadType) != report.GetType()) throw new ArgumentException("RtcpReport Implementation does not match type of report.");
+        }
+    }
+
+    #endregion
+
 }

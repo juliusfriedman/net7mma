@@ -74,6 +74,8 @@ namespace Media.UnitTests
             TestUtility, 
             TestBinary, 
             TestCommonClasses,
+            //Ntp
+            TestNtp,
             //Rtp / Rtcp
             TestRtpRtcp, 
             // Frame Level
@@ -3019,12 +3021,17 @@ a=appversion:1.0");
             //Perform the tests
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RFC2435UnitTest), TypeOfVoid);
         }
-        
+
+        static void TestNtp()
+        {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.NetworkTimeProtocolUnitTests), TypeOfVoid);
+        }        
+
         /// <summary>
         /// 
         /// </summary>
         static void TestRtpRtcp()
-        {
+        {           
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpHeaderUnitTests), TypeOfVoid);
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpPacketUnitTests), TypeOfVoid);

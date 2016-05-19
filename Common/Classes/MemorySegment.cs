@@ -159,14 +159,16 @@ namespace Media.Common
         public MemorySegment(MemorySegment other)
         {
             IsDisposed = other.IsDisposed;
-            
-            if (IsDisposed) return;
+
+            //Allow for the segment to resurrect via SetShouldDispose...
 
             m_Array = other.Array;
 
             m_Offset = other.m_Offset;
 
             m_Length = other.m_Length;
+
+            if (IsDisposed) return;
 
             //ByteOrder = other.ByteOrder;
         }
@@ -229,6 +231,11 @@ namespace Media.Common
             return ((IEnumerable<byte>)this).GetEnumerator();
         }
 
+        /// <summary>
+        /// Allows access by offset index to the source array, negitive values can be used to go previous to the <see cref="Offset"/> and the amount is not enforced to be within the <see cref="Count"/>
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
         public byte this[int index]
         {
 #if UNSAFE
