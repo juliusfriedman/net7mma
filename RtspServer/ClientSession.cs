@@ -414,7 +414,8 @@ namespace Media.Rtsp//.Server
             }
 
             //If there is not context or the sequence number is unchanged or the value is not within the allowed gap
-            if (localContext == null || localContext.RecieveSequenceNumber == packet.SequenceNumber || false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
+            //When frame change events are enabled this doesn't matter as the event model takes care of skipping the packets for now.
+            if (localContext == null || false == ((RtpClient)client).FrameChangedEventsEnabled && (localContext.RecieveSequenceNumber == packet.SequenceNumber || false == localContext.UpdateSequenceNumber(packet.SequenceNumber)))
             {
                 //Common.ILoggingExtensions.Log(m_Server.Logger, "Not valid sequence number " + packet.SequenceNumber + ", = " + localContext.SequenceNumber);
 

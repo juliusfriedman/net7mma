@@ -727,7 +727,7 @@ namespace Media.Rtcp
             try
             {
                 //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-                if (padding && reportBlocks) return selfReference ? new RtcpPacket(Header.Clone(selfReference), Payload) { Transferred = Transferred } : new RtcpPacket(Prepare().ToArray(), Length) { Transferred = Transferred };
+                if (padding && reportBlocks) return selfReference ? new RtcpPacket(Header.Clone(selfReference), Payload) { Transferred = Transferred } : new RtcpPacket(Prepare().ToArray(), 0, Length) { Transferred = Transferred };
                 else if (reportBlocks) binarySequence = binarySequence.Concat(RtcpData); //Add the binary data to the packet except any padding
                 else if (padding) binarySequence = binarySequence.Concat(Payload.Array.Skip(Payload.Count - PaddingOctets)); //Add only the padding
 
@@ -931,6 +931,8 @@ namespace Media.Rtcp
         /// </summary>
         public override void Dispose()
         {
+            if (IsDisposed) return;
+
             base.Dispose();
 
             if (false == ShouldDispose) return;

@@ -124,7 +124,7 @@ namespace Media.Common
         /// Finalizes the BaseDisposable by calling Dispose.
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        ~BaseDisposable() { Dispose(); }
+        ~BaseDisposable() { Dispose(ShouldDispose); }
 
         #endregion
 
