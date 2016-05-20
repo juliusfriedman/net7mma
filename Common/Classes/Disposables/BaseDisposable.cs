@@ -80,6 +80,15 @@ namespace Media.Common
 
         #endregion
 
+        #region Fields
+
+        /// <summary>
+        /// Holds a value which is set to True only during <see cref="Finalize"/>
+        /// </summary>
+        bool Finalized;
+
+        #endregion
+
         #region Constructor / Destructor
 
         //These 2 sections can be combined if the next constructor changes shouldDispose to an optional parameter.
@@ -124,7 +133,12 @@ namespace Media.Common
         /// Finalizes the BaseDisposable by calling Dispose.
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        ~BaseDisposable() { Dispose(ShouldDispose); }
+        ~BaseDisposable()
+        {
+            Finalized = true;
+
+            Dispose(ShouldDispose);
+        }
 
         #endregion
 
@@ -136,9 +150,18 @@ namespace Media.Common
         public virtual bool IsDisposed { get; protected set; }
 
         /// <summary>
-        /// Indicates if the instance should dispose any resourced when disposed.
+        /// Indicates if the instance should dispose any resourced when <see cref="Dispose"/> is called.
         /// </summary>
         public virtual bool ShouldDispose { get; internal protected set; }
+
+        /// <summary>
+        /// Gets a value indicates if <see cref="Finalize"/> has been called.
+        /// </summary>
+        public bool IsFinalized
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return Finalized; }
+        }
 
         #endregion
 
@@ -178,13 +201,17 @@ namespace Media.Common
         /// Allows derived implemenations a chance to destory manged or unmanged resources.
         /// Calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/>
         /// </summary>
-        public virtual void Dispose()
-        {
-            Dispose(ShouldDispose);
-        }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public virtual void Dispose() { Dispose(ShouldDispose); }
+
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //internal void Destruct() { Dispose(Finalized = true); }
 
         #endregion
     }
 
     #endregion
 }
+
+
+//Tests

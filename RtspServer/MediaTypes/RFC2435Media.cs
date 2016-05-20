@@ -2565,7 +2565,7 @@ namespace Media.Rtsp.Server.MediaTypes
         //This logic is general enough, that it could go in RtpSource...
         internal override void SendPackets()
         {
-            m_RtpClient.FrameChangedEventsEnabled = false;
+            //m_RtpClient.FrameChangedEventsEnabled = false;
 
             unchecked
             {

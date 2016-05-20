@@ -370,6 +370,8 @@ namespace Media.Rtsp
         /// </summary>
         public Rtsp.Server.RtspServerLogger Logger { get; set; }
 
+        //Could all a seperate logger for the Clients etc.
+
         public bool HttpEnabled { get { return m_HttpPort != -1; } }
 
         public bool UdpEnabled { get { return m_UdpPort != -1; } }
@@ -1433,7 +1435,7 @@ namespace Media.Rtsp
             //Get the client information from the result
             ClientSession session = (ClientSession)ar.AsyncState;
 
-            if (session == null || session.m_RtspSocket == null) return;
+            if (session == null || session.IsDisconnected || session.m_RtspSocket == null) return;
 
             try
             {
