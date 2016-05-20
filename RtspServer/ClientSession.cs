@@ -248,16 +248,14 @@ namespace Media.Rtsp//.Server
             long pollTime = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond;// (int)(m_RtspSocket.ReceiveTimeout * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);// Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroSeconds(Media.Common.Extensions.Socket.SocketExtensions.GetNetworkInterface(m_RtspSocket));
 
             //while the socket cannot read in 1msec or less 
-            while (false == IsDisposed && false == m_RtspSocket.Poll((int)pollTime, SelectMode.SelectRead))
+            while (false == IsDisposed && false == IsDisconnected && false == m_RtspSocket.Poll((int)pollTime, SelectMode.SelectRead))
             {
-
                 //Wait for the last recieve to complete
                 //Might not need this when not using Async.
                 if (LastRecieve != null)
                 {
                     if (false == LastRecieve.IsCompleted)
                     {
-
                         WaitHandle wait = LastRecieve.AsyncWaitHandle;
 
                         Media.Common.Extensions.WaitHandle.WaitHandleExtensions.TryWaitOnHandleAndDispose(ref wait);
@@ -293,19 +291,25 @@ namespace Media.Rtsp//.Server
 
             try
             {
-
                 long pollTime = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond;// (int)(m_RtspSocket.ReceiveTimeout * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);// Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroSeconds(Media.Common.Extensions.Socket.SocketExtensions.GetNetworkInterface(m_RtspSocket));
 
                 //while the socket cannot write in bit time
-                while (false == IsDisposed && false == m_RtspSocket.Poll((int)pollTime, SelectMode.SelectWrite)) 
+                while (false == IsDisposed && false == IsDisconnected && false == m_RtspSocket.Poll((int)pollTime, SelectMode.SelectWrite)) 
                 {
                     ////Wait for the last send to complete
                     if (LastSend != null)
                     {
                         if (false == LastSend.IsCompleted)
                         {
-
                             WaitHandle wait = LastSend.AsyncWaitHandle;
+
+                            Media.Common.Extensions.WaitHandle.WaitHandleExtensions.TryWaitOnHandleAndDispose(ref wait);
+                        }
+                        else if (false == IsDisconnected && m_RtspSocket.Poll((int)pollTime, SelectMode.SelectRead))
+                        {
+                            StartReceive();
+
+                            WaitHandle wait = LastRecieve.AsyncWaitHandle;
 
                             Media.Common.Extensions.WaitHandle.WaitHandleExtensions.TryWaitOnHandleAndDispose(ref wait);
                         }
@@ -415,7 +419,11 @@ namespace Media.Rtsp//.Server
 
             //If there is not context or the sequence number is unchanged or the value is not within the allowed gap
             //When frame change events are enabled this doesn't matter as the event model takes care of skipping the packets for now.
-            if (localContext == null || false == ((RtpClient)client).FrameChangedEventsEnabled && (localContext.RecieveSequenceNumber == packet.SequenceNumber || false == localContext.UpdateSequenceNumber(packet.SequenceNumber)))
+            if (localContext == null 
+                || 
+                client != null && client is RtpClient && false == (client as RtpClient).FrameChangedEventsEnabled 
+                && 
+                (localContext.RecieveSequenceNumber == packet.SequenceNumber || false == localContext.UpdateSequenceNumber(packet.SequenceNumber)))
             {
                 //Common.ILoggingExtensions.Log(m_Server.Logger, "Not valid sequence number " + packet.SequenceNumber + ", = " + localContext.SequenceNumber);
 

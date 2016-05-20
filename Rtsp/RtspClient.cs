@@ -1881,7 +1881,13 @@ namespace Media.Rtsp
             if (false == IsConnected) Connect();
 
             //Send the options if nothing was received before
-            if (m_ReceivedMessages == 0) using (var options = SendOptions()) ;
+            if (m_ReceivedMessages == 0) using (var options = SendOptions())
+                {
+                    if (options == null || options.RtspStatusCode != RtspStatusCode.OK) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(options, "Options Response was null or not OK. See Tag."); 
+                }
+
+            //Check if Describe is allowed or that a SessionDescription is present.
+            if (false == SupportedMethods.Contains(RtspMethod.DESCRIBE.ToString()) && SessionDescription == null) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(SupportedMethods, "SupportedMethods does not allow Describe and SessionDescription is null. See Tag with SupportedMessages."); 
 
         Describe:
             //Send describe if we need a session description
@@ -1891,7 +1897,6 @@ namespace Media.Rtsp
                     
                     describe.IsPersistent = false;
                 }
-
 
         Setup:
             //Determine if any context was present or created.
@@ -2163,7 +2168,7 @@ namespace Media.Rtsp
             if (m_KeepAliveTimer == null) m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAliveRequest), null, halfSessionTimeWithConnection, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
 
             //If the protocol switch feature is enabled.
-            m_ProtocolMonitor = new System.Threading.Timer(new TimerCallback(MonitorProtocol), null, m_ConnectionTime.Add(LastMessageRoundTripTime), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
+            m_ProtocolMonitor = new System.Threading.Timer(new TimerCallback(MonitorProtocol), null, LastMessageRoundTripTime, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
 
             //Don't keep the tcp socket open when not required under Udp.
 
@@ -3482,6 +3487,7 @@ namespace Media.Rtsp
                         }
                     }
 
+                    //Should have a way to keep the allowed seperate.
                     string allowedMethods = response[RtspHeaders.Allow];
 
                     //If there is Not such a header then return the response
@@ -4017,6 +4023,10 @@ namespace Media.Rtsp
                         setup.SetHeader(RtspHeaders.Require, string.Join(Sdp.SessionDescription.SpaceString, RequiredFeatures));
                     }
 
+                    //Todo, Have field / property for PortRanges
+                    //keep track to avoid exceptions if possible.
+                    int lastPortUsed = 10000;
+
                     //Interleaved
                     if (interleaved)
                     {
@@ -4029,16 +4039,28 @@ namespace Media.Rtsp
                         //RTCP-mux:
 
                         //If there is already a RtpClient with at-least 1 TransportContext
-                        if (m_RtpClient != null)
+                        if (false == Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient))
                         {
                             RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
-                            if (lastContext != null) setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), (needsRtcp ? (byte?)(controlChannel = (byte)(lastContext.ControlChannel + 2)) : null), null));
-                            else setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel, (needsRtcp ? (byte?)controlChannel : null), null));
+                            
+                            if (lastContext != null && lastContext.IsActive)
+                            {
+                                lastPortUsed = ((IPEndPoint)lastContext.LocalRtcp).Port;
+
+                                setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), (needsRtcp ? (byte?)(controlChannel = (byte)(lastContext.ControlChannel + 2)) : null), null));
+                            }
+                            else
+                            {
+                                lastPortUsed = 9999;
+
+                                setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel, (needsRtcp ? (byte?)controlChannel : null), null));
+                            }
                         }
 
                     }
                     else if (string.Compare(mediaDescription.MediaProtocol, RtpClient.RtpAvpProfileIdentifier, true) == 0) // We need to find an open Udp Port
                     {
+
                         //Revise
                         //Is probably Ip, set to Udp
                         m_RtpProtocol = ProtocolType.Udp;
@@ -4048,8 +4070,22 @@ namespace Media.Rtsp
                         {
                             //Could send 0 to have server pick port?                        
 
+                            if (false == Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient))
+                            {
+                                RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
+
+                                if (lastContext != null && lastContext.IsActive)
+                                {
+                                    lastPortUsed = ((IPEndPoint)lastContext.LocalRtcp).Port;
+                                }
+                                else
+                                {
+                                    lastPortUsed = 9999;
+                                }
+                            }
+
                             //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort                        
-                            int openPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp, 10000, true);
+                            int openPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp, lastPortUsed + 1, true);
 
                             if (openPort == -1) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Could not find open Udp Port");
                             //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
@@ -4523,6 +4559,10 @@ namespace Media.Rtsp
 
         protected virtual void MonitorProtocol(object state = null)
         {
+            if (m_ProtocolMonitor == null) return;
+
+            bool keepAlives = DisableKeepAliveRequest;
+
             //Should check for KeepAlive header in previous requests?
 
             //If not already Disposed and the protocol was not already specified as or configured to TCP
@@ -4537,6 +4577,8 @@ namespace Media.Rtsp
                 //Monitor the protocol for incoming messages
                 if (false == SharesSocket && false == InUse)
                 {
+                    DisableKeepAliveRequest = true;
+
                     //Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Receiving Data");
 
                     SocketError error; 
@@ -4549,6 +4591,8 @@ namespace Media.Rtsp
                     }
 
                     //Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Data Received");
+
+                    DisableKeepAliveRequest = keepAlives;
                 }
 
                 //If protocol switch is still allowed AND still playing
@@ -4584,14 +4628,11 @@ namespace Media.Rtsp
                                 m_RtpProtocol = ProtocolType.IP;
                             }
 
-                            //Check if overlapping with a keep alive
-                            bool keepAlives = DisableKeepAliveRequest;
-
                             //Stop sending them for now
                             if (false == keepAlives) DisableKeepAliveRequest = true;
 
                             //Wait for any existing request to complete
-                            while (InUse) Thread.Sleep(0);
+                            while (InUse) m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
 
                             Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: StopPlaying");
 
@@ -4607,7 +4648,7 @@ namespace Media.Rtsp
                             //Cache
                             while (IsPlaying || InUse)
                             {
-                                Thread.Sleep(0);
+                                m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
 
                                 Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Waiting for IsPlaying to be false.");
                             }

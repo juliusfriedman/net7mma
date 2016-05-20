@@ -35,7 +35,7 @@
         {
             m_OwnedOctets = new byte[size];
 
-            //Memory = new MemorySegment(m_OwnedOctets);
+            Length = size;
         }
 
         public PacketBase(int size, bool shouldDispose, System.TimeSpan lifetime)
@@ -43,7 +43,7 @@
         {
             m_OwnedOctets = new byte[size];
 
-            //Memory = new MemorySegment(m_OwnedOctets);
+            Length = size;
         }
 
         public PacketBase(byte[] data, int offset, int length, bool isComplete, bool shouldDispose) 
