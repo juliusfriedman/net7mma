@@ -505,6 +505,32 @@ namespace Media.Concepts.Classes
             //return CommonIntermediateLanguage.SizeOfDelegate2(typeof(T).MetadataToken);
         }
 
+        //This many bytes in a structure after an array can allow a custom header to be created...
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int ArrayHeaderSize()
+        {
+            System.Array array = Common.MemorySegment.EmptyBytes;
+
+            return (int)((int)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array, 0) - (int)Unsafe.AddressOf(ref array));
+        }
+
+        ////[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        ////public static int ObjectHeaderSize()
+        ////{
+
+        ////}
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe static int StringHeaderSize()
+        {
+            //Determine the overhead of the clr header.
+            string s = string.Empty;
+            fixed (char* t = s)
+            {
+                return (int)((int)(System.IntPtr)t - (int)Unsafe.AddressOf<string>(ref s));
+            }
+        }
+
         internal static void UsageTest()
         {
             byte[] src = new byte[] { 1, 2, 3, 4 };

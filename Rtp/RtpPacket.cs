@@ -856,6 +856,8 @@ namespace Media.Rtp
         /// </summary>
         public override void Dispose()
         {
+            if (IsDisposed) return;
+
             base.Dispose();
 
             if (false == ShouldDispose) return;
