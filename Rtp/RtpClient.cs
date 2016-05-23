@@ -2111,6 +2111,7 @@ namespace Media.Rtp
             m_IListSockets; //Indicates if to use the IList send overloads.
 
         //Collection to handle the dispatch of events.
+        //Notes that Collections.Concurrent.Queue may be better suited for this in production until the ConcurrentLinkedQueue has been thoroughly engineered and tested.
         //The context, the item, final, recieved
         readonly Media.Common.Collections.Generic.ConcurrentLinkedQueue<Tuple<RtpClient.TransportContext, Common.BaseDisposable, bool, bool>> m_EventData = new Media.Common.Collections.Generic.ConcurrentLinkedQueue<Tuple<RtpClient.TransportContext, Common.BaseDisposable, bool, bool>>();
 
@@ -3031,7 +3032,7 @@ namespace Media.Rtp
 
             RtcpPacketHandler action = RtcpPacketReceieved;
 
-            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;            
+            if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
             if (m_ThreadEvents)
             {
@@ -3042,18 +3043,12 @@ namespace Media.Rtp
                 return;
             }
 
-            //bool shouldDispose = packet.ShouldDispose;
-
-            //if (shouldDispose) SetShouldDispose(packet, false, false);
-
             foreach (RtcpPacketHandler handler in action.GetInvocationList())
             {
                 if (packet.IsDisposed) break;
                 try { handler(this, packet, tc); }
                 catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
             }
-
-            //if (packet.ShouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -4742,7 +4737,7 @@ namespace Media.Rtp
                         byte[] framing = new byte[] { BigEndianFrameControl, channel.Value, 0, 0 };
 
                         //Write the length
-                        Common.Binary.Write16(framing, 2, false == Common.Binary.IsBigEndian, (short)length);
+                        Common.Binary.Write16(framing, 2, Common.Binary.IsLittleEndian, (short)length);
 
                         //See if we can write.
                         if (false == socket.Poll((int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, SelectMode.SelectWrite))
@@ -5338,14 +5333,15 @@ namespace Media.Rtp
                     //Parse the data in the buffer using only the data related to the packet and not the framing.
                     using (var memory = new Common.MemorySegment(buffer, offset + sessionRequired, frameLength - sessionRequired))
                     {
+                        //Handle this data
                         ParseAndHandleData(memory, expectRtcp, expectRtp, memory.Count);
+
+                        //Decrease remaining in buffer
+                        remainingInBuffer -= frameLength;
+
+                        //Move the offset
+                        offset += frameLength;
                     }
-
-                    //Decrease remaining in buffer
-                    remainingInBuffer -= frameLength;
-
-                    //Move the offset
-                    offset += frameLength;
 
                     //Ensure large frames are completely received by receiving the rest of the frame now. (this only occurs for packets being skipped)
                     if (frameLength > bufferLength)

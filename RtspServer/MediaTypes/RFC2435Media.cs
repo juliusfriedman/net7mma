@@ -2658,7 +2658,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             //Modified frame HasMissingPackets because SequenceNumbers were modified and the SortedList's keys were assigned to the previous sequence numbers
 
                             //Fire a frame changed event manually
-                            if (m_RtpClient.FrameChangedEventsEnabled) m_RtpClient.OnRtpFrameChanged(frame, transportContext);
+                            if (m_RtpClient.FrameChangedEventsEnabled) m_RtpClient.OnRtpFrameChanged(frame, transportContext, true);
 
                             //Check for if previews should be updated (only for the jpeg type for now)
                             if (DecodeFrames && frame.PayloadType == RFC2435Frame.RtpJpegPayloadType) OnFrameDecoded((RFC2435Media.RFC2435Frame)frame);
@@ -2681,8 +2681,6 @@ namespace Media.Rtsp.Server.MediaTypes
 
                         System.Threading.Thread.Sleep(clockRate);
                     }
-
-
                     catch (Exception ex)
                     {
                         if (ex is System.Threading.ThreadAbortException)

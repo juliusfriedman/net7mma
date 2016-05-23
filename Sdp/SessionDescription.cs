@@ -691,6 +691,8 @@ namespace Media.Sdp
         /// <param name="sdpContents">The Session Description Protocol usually recieved in the Describe request of a RtspClient</param>
         public SessionDescription(string sdpContents)
         {
+            if (string.IsNullOrWhiteSpace(sdpContents)) return;
+
             string[] lines = sdpContents.Split(SessionDescription.CRLFSplit, StringSplitOptions.RemoveEmptyEntries);
 
             if (lines.Length < 3) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(lines, "Invalid Session Description, At least 3 lines should be found.");

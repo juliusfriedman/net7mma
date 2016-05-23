@@ -126,7 +126,6 @@ namespace Media.Rtcp
         public bool IsCompressed
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return Size < Length; } //E.g. Size < Length would look better as Length < Size ... :p
         } 
 
@@ -135,18 +134,16 @@ namespace Media.Rtcp
         /// </summary>
         /// <returns>The 32 bit value which is interpreted as a result of reading the RtcpHeader as a 32bit integer</returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        
         internal int ToInt32()
         {
             //Create a 32 bit system endian value
-            return (int)Common.Binary.ReadU32(this, 0, false == Common.Binary.IsBigEndian);
+            return (int)Common.Binary.ReadU32(this, 0, Common.Binary.IsLittleEndian);
         }
 
         /// <summary>
         /// Indicates if the RtcpPacket is valid by checking the header for the given parameters.
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        
         public bool IsValid(int? version = 0, int? payloadType = 0, bool? padding = false)
         {
             if (version.HasValue && version != Version) return false;
@@ -181,11 +178,7 @@ namespace Media.Rtcp
         /// </summary>
         public int BlockCount
         {
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { /*CheckDisposed();*/ return First16Bits.RtcpBlockCount; }
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             set { /*CheckDisposed();*/ First16Bits.RtcpBlockCount = value; }
         }
 
@@ -194,12 +187,8 @@ namespace Media.Rtcp
         /// </summary>
         public int PayloadType
         {
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             //The value is revealed by clearing the 0th bit in the second octet.
             get { /*CheckDisposed();*/ return First16Bits.RtcpPayloadType; }
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             set { /*CheckDisposed();*/ First16Bits.RtcpPayloadType = value; }
         }
 
@@ -226,7 +215,7 @@ namespace Media.Rtcp
                 /*CheckDisposed();*/
 
                 //Read the value
-                return Binary.ReadU16(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset, false == Common.Binary.IsBigEndian);
+                return Binary.ReadU16(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset, Common.Binary.IsLittleEndian);
             }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
@@ -238,7 +227,7 @@ namespace Media.Rtcp
                 //Write the value
                 if (value > RtcpHeader.MinimumLengthInWords) Binary.CreateOverflowException("LengthInWordsMinusOne", value, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
 
-                Binary.Write16(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset, false == Common.Binary.IsBigEndian, (ushort)value);
+                Binary.Write16(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset, Common.Binary.IsLittleEndian, (ushort)value);
             }
         }
 
@@ -261,10 +250,10 @@ namespace Media.Rtcp
                     //case RtcpHeader.MinimumLengthInWords:
                     case RtcpHeader.MaximumLengthInWords: // -
                         return 0;
-                    default: return (int)Binary.ReadU32(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian);
+                    default: return (int)Binary.ReadU32(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset + 2, Common.Binary.IsLittleEndian);
                 }
 
-               //return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian);
+               //return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, Common.Binary.IsLittleEndian);
             }
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -273,7 +262,7 @@ namespace Media.Rtcp
             { 
                 /*CheckDisposed();*/
 
-                Binary.Write32(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian, (uint)value);
+                Binary.Write32(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset + 2, Common.Binary.IsLittleEndian, (uint)value);
 
                 //If there was no words in the packet (other than the header itself) than indicate another word is present.
                 //switch (LengthInWordsMinusOne)

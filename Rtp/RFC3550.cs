@@ -1648,7 +1648,7 @@ namespace Media
                 if (m_Read <= m_SourceCount && m_CurrentOffset + Binary.BytesPerInteger <= m_Binary.Array.Length)
                 {
                     //Read the unsigned 32 bit value from the binary data
-                    m_CurrentSource = Binary.ReadU32(m_Binary.Array, ref m_CurrentOffset, false == Common.Binary.IsBigEndian);
+                    m_CurrentSource = Binary.ReadU32(m_Binary.Array, ref m_CurrentOffset, Common.Binary.IsLittleEndian);
 
                     ++m_Read;
 

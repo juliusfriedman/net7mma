@@ -51,10 +51,33 @@ namespace Media.Common
     /// </summary>
     public class MemorySegment : BaseDisposable, IEnumerable<byte>
     {
+        #region Statics
+
         public static readonly byte[] EmptyBytes = new byte[0];
 
         //Length can be set by other classes through reflection.
         public static readonly MemorySegment Empty = new MemorySegment(EmptyBytes, false);
+
+        /// <summary>
+        /// Creates a new instance using a copy of the data in the source
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <param name="shouldDispose"></param>
+        /// <returns></returns>
+        public static MemorySegment CreateCopy(byte[] source, int offset, int count, bool shouldDispose = true)
+        {
+            MemorySegment result = new MemorySegment(count, shouldDispose);
+
+            if(source != null) System.Array.Copy(source, offset, result.m_Array, 0, count);
+
+            return result;
+        }
+
+        #endregion
+
+        #region Fields
 
         internal protected byte[] m_Array;
 
@@ -66,6 +89,13 @@ namespace Media.Common
 
         //IReadOnly
 
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// The amount of bytes this instance references
+        /// </summary>
         public int Count
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -75,6 +105,9 @@ namespace Media.Common
             protected set { m_Length = value; }
         }
 
+        /// <summary>
+        /// <see cref="Count"/>
+        /// </summary>
         public long LongLength
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -84,6 +117,9 @@ namespace Media.Common
             protected set { m_Length = value; }
         }
 
+        /// <summary>
+        /// The offset in <see cref="Array"/>
+        /// </summary>
         public int Offset
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -94,6 +130,21 @@ namespace Media.Common
             protected set { m_Offset = value; }
         }
 
+        /// <summary>
+        /// <see cref="Offset"/>
+        /// </summary>
+        public long LongOffset
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Offset; }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            protected set { m_Offset = value; }
+        }
+
+        /// <summary>
+        /// The source array
+        /// </summary>
         public byte[] Array
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -103,9 +154,23 @@ namespace Media.Common
             protected set { m_Array = value; } 
         }
 
+        #endregion
+
+        #region Constructors
+
+        #region Chained
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        MemorySegment(bool shouldDispose) : base(shouldDispose)
+        {
+            //Suppress the finalizer always, this reference cannot leak.
+            GC.SuppressFinalize(this);
+        }
+
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(byte[] reference, bool shouldDispose = true)
-            : base(shouldDispose)
+            : this(shouldDispose)
         {
             if (reference == null) throw new ArgumentNullException("reference");
             
@@ -114,9 +179,6 @@ namespace Media.Common
             m_Length = m_Array.LongLength;
 
             //ByteOrder = Binary.SystemEndian;
-
-            //Suppress the finalizer
-            GC.SuppressFinalize(this);
         }
 
         public MemorySegment(byte[] reference, int offset, bool shouldDispose = true)
@@ -137,45 +199,61 @@ namespace Media.Common
             if (m_Offset + m_Length > m_Array.LongLength) throw new ArgumentOutOfRangeException("length");
         }
 
+        #endregion
+
+        /// <summary>
+        /// Constructs an instance with the given size
+        /// </summary>
+        /// <param name="size"></param>
+        /// <param name="shouldDispose"></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(long size, bool shouldDispose = true) 
             : base(shouldDispose)
         {
             if (size < 0) throw new ArgumentException("size");
 
-            m_Array = new byte[size];
+            m_Length = size;
+
+            //If the amount is unaligned then aligned it
+            size += Machine.CalulcateAlignedSize(ref size);
 
             m_Offset = 0;
 
-            m_Length = size;
+            m_Array = new byte[size];
 
             ShouldDispose = shouldDispose;
-            
-            //ByteOrder = Binary.SystemEndian;
 
-            //Suppress the finalizer
+            //Suppress the finalizer always, this reference cannot leak.
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Constructs an instance from another instance
+        /// </summary>
+        /// <param name="other"></param>
+        /// <param name="force"></param>
+        /// <param name="shouldDispose"></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(MemorySegment other, bool force = false, bool shouldDispose = true)
             : base(shouldDispose)
         {
-            //If the finalizer has ran then do not allow reference again.
+            //If there is no other instance return
+            if (other == null) return;
+
+            //If the finalizer has ran and the allocation is not forced then do not allow reference again.
             if (false == force && false == other.IsUndisposed)
             {
                 m_Array = EmptyBytes;
 
                 m_Length = m_Offset = 0;
 
-                Dispose(shouldDispose);
+                //Dispose immediately
+                Dispose(true);
 
                 return;
             }
 
-            //IsDisposed = other.IsDisposed;
-
-            //Allow for the segment to resurrect via SetShouldDispose...
+            //Allow for this instance to resurrect the referenced instance's array.
 
             m_Array = other.Array;
 
@@ -185,24 +263,11 @@ namespace Media.Common
 
             //ByteOrder = other.ByteOrder;
 
-            //Suppress the finalizer
+            //Suppress the finalizer always, this reference cannot leak.
             GC.SuppressFinalize(this);
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public MemorySegment(bool shouldDispose = true)
-            : base(shouldDispose)
-        {
-            //4,6
-            //m_Array = System.Array.Empty<byte>();
-
-            m_Array = System.Linq.Enumerable.Empty<byte>().ToArray();
-
-            m_Offset = m_Length = 0;
-
-            //Suppress the finalizer
-            GC.SuppressFinalize(this);
-        }
+        #endregion
 
         //Make an Enumerator implementation to help with Skip and Copy?
 
@@ -235,6 +300,8 @@ namespace Media.Common
         {
             return ((IEnumerable<byte>)this).GetEnumerator();
         }
+
+        #region Indexer
 
         /// <summary>
         /// Allows access by offset index to the source array, negitive values can be used to go previous to the <see cref="Offset"/> and the amount is not enforced to be within the <see cref="Count"/>
@@ -270,7 +337,9 @@ namespace Media.Common
 #endif
         }
 
-        #region Unused 
+        #endregion
+
+        #region Unused
 
         //...
         //internal byte[] this[params object[] arg]
@@ -293,10 +362,13 @@ namespace Media.Common
 
         #endregion
 
-        //Methods for copying an array of memory or constructor?
+        #region Methods
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Update(ref byte[] source, ref int offset, ref int length)
         {
+            if (IsDisposed) return;
+
             m_Array = source;
 
             m_Offset = offset;
@@ -305,13 +377,20 @@ namespace Media.Common
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public void Update(ref byte[] source) { m_Array = source; }
+        public void Update(ref byte[] source)
+        {
+            if (IsDisposed) return;
+
+            m_Array = source;
+        }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Update(ref int offset) { m_Offset = offset; }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void IncreaseLength(long length) { m_Length += length; }
+
+        #endregion
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode()
@@ -339,7 +418,7 @@ namespace Media.Common
             return other.GetHashCode() == GetHashCode();
         }
 
-        //use Find to offset and index searches ...
+        #region Operators
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(MemorySegment a, MemorySegment b)
@@ -350,6 +429,10 @@ namespace Media.Common
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(MemorySegment a, MemorySegment b) { return false == (a == b); }
+
+        //>> , << etc
+
+        #endregion
     }
 
     //Should probably enforce usability with additional derivations, Todo

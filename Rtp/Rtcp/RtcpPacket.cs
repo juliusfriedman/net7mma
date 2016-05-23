@@ -254,7 +254,7 @@ namespace Media.Rtcp
                 //case ushort.MaxValue: // FFFF + 1 = 0
                 case ushort.MinValue:// 0 + 1 = 1 * 4 = 4, header only.???
                     {
-                        Payload = new MemorySegment();
+                        Payload = new MemorySegment(0);
                         
                         m_OwnedOctets = Payload.Array;
 

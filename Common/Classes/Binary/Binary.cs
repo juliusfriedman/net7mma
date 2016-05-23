@@ -1021,7 +1021,14 @@ namespace Media.Common
             get { return m_SystemByteOrder == ByteOrder.Big; }
         }
 
-        //IsLittleEndian
+        /// <summary>
+        /// Gets a value indicating if the system's byte order was Little Endian when the static constructor was ran.
+        /// </summary>
+        public static bool IsLittleEndian
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_SystemByteOrder == ByteOrder.Little; }
+        }
 
         #endregion
 

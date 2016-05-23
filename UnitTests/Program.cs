@@ -3361,6 +3361,9 @@ a=appversion:1.0");
 
         internal static void TryPrintClientPacket(object sender, bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false)
         {
+
+            //Notes, racing to handle the event, should clone the packet if you really need to handle it at this level.
+
             if (sender is Media.Rtp.RtpClient && (sender as Media.Rtp.RtpClient).IsDisposed) return;
 
             if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
@@ -3376,7 +3379,7 @@ a=appversion:1.0");
             {
                 Media.Rtp.RtpPacket rtpPacket = packet as Media.Rtp.RtpPacket;
 
-                if (packet == null || packet.IsDisposed) return;
+                if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
                 if (packet.IsComplete) Console.ForegroundColor = ConsoleColor.Blue;
                 else Console.ForegroundColor = ConsoleColor.Red;
@@ -3416,12 +3419,14 @@ a=appversion:1.0");
             }
             else
             {
-                if (packet == null || packet.IsDisposed) return;
+                if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-                Media.Rtcp.RtcpPacket rtcpPacket = packet as Media.Rtcp.RtcpPacket;
+                Media.Rtcp.RtcpPacket rtcpPacket = packet as Media.Rtcp.RtcpPacket;                
 
                 if (packet.IsComplete) if (packet.Transferred.HasValue) Console.ForegroundColor = ConsoleColor.Green; else Console.ForegroundColor = ConsoleColor.DarkGreen;
                 else Console.ForegroundColor = ConsoleColor.Yellow;
+
+                if (Media.Common.IDisposedExtensions.IsNullOrDisposed(rtcpPacket)) return;
 
                 Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
 
