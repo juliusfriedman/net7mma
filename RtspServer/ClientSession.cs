@@ -1693,10 +1693,11 @@ namespace Media.Rtsp//.Server
             //Should check that its not already set?
             //sdp.Add(new Sdp.SessionDescriptionLine("a=recvonly"));
 
-            //Remove any existing session range lines, don't upate the version
+            //Remove any existing session range lines, don't update the version
             while (sdp.RangeLine != null) sdp.Remove(sdp.RangeLine, false);
 
             //Todo add a Range line which shows the length of this media.
+            //....
 
             //Add the sesison control line
             sdp.Add(new Sdp.SessionDescriptionLine(controlLineBase));

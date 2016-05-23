@@ -79,11 +79,12 @@ namespace Media.Rtcp
         /// <param name="subType">The subType of the ApplicationSpecificReport</param>
         /// <param name="name">The name of the ApplicationSpecificReport</param>
         /// <param name="applicationDependentData">Optional Application specific data.</param>
-        public ApplicationSpecificReport(int version, int padding, int ssrc, int subType, byte[] name, byte[] applicationDependentData)
+        public ApplicationSpecificReport(int version, int padding, int ssrc, int subType, byte[] name, byte[] applicationDependentData, bool shouldDispose = true)
             : base(version, PayloadType, padding, ssrc, 
             subType, //BlockCount
             0, //BlockSize
-            Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(applicationDependentData) ? NameSize : NameSize + applicationDependentData.Length + 1) //Extension size in bytes
+            Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(applicationDependentData) ? NameSize : NameSize + applicationDependentData.Length + 1,//Extension size in bytes
+            shouldDispose) 
         {
             //Copy the given name
             if (false == Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(name)) Array.Copy(name, 0, Payload.Array, Payload.Offset, NameSize);
@@ -95,14 +96,14 @@ namespace Media.Rtcp
             }
         }
 
-        public ApplicationSpecificReport(int version, int ssrc, int subType, byte[] name, byte[] applicationDependentData)
-            : this(version, 0, ssrc, subType, name, applicationDependentData)
+        public ApplicationSpecificReport(int version, int ssrc, int subType, byte[] name, byte[] applicationDependentData, bool shouldDispose = true)
+            : this(version, 0, ssrc, subType, name, applicationDependentData, shouldDispose)
         {
 
         }
 
-        public ApplicationSpecificReport(int version, int ssrc, int subType, string name, byte[] applicationDependentData)
-            : this(version, 0, ssrc, subType, Encoding.UTF8.GetBytes(name), applicationDependentData)
+        public ApplicationSpecificReport(int version, int ssrc, int subType, string name, byte[] applicationDependentData, bool shouldDispose = true)
+            : this(version, 0, ssrc, subType, Encoding.UTF8.GetBytes(name), applicationDependentData, shouldDispose)
         {
 
         }

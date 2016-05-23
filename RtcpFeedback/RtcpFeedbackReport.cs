@@ -8,9 +8,9 @@ namespace Media.Rtcp.Feedback
     {
         #region Constructors
 
-        public RtcpFeedbackReport(int version, int type, int format, int padding, int ssrc, int mssrc, byte[] feedbackControlInformation)
+        public RtcpFeedbackReport(int version, int type, int format, int padding, int ssrc, int mssrc, byte[] feedbackControlInformation, bool shouldDispose = true)
             : base(version, type, padding, ssrc, /*format*/0, 0,
-            feedbackControlInformation != null ? Common.Binary.BytesPerInteger + feedbackControlInformation.Length : Common.Binary.BytesPerInteger)
+            feedbackControlInformation != null ? Common.Binary.BytesPerInteger + feedbackControlInformation.Length : Common.Binary.BytesPerInteger, shouldDispose)
         {
             //Set the FMT field
             BlockCount = format;

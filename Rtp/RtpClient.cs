@@ -296,6 +296,20 @@ namespace Media.Rtp
         {
             #region Statics
 
+            //Todo
+            internal static byte[] CreateApplicationLayerFraming(TransportContext context)
+            {
+                //Determine  how many bytes, independent uses 2 where as rtsp uses 4
+
+                //Determine if RFC4571 via the Connection line etc.
+
+                int size = InterleavedOverhead;
+
+                byte[] result = new byte[size];
+
+                return result;
+            }
+
             internal static void ConfigureRtpRtcpSocket(Socket socket) //,Common.ILogging = null
             {
                 if (socket == null) throw new ArgumentNullException("socket");
@@ -2164,6 +2178,25 @@ namespace Media.Rtp
         /// <param name="final"></param>
         public delegate void RtpFrameHandler(object sender, RtpFrame frame = null, TransportContext tc = null, bool final = false);
 
+        //Todo, Determine if events for unknown ssrc and version are helpful
+
+        //OnUnknownIdentify(object sender, IPacket packet)
+
+        //Combine with 
+        //=> bool AllocateContextForUnknownParticipants
+        //To Create a new TransportContext for this participant.
+
+        //OnUnknownVersion(object sender, IPacket packet)
+
+        //Determine if events for loss of packets is useful and what to provide
+
+        //If RFC3550 had a Source class then the source would be provided here, otherwise the TransportContext
+        //To have another type of class PacketLossInformation would require more logic for no purpose at this level.
+        //Furthermore PacketLossInformation can be determined from the TransportContext.
+        //Thus the TransportContext should have a structure which can represent this information.
+
+        //OnPacketLoss(object sender, PacketLossInformation info)
+
         /// <summary>
         /// Raised when Interleaved Data is recieved.
         /// Interleaved data is usually on received when using TCP.
@@ -2191,7 +2224,7 @@ namespace Media.Rtp
         public event RtcpPacketHandler RtcpPacketSent;
 
         /// <summary>
-        /// Raised when a complete RtpFrame was changed
+        /// Raised when a complete RtpFrame was changed due to a packet being added, removed or updated.
         /// </summary>
         public event RtpFrameHandler RtpFrameChanged;
 
@@ -2216,17 +2249,7 @@ namespace Media.Rtp
             //Get a context for the packet by the identity of the receiver
             TransportContext transportContext = null;
 
-            int packetLength = packet.Length;
-
-            //Compressed or no ssrc
-            if (packet.IsCompressed || packetLength < Common.Binary.BytesPerLong || false == HandleIncomingRtcpPackets)
-            {
-                //Raise the event (It will not raise if not enabled)
-                OnRtcpPacketReceieved(packet, transportContext);
-                
-                //Return
-                return;
-            }
+            int packetLength = packet.Length;            
 
             //Cache the ssrc of the packet's sender.
             int partyId = packet.SynchronizationSourceIdentifier,
@@ -2238,8 +2261,13 @@ namespace Media.Rtp
             //Raise an event for the rtcp packet received, should clone the packet?
             OnRtcpPacketReceieved(packet, transportContext);
 
-            //If the version doesn't match.
-            if (transportContext != null && transportContext.Version != packetVersion)
+            //Compressed or no ssrc
+            if (packet.IsCompressed || packetLength < Common.Binary.BytesPerLong || false == HandleIncomingRtcpPackets)
+            {
+                //Return
+                return;
+            }//else if the version doesn't match.
+            else if (transportContext != null && transportContext.Version != packetVersion)
             {
                 Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtcpPacket Invalid Version, Found =>" + packetVersion + ", Expected =>" + transportContext.Version);
 
@@ -2406,6 +2434,8 @@ namespace Media.Rtp
 
                 Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtcpPacket - No Context for packet " + partyId + "@" + packet.PayloadType);
 
+                //Could create context for partyId here.
+
                 //Don't do anything else.
                 return;
             }
@@ -2418,9 +2448,6 @@ namespace Media.Rtp
                 //Handle it.
                 HandleIdentityCollision(transportContext);
             }
-
-            //Make a reference of the packet now and only refer to this reference
-            RtcpPacket localPacket = packet;
 
             #region Unused [Packet Completion]
 
@@ -2446,7 +2473,7 @@ namespace Media.Rtp
                 ++transportContext.RtcpPacketsReceived;
 
                 //Keep track of the the bytes sent in the context
-                transportContext.RtcpBytesRecieved += localPacket.Length;
+                transportContext.RtcpBytesRecieved += packet.Length;
 
                 //Set the time when the first rtcp packet was recieved
                 if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_FirstPacketReceived = packet.Created;
@@ -3602,12 +3629,6 @@ namespace Media.Rtp
         /// <param name="incomingPacketEventsEnabled"><see cref="IncomingPacketEventsEnabled"/></param>
         /// <param name="frameChangedEventsEnabled"><see cref="FrameChangedEventsEnabled"/></param>
         public RtpClient(byte[] buffer, int offset, int count, bool incomingPacketEventsEnabled = true, bool frameChangedEventsEnabled = true) : this(new Common.MemorySegment(buffer, offset, count), incomingPacketEventsEnabled, frameChangedEventsEnabled) { }
-
-        //Removes listeners and references to objects
-        ~RtpClient()
-        {
-            Dispose();
-        }
 
         #endregion
 

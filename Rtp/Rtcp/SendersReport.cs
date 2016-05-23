@@ -64,14 +64,14 @@ namespace Media.Rtcp
 
         #region Constructor
 
-        public SendersReport(int version, int reportBlocks, int ssrc)
-            : base(version, PayloadType, 0, ssrc, reportBlocks, ReportBlock.ReportBlockSize, SendersInformationSize)
+        public SendersReport(int version, int reportBlocks, int ssrc, bool shouldDispose = true)
+            : base(version, PayloadType, 0, ssrc, reportBlocks, ReportBlock.ReportBlockSize, SendersInformationSize, shouldDispose)
         {
 
         }
 
-        public SendersReport(int version, int padding, int reportBlocks, int ssrc)
-            : base(version, PayloadType, padding, ssrc, reportBlocks, ReportBlock.ReportBlockSize, SendersInformationSize)
+        public SendersReport(int version, int padding, int reportBlocks, int ssrc, bool shouldDispose = true)
+            : base(version, PayloadType, padding, ssrc, reportBlocks, ReportBlock.ReportBlockSize, SendersInformationSize, shouldDispose)
         {
 
         }

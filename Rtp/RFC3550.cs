@@ -122,6 +122,7 @@ namespace Media
         /// <param name="version">The version of the RtcpPacket to validate</param>
         /// <param name="payloadType">The optional payloadType to use in the calulcation. Defaults to 201</param>
         /// <returns>The value calulcated</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int RtcpValidValue(int version, int payloadType = Rtcp.SendersReport.PayloadType)
         {
             //Always calulated in Big ByteOrder
@@ -134,6 +135,7 @@ namespace Media
         /// <param name="header"></param>
         /// <param name="version"></param>
         /// <returns>True if the values are equal, otherwise false</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsValidRtcpHeader(Rtcp.RtcpHeader header, int version = 2) { return (header.First16Bits & RtcpValidMask) == RtcpValidValue(version); }
 
         /// <summary>
@@ -501,6 +503,7 @@ namespace Media
         }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void CalulcateJitter(ref TimeSpan arrivalDifference, ref uint existingJitter, ref uint existingTransit)
         {
             existingJitter += ((existingTransit = (uint)arrivalDifference.TotalMilliseconds) - ((existingTransit + 8) >> 4));
@@ -517,6 +520,8 @@ namespace Media
         //Probe can be performed by using non ref overload (Todo)
 
         //Senders just update the seq number on the context (timestamp and ntp timestamp should also be sampled around the same time)
+
+        //Todo, make this structure managed and use it to provide the packet reception / loss information
 
         // Per-source state information
         //typedef struct {
@@ -535,6 +540,7 @@ namespace Media
          
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool UpdateSequenceNumber(ref ushort sequenceNumber,
             //From 'source' or TransportContext
             ref uint RtpBaseSeq, ref ushort RtpMaxSeq, ref uint RtpBadSeq, ref uint RtpSeqCycles, ref uint RtpReceivedPrior, ref uint RtpProbation, ref uint RtpPacketsRecieved,
@@ -619,6 +625,7 @@ namespace Media
         }        
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void ResetRtpValidationCounters(ref ushort sequenceNumber, ref uint RtpBaseSeq, ref ushort RtpMaxSeq, ref uint RtpBadSeq, ref uint RtpSeqCycles, ref uint RtpReceivedPrior, ref uint RtpPacketsRecieved)
         {
             RtpBaseSeq = RtpMaxSeq = (ushort)sequenceNumber;
@@ -629,6 +636,7 @@ namespace Media
         //CalculateFractionAndLoss (RTCP?)
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void CalculateFractionAndLoss(ref uint RtpBaseSeq, ref ushort RtpMaxSeq, ref uint RtpSeqCycles, ref uint RtpPacketsRecieved, ref uint RtpReceivedPrior, ref uint RtpExpectedPrior, out uint fraction, out uint lost)
         {
             //Should be performed in the Conference level, these values here will only 
