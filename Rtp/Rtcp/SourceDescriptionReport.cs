@@ -1042,14 +1042,14 @@ namespace Media.Rtcp
         /// Creates a new SourceDescription with the given parameters
         /// </summary>
         /// <param name="version">The 2 - bit version of the SourceDescription</param>
-        public SourceDescriptionReport(int version, int ssrc, int blockCount, int blockSize, int padding = 0)
-            : base(version, PayloadType, padding, ssrc, blockCount, blockSize, 0) { }
+        public SourceDescriptionReport(int version, int ssrc, int blockCount, int blockSize, int padding = 0, bool shouldDispose = true)
+            : base(version, PayloadType, padding, ssrc, blockCount, blockSize, 0, shouldDispose) { }
         //    : base(version, PayloadType, padding, ssrc, blockCount, blockSize, RtcpHeader.DefaultLengthInWords, 0)
         //{
         //}
 
-        public SourceDescriptionReport(int version)
-            : base(version, PayloadType, 0, 0, 0, 0, RtcpHeader.MaximumLengthInWords, 0)
+        public SourceDescriptionReport(int version, bool shouldDispose = true)
+            : base(version, PayloadType, 0, 0, 0, 0, RtcpHeader.MaximumLengthInWords, 0, shouldDispose)
         {
             //[Page 45] Paragraph 2.
             //A chunk with zero items (four null octets) is valid but useless.

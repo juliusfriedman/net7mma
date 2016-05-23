@@ -975,6 +975,12 @@ namespace Media.Common.Extensions.Socket
         
         //InterframeGapBits (NetworkInterface)
 
+        //Todo ->
+
+        //SendAll / SendAllTo
+
+        //RecieveAll / RecieveAllFrom
+
         /// <summary>
         /// Receives the given amount of bytes into the buffer given a offset and an amount.
         /// </summary>

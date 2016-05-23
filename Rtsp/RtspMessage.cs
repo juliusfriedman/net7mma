@@ -271,28 +271,6 @@ namespace Media.Rtsp
     {
         #region Statics
 
-        /// <summary>
-        /// 0 = HeaderName
-        /// 1 = Space Character
-        /// 2 = Colon Character (Seperator)
-        /// 3 = HeaderValue
-        /// 4 = EndLine
-        /// </summary>
-        internal const string DefaultHeaderFormat = "{0}{2}{1}{3}{4}";
-
-        //Using a space here causes hell to open with VLC and QuickTime.
-        //"{0}{1}{2}{1}{3}{1}{4}";
-        //Or here
-        //"{0}{2}{1}{3}{1}{4}"; 
-
-        public static Uri Wildcard = new Uri("*", UriKind.RelativeOrAbsolute);
-
-        //Used to format the version string
-        public static string VersionFormat = "0.0";
-
-        //System encoded 'Carriage Return' => \r and 'New Line' => \n
-        internal const string CRLF = "\r\n";
-
         //The scheme of Uri's of RtspMessage's
         public const string ReliableTransportScheme = "rtsp";
 
@@ -317,18 +295,8 @@ namespace Media.Rtsp
         //String which identifies a Rtsp Request or Response
         public const string MessageIdentifier = "RTSP";
 
-        //String which can be used to delimit a RtspMessage for preprocessing
-        internal static string[] HeaderLineSplit = new string[] { CRLF };
+        internal protected static char[] SpaceSplit = Http.HttpMessage.SpaceSplit;
 
-        //String which is used to split Header values of the RtspMessage
-        internal static char[] HeaderNameValueSplit = new char[] { (char)Common.ASCII.Colon };
-
-        //String which is used to split Header values of the RtspMessage
-        internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space };
-
-        internal static int MinimumStatusLineSize = 9; //'RTSP/X.X ' 
-
-        public static readonly Encoding DefaultEncoding = System.Text.Encoding.UTF8;
         public static byte[] ToHttpBytes(RtspMessage message, int majorVersion = 1, int minorVersion = 0, string sessionCookie = null, System.Net.HttpStatusCode statusCode = System.Net.HttpStatusCode.Unused)
         {
 

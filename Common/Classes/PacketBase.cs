@@ -114,6 +114,14 @@
 
         public bool TryGetBuffers(out System.Collections.Generic.IList<System.ArraySegment<byte>> buffer)
         {
+
+            if (IsDisposed)
+            {
+                buffer = default(System.Collections.Generic.IList<System.ArraySegment<byte>>);
+
+                return false;
+            }
+
             buffer = new System.Collections.Generic.List<System.ArraySegment<byte>>()
             {
                 new System.ArraySegment<byte>(m_OwnedOctets)

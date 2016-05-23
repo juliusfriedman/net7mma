@@ -69,30 +69,27 @@ namespace Media.Common
         public int Count
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return (int)m_Length; }
+            
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             protected set { m_Length = value; }
         }
 
         public long LongLength
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return m_Length; }
+            
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             protected set { m_Length = value; }
         }
 
         public int Offset
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return (int)m_Offset; }
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             //could just have a Resize method
             protected set { m_Offset = value; }
         }
@@ -100,8 +97,8 @@ namespace Media.Common
         public byte[] Array
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return m_Array; }
+
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             protected set { m_Array = value; } 
         }
@@ -117,9 +114,11 @@ namespace Media.Common
             m_Length = m_Array.LongLength;
 
             //ByteOrder = Binary.SystemEndian;
+
+            //Suppress the finalizer
+            GC.SuppressFinalize(this);
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(byte[] reference, int offset, bool shouldDispose = true)
             : this(reference, shouldDispose)
         {
@@ -130,7 +129,6 @@ namespace Media.Common
             if (m_Offset > m_Length) throw new ArgumentOutOfRangeException("offset");
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(byte[] reference, int offset, int length, bool shouldDispose = true)
             : this(reference, offset, shouldDispose)
         {
@@ -152,8 +150,11 @@ namespace Media.Common
             m_Length = size;
 
             ShouldDispose = shouldDispose;
-
+            
             //ByteOrder = Binary.SystemEndian;
+
+            //Suppress the finalizer
+            GC.SuppressFinalize(this);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -161,13 +162,13 @@ namespace Media.Common
             : base(shouldDispose)
         {
             //If the finalizer has ran then do not allow reference again.
-            if (false == force && other.IsFinalized || other.IsDisposed)
+            if (false == force && false == other.IsUndisposed)
             {
-                IsDisposed = true;
-
                 m_Array = EmptyBytes;
 
                 m_Length = m_Offset = 0;
+
+                Dispose(shouldDispose);
 
                 return;
             }
@@ -183,8 +184,12 @@ namespace Media.Common
             m_Length = other.m_Length;
 
             //ByteOrder = other.ByteOrder;
+
+            //Suppress the finalizer
+            GC.SuppressFinalize(this);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(bool shouldDispose = true)
             : base(shouldDispose)
         {
@@ -194,23 +199,9 @@ namespace Media.Common
             m_Array = System.Linq.Enumerable.Empty<byte>().ToArray();
 
             m_Offset = m_Length = 0;
-        }
 
-        //In the same assembly must use internal
-        internal protected override void Dispose(bool disposing)
-        {
-            if (disposing && false == ShouldDispose) return;
-
-            base.Dispose(ShouldDispose);
-
-            //m_Array = Media.Common.MemorySegment.EmptyBytes;
-            //m_Offset = m_Length = 0;
-
-            //Don't remove the reference to the array
-            //if (m_Owner) m_Array = null;
-
-            //Don't change the offset or length 
-            //m_Offset = m_Length = -1;
+            //Suppress the finalizer
+            GC.SuppressFinalize(this);
         }
 
         //Make an Enumerator implementation to help with Skip and Copy?
@@ -220,6 +211,7 @@ namespace Media.Common
         {
             for (int i = 0; i < m_Length; ++i)
             {
+
 #if UNSAFE
                 unsafe { *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, m_Offset + i) = value; }
 #elif NATIVE

@@ -185,7 +185,7 @@ namespace Media.Http
         public static string VersionFormat = "0.0";
 
         //System encoded 'Carriage Return' => \r and 'New Line' => \n
-        internal const string CRLF = "\r\n";
+        internal protected const string CRLF = "\r\n";
 
         //The scheme of Uri's of RtspMessage's
         public const string TransportScheme = "http"; //System.Uri.UriSchemeHttp;
@@ -203,16 +203,16 @@ namespace Media.Http
         public const string MessageIdentifier = "HTTP";
 
         //String which can be used to delimit a HttpMessage for preprocessing
-        internal static string[] HeaderLineSplit = new string[] { CRLF };
+        internal protected static string[] HeaderLineSplit = new string[] { CRLF };
 
         //String which is used to split Header values of the HttpMessage
-        internal static char[] HeaderNameValueSplit = new char[] { (char)Common.ASCII.Colon };
+        internal protected static char[] HeaderNameValueSplit = new char[] { (char)Common.ASCII.Colon };
 
         //String which is used to split Header values of the HttpMessage
-        internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space };
+        internal protected static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space };
 
         //Should be instance variable and calulcated from Protocol
-        internal static int MinimumStatusLineSize = 9; //'HTTP/X.X ' 
+        internal protected static int MinimumStatusLineSize = 9; //'HTTP/X.X ' 
 
         public static readonly Encoding DefaultEncoding = System.Text.Encoding.UTF8;
 
@@ -1903,6 +1903,13 @@ namespace Media.Http
 
         public bool TryGetBuffers(out System.Collections.Generic.IList<System.ArraySegment<byte>> buffer)
         {
+            if (IsDisposed)
+            {
+                buffer = default(System.Collections.Generic.IList<System.ArraySegment<byte>>);
+
+                return false;
+            }
+
             ArraySegment<byte> existingBuffer;
 
             buffer = default(System.Collections.Generic.IList<System.ArraySegment<byte>>);

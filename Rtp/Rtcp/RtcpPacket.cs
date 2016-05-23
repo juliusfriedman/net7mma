@@ -301,7 +301,8 @@ namespace Media.Rtcp
         /// <param name="blockCount">Sets <see cref="BlockCount"/> </param>
         /// <param name="lengthInWords">Sets <see cref="RtcpHeader.LengthInWordsMinusOne"/></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpPacket(int version, int payloadType, int padding, int ssrc, int blockCount, int lengthInWords, int blockSize, int extensionSize)
+        public RtcpPacket(int version, int payloadType, int padding, int ssrc, int blockCount, int lengthInWords, int blockSize, int extensionSize, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             //If the padding is greater than allow throw an overflow exception
             if (padding < 0 || padding > byte.MaxValue) Binary.CreateOverflowException("padding", padding, byte.MinValue.ToString(), byte.MaxValue.ToString());            
@@ -347,15 +348,15 @@ namespace Media.Rtcp
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpPacket(int version, int payloadType, int padding, int ssrc, int lengthInWords, int blockCount)
-            :this(version, payloadType, padding, ssrc, blockCount, lengthInWords, 0, 0)
+        public RtcpPacket(int version, int payloadType, int padding, int ssrc, int lengthInWords, int blockCount, bool shouldDispose = true)
+            :this(version, payloadType, padding, ssrc, blockCount, lengthInWords, 0, 0, shouldDispose)
         {
             
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpPacket(int version, int payloadType, int padding, int blockCount, int ssrc, int lengthInWords, byte[] payload, int index, int count)
-            :this(version, payloadType, padding, ssrc, blockCount, lengthInWords)
+        public RtcpPacket(int version, int payloadType, int padding, int blockCount, int ssrc, int lengthInWords, byte[] payload, int index, int count, bool shouldDispose = true)
+            :this(version, payloadType, padding, ssrc, blockCount, lengthInWords, shouldDispose)
         {
             if (count == 0) return;
 
@@ -998,6 +999,14 @@ namespace Media.Rtcp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool TryGetBuffers(out System.Collections.Generic.IList<System.ArraySegment<byte>> buffer)
         {
+
+            if (IsDisposed)
+            {
+                buffer = default(System.Collections.Generic.IList<System.ArraySegment<byte>>);
+
+                return false;
+            }
+
             buffer = new System.Collections.Generic.List<ArraySegment<byte>>()
             {
                 Common.MemorySegmentExtensions.ToByteArraySegment(Header.First16Bits.m_Memory),

@@ -140,11 +140,11 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected BaseDisposable(bool shouldDispose) // = false
         {
-            ShouldDispose = shouldDispose || Environment.HasShutdownStarted;
+            if (false == (ShouldDispose = shouldDispose || Environment.HasShutdownStarted)) GC.SuppressFinalize(this);
         }
 
         /// <summary>
-        /// Finalizes the BaseDisposable, calls <see cref="Dispose"/> if <see cref="ShouldDispose"/> is true not already diposed.
+        /// Finalizes the BaseDisposable, calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/>.
         /// </summary>
         /// <remarks>If ever, only called when there are no more references to the object during a GC Collection.</remarks>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -215,8 +215,12 @@ namespace Media.Common
         /// Allows derived implemenations a chance to destory manged or unmanged resources.
         /// </summary>
         /// <param name="disposing">Indicates if resources should be destroyed</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal protected virtual void Dispose(bool disposing)
         {
+            //Do not dispose when ShouldDispose is false.
+            if (false == ShouldDispose) return;
+
             //Mark the instance disposed if disposing
             //If the resources are to be removed then the finalizer has been called.
             if (disposing)

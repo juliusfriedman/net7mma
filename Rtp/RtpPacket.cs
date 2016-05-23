@@ -397,7 +397,7 @@ namespace Media.Rtp
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtpPacket(byte[] buffer, int offset) : this(buffer, offset, buffer.Length - offset) { }
+        public RtpPacket(byte[] buffer, int offset, bool shouldDispose = true) : this(buffer, offset, buffer.Length - offset, shouldDispose) { }
 
         /// <summary>
         /// Creates a packet instance of the given size.
@@ -960,6 +960,13 @@ namespace Media.Rtp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool TryGetBuffers(out System.Collections.Generic.IList<System.ArraySegment<byte>> buffer)
         {
+            if (IsDisposed)
+            {
+                buffer = default(System.Collections.Generic.IList<System.ArraySegment<byte>>);
+
+                return false;
+            }
+
             buffer  = new System.Collections.Generic.List<ArraySegment<byte>>()
             {
                 Common.MemorySegmentExtensions.ToByteArraySegment(Header.First16Bits.m_Memory),

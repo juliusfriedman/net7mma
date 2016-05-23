@@ -162,6 +162,8 @@ namespace Media.Concepts.Collections
         /// <param name="data">The data to add</param>
         public void Push(T data)
         {
+            if (Count >= Capacity) return;
+
             AddFirst(ref data);
         }
 
@@ -239,6 +241,8 @@ namespace Media.Concepts.Collections
         /// <param name="data">The data to add</param>
         public void Enqueue(T data)
         {
+            if (Count >= Capacity) return;
+
             AddFirst(ref data);
         }
 
