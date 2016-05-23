@@ -83,6 +83,7 @@ namespace Media.Rtp
         /// </summary>
         public int Flags
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return IsDisposed ? ushort.MinValue : Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian); }
             protected set { if (IsDisposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian, (ushort)value); }
         }
@@ -92,6 +93,7 @@ namespace Media.Rtp
         /// </summary>
         public int LengthInWords
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return IsDisposed ? ushort.MinValue : Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian); }
             protected set { if (IsDisposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian, (ushort)value); }
         }
@@ -110,12 +112,22 @@ namespace Media.Rtp
         /// <summary>
         /// Gets a value indicating if there is enough binary data required for the length indicated in the `LengthInWords` property.
         /// </summary>
-        public bool IsComplete { get { if (IsDisposed) return false; return m_MemorySegment.Count >= Size; } }
+        public bool IsComplete
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { if (IsDisposed) return false; return m_MemorySegment.Count >= Size; }
+        }
 
         /// <summary>
         /// Gets the size in bytes of this RtpExtension including the Flags and LengthInWords fields.
         /// </summary>
-        public int Size { get { return IsDisposed ? ushort.MinValue : (ushort)(MinimumSize + Binary.MachineWordsToBytes(LengthInWords)); } } //LengthInWords * 4
+        public int Size
+        {
+            //get { return IsDisposed ? ushort.MinValue : (ushort)(MinimumSize + Binary.MachineWordsToBytes(LengthInWords)); }//LengthInWords * 4
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return Binary.Min(MinimumSize + LengthInWords * 4, m_MemorySegment.Count); }
+        }
 
         #endregion
 

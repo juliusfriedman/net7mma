@@ -856,12 +856,6 @@ namespace Media
             /// </summary>
             internal readonly Common.MemorySegment m_Memory;
 
-            /// <summary>
-            /// The first and second octets themselves, utilized by both Rtp and Rtcp.
-            /// Seperated to prevent checks on endian.
-            /// </summary>
-            //protected byte leastSignificant, mostSignificant; // Wastes 2 bytes when not used.
-
             #endregion
 
             #region Properties
@@ -1126,8 +1120,11 @@ namespace Media
             /// Creates a exact copy of the given CommonHeaderBits
             /// </summary>
             /// <param name="other">The CommonHeaderBits instance to copy</param>
+            /// <param name="reference">indicates if this instance should reference the data of the other instance</param>
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public CommonHeaderBits(CommonHeaderBits other, bool reference = false)
+            public CommonHeaderBits(CommonHeaderBits other, bool reference = false, bool shouldDispose = true)
+                :base(shouldDispose)
             {
                 if (reference)
                 {
@@ -1146,8 +1143,10 @@ namespace Media
             /// </summary>
             /// <param name="one">The first byte</param>
             /// <param name="two">The second byte</param>
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public CommonHeaderBits(byte one, byte two)
+            public CommonHeaderBits(byte one, byte two, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 m_Memory = new MemorySegment(CommonHeaderBits.Size);
 
@@ -1159,10 +1158,12 @@ namespace Media
             /// <summary>
             /// Expects at least 2 bytes of data
             /// </summary>
-            /// <param name="data"></param>
-            /// <param name="offset"></param>
+            /// <param name="data">The data</param>
+            /// <param name="offset">The offset</param>
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public CommonHeaderBits(byte[] data, int offset)
+            public CommonHeaderBits(byte[] data, int offset, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 m_Memory = new MemorySegment(data, offset, CommonHeaderBits.Size);
             }
@@ -1170,9 +1171,11 @@ namespace Media
             /// <summary>
             /// Makes an exact copy of the header from the given memory.
             /// </summary>
-            /// <param name="memory"></param>
+            /// <param name="memory">The memory</param>
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public CommonHeaderBits(Common.MemorySegment memory)//, int additionalOffset = 0)
+            public CommonHeaderBits(Common.MemorySegment memory, bool shouldDispose = true) //, int additionalOffset = 0)
+                : base(shouldDispose)
             {
                 //if (Math.Abs(memory.Count - additionalOffset) < CommonHeaderBits.Size) throw new InvalidOperationException("at least two octets are required in memory");
 
@@ -1187,9 +1190,10 @@ namespace Media
             /// <param name="version">The version of the common header bits</param>
             /// <param name="padding">The value of the Padding bit</param>
             /// <param name="extension">The value of the Extension bit</param>
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public CommonHeaderBits(int version, bool padding, bool extension)
-                : this(CommonHeaderBits.PackOctet(version, padding, extension), 0)
+            public CommonHeaderBits(int version, bool padding, bool extension, bool shouldDispose = true) //, int additionalOffset = 0)
+                : this(CommonHeaderBits.PackOctet(version, padding, extension), byte.MinValue, shouldDispose)
             {
 
             }
@@ -1203,10 +1207,11 @@ namespace Media
             /// <param name="extension">The value of the Extension bit</param>
             /// <param name="marker">The value of the Marker bit</param>
             /// <param name="payloadTypeBits">The value of the PayloadType bits</param>
-            /// /// <param name="otherbits">The value of the remaning bits which are not utilized. (4 bits)</param>
+            /// <param name="otherbits">The value of the remaning bits which are not utilized. (4 bits)</param>
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public CommonHeaderBits(int version, bool padding, bool extension, bool marker, int payloadTypeBits, byte otherBits)
-                : this(CommonHeaderBits.PackOctet(version, padding, extension, otherBits), CommonHeaderBits.PackOctet(marker, payloadTypeBits))
+            public CommonHeaderBits(int version, bool padding, bool extension, bool marker, int payloadTypeBits, byte otherBits, bool shouldDispose = true)
+                : this(CommonHeaderBits.PackOctet(version, padding, extension, otherBits), CommonHeaderBits.PackOctet(marker, payloadTypeBits), shouldDispose)
             {
                
             }
@@ -1243,9 +1248,11 @@ namespace Media
 
             #region Overrides
 
-            public override void Dispose()
+            protected override void Dispose(bool disposing)
             {
-                base.Dispose();
+                if (disposing && false == ShouldDispose) return;
+
+                base.Dispose(ShouldDispose);
 
                 if (ShouldDispose)
                 {

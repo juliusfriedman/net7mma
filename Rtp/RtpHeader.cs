@@ -144,7 +144,10 @@ namespace Media.Rtp
         /// </summary>
         internal byte[] Last10Bytes;
 
-        internal Common.MemorySegment PointerToLast10Bytes;
+        /// <summary>
+        /// The segment which references the <see cref="Last10Bytes"/>
+        /// </summary>
+        internal Common.MemorySegment SegmentToLast10Bytes;
 
         #endregion
 
@@ -255,13 +258,13 @@ namespace Media.Rtp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { return PointerToLast10Bytes.Count < 10; }
+            get { return SegmentToLast10Bytes.Count < 10; }
         }
 
         /// <summary>
         /// The amount of bytes this instance would occupy when serialized
         /// </summary>
-        public int Size { get { return RFC3550.CommonHeaderBits.Size + PointerToLast10Bytes.Count; } }
+        public int Size { get { return RFC3550.CommonHeaderBits.Size + SegmentToLast10Bytes.Count; } }
 
         /// <summary>
         /// Gets or Sets the unsigned 16 bit SequenceNumber field in the RtpHeader.
@@ -271,10 +274,10 @@ namespace Media.Rtp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
             //The sequence number is stored in Netword Byte Order @ + 0x00 from the second octet (relative offset of 0x02 from the beginning of any header pointer)
-            get { /*CheckDisposed();*/ return (ushort)Binary.ReadU16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian); }
+            get { /*CheckDisposed();*/ return (ushort)Binary.ReadU16(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset, BitConverter.IsLittleEndian); }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            set { /*CheckDisposed();*/ Binary.Write16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value); }
+            set { /*CheckDisposed();*/ Binary.Write16(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value); }
         }
 
         /// <summary>
@@ -288,10 +291,10 @@ namespace Media.Rtp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
             //The sequence number is stored in Netword Byte Order  @ + 0x02 from the second octet (relative offset of 0x04 from the beginning of any header pointer)
-            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian); } //Always read in reverse
+            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian); } //Always read in reverse
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            set { /*CheckDisposed();*/ Binary.Write32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
+            set { /*CheckDisposed();*/ Binary.Write32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -302,10 +305,10 @@ namespace Media.Rtp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
             //The sequence number is stored in Netword Byte Order @ + 0x06 from the second octet (relative offset of 0x08 from the beginning of any header pointer)
-            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian); }
+            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian); }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            set { /*CheckDisposed();*/ Binary.Write32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian, (uint)value); }
+            set { /*CheckDisposed();*/ Binary.Write32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         #endregion
@@ -318,8 +321,11 @@ namespace Media.Rtp
         /// Reads an instance of the RtpHeader class and copies 12 octets which make up the RtpHeader.
         /// </summary>
         /// <param name="octets">A reference to a byte array which contains at least 12 octets to copy.</param>
+        /// <param name="offset">the offset in <paramref name="octets"/> to start</param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtpHeader(byte[] octets, int offset = 0)
+        public RtpHeader(byte[] octets, int offset = 0, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             //Determine the length of the array
             long octetsLength;
@@ -349,7 +355,7 @@ namespace Media.Rtp
             }
 
             //Assign the segment
-            PointerToLast10Bytes = new MemorySegment(Last10Bytes, 0, Last10Bytes.Length);
+            SegmentToLast10Bytes = new MemorySegment(Last10Bytes, 0, Last10Bytes.Length);
         }
 
         /// <summary>
@@ -357,32 +363,47 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="other">The RtpHeader to copy</param>
         /// <param name="reference">A value indicating if the RtpHeader given should be referenced or copied.</param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtpHeader(RtpHeader other, bool reference)
+        public RtpHeader(RtpHeader other, bool reference, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             if (reference)
             {
                 First16Bits = other.First16Bits;
                 Last10Bytes = other.Last10Bytes;
-                PointerToLast10Bytes = other.PointerToLast10Bytes;
+                SegmentToLast10Bytes = other.SegmentToLast10Bytes;
             }
             else
             {
                 First16Bits = new Media.RFC3550.CommonHeaderBits(other.First16Bits);
                 Last10Bytes = new byte[10];
-                PointerToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10);
+                SegmentToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10);
                 other.Last10Bytes.CopyTo(Last10Bytes, 0);
             }
         }
-        
+
+        /// <summary>
+        /// Creates an exact copy of the RtpHeader from the given memory
+        /// </summary>
+        /// <param name="memory">The memory</param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtpHeader(Common.MemorySegment memory)
+        public RtpHeader(Common.MemorySegment memory, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             First16Bits = new Media.RFC3550.CommonHeaderBits(memory);
 
-            PointerToLast10Bytes = new Common.MemorySegment(memory.Array, memory.Offset + RFC3550.CommonHeaderBits.Size, Binary.Clamp(memory.Count - RFC3550.CommonHeaderBits.Size, 0, 10));
+            SegmentToLast10Bytes = new Common.MemorySegment(memory.Array, memory.Offset + RFC3550.CommonHeaderBits.Size, Binary.Clamp(memory.Count - RFC3550.CommonHeaderBits.Size, 0, 10));
         }
 
+        /// <summary>
+        /// Creates an instance and places the given values into their respective offsets.
+        /// </summary>
+        /// <param name="version"></param>
+        /// <param name="padding"></param>
+        /// <param name="extension"></param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(int version, bool padding, bool extension, bool shouldDispose = true)
             : base(shouldDispose)
@@ -392,7 +413,7 @@ namespace Media.Rtp
             //Allocate space for the other 10 octets
             Last10Bytes = new byte[10];
 
-            PointerToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10);
+            SegmentToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10);
 
             Version = version;
 
@@ -401,6 +422,19 @@ namespace Media.Rtp
             Extension = extension;
         }
 
+        /// <summary>
+        /// Creates an instance and places the given values into their respective offsets.
+        /// </summary>
+        /// <param name="version"></param>
+        /// <param name="padding"></param>
+        /// <param name="extension"></param>
+        /// <param name="marker"></param>
+        /// <param name="payloadTypeBits"></param>
+        /// <param name="contributingSourceCount"></param>
+        /// <param name="ssrc"></param>
+        /// <param name="sequenceNumber"></param>
+        /// <param name="timestamp"></param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(int version, bool padding, bool extension, bool marker, int payloadTypeBits, int contributingSourceCount, int ssrc, int sequenceNumber, int timestamp, bool shouldDispose = true)
             :this(version, padding, extension, shouldDispose)
@@ -429,7 +463,7 @@ namespace Media.Rtp
         #region Instance Methods        
 
         /// <summary>
-        /// Updates the source array of the <see cref="First16Bits"/> and <see cref="PointerToLast10Bytes"/>
+        /// Updates the source array of the <see cref="First16Bits"/> and <see cref="SegmentToLast10Bytes"/>
         /// </summary>
         /// <param name="source"></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -437,19 +471,21 @@ namespace Media.Rtp
         {
             //Should check IsContiguous
 
+            //Should clear reference to m_OwnedOctets or replace or document that source must equal m_OwnedOctes..
+
             First16Bits.m_Memory.Update(ref source);
 
-            PointerToLast10Bytes.Update(ref source);
+            SegmentToLast10Bytes.Update(ref source);
         }
 
         /// <summary>
-        /// Indicates if the <see cref="First16Bits"/> and <see cref="PointerToLast10Bytes"/> belong to the same array.
+        /// Indicates if the <see cref="First16Bits"/> and <see cref="SegmentToLast10Bytes"/> belong to the same array.
         /// </summary>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool IsContiguous()
         {
-            return First16Bits.m_Memory.Array == PointerToLast10Bytes.Array && First16Bits.m_Memory.Offset + First16Bits.m_Memory.Count == PointerToLast10Bytes.Offset;
+            return First16Bits.m_Memory.Array == SegmentToLast10Bytes.Array && First16Bits.m_Memory.Offset + First16Bits.m_Memory.Count == SegmentToLast10Bytes.Offset;
         }
 
         public int CopyTo(byte[] dest, int offset)
@@ -462,11 +498,11 @@ namespace Media.Rtp
 
             offset += copied;
 
-            Common.MemorySegmentExtensions.CopyTo(PointerToLast10Bytes, dest, offset);
+            Common.MemorySegmentExtensions.CopyTo(SegmentToLast10Bytes, dest, offset);
 
-            copied += PointerToLast10Bytes.Count;
+            copied += SegmentToLast10Bytes.Count;
 
-            offset += PointerToLast10Bytes.Count;
+            offset += SegmentToLast10Bytes.Count;
 
             return copied;
         }
@@ -481,7 +517,7 @@ namespace Media.Rtp
 
         internal IEnumerable<byte> GetEnumerableImplementation()
         {
-            return Enumerable.Concat<byte>(First16Bits, PointerToLast10Bytes);
+            return Enumerable.Concat<byte>(First16Bits, SegmentToLast10Bytes);
         }
 
         #endregion
@@ -502,23 +538,31 @@ namespace Media.Rtp
 
         #region Overrides
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            if (IsDisposed) return;
+            if (disposing && false == ShouldDispose) return;
 
-            base.Dispose();
+            base.Dispose(ShouldDispose);
 
             if (ShouldDispose)
             {
-                //Call dispose
-                First16Bits.Dispose();
+                if (false == Common.IDisposedExtensions.IsNullOrDisposed(First16Bits))
+                {
+                    //Dispose the instance
+                    First16Bits.Dispose();
 
-                //Remove the reference to the CommonHeaderBits instance
-                First16Bits = null;
+                    //Remove the reference to the CommonHeaderBits instance
+                    First16Bits = null;
+                }
 
-                //Invalidate the pointer
-                PointerToLast10Bytes.Dispose();
-                PointerToLast10Bytes = null;
+
+                if (false == Common.IDisposedExtensions.IsNullOrDisposed(SegmentToLast10Bytes))
+                {
+                    //Invalidate the pointer
+                    SegmentToLast10Bytes.Dispose();
+
+                    SegmentToLast10Bytes = null;
+                }
 
                 //Remove the reference to the allocated array.
                 Last10Bytes = null;

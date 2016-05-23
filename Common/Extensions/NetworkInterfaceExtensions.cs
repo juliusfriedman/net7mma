@@ -97,14 +97,30 @@ namespace Media.Common.Extensions.NetworkInterface
             return default(System.Net.NetworkInformation.NetworkInterface);
         }
 
-        public static System.Collections.Generic.IEnumerable<System.Net.NetworkInformation.NetworkInterface> GetNetworkInterface(System.Net.NetworkInformation.NetworkInterfaceType interfaceType)
+        /// <summary>
+        /// Gets the first <see cref="System.Net.NetworkInformation.NetworkInterface"/> by the given criteria.
+        /// </summary>
+        /// <param name="status">The status of the interface.</param>
+        /// <param name="interfaceTypes">The types of interfaces.</param>
+        /// <returns>If any, the interfaces which correspond to the given criteria.</returns>
+        public static System.Collections.Generic.IEnumerable<System.Net.NetworkInformation.NetworkInterface> GetNetworkInterface(System.Net.NetworkInformation.OperationalStatus status, params System.Net.NetworkInformation.NetworkInterfaceType[] interfaceTypes)
         {
-            if(interfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Unknown) yield break;
+            if(interfaceTypes == null) yield break;
 
             foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
             {
-                if (networkInterface.NetworkInterfaceType == interfaceType) yield return networkInterface;
+                if(0 >= System.Array.IndexOf(interfaceTypes, networkInterface.NetworkInterfaceType) && networkInterface.OperationalStatus.Equals(status)) yield return networkInterface;
             }
+        }
+
+        /// <summary>
+        /// Gets the first <see cref="System.Net.NetworkInformation.NetworkInterface"/> with the <see cref="System.Net.NetworkInformation.OperationalStatus"/> of <see cref="System.Net.NetworkInformation.OperationalStatus.Up"/>
+        /// </summary>
+        /// <param name="interfaceTypes">The <see cref="System.Net.NetworkInformation.NetworkInterfaceType"/>'s which correspond to the interfaces to enumerate.</param>
+        /// <returns>If any, the interfaces which correspond to the given criteria.</returns>
+        public static System.Collections.Generic.IEnumerable<System.Net.NetworkInformation.NetworkInterface> GetNetworkInterface(params System.Net.NetworkInformation.NetworkInterfaceType[] interfaceTypes)
+        {
+            return GetNetworkInterface(System.Net.NetworkInformation.OperationalStatus.Up, interfaceTypes);
         }
 
         public static System.Net.NetworkInformation.NetworkInterface GetNetworkInterface(System.Net.IPEndPoint localEndPoint)
@@ -124,9 +140,47 @@ namespace Media.Common.Extensions.NetworkInterface
         }
 
         /// <summary>
+        /// Converts the speed from Bits to Bytes per second.
+        /// </summary>
+        /// <param name="networkInterface"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static double GetSpeedInMBytesPerSecond(this System.Net.NetworkInformation.NetworkInterface networkInterface)
+        {
+            if (networkInterface == null) return 0;
+
+            long speed = networkInterface.Speed;
+
+            if (speed <= 0) return 0;
+
+            return  (networkInterface.Speed / Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond);
+        }
+
+        /// <summary>
         /// <see href="http://en.wikipedia.org/wiki/Interpacket_gap">Interpacket Gap</see>
         /// </summary>
+        /// <remarks>12 bytes</remarks>
         public const int MinimumInterframeGapBits = 96;
+
+        /// <summary>
+        /// Calculate the time in nanoseconds it takes to transmit 96 bits given a speed in bits per second.
+        /// </summary>
+        /// <param name="speedAsBitsPerSecond">A speed on a network interface in the terms bits per second.</param>
+        /// <returns>The amount of Nanoseconds which corresponds to the interframe gap.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static double CaulculateInterframeGapNanoseconds(long speedAsBitsPerSecond)
+        {
+            //Speed can be 0 or -1 if not connected.
+            if (speedAsBitsPerSecond <= 0) return 0;
+
+            //Convert the bits per second to bytes per second and divide by the MinimumInterframeGapBits
+            return (MinimumInterframeGapBits / (double)(speedAsBitsPerSecond / Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond));
+
+            //Faster but has small rounding error less than 1...
+            //System.Math.Ceiling(
+            //Resolves this rounding error, remember to round or use ceiling to compare the results.
+            //return (MinimumInterframeGapBits / (double)speedAsBitsPerSecond) * Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond;
+        }
 
         /// <summary>
         /// The time in nanoseconds it takes to transmit 96 bits of raw data on the medium
@@ -137,7 +191,7 @@ namespace Media.Common.Extensions.NetworkInterface
         {
             if(networkInterface == null) return 0;
 
-            return (MinimumInterframeGapBits / (networkInterface.Speed / Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond));
+            return CaulculateInterframeGapNanoseconds(networkInterface.Speed);
         }
 
         /// <summary>
@@ -145,9 +199,9 @@ namespace Media.Common.Extensions.NetworkInterface
         /// </summary>
         /// <param name="networkInterface"></param>
         /// <returns></returns>
-        public static long GetInterframeGapMicroseconds(this System.Net.NetworkInformation.NetworkInterface networkInterface)
-        {            
-            return (long)(GetInterframeGapNanoseconds(networkInterface) * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond);
+        public static double GetInterframeGapMicroseconds(this System.Net.NetworkInformation.NetworkInterface networkInterface)
+        {
+            return (GetInterframeGapNanoseconds(networkInterface) * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMicrosecond);
         }
 
         public static System.Net.IPAddress GetFirstMulticastIPAddress(System.Net.NetworkInformation.NetworkInterface networkInterface, System.Net.Sockets.AddressFamily addressFamily)
@@ -217,3 +271,122 @@ namespace Media.Common.Extensions.NetworkInterface
 }
 
 //UnitTests, Test for Speed 0, -> 100000 Mpbs, Test for Connected, Disconnected etc.
+
+
+namespace Media.UnitTests
+{
+    internal class NetworkInterfaceExtensionsTests
+    {
+        public void TestInterframeGap()
+        {
+            long speedInBitsPerSecond;
+
+            double gapNanos;
+
+            double gapMicros;
+
+            System.TimeSpan microTime;
+
+            //Todo, method with various types of interfaces
+            foreach (var nif in Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(System.Net.NetworkInformation.NetworkInterfaceType.Ethernet, System.Net.NetworkInformation.NetworkInterfaceType.Wireless80211))
+            {
+                //Speed changes for Wifi between calls but speed always shows 100000 would need interop to ask stack what the current speed or max speed is...
+                speedInBitsPerSecond = nif.Speed;
+
+                //Calulcate the gap in Nanoseconds
+                gapNanos = Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapNanoseconds(nif);
+
+                //Caulcate the same gap but in Microseconds
+                gapMicros = Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(nif);
+
+                //Calulcate a TimeSpan which represents the total Microseconds.
+                microTime = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.FromMicroseconds((double)gapMicros);
+
+                //Rounding ...
+                //if (Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(microTime) != gapMicros) throw new System.Exception("TotalMicroseconds");
+
+                //Verify that the conversion was correct
+                if ((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(microTime) != (int)gapMicros) throw new System.Exception("TotalMicroseconds");
+
+                //Calculate how much difference there is when converting from the microsecond term to the nano second term.
+                double diff = gapMicros * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMicrosecond  - Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalNanoseconds(microTime);
+
+                //If there was any difference 
+                if (diff > 0)
+                {
+                    //if that difference is greater than 1 nano second throw an exception
+                    if (diff > Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.MinimumInterframeGapBits) throw new System.Exception("TotalNanoseconds");
+                    else System.Console.WriteLine("μs to ns conversion Different By: " + diff);
+                }
+
+                //Write the information
+                System.Console.WriteLine(string.Format("Name: {0}, Type: {1}, \r\nSpeed Bits Per Second: {2}, \r\nGapMicros:{3} GapNanos{4}, MicroTime:{5}", nif.Name, nif.NetworkInterfaceType, speedInBitsPerSecond, gapMicros, gapNanos, microTime));
+
+                System.Console.WriteLine("Speed In MBytes Per Second: " + Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetSpeedInMBytesPerSecond(nif));
+
+                //Verify results
+                switch (speedInBitsPerSecond)
+                {
+                    //1Gpbs
+                    case 10000000000:
+                        {
+                            if (gapNanos != 9.6) throw new System.Exception("Invalid InterframeGap");
+                            break;
+                        }
+                    //1Gpbs
+                    case 1000000000:
+                        {
+                            if (gapNanos != 96) throw new System.Exception("Invalid InterframeGap");
+                            break;
+                        }
+                    //100 Mbps
+                    case 100000000:
+                        {
+                            if (gapNanos != 960) throw new System.Exception("Invalid InterframeGap");
+                            break;
+                        }
+                    //10 Mbps
+                    case 10000000:
+                        {
+                            if (gapNanos != 9600) throw new System.Exception("Invalid InterframeGap");
+                            break;
+                        }
+                    //1 Mbps
+                    case 1000000:
+                        {
+                            if (gapNanos != 96000) throw new System.Exception("Invalid InterframeGap");
+                            break;
+                        }
+                }
+            }
+
+            ////Todo, fix overflow for all speeds.
+            //for (int i = 1; i <= 1000000000; ++i)
+            //{
+            //    speedInBitsPerSecond = i * 100;
+
+            //    gapNanos = Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.CaulculateInterframeGapNanoseconds(speedInBitsPerSecond);
+
+            //    gapMicros = (long)(gapNanos * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMicrosecond);
+
+            //    microTime = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.FromMicroseconds((double)gapMicros);
+
+            //    if ((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(microTime) != (int)gapMicros) throw new System.Exception("TotalMicroseconds");
+
+            //    //Calculate how much difference there is when converting from the microsecond term to the nano second term.
+            //    double diff = gapMicros * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMicrosecond - Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalNanoseconds(microTime);
+
+            //    if (diff > 0)
+            //    {
+            //        //if that difference is greater than 1 nano second throw an exception
+            //        if (diff > Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerTick) throw new System.Exception("TotalNanoseconds");
+            //        else System.Console.WriteLine("μs to ns conversion Different By: " + diff);
+            //    }
+
+            //    System.Console.WriteLine(string.Format("Name{0}, Type: {1}, Speed: {2}, GapMicros:{3} GapNanos{4}, MicroTime:{5}", "N/A", "N/A", speedInBitsPerSecond, gapMicros, gapNanos, microTime));
+
+            //    System.Console.WriteLine("Speed In MBytes Per Second: " + speedInBitsPerSecond / Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond);
+            //}
+        }
+    }
+}

@@ -69,7 +69,8 @@ namespace Media.Sdp
             SpaceString = new string(Space, 1),
             WildcardString = new string(Asterisk, 1),
             LineFeedString = new string(LineFeed, 1), 
-            CarriageReturnString = new string(NewLine, 1), 
+            CarriageReturnString = new string(NewLine, 1),
+            ColonString = new string(Colon, 1), 
             NewLineString = CarriageReturnString + LineFeedString;
 
         internal static char[] SpaceSplit = new char[] { Space },
@@ -101,142 +102,99 @@ namespace Media.Sdp
 
             int offset = 0;
 
-            try
+            int length = value.Length;
+
+            //Parse Type
+            do
             {
-                //range: = 6 (may be present)
-                string[] parts = value.Split(Media.Sdp.SessionDescription.Colon, Media.Sdp.SessionDescription.HyphenSign, Media.Sdp.SessionDescription.EqualsSign);
+                //Find '='
+                offset = value.IndexOf(EqualsSign, offset);
 
-                int partsLength = parts.Length;
+                //Can't find type.
+                if (offset == -1) return false;
 
-                type = parts[offset++]; //npt, etc
+                //Set type from substring of value
+                type = value.Substring(0, offset);
 
-                if (type == "range") type = parts[offset++];
+                //if this was the range: specifier try again
+            } while (type.StartsWith(AttributeFields.Range, StringComparison.OrdinalIgnoreCase) && offset < length);
 
-                double seconds = 0;
+            //If thats all the data in the string return
+            if (++offset == length) return true;
 
-                switch (type)
-                {
-                    case "npt":
-                        {
-                            if (parts[offset].ToLowerInvariant() == "now") start = TimeSpan.Zero;
-                            else if (partsLength == 3)
-                            {
-                                if (parts[offset].Contains(':'))
-                                {
-                                    start = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                                }
-                                else
-                                {
-                                    start = TimeSpan.FromSeconds(double.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture));
-                                }
-                            }
-                            else if (partsLength == 4)
-                            {
-                                if (parts[offset].Contains(':'))
-                                {
-                                    start = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                                    end = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                                }
-                                else
-                                {
-                                    if (double.TryParse(parts[offset++].Trim(), out seconds)) start = TimeSpan.FromSeconds(seconds);
-                                    if (double.TryParse(parts[offset++].Trim(), out seconds)) end = TimeSpan.FromSeconds(seconds);
-                                    
-                                }
-                            }
-                            else throw new InvalidOperationException("Invalid Range Header: " + value);
+            //Find '-'
+            int hypenOffset = value.IndexOf(HyphenSign, offset);
 
-                            break;
-                        }
-                    case "clock":
-                        {
-                            //Check for live
-                            if (parts[offset].ToLowerInvariant() == "now") start = TimeSpan.Zero;
-                            //Check for start time only
-                            else if (partsLength == 3)
-                            {
-                                DateTime now = DateTime.UtcNow, startDate;
-                                ///Parse and determine the start time
-                                if (DateTime.TryParse(parts[offset++].Trim(), out startDate))
-                                {
-                                    //Time in the past
-                                    if (now > startDate) start = now - startDate;
-                                    //Future?
-                                    else start = startDate - now;
-                                }
-                                //Only start is live?
-                                //m_Live = true;
-                            }
-                            else if (partsLength == 4)
-                            {
-                                DateTime now = DateTime.UtcNow, startDate, endDate;
-                                ///Parse and determine the start time
-                                if (DateTime.TryParse(parts[offset++].Trim(), out startDate))
-                                {
-                                    //Time in the past
-                                    if (now > startDate) start = now - startDate;
-                                    //Future?
-                                    else start = startDate - now;
-                                }
+            //parse the times we find after this point
+            string startTimeString = string.Empty, endTimeString = string.Empty;
 
-                                ///Parse and determine the end time
-                                if (DateTime.TryParse(parts[offset++].Trim(), out endDate))
-                                {
-                                    //Time in the past
-                                    if (now > endDate) end = now - endDate;
-                                    //Future?
-                                    else end = startDate - now;
-                                }
-                            }
-                            else throw new InvalidOperationException("Invalid Range Header Received: " + value);
-                            
-                            break;
-                        }
-                    case "smpte":
-                        {
-                            //Get the times into the times array skipping the time from the server (order may be first so I explicitly did not use Substring overload with count)
-                            if (parts[offset].ToLowerInvariant() == "now") start = TimeSpan.Zero;
-                            else if (partsLength == 3)
-                            {
-                                start = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                            }
-                            else if (partsLength == 4)
-                            {
-                                start = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                                end = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                            }
-                            else throw new InvalidOperationException("Invalid Range Header Received: " + value);
-                            
-                            break;
-                        }
-                    default:
-                        {
-                            if (partsLength > 0)
-                            {
-                                if (parts[offset] != "now" && double.TryParse(parts[offset++], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out seconds))
-                                {
-                                    start = TimeSpan.FromSeconds(seconds);
-                                }
-                            }
-
-                            //If there is a start and end time
-                            if (partsLength > 1)
-                            {
-                                if (!string.IsNullOrWhiteSpace(parts[offset]) && double.TryParse(parts[offset++], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out seconds))
-                                {
-                                    end = TimeSpan.FromSeconds(seconds);
-                                }
-                            }
-
-                            break;
-                        }
-                }
-
-                return true;
+            //Start time only
+            if (hypenOffset == -1 || hypenOffset >= length - 1)
+            {
+                startTimeString = (hypenOffset == -1 ? value.Substring(offset) : value.Substring(offset, length - (offset + 1))).Trim();
             }
-            catch
+            else
             {
-                return false;
+                ++hypenOffset;
+
+                startTimeString = value.Substring(offset, length - (offset + (length - hypenOffset + 1))).Trim();
+
+                endTimeString = value.Substring(hypenOffset).Trim();
+            }
+
+            //Parse the string to the terms of the value
+            //Todo types should be specified in some constant grammar.
+            switch (type)
+            {
+                default:
+                case "smpte":
+                case "npt":
+                    {
+                        //maybe now
+                        if (false == string.IsNullOrWhiteSpace(startTimeString) && string.Compare(startTimeString, "now", StringComparison.OrdinalIgnoreCase) != 0) start = startTimeString.IndexOf(Colon) >= 0 ? TimeSpan.Parse(startTimeString, System.Globalization.CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(double.Parse(startTimeString));
+
+                        //If both strings were the same don't parse again.
+                        if (string.Compare(startTimeString, endTimeString) == 0) end = start;
+                        else if (false == string.IsNullOrWhiteSpace(endTimeString)) end = startTimeString.IndexOf(Colon) >= 0 ? TimeSpan.Parse(endTimeString, System.Globalization.CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(double.Parse(endTimeString));
+
+                        return true;
+                    }
+                case "clock":
+                    {
+                        //Check for the format... don't really like this because there is no telling how many digits are specified in the seconds or fractions in advance..
+                        //Breaking the string down is possible... but it sucks I can't specify optional arguments to the ParseExact, Maybe DateTime.ParseLike
+
+                        const string clockFormat = "yyyyMMdd\\THHmmsss.ff";
+
+                        DateTime now = DateTime.UtcNow, date;
+
+                        //Parse and determine the start time
+                        if (false == string.IsNullOrWhiteSpace(startTimeString) && DateTime.TryParseExact(startTimeString, clockFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date))
+                        {
+                            //Time in the past
+                            if (now > date) start = now - date;
+                            //Future?
+                            else start = date - now;
+
+                            //Ensure UTC
+                            date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+                        }
+
+                        //Parse and determine the end time
+                        if (string.Compare(startTimeString, endTimeString) == 0) end = start;
+                        else if (false == string.IsNullOrWhiteSpace(endTimeString) && DateTime.TryParseExact(startTimeString, clockFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date))
+                        {
+                            //Time in the past
+                            if (now > date) end = now - date;
+                            //Future?
+                            else end = date - now;
+
+                            //Ensure UTC
+                            date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+                        }
+
+                        return true;
+                    }
             }
         }
 

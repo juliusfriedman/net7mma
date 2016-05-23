@@ -63,8 +63,6 @@ namespace Media.Common
 
         public static string DefaultExceptionTypeMessage<t>() { return string.Format(TaggedException<t>.ExceptionFormat, typeof(T).FullName); }
 
-        /// <see cref="ExceptionExtensions.InException"/>
-        //public static bool InException { get { return Media.Common.Extensions.Exception.ExceptionExtensions.InException; } }
 
         #endregion
 

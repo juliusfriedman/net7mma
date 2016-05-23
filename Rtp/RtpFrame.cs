@@ -345,25 +345,8 @@ namespace Media.Rtp
         //Public means this can be disposed. virtual is not necessary
         public Common.SegmentStream Buffer
         {
-            //There may be multiple repeated calls to this property due to the way it was used previously.
-            //Ensure if already has a buffer to use the instance created or return a new one which is stored.
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return HasBuffer ? m_Buffer : m_Buffer = new Common.SegmentStream(Depacketized.Values); }
-            //get
-            //{
-            //    //If the buffer was not already prepared then Prepare it.
-            //    if (m_Buffer == null || false == m_Buffer.CanRead)
-            //    {
-            //        //Prepare the buffer
-            //        PrepareBuffer();
-            //    }
-
-            //    //Return it
-            //    return m_Buffer;
-            //}
-            //get
-            //{
-            //    return new System.IO.MemoryStream(m_Buffer.GetBuffer(), 0, (int)m_Buffer.Length, true, true);
-            //}
         }
 
         /// <summary>
@@ -647,6 +630,12 @@ namespace Media.Rtp
             
             m_Timestamp = f.m_Timestamp;
 
+            m_HighestSequenceNumber = f.m_HighestSequenceNumber;
+
+            m_LowestSequenceNumber = f.m_LowestSequenceNumber;
+
+            m_MarkerCount = f.m_MarkerCount;
+
             //If this is a shallow clone then just use the reference
             if (referencePackets) Packets = f.Packets; //Assign the list from the packets in te frame (changes to list reflected in both instances)
             else Packets = new List<RtpPacket>(f); //Create the list from the packets in the frame (changes to list not reflected in both instances)
@@ -670,7 +659,7 @@ namespace Media.Rtp
                 
                 //Can't create a new one because of the implications
                 m_Buffer = f.m_Buffer; 
-            }
+            }           
 
             /// See notes and determine if this is appropraite behavior
             //ShouldDispose = f.ShouldDispose;
@@ -747,7 +736,8 @@ namespace Media.Rtp
         /// <param name="allowPacketsAfterMarker">Indicates if the packet shouldbe allowed even if the packet's sequence number is greater than or equal to <see cref="HighestSequenceNumber"/> and <see cref="IsComplete"/> is true.</param>
         public void Add(RtpPacket packet, bool allowPacketsAfterMarker = true, bool allowDuplicates = false)
         {
-            if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+            //If the packet is disposed of this frame is then do not add.
+            if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || IsDisposed) return;
 
             int count = Count, ssrc = packet.SynchronizationSourceIdentifier, seq = packet.SequenceNumber, ts = packet.Timestamp, pt = packet.PayloadType;
 
@@ -845,6 +835,8 @@ namespace Media.Rtp
         /// </summary>
         public bool TryAdd(RtpPacket packet, bool allowPacketsAfterMarker = true, bool allowDuplicates = false)
         {
+            if (IsDisposed) return false;
+
             try { Add(packet, allowPacketsAfterMarker, allowDuplicates); return true; }
             catch { return false; }            
         }
@@ -970,12 +962,15 @@ namespace Media.Rtp
 
             int i = IndexOf(ref sequenceNumber);
 
+            //> Count
             if (i < 0) return null;
 
             //Get the packet
             RtpPacket p = Packets[i];
 
             //if (p.SequenceNumber != sequenceNumber) throw new Exception();
+
+            //Race
 
             //Remove it
             Packets.RemoveAt(i);
@@ -1081,7 +1076,10 @@ namespace Media.Rtp
         /// </summary>
         public void Clear()
         {
-            //Multiple threads adding packets would not effect count but removing definitely would...
+            //////Multiple threads adding packets would not effect count but removing definitely would...
+            ////Packets.Clear();
+
+            ////m_LowestSequenceNumber = m_HighestSequenceNumber = -1;
 
             //Iterate in reverse to make the remove as efficient as possible.
             for (int e = Packets.Count; --e >= 0; --e)
@@ -1106,17 +1104,17 @@ namespace Media.Rtp
                 Remove(ref m_LowestSequenceNumber);
             }
 
-            ////Different than most collections
-            //DisposeAllPackets();
+            ////////Different than most collections
+            //////DisposeAllPackets();
 
-            //Disposes the buffer also (but not really neede since Depacketize is handled with FreeDepacketizedMemory
-            //DisposeBuffer();
+            //////Disposes the buffer also (but not really neede since Depacketize is handled with FreeDepacketizedMemory
+            //////DisposeBuffer();
 
-            //Dispose all segments in Depacketized.
-            //FreeDepacketizedMemory();
+            //////Dispose all segments in Depacketized.
+            //////FreeDepacketizedMemory();
 
-            //Finally clears the collection and resets sequence numbers
-            //RemoveAllPackets(); 
+            //////Finally clears the collection and resets sequence numbers
+            //////RemoveAllPackets(); 
         }
 
         //(if packets are added or removed this logic is interrupted)
@@ -1380,18 +1378,20 @@ namespace Media.Rtp
 
         public override void Dispose()
         {
-            base.Dispose();
+            if (IsDisposed) return;
+
+            base.Dispose(ShouldDispose);
 
             if (ShouldDispose)
             {
                 //Remove packets and any memory
                 Clear();
 
-                //Free the depacketized memory incase packets were removed and we own the memory.
-                FreeDepacketizedMemory(true);
-
                 //Dispose the buffer.
                 DisposeBuffer();
+
+                //Free the depacketized memory incase packets were removed and we own the memory.
+                FreeDepacketizedMemory(true);
             }
         }
 

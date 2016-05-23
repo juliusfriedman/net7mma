@@ -108,8 +108,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RtspServer.cs" />
     <Compile Include="RtspServerConsoleLogger.cs" />
-    <Compile Include="RtspServerDebuggingLogger.cs" />
+    <Compile Include="RtspServerDebugLogger.cs" />
     <Compile Include="RtspServerLogger.cs" />
+    <Compile Include="RtspServerTraceLogger.cs" />
     <Compile Include="RtspStreamArchiver.cs" />
   </ItemGroup>
   <ItemGroup>

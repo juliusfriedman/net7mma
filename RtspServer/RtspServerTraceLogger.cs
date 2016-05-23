@@ -41,11 +41,11 @@ using System.Text;
 
 namespace Media.Rtsp.Server
 {
-    public class RtspServerDebuggingLogger : RtspServerLogger
+    public class RtspServerTraceLogger : RtspServerLogger
     {
         public string Format = "{0} {1} {2} {3} {4}\r\n";
 
-        readonly Common.ILogging Logger = new Common.Loggers.DebuggingLogger();
+        readonly Common.ILogging Logger = new Common.Loggers.TraceLogger();
 
         internal override void LogRequest(RtspMessage request, ClientSession session)
         {

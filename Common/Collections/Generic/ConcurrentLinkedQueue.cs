@@ -41,7 +41,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 using Media.Common.Extensions.Generic.Dictionary;
 using System;
 using System.Collections.Generic;
-using System.Linq;//ILookup
+using System.Linq;
 
 #endregion
 
@@ -180,7 +180,7 @@ namespace Media.Common.Collections.Generic
         public long Count
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return System.Threading.Interlocked.Read(ref m_Count); }
+            get { return System.Threading.Thread.VolatileRead(ref m_Count); }
         }
         
         /// <summary>
@@ -220,8 +220,8 @@ namespace Media.Common.Collections.Generic
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool TryDequeue(out T t)
         {
-            //Compare
-            if (Object.ReferenceEquals(First, Node.Null))
+            //Compare and Decrement
+            if (Count <= 0 || Object.ReferenceEquals(First, Node.Null))
             {
                 //Store
                 t = default(T);
@@ -236,7 +236,7 @@ namespace Media.Common.Collections.Generic
             //Exchange
             System.Threading.Interlocked.Exchange<Node>(ref First, First.Next);
 
-            //Extra compare costs time, same with extra store.
+            //Decrement count
             System.Threading.Interlocked.Decrement(ref m_Count);
 
             //Return
@@ -322,14 +322,12 @@ namespace Media.UnitTests
 {
     internal class ConcurrentLinkedQueueTests
     {
-        Media.Common.Collections.Generic.ConcurrentLinkedQueue<int> LinkedQueue;
+        readonly Media.Common.Collections.Generic.ConcurrentLinkedQueue<int> LinkedQueue = new Common.Collections.Generic.ConcurrentLinkedQueue<int>();
 
         int LastInputOutput = 0;
 
         public void TestsEnqueue()
         {
-            LinkedQueue = new Common.Collections.Generic.ConcurrentLinkedQueue<int>();
-
             if (LinkedQueue.IsEmpty != true) throw new System.Exception("IsEmpty Not True");
 
             if (LinkedQueue.Count != 0) throw new System.Exception("Count Not 0");
@@ -389,6 +387,16 @@ namespace Media.UnitTests
             if (LastInputOutput != 1) throw new System.Exception("LastInputOutput Not 1");
 
             if (LinkedQueue.TryDequeue(out LastInputOutput)) throw new System.Exception("TryDequeue Not False");
+
+            if (false == LinkedQueue.TryEnqueue(ref LastInputOutput)) throw new System.Exception("TryEnqueue Not True");
+
+            if (LinkedQueue.Count != 1) throw new System.Exception("LinkedQueue Count Not 1");
+
+            if (false == LinkedQueue.TryDequeue(out LastInputOutput)) throw new System.Exception("TryDequeue Not True");
+
+            if (false == LinkedQueue.IsEmpty) throw new System.Exception("LinkedQueue Not IsEmpty");
+
+            if (LinkedQueue.Count != 0) throw new System.Exception("LinkedQueue Count Not 0");
         }
 
         public void TestsThreading()

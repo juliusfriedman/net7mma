@@ -436,8 +436,8 @@ namespace Media.Sdp
             //If there is a control line in the SDP it contains the URI used to setup and control the media
             if (controlLine != null)
             {  
-                                                                //Was using Contains...
-                string controlPart = controlLine.Parts.Where(p => p.StartsWith(AttributeFields.Control)).FirstOrDefault();
+                //Todo, make typed line for controlLine
+                string controlPart = controlLine.Parts.Last(); //controlLine.Parts.Where(p => p.StartsWith(AttributeFields.Control)).FirstOrDefault();
 
                 //If there is a controlPart in the controlLine
                 if (false == string.IsNullOrWhiteSpace(controlPart))

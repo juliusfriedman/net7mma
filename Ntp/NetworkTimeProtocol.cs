@@ -167,7 +167,7 @@ namespace Media.UnitTests
 
             System.Console.WriteLine("DateTimeToNptTimestamp(fromTimeStamp) = " + Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(fromTimeStamp));
 
-            var diff = (fromTimeStamp - now);
+            var diff = (fromTimeStamp - now).Duration();
 
             System.Console.WriteLine("Different by " + diff.TotalMilliseconds + " Milliseconds");
 

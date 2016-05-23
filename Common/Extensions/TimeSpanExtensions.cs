@@ -53,7 +53,12 @@ namespace Media.Common.Extensions.TimeSpan
         /// <summary>  
         /// The number of ticks per Nanosecond.  
         /// </summary>  
-        public const int NanosecondsPerTick = 100;  
+        public const int NanosecondsPerTick = 100;
+
+        /// <summary>
+        /// The number of ticks per Microsecond.
+        /// </summary>
+        public const long TicksPerMicrosecond = 10;
 
         //const long would be a suitable replacement, then would use the .Ticks property of the instance.
         //public const long InfiniteTicks = -1;
@@ -95,6 +100,7 @@ namespace Media.Common.Extensions.TimeSpan
         /// </summary>
         /// <param name="ts"></param>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static double TotalMicroseconds(this System.TimeSpan ts) { return ts.TotalMilliseconds * MicrosecondsPerMillisecond; }
 
         /// <summary>
@@ -102,7 +108,14 @@ namespace Media.Common.Extensions.TimeSpan
         /// </summary>
         /// <param name="ts"></param>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static double TotalNanoseconds(this System.TimeSpan ts) { return ts.TotalMilliseconds * NanosecondsPerMillisecond; }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static System.TimeSpan FromMicroseconds(double microSeconds) { return System.TimeSpan.FromTicks((long)(microSeconds * OneMicrosecond.Ticks)); }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static System.TimeSpan FromNanoseconds(double nanoSeconds) { return System.TimeSpan.FromTicks((long)(nanoSeconds / NanosecondsPerTick)); }
 
         ////
         //// Structure used in select() call, taken from the BSD file sys/time.h.
@@ -130,5 +143,33 @@ namespace Media.Common.Extensions.TimeSpan
         //    timeValue.Value = microSeconds;
         //}
 
+    }
+}
+
+
+namespace Media.UnitTests
+{
+    internal class TimeSpanExtensionsTests
+    {
+        public void TestFromMethods()
+        {
+            if (Common.Extensions.TimeSpan.TimeSpanExtensions.FromNanoseconds(0).Ticks != System.TimeSpan.Zero.Ticks) throw new System.Exception("FromNanoseconds");
+
+            if (Common.Extensions.TimeSpan.TimeSpanExtensions.FromNanoseconds(10).Ticks != System.TimeSpan.Zero.Ticks) throw new System.Exception("FromNanoseconds");
+
+            if (Common.Extensions.TimeSpan.TimeSpanExtensions.FromNanoseconds(99).Ticks != System.TimeSpan.Zero.Ticks) throw new System.Exception("FromNanoseconds");
+
+            if (Common.Extensions.TimeSpan.TimeSpanExtensions.FromNanoseconds(100).Ticks != Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick.Ticks) throw new System.Exception("FromNanoseconds");
+
+            if (Common.Extensions.TimeSpan.TimeSpanExtensions.FromNanoseconds(200).Ticks != 2) throw new System.Exception("FromNanoseconds");
+
+            if (Common.Extensions.TimeSpan.TimeSpanExtensions.FromMicroseconds(1).Ticks != Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond.Ticks) throw new System.Exception("FromMicroseconds");
+
+            if (Common.Extensions.TimeSpan.TimeSpanExtensions.FromMicroseconds(0.1) != Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick) throw new System.Exception("FromMicroseconds");
+
+            if (Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalNanoseconds(Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond) != Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMicrosecond) throw new System.Exception("TotalNanoseconds");
+
+            if (Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond) != 1) throw new System.Exception("TotalMicroseconds");
+        }
     }
 }

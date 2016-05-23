@@ -196,6 +196,8 @@ namespace Media.Concepts.Classes.Threading
         /// <param name="thread"></param>
         public void SetRunning(System.Threading.Thread thread) { SetRunning(thread, (System.Threading.ThreadPriority)RunningPriority); }
 
+        //Interrupts
+
         #endregion
     }
 

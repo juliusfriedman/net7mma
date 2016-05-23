@@ -416,7 +416,7 @@ namespace Media.Rtsp.Server.MediaTypes
                    end = packet.Length - padding;
 
                 //Must have at least 2 bytes (When nalUnitType is a FragmentUnit.. 3)
-                if (count <= 2) return;
+                if (count <= 2 || offset > packet.Payload.Count) return;
 
                 //Obtain the data of the packet with respect to extensions and csrcs present.
                 byte[] packetData = packet.Payload.Array;
@@ -528,8 +528,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                                 //Add the depacketized data and increase the index.
 
+                                                //Ensure the size is within the count.
                                                 //When tmp_nal_size is 0 packetData which is referenced by this segment which will have a 0 count.
-                                                Depacketized.Add(packetKey++, new Common.MemorySegment(packetData, offset, tmp_nal_size));
+                                                Depacketized.Add(packetKey++, new Common.MemorySegment(packetData, offset, Common.Binary.Min(tmp_nal_size, count - offset)));
 
                                                 //Move the offset past the nal
                                                 offset += tmp_nal_size;

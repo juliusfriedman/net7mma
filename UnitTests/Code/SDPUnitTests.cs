@@ -354,8 +354,126 @@ r=7d 1h 0 25h";
 
     public void TestMediaDescriptionType()
     {
-        ///
-    }    
+        ///Todo, seperate tests.
+    }
+
+    public void TestRangeParsing()
+    {
+        //https://www.ietf.org/mail-archive/web/mmusic/current/msg01854.html
+        //This attribute is defined in ABNF [14] as:
+        //a-range-def = "a" "=" "range" ":" ranges-specifier CRLF 
+        //a=range:ranges-specifierCRLF
+
+        //https://www.ietf.org/rfc/rfc2326.txt @  Page 16
+
+        /* SMPTE Relative Timestamps
+           smpte-range  =   smpte-type "=" smpte-time "-" [ smpte-time ]
+           smpte-type   =   "smpte" | "smpte-30-drop" | "smpte-25"; other timecodes may be added
+           smpte-time   =   1*2DIGIT ":" 1*2DIGIT ":" 1*2DIGIT [ ":" 1*2DIGIT ] [ "." 1*2DIGIT ]
+        
+         Examples:
+             smpte=10:12:33:20-
+             smpte=10:07:33-
+             smpte=10:07:00-10:07:33:05.01
+             smpte-25=10:07:00-10:07:33:05.01
+         */
+
+        //should be Tuple<string, TimeSpan> with the expected values for start and end.
+
+        Tuple<string, TimeSpan, TimeSpan>[] testVectors = new[] 
+        { 
+            new Tuple<string, TimeSpan, TimeSpan>("smpte=10:12:33:20-", TimeSpan.Parse("10:12:33:20"), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>("smpte=10:07:33-", TimeSpan.Parse("10:07:33"), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>("smpte=10:07:00-10:07:33:05.01", TimeSpan.Parse("10:07:00"), TimeSpan.Parse("10:07:33:05.01")),
+            new Tuple<string, TimeSpan, TimeSpan>("smpte-25=10:07:00-10:07:33:05.01", TimeSpan.Parse("10:07:00"), TimeSpan.Parse("10:07:33:05.01")),
+        };
+
+        foreach (var test in testVectors)
+        {
+            string type;
+
+            System.TimeSpan start, end;
+
+            if (false == Media.Sdp.SessionDescription.TryParseRange(test.Item1, out type, out start, out end)) throw new System.Exception("TryParseRange");
+
+            if (false == type.StartsWith("smpte", StringComparison.OrdinalIgnoreCase)) throw new System.Exception("TryParseRange -> Type");
+
+            if (start != test.Item2) throw new System.Exception("TryParseRange -> Start");
+
+            if (end != test.Item3) throw new System.Exception("TryParseRange -> End");
+        }
+
+        /* Normal Play Time
+        npt-range    =   ( npt-time "-" [ npt-time ] ) | ( "-" npt-time )
+        npt-time     =   "now" | npt-sec | npt-hhmmss
+        npt-sec      =   1*DIGIT [ "." *DIGIT ]
+        npt-hhmmss   =   npt-hh ":" npt-mm ":" npt-ss [ "." *DIGIT ]
+        npt-hh       =   1*DIGIT     ; any positive number
+        npt-mm       =   1*2DIGIT    ; 0-59
+        npt-ss       =   1*2DIGIT    ; 0-59
+
+        Examples:
+            npt=123.45-125
+            npt=12:05:35.3-
+            npt=now-
+         
+         */
+
+        testVectors = new[] 
+        { 
+            new Tuple<string, TimeSpan, TimeSpan>("npt=123.45-125", TimeSpan.FromSeconds(123.45), TimeSpan.FromSeconds(125)),
+            new Tuple<string, TimeSpan, TimeSpan>("npt=12:05:35.3-", TimeSpan.Parse("12:05:35.3"), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>("npt=now-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>("npt=now- now", TimeSpan.Zero, TimeSpan.Zero),
+            new Tuple<string, TimeSpan, TimeSpan>("npt= 0 - 1", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneSecond),
+        };
+
+        foreach (var test in testVectors)
+        {
+            string type;
+
+            System.TimeSpan start, end;
+
+            if (false == Media.Sdp.SessionDescription.TryParseRange(test.Item1, out type, out start, out end)) throw new System.Exception("TryParseRange");
+
+            if (type != "npt") throw new System.Exception("TryParseRange -> Type");
+
+            if (start != test.Item2) throw new System.Exception("TryParseRange -> Start");
+
+            if (end != test.Item3) throw new System.Exception("TryParseRange -> End");
+        }
+
+        /* Absolute Time
+         utc-range    =   "clock" "=" utc-time "-" [ utc-time ]
+         utc-time     =   utc-date "T" utc-time "Z"
+         utc-date     =   8DIGIT                    ; < YYYYMMDD >
+         utc-time     =   6DIGIT [ "." fraction ]   ; < HHMMSS.fraction >
+
+        Example for November 8, 1996 at 14h37 and 20 and a quarter seconds UTC:
+
+        19961108T143720.25Z
+         */
+
+        testVectors = new[] 
+        { 
+            new Tuple<string, TimeSpan, TimeSpan>("clock=19961108T143720.25", DateTime.UtcNow - DateTime.SpecifyKind(new DateTime(1996, 11, 8, 14, 37, 20, 250), DateTimeKind.Utc), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+        };
+
+        foreach (var test in testVectors)
+        {
+            string type;
+
+            System.TimeSpan start, end;
+
+            if (false == Media.Sdp.SessionDescription.TryParseRange(test.Item1, out type, out start, out end)) throw new System.Exception("TryParseRange");
+
+            if (type != "clock") throw new System.Exception("TryParseRange -> Type");
+
+            if (start != test.Item2) throw new System.Exception("TryParseRange -> Start");
+
+            if (end != test.Item3) throw new System.Exception("TryParseRange -> End");
+        }
+    }
 
     ///// <summary>
     ///// Test the constructor

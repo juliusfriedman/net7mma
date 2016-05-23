@@ -40,90 +40,6 @@ namespace Media.Common.Extensions.Socket
 {
     public static class SocketExtensions
     {
-
-        //Virtual machine implementations may experience a weird receive timeout bug which closes the connection when SendTimeout = ReceiveTimeout > 0
-        //static SocketExtensions()
-        //{
-        //    //Make a socket for the sender to receive connections on
-        //    var sendersSocket = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
-
-        //    var testEp = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 7); //Loopback doesn't seem to have the problem as much as other adapters.
-
-        //    var testData = new byte[] { 0 };
-
-        //    System.Net.Sockets.SocketError error;
-
-        //    //Bind and listen
-        //    sendersSocket.Bind(testEp);
-
-        //    sendersSocket.Listen(1);
-
-        //    bool done = false;
-
-        //    //Start to accept connections
-        //    var acceptResult = sendersSocket.BeginAccept(new System.AsyncCallback(iar =>
-        //    {
-        //        //Get the socket used
-        //        var acceptedSocket = sendersSocket.EndAccept(iar);
-
-        //        if (acceptedSocket.ReceiveTimeout == 0)
-        //        {
-        //            //Set the values to 1 ms
-        //            acceptedSocket.SendTimeout = acceptedSocket.ReceiveTimeout = 1;
-
-        //            //Send dat which should succeeed to be sent.
-        //            acceptedSocket.Send(testData, 0, 1, System.Net.Sockets.SocketFlags.None, out error);
-
-        //            //Something else happened
-        //            if (error != System.Net.Sockets.SocketError.Success) return;
-
-        //            //Receive that data
-        //            acceptedSocket.Receive(testData, 0, 1, System.Net.Sockets.SocketFlags.None, out error);
-
-        //            if (error != System.Net.Sockets.SocketError.Success)
-        //            {
-        //                //Timed out
-
-        //                acceptedSocket.Send(testData, 0, 1, System.Net.Sockets.SocketFlags.None, out error);
-
-        //                if (error != System.Net.Sockets.SocketError.Success && false == acceptedSocket.Connected) throw new System.Exception("Hal Bug");
-
-        //                acceptedSocket.Receive(testData, 0, 1, System.Net.Sockets.SocketFlags.None, out error);
-
-        //                if (error != System.Net.Sockets.SocketError.Success && false == acceptedSocket.Connected) throw new System.Exception("Hal Bug");
-
-        //                acceptedSocket.Receive(testData, 0, 1, System.Net.Sockets.SocketFlags.None, out error);
-
-        //                if (error != System.Net.Sockets.SocketError.Success && false == acceptedSocket.Connected) throw new System.Exception("Hal Bug");
-
-        //            }
-
-        //            done = true;
-        //        }
-
-        //    }), null);
-
-        //    //Make a socket for the receiver to connect to the sender on.
-        //    var rr = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
-
-        //    //Connect to the sender
-        //    rr.Connect(testEp);
-
-        //    //acceptedSocket is now rr
-
-        //    while (false == done)
-        //    {
-        //        System.Threading.Thread.Sleep(1);
-        //        //Wait for the connection
-        //    }
-
-        //    rr.Dispose();
-
-        //    sendersSocket.Dispose();
-
-        //}
-
-
         //public static bool IsFatal(System.Net.Sockets.SocketError error)
         //{
         //    switch (error)
@@ -134,6 +50,27 @@ namespace Media.Common.Extensions.Socket
         //        default: return false;
         //    }
         //}
+
+        public static bool CanWrite(this System.Net.Sockets.Socket socket, int microSeconds = 0)
+        {
+            return Poll(socket, System.Net.Sockets.SelectMode.SelectWrite, microSeconds);
+        }
+
+        public static bool CanRead(this System.Net.Sockets.Socket socket, int microSeconds = 0)
+        {
+            return Poll(socket, System.Net.Sockets.SelectMode.SelectRead, microSeconds);
+        }
+
+        public static bool HasError(this System.Net.Sockets.Socket socket, int microSeconds = 0)
+        {
+            return Poll(socket, System.Net.Sockets.SelectMode.SelectError, microSeconds);
+        }
+        
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool Poll(this System.Net.Sockets.Socket socket, System.Net.Sockets.SelectMode mode, int microSeconds)
+        {
+            return socket.Poll(microSeconds, mode);
+        }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public static System.Net.Sockets.Socket ReservePort(System.Net.Sockets.SocketType socketType, System.Net.Sockets.ProtocolType protocol, System.Net.IPAddress localIp, int port)

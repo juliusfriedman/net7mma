@@ -114,8 +114,10 @@ namespace Media.Rtcp
         /// </summary>
         internal byte[] Last6Bytes;
 
-        //Better name, the pointer is like + IntPtr.Size * 2 from there into the Rtti
-        internal Common.MemorySegment PointerToLast6Bytes;
+        /// <summary>
+        /// The segment which references the <see cref="Last6Bytes"/>
+        /// </summary>
+        internal Common.MemorySegment SegmentToLast6Bytes;
 
         #endregion
 
@@ -224,7 +226,7 @@ namespace Media.Rtcp
                 /*CheckDisposed();*/
 
                 //Read the value
-                return Binary.ReadU16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, false == Common.Binary.IsBigEndian);
+                return Binary.ReadU16(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset, false == Common.Binary.IsBigEndian);
             }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
@@ -236,7 +238,7 @@ namespace Media.Rtcp
                 //Write the value
                 if (value > RtcpHeader.MinimumLengthInWords) Binary.CreateOverflowException("LengthInWordsMinusOne", value, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
 
-                Binary.Write16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, false == Common.Binary.IsBigEndian, (ushort)value);
+                Binary.Write16(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset, false == Common.Binary.IsBigEndian, (ushort)value);
             }
         }
 
@@ -244,7 +246,7 @@ namespace Media.Rtcp
         /// <summary>
         /// The ID of the participant who sent this SendersInformation if <see cref="LengthInWordsMinusOne"/> is not <see cref="ushort.MaxValue"/> and at least 6 bytes are contained in the header.
         /// </summary>
-        /// <notes><see cref="PointerToLast6Bytes"/>.Count MUST be >= 6 for a SSRC to occur in the header.</notes>
+        /// <notes><see cref="SegmentToLast6Bytes"/>.Count MUST be >= 6 for a SSRC to occur in the header.</notes>
         public int SendersSynchronizationSourceIdentifier
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -259,7 +261,7 @@ namespace Media.Rtcp
                     //case RtcpHeader.MinimumLengthInWords:
                     case RtcpHeader.MaximumLengthInWords: // -
                         return 0;
-                    default: return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian);
+                    default: return (int)Binary.ReadU32(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian);
                 }
 
                //return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian);
@@ -271,7 +273,7 @@ namespace Media.Rtcp
             { 
                 /*CheckDisposed();*/
 
-                Binary.Write32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian, (uint)value);
+                Binary.Write32(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset + 2, false == Common.Binary.IsBigEndian, (uint)value);
 
                 //If there was no words in the packet (other than the header itself) than indicate another word is present.
                 //switch (LengthInWordsMinusOne)
@@ -315,8 +317,11 @@ namespace Media.Rtcp
         /// Reads an instance of the RtcpHeader class and copies octets which make up the RtcpHeader.
         /// </summary>
         /// <param name="octets">A reference to a byte array which contains at least 4 octets to copy.</param>
+        /// <param name="offset">the offset in <paramref name="octets"/> to start</param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpHeader(byte[] octets, int offset = 0)
+        public RtcpHeader(byte[] octets, int offset = 0, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             //If the octets reference is null throw an exception
             if (octets == null) throw new ArgumentNullException("octets");
@@ -345,16 +350,18 @@ namespace Media.Rtcp
             Array.Copy(octets, offset + RFC3550.CommonHeaderBits.Size, Last6Bytes, 0, Binary.Min(6, availableOctets - RFC3550.CommonHeaderBits.Size));
 
             //Make a pointer to the last 6 bytes
-            PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
+            SegmentToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
         }
 
         /// <summary>
         /// Creates an exact copy of the RtpHeader from the given RtpHeader
         /// </summary>
-        /// <param name="other">The RtpHeader to copy</param>
+        /// <param name="other">The RtcpHeader to copy</param>
         /// <param name="reference">A value indicating if the RtpHeader given should be referenced or copied.</param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpHeader(RtcpHeader other, bool reference)
+        public RtcpHeader(RtcpHeader other, bool reference, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             if (reference)
             {
@@ -362,7 +369,7 @@ namespace Media.Rtcp
                 
                 Last6Bytes = other.Last6Bytes;
                 
-                PointerToLast6Bytes = other.PointerToLast6Bytes;
+                SegmentToLast6Bytes = other.SegmentToLast6Bytes;
             }
             else
             {
@@ -370,7 +377,7 @@ namespace Media.Rtcp
                 
                 Last6Bytes = new byte[6];
                 
-                PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
+                SegmentToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
 
                 if (other.Last6Bytes != null)
                 {
@@ -378,44 +385,78 @@ namespace Media.Rtcp
                 }
                 else
                 {
-                    System.Array.Copy(other.PointerToLast6Bytes.Array, other.PointerToLast6Bytes.Offset, Last6Bytes, 0, 6);
+                    System.Array.Copy(other.SegmentToLast6Bytes.Array, other.SegmentToLast6Bytes.Offset, Last6Bytes, 0, 6);
                 }
             }
         }
 
+        /// <summary>
+        /// Creates an exact copy of the RtcpHeader from the given memory
+        /// </summary>
+        /// <param name="memory">The memory</param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpHeader(Common.MemorySegment memory)//, int additionalOffset = 0) 
+        public RtcpHeader(Common.MemorySegment memory, bool shouldDispose = true)//, int additionalOffset = 0) 
+            : base(shouldDispose)
         {
             First16Bits = new Media.RFC3550.CommonHeaderBits(memory);//, additionalOffset);
 
-            PointerToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + RFC3550.CommonHeaderBits.Size, Binary.Clamp(memory.Count - RFC3550.CommonHeaderBits.Size, 0, 6));
+            SegmentToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + RFC3550.CommonHeaderBits.Size, Binary.Clamp(memory.Count - RFC3550.CommonHeaderBits.Size, 0, 6));
         }
 
         //Todo overloads when CommonHeaderBits exist...
 
+        /// <summary>
+        /// Creates an instance and places the given values into their respective offsets.
+        /// </summary>
+        /// <param name="version"></param>
+        /// <param name="payloadType"></param>
+        /// <param name="padding"></param>
+        /// <param name="blockCount"></param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpHeader(int version, int payloadType, bool padding, int blockCount)
+        public RtcpHeader(int version, int payloadType, bool padding, int blockCount, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             First16Bits = new Media.RFC3550.CommonHeaderBits(version, padding, false, false, payloadType, (byte)blockCount);
             
             Last6Bytes = new byte[6];
             
-            PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
+            SegmentToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
             
             //The default value must be set into the LengthInWords field otherwise it will reflect 0
             if(blockCount == 0) LengthInWordsMinusOne = RtcpHeader.MaximumLengthInWords; // ushort (0 - 1)
         }
 
+        /// <summary>
+        /// Creates an instance and places the given values into their respective offsets.
+        /// </summary>
+        /// <param name="version"></param>
+        /// <param name="payloadType"></param>
+        /// <param name="padding"></param>
+        /// <param name="blockCount"></param>
+        /// <param name="ssrc"></param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc)
-            : this(version, payloadType, padding, blockCount)
+        public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc, bool shouldDispose = true)
+            : this(version, payloadType, padding, blockCount, shouldDispose)
         {
             SendersSynchronizationSourceIdentifier = ssrc;
         }
 
+        /// <summary>
+        /// Creates an instance and places the given values into their respective offsets.
+        /// </summary>
+        /// <param name="version"></param>
+        /// <param name="payloadType"></param>
+        /// <param name="padding"></param>
+        /// <param name="blockCount"></param>
+        /// <param name="ssrc"></param>
+        /// <param name="lengthInWordsMinusOne"></param>
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc, int lengthInWordsMinusOne)
-            : this(version, payloadType, padding, blockCount, ssrc)
+        public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc, int lengthInWordsMinusOne, bool shouldDispose = true)
+            : this(version, payloadType, padding, blockCount, ssrc, shouldDispose)
         {
             LengthInWordsMinusOne = lengthInWordsMinusOne;
         }
@@ -432,13 +473,13 @@ namespace Media.Rtcp
 
             First16Bits.m_Memory.Update(ref source);
 
-            PointerToLast6Bytes.Update(ref source);
+            SegmentToLast6Bytes.Update(ref source);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool IsContiguous()
         {
-            return First16Bits.m_Memory.Array == PointerToLast6Bytes.Array && First16Bits.m_Memory.Offset + First16Bits.m_Memory.Count == PointerToLast6Bytes.Offset;
+            return First16Bits.m_Memory.Array == SegmentToLast6Bytes.Array && First16Bits.m_Memory.Offset + First16Bits.m_Memory.Count == SegmentToLast6Bytes.Offset;
         }
 
         public int CopyTo(byte[] dest, int offset)
@@ -449,9 +490,9 @@ namespace Media.Rtcp
 
             offset += copied;
 
-            Common.MemorySegmentExtensions.CopyTo(PointerToLast6Bytes, dest, offset);
+            Common.MemorySegmentExtensions.CopyTo(SegmentToLast6Bytes, dest, offset);
 
-            copied += PointerToLast6Bytes.Count;
+            copied += SegmentToLast6Bytes.Count;
 
             return copied;
         }
@@ -459,7 +500,7 @@ namespace Media.Rtcp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal MemorySegment GetSendersSynchronizationSourceIdentifierSegment()
         {
-            return new Common.MemorySegment(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + RFC3550.CommonHeaderBits.Size, Common.Binary.Max(0, PointerToLast6Bytes.Count - RFC3550.CommonHeaderBits.Size));
+            return new Common.MemorySegment(SegmentToLast6Bytes.Array, SegmentToLast6Bytes.Offset + RFC3550.CommonHeaderBits.Size, Common.Binary.Max(0, SegmentToLast6Bytes.Count - RFC3550.CommonHeaderBits.Size));
         }
 
         /// <summary>
@@ -473,7 +514,7 @@ namespace Media.Rtcp
                 //case RtcpHeader.MinimumLengthInWords: // 0, => 65535
                 case RtcpHeader.MaximumLengthInWords: // 65535 => 0
                     return Common.MemorySegment.EmptyBytes;
-                default: return PointerToLast6Bytes.Skip(RFC3550.CommonHeaderBits.Size);
+                default: return SegmentToLast6Bytes.Skip(RFC3550.CommonHeaderBits.Size);
             }
         }
 
@@ -492,9 +533,9 @@ namespace Media.Rtcp
                     //Value 0 means there is 65535 words.... this should return any values present... (as default does)
                 case RtcpHeader.MinimumLengthInWords:
                 case RtcpHeader.MaximumLengthInWords:
-                    return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes.Take(RFC3550.CommonHeaderBits.Size));
+                    return Enumerable.Concat<byte>(First16Bits, SegmentToLast6Bytes.Take(RFC3550.CommonHeaderBits.Size));
                 default:
-                     return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes);
+                     return Enumerable.Concat<byte>(First16Bits, SegmentToLast6Bytes);
             }
         }
 
@@ -512,23 +553,30 @@ namespace Media.Rtcp
 
         #region Overrides
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
+            if (disposing && false == ShouldDispose) return;
 
-            base.Dispose();
+            base.Dispose(ShouldDispose);
 
             if (ShouldDispose)
             {
-                //Dispose the instance
-                First16Bits.Dispose();
+                if (false == Common.IDisposedExtensions.IsNullOrDisposed(First16Bits))
+                {
+                    //Dispose the instance
+                    First16Bits.Dispose();
 
-                //Remove the reference to the CommonHeaderBits instance
-                First16Bits = null;
+                    //Remove the reference to the CommonHeaderBits instance
+                    First16Bits = null;
+                }
 
-                //Invalidate the pointer
-                PointerToLast6Bytes.Dispose();
+                if (false == Common.IDisposedExtensions.IsNullOrDisposed(SegmentToLast6Bytes))
+                {
+                    //Invalidate the pointer
+                    SegmentToLast6Bytes.Dispose();
 
-                PointerToLast6Bytes = null;
+                    SegmentToLast6Bytes = null;
+                }
 
                 //Remove the reference to the allocated array.
                 Last6Bytes = null;

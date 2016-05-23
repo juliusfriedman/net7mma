@@ -140,7 +140,8 @@ namespace Media.Common
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public MemorySegment(long size, bool shouldDispose = true)
+        public MemorySegment(long size, bool shouldDispose = true) 
+            : base(shouldDispose)
         {
             if (size < 0) throw new ArgumentException("size");
 
@@ -156,9 +157,22 @@ namespace Media.Common
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public MemorySegment(MemorySegment other)
+        public MemorySegment(MemorySegment other, bool force = false, bool shouldDispose = true)
+            : base(shouldDispose)
         {
-            IsDisposed = other.IsDisposed;
+            //If the finalizer has ran then do not allow reference again.
+            if (false == force && other.IsFinalized || other.IsDisposed)
+            {
+                IsDisposed = true;
+
+                m_Array = EmptyBytes;
+
+                m_Length = m_Offset = 0;
+
+                return;
+            }
+
+            //IsDisposed = other.IsDisposed;
 
             //Allow for the segment to resurrect via SetShouldDispose...
 
@@ -167,8 +181,6 @@ namespace Media.Common
             m_Offset = other.m_Offset;
 
             m_Length = other.m_Length;
-
-            if (IsDisposed) return;
 
             //ByteOrder = other.ByteOrder;
         }
@@ -181,24 +193,25 @@ namespace Media.Common
 
             m_Array = System.Linq.Enumerable.Empty<byte>().ToArray();
 
-            m_Offset = 0;
-
-            m_Length = 0;
+            m_Offset = m_Length = 0;
         }
 
-        //public override void Dispose()
-        //{
-        //    base.Dispose();
+        //In the same assembly must use internal
+        internal protected override void Dispose(bool disposing)
+        {
+            if (disposing && false == ShouldDispose) return;
 
-        //    //m_Array = Media.Common.MemorySegment.EmptyBytes;
-        //    //m_Offset = m_Length = 0;
+            base.Dispose(ShouldDispose);
 
-        //    //Don't remove the reference to the array
-        //    //if (m_Owner) m_Array = null;
-            
-        //    //Don't change the offset or length 
-        //    //m_Offset = m_Length = -1;
-        //}
+            //m_Array = Media.Common.MemorySegment.EmptyBytes;
+            //m_Offset = m_Length = 0;
+
+            //Don't remove the reference to the array
+            //if (m_Owner) m_Array = null;
+
+            //Don't change the offset or length 
+            //m_Offset = m_Length = -1;
+        }
 
         //Make an Enumerator implementation to help with Skip and Copy?
 
@@ -299,10 +312,13 @@ namespace Media.Common
             m_Length = length;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Update(ref byte[] source) { m_Array = source; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Update(ref int offset) { m_Offset = offset; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void IncreaseLength(long length) { m_Length += length; }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -583,6 +599,42 @@ namespace Media.UnitTests
 
     public class MemorySegmentTests
     {
-        //Todo
+        public void TestConstructorAndDispose()
+        {
+            using (Common.MemorySegment test = new Common.MemorySegment(4))
+            {
+                if (test.Offset != 0) throw new System.Exception("Offset");
+
+                if (test.Count != 4) throw new System.Exception("Count");
+
+                if (Common.Binary.Read32(test, 0, false) != uint.MinValue) throw new System.Exception("Array");
+
+                if (test.IsDisposed) throw new System.Exception("IsDisposed");
+
+                Common.Binary.Write32(test.Array, test.Offset, false, 1);
+
+                if (test.IsDisposed) throw new System.Exception("IsDisposed");
+
+                if (Common.Binary.Read32(test, 0, false) != 1) throw new System.Exception("Array");
+
+                if (test.IsDisposed) throw new System.Exception("IsDisposed");
+
+                foreach (byte b in test) if (System.Array.IndexOf(test.Array, b) == -1) throw new System.Exception("GetEnumerator");
+
+                if (test.IsDisposed) throw new System.Exception("IsDisposed");
+
+                byte[] bytes = test.ToArray();
+
+                if (test.IsDisposed) throw new System.Exception("IsDisposed");
+
+                if (false == bytes.SequenceEqual(test)) throw new System.Exception("Array");
+
+                bytes = test.Concat(bytes).ToArray();
+
+                if (test.IsDisposed) throw new System.Exception("IsDisposed");
+
+                if (bytes.Length != 8) throw new System.Exception("ToArray");
+            }
+        }
     }
 }
