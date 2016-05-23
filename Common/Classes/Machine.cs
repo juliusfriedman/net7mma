@@ -346,6 +346,8 @@ namespace Media.Common
 
         internal static int m_BitPatternSize = 0;
 
+        internal static int m_NativePointeSize;
+
         //If the static doesn't inline then would have to be a Method
         /// <summary>
         /// The maximum amount of shifting which can occur before the bit pattern space repeats
@@ -354,6 +356,15 @@ namespace Media.Common
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_BitPatternSize; }
+        }
+
+        /// <summary>
+        /// Gets the natural size in bytes of the pointer type of the current architecture.
+        /// </summary>
+        public static int NativePointeSize
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_NativePointeSize; }
         }
 
         internal static BinaryRepresentation m_SystemBinaryRepresentation = BinaryRepresentation.Unknown;
@@ -407,6 +418,38 @@ namespace Media.Common
         public static bool IsX64()
         {
             return 4294967296 == (((ulong)1) << 96); //Should always be 96
+        }
+
+        /// <summary>
+        /// Even in 32 bit builds, if the processor is truly 64 bit then that will take precedence.
+        /// </summary>
+        /// <returns>The size in bytes of the pointer type the processor uses natively.</returns>
+        /// <remarks>As opposed to <see cref="System.IntPtr.Size"/></remarks>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int GetNativePointerSize()
+        {
+            return IsX64() ? Common.Binary.BytesPerLong : Common.Binary.BytesPerInteger;
+        }
+
+        /// <summary>
+        /// Given a size, calculate the additional bytes required to align the size to the native size of pointers in the current architecture
+        /// </summary>
+        /// <param name="size"></param>
+        /// <returns></returns>
+        /// <remarks>Even in 32 bit builds, if the processor is truly 64 bit then that will take precedence.</remarks>
+        public static int CalulcateAlignedSize(ref long size) { return CalulcateAlignedSize(ref size, ref m_NativePointeSize); }
+
+        /// <summary>
+        /// Given a size, calculate the additional bytes required to align the size to the native size of pointers in the current architecture
+        /// </summary>
+        /// <param name="size"></param>
+        /// <param name="ptrSize">The size of the pointer</param>
+        /// <returns></returns>
+        /// <remarks>Even in 32 bit builds, if the processor is truly 64 bit then that will take precedence.</remarks>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int CalulcateAlignedSize(ref long size, ref int ptrSize)
+        {
+            return (int)(size == ptrSize ? 0 : ptrSize + (size - (size & ptrSize - 1)));
         }
 
         //Detection
@@ -662,7 +705,7 @@ namespace Media.Common
         static Machine()
         {
             //Ensure not already called.
-            if (m_BitPatternSize != 0 | m_SystemBinaryRepresentation != BinaryRepresentation.Unknown) return;
+            if (m_BitPatternSize != 0 | m_NativePointeSize != 0 | m_SystemBinaryRepresentation != BinaryRepresentation.Unknown) return;
 
             //No overflow anyway
             unchecked
@@ -705,6 +748,12 @@ namespace Media.Common
                             break;
                         }
                 }
+
+                //Determine the size of pointers
+                m_NativePointeSize = GetNativePointerSize();
+
+                //Todo, Determine if this should not throw
+                if (System.IntPtr.Size != m_NativePointeSize) throw new System.InvalidOperationException("Did not detect the NativePointerSize correctly.");
 
                 //Environment check?
                 //http://superuser.com/questions/305901/possible-values-of-processor-architecture
@@ -795,6 +844,11 @@ namespace Media.UnitTests
             System.Console.WriteLine("Detected a: " + Media.Common.Machine.SystemBinaryRepresentation.ToString() + ' ' + Media.Common.Machine.SystemBinaryRepresentation.GetType().Name + " System.");
 
             //Todo, test conversions
+        }
+
+        public static void ShowNativePointerSize()
+        {
+            System.Console.WriteLine("Detected Native Pointer Size: " + Media.Common.Machine.NativePointeSize);
         }
     
         //public void TestSignExtendedShift()

@@ -2057,6 +2057,7 @@ namespace Media.Rtsp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal int NextClientSequenceNumber() { return ++m_CSeq; }
 
+        //Determine if throwing exceptions are proper here.
         //Should have end time also?
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public void StartPlaying(TimeSpan? start = null, TimeSpan? end = null, IEnumerable<Sdp.MediaType> mediaTypes = null) //should allow to re describe ,bool forceDescribe = false
@@ -2095,7 +2096,7 @@ namespace Media.Rtsp
             List<MediaDescription> setupMedia = new List<MediaDescription>();
 
             //Get the media descriptions in the session description to setup
-            var toSetup = SessionDescription.MediaDescriptions;
+            IEnumerable<MediaDescription> toSetup = SessionDescription.MediaDescriptions;
 
             //////Should check the TimeDescriptions to ensure media is active (Before chaning the order)
             ////if (SessionDescription.TimeDescriptions.Count() > 0)
@@ -2223,7 +2224,7 @@ namespace Media.Rtsp
 
                             #endregion
                         }
-                        else if (setupStatusCode == RtspStatusCode.NotFound)
+                        else if (setupStatusCode == RtspStatusCode.NotFound || setupStatusCode == RtspStatusCode.Unauthorized)
                         {
 
                             //Sometimes the host is not yet ready, this could be true for cases when hosts uses dynamic uri's which don't yet exists during pipelining etc.
@@ -2233,7 +2234,7 @@ namespace Media.Rtsp
 
                                 if (InUse) continue;
 
-                                m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
+                                m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneMillisecond);
                             }
                             else
                             {
@@ -2337,7 +2338,7 @@ namespace Media.Rtsp
 
                     if (InUse) continue;
 
-                    m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
+                    m_InterleaveEvent.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneMillisecond);
 
                     continue;
 
@@ -3879,10 +3880,10 @@ namespace Media.Rtsp
                     {
                         Media.Common.TaggedExceptionExtensions.RaiseTaggedException(response.RtspStatusCode, "Unable to describe media. The StatusCode is in the Tag property.");
                     }
-                    else if (string.IsNullOrWhiteSpace(response.Body))
-                    {
-                        Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Unable to describe media, Missing Session Description");
-                    }
+                    //else if (response.IsComplete && string.IsNullOrWhiteSpace(response.Body))
+                    //{
+                    //    Media.Common.TaggedExceptionExtensions.RaiseTaggedException(this, "Unable to describe media, Missing Session Description");
+                    //}
 
                     #region MS-RTSP
 
