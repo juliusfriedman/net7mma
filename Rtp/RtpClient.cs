@@ -481,7 +481,8 @@ namespace Media.Rtp
                 if (rangeInfo != null && rangeInfo.m_Parts.Count > 0)
                 {
                     string type;
-                    Media.Sdp.SessionDescription.TryParseRange(rangeInfo.m_Parts[0], out type, out tc.m_StartTime, out tc.m_EndTime);
+
+                    Media.Sdp.SessionDescription.TryParseRange(rangeInfo.m_Parts[1], out type, out tc.m_StartTime, out tc.m_EndTime);
                 }
 
                 //https://www.ietf.org/rfc/rfc3605.txt
@@ -587,7 +588,7 @@ namespace Media.Rtp
             {
                 //Make a Goodbye, indicate version in Client, allow reason for leaving 
                 //Todo add other parties where null with SourceList
-                return new GoodbyeReport(context.Version, ssrc ?? (int)context.SynchronizationSourceIdentifier, sourcesLeaving ?? new RFC3550.SourceList((uint)context.SynchronizationSourceIdentifier), reasonForLeaving);
+                return new GoodbyeReport(context.Version, ssrc ?? (int)context.SynchronizationSourceIdentifier, sourcesLeaving, reasonForLeaving);
             }
 
             /// <summary>
@@ -697,21 +698,21 @@ namespace Media.Rtp
             /// <summary>
             /// The version of packets which the TransportContents handles
             /// </summary>
-            public readonly int Version = 2;
+            public int Version = 2;
 
             /// <summary>
             /// The amount of <see cref="RtpPacket"/>'s which must be received before IsValid is true.
             /// </summary>
-            public readonly int MinimumSequentialValidRtpPackets = RFC3550.DefaultMinimumSequentalRtpPackets;
+            public int MinimumSequentialValidRtpPackets = RFC3550.DefaultMinimumSequentalRtpPackets;
 
-            public readonly int MaxMisorder = RFC3550.DefaultMaxMisorder;
+            public int MaxMisorder = RFC3550.DefaultMaxMisorder;
 
-            public readonly int MaxDropout = RFC3550.DefaultMaxDropout;
+            public int MaxDropout = RFC3550.DefaultMaxDropout;
 
             /// <summary>
             /// The channels which identity the TransportContext.
             /// </summary>
-            public readonly byte DataChannel, ControlChannel;
+            public byte DataChannel, ControlChannel;
 
             /// <summary>
             /// Indicates if Rtp is enabled on the TransportContext
@@ -762,9 +763,10 @@ namespace Media.Rtp
                 //m_ContextReportInterval = DefaultReportInterval;
 
             //When packets are succesfully transferred the DateTime (utc) is copied in these variables and will reflect the point in time in which  the last 
-            internal DateTime m_FirstPacketReceived, m_FirstPacketSent, 
+            internal DateTime m_FirstPacketReceived, m_FirstPacketSent,
                 m_LastRtcpIn, m_LastRtcpOut,  //Rtcp packets were received and sent
-                m_LastRtpIn, m_LastRtpOut; //Rtp packets were received and sent
+                m_LastRtpIn, m_LastRtpOut, //Rtp packets were received and sent
+                m_Initialized;//When initialize was called.
 
             //TimeRange?
 
@@ -799,7 +801,9 @@ namespace Media.Rtp
             /// </summary>
             public int MinimumPacketSize
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return (int)m_MimumPacketSize; }
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 set { m_MimumPacketSize = (ushort)value; }
             }
 
@@ -808,18 +812,22 @@ namespace Media.Rtp
             /// </summary>
             public int MaximumPacketSize
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return (int)m_MaximumPacketSize; }
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 set { m_MaximumPacketSize = (ushort)value; }
             }
 
             public bool HasAnyRecentActivity
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return HasRecentRtpActivity || HasRecentRtcpActivity; }
             }
 
 
             public bool HasRecentRtpActivity
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     //Check for Rtp Receive Activity if receiving
@@ -831,6 +839,7 @@ namespace Media.Rtp
 
             public bool HasRecentRtcpActivity
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     //Check for Rtcp Receive Activity if receiving
@@ -842,6 +851,7 @@ namespace Media.Rtp
 
             public bool HasReceivedRtpWithinReceiveInterval
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return TotalRtpPacketsReceieved >= 0 &&
@@ -853,6 +863,7 @@ namespace Media.Rtp
 
             public bool HasSentRtpWithinSendInterval
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return IsActive && TotalRtpPacketsSent >= 0 &&
@@ -864,6 +875,7 @@ namespace Media.Rtp
 
             public bool HasReceivedRtcpWithinReceiveInterval
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return TotalRtcpPacketsReceieved >= 0 &&
@@ -875,6 +887,7 @@ namespace Media.Rtp
 
             public bool HasSentRtcpWithinSendInterval
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return TotalRtcpPacketsSent >= 0 && 
@@ -888,7 +901,11 @@ namespace Media.Rtp
             /// Indicates if the RemoteParty is known by a unique id other than 0.
             /// </summary>
             //Should also check if receiving...
-            internal bool InDiscovery { get { return RemoteSynchronizationSourceIdentifier == 0; } }
+            internal bool InDiscovery
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return RemoteSynchronizationSourceIdentifier == 0; }
+            }
 
             /// <summary>
             /// Gets or Sets a value which indicates if the Rtp and Rtcp Sockets should be Disposed when Dispose is called.
@@ -915,6 +932,7 @@ namespace Media.Rtp
             /// </summary>
             public bool IsActive
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     if (IsRtpEnabled)
@@ -940,6 +958,7 @@ namespace Media.Rtp
             /// </summary>
             public bool RtcpBandwidthExceeded
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     if (IsDisposed || false == IsRtcpEnabled) return true;
@@ -964,6 +983,7 @@ namespace Media.Rtp
             /// </summary>
             public TimeSpan TimeSending
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return IsDisposed || m_FirstPacketSent == DateTime.MinValue ? 
@@ -978,6 +998,7 @@ namespace Media.Rtp
             /// </summary>
             public TimeSpan TimeReceiving
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return IsDisposed || m_FirstPacketReceived == DateTime.MinValue ? 
@@ -1003,6 +1024,7 @@ namespace Media.Rtp
             /// </summary>
             public TimeSpan MediaStartTime
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return m_StartTime; }
                 internal protected set { m_StartTime = value; }
             }
@@ -1012,32 +1034,44 @@ namespace Media.Rtp
             /// </summary>
             public TimeSpan MediaEndTime
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return m_EndTime; }
                 internal protected set { m_EndTime = value; }
             }
 
             public TimeSpan MediaDuration
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return IsContinious ? Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan : m_EndTime - m_StartTime; }
             }
 
             /// <summary>
             /// Indicates if the <see cref="MediaEndTime"/> is <see cref="Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan"/>. (Has no determined end time)
             /// </summary>
-            public bool IsContinious { get { return m_EndTime == Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan; } }
+            public bool IsContinious
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_EndTime == Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan; }
+            }
 
             /// <summary>
             /// <see cref="Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan"/> if <see cref="IsContinious"/>,
             /// othewise the amount of time remaining in the media.
             /// </summary>
-            public TimeSpan TimeRemaining { get { return IsContinious ? m_EndTime : TimeSpan.FromTicks(m_EndTime.Ticks - (Math.Max(TimeReceiving.Ticks, TimeSending.Ticks))); } }
+            public TimeSpan TimeRemaining
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsContinious ? m_EndTime : TimeSpan.FromTicks(m_EndTime.Ticks - (Math.Max(TimeReceiving.Ticks, TimeSending.Ticks))); }
+            }
 
             /// <summary>
             /// Allows getting or setting of the interval which occurs between data transmissions
             /// </summary>
             public TimeSpan SendInterval
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return m_SendInterval; }
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 set { m_SendInterval = value; }
             }
 
@@ -1046,20 +1080,28 @@ namespace Media.Rtp
             /// </summary>
             public TimeSpan ReceiveInterval
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return m_ReceiveInterval; }
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 set { m_ReceiveInterval = value; }
             }
 
             /// <summary>
             /// Gets the time in which in TranportContext was last active for a send or receive operation
             /// </summary>
-            public TimeSpan InactiveTime { get { return m_InactiveTime; } }
+            public TimeSpan InactiveTime
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_InactiveTime; }
+            }
+
 
             /// <summary>
             /// Gets the time in which the last Rtcp reports were sent.
             /// </summary>
             public TimeSpan LastRtcpReportSent
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return m_LastRtcpOut == DateTime.MinValue ? TimeSpan.MinValue : DateTime.UtcNow - m_LastRtcpOut;
@@ -1071,6 +1113,7 @@ namespace Media.Rtp
             /// </summary>
             public TimeSpan LastRtcpReportReceived
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return m_LastRtcpIn == DateTime.MinValue ? TimeSpan.MinValue : DateTime.UtcNow - m_LastRtcpIn;
@@ -1082,6 +1125,7 @@ namespace Media.Rtp
             /// </summary>
             public TimeSpan LastRtpPacketReceived
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return m_LastRtpIn == DateTime.MinValue ? TimeSpan.MinValue : DateTime.UtcNow - m_LastRtpIn;
@@ -1093,6 +1137,7 @@ namespace Media.Rtp
             /// </summary>
             public TimeSpan LastRtpPacketSent
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     return m_LastRtpOut == DateTime.MinValue ? TimeSpan.MinValue : DateTime.UtcNow - m_LastRtpOut;
@@ -1100,24 +1145,52 @@ namespace Media.Rtp
             }
 
             /// <summary>
+            /// Gets the time since <see cref="Initialize was called."/>
+            /// </summary>
+            public TimeSpan TimeActive
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get
+                {
+                    return m_Initialized == DateTime.MinValue ? TimeSpan.MinValue : DateTime.UtcNow - m_Initialized;
+                }
+            }
+
+            /// <summary>
             /// Indicates the amount of times a failure has occured when sending RtcpPackets
             /// </summary>
-            public int FailedRtcpTransmissions { get { return m_FailedRtcpTransmissions; } }
+            public int FailedRtcpTransmissions
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_FailedRtcpTransmissions; }
+            }
 
             /// <summary>
             /// Indicates the amount of times a failure has occured when sending RtpPackets
             /// </summary>
-            public int FailedRtpTransmissions { get { return m_FailedRtpTransmissions; } }
+            public int FailedRtpTransmissions
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_FailedRtpTransmissions; }
+            }
 
             /// <summary>
             /// Indicates the amount of times a failure has occured when receiving RtcpPackets
             /// </summary>
-            public int FailedRtcpReceptions { get { return m_FailedRtcpReceptions; } }
+            public int FailedRtcpReceptions
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_FailedRtcpReceptions; }
+            }
 
             /// <summary>
             /// Indicates the amount of times a failure has occured when receiving RtpPackets
             /// </summary>
-            public int FailedRtpReceptions { get { return m_FailedRtpReceptions; } }
+            public int FailedRtpReceptions
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return m_FailedRtpReceptions; }
+            }
 
             /// <summary>
             /// Corresponds to the ID used by remote systems to identify this TransportContext, a table might be necessary if you want to use a different id in different places
@@ -1138,13 +1211,18 @@ namespace Media.Rtp
             /// <summary>
             /// Determines if the source has recieved at least <see cref="MinimumSequentialValidRtpPackets"/> RtpPackets
             /// </summary>
-            public virtual bool IsValid { get { return ValidRtpPacketsReceived >= MinimumSequentialValidRtpPackets; } }
+            public virtual bool IsValid
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return ValidRtpPacketsReceived >= MinimumSequentialValidRtpPackets; }
+            }
 
             /// <summary>
             /// Indicates if the Rtcp is enabled and the LocalRtp is equal to the LocalRtcp
             /// </summary>
             public bool LocalMultiplexing
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return IsDisposed || IsRtcpEnabled == false || LocalRtp == null ? false : LocalRtp.Equals(LocalRtcp); }
             }
 
@@ -1153,6 +1231,7 @@ namespace Media.Rtp
             /// </summary>
             public bool RemoteMultiplexing
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return IsDisposed || IsRtcpEnabled == false || RemoteRtp == null ? false : RemoteRtp.Equals(RemoteRtcp); }
             }
             
@@ -1161,6 +1240,7 @@ namespace Media.Rtp
             /// </summary>
             public bool IsDuplexing
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
                     if (IsDisposed) return false;
@@ -1188,78 +1268,135 @@ namespace Media.Rtp
             /// <summary>
             /// The total amount of packets (both Rtp and Rtcp) receieved
             /// </summary>
-            public long TotalPacketsReceived { get { return RtpPacketsReceived + RtcpPacketsReceived; } }
+            public long TotalPacketsReceived
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return RtpPacketsReceived + RtcpPacketsReceived; }
+            }
 
             /// <summary>
             /// The total amount of packets (both Rtp and Rtcp) sent
             /// </summary>
-            public long TotalPacketsSent { get { return RtpPacketsSent + RtcpPacketsSent; } }
+            public long TotalPacketsSent
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return RtpPacketsSent + RtcpPacketsSent; }
+            }
 
             /// <summary>
             /// The total amount of RtpPackets sent
             /// </summary>
-            public long TotalRtpPacketsSent { get { return IsDisposed ? 0 : RtpPacketsSent; } }
+            public long TotalRtpPacketsSent
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : RtpPacketsSent; }
+            }
 
             /// <summary>
             /// The amount of bytes in all rtp packets payloads which have been sent.
             /// </summary>
-            public long RtpPayloadBytesSent { get { return IsDisposed ? 0 : RtpBytesSent; } }
+            public long RtpPayloadBytesSent
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : RtpBytesSent; }
+            }
 
             /// <summary>
             /// The amount of bytes in all rtp packets payloads which have been received.
             /// </summary>
-            public long RtpPayloadBytesRecieved { get { return IsDisposed ? 0 : RtpBytesRecieved; } }
+            public long RtpPayloadBytesRecieved
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : RtpBytesRecieved; }
+            }
 
             /// <summary>
             /// The total amount of bytes related to Rtp sent (including headers)
             /// </summary>
-            public long TotalRtpBytesSent { get { return IsDisposed ? 0 : RtpBytesSent + RtpHeader.Length * RtpPacketsSent; } }
+            public long TotalRtpBytesSent
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : RtpBytesSent + RtpHeader.Length * RtpPacketsSent; }
+            }
 
             /// <summary>
             /// The total amount of bytes related to Rtp received
             /// </summary>
-            public long TotalRtpBytesReceieved { get { return IsDisposed ? 0 : RtpBytesRecieved + RtpHeader.Length * RtpPacketsSent; } }
+            public long TotalRtpBytesReceieved
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : RtpBytesRecieved + RtpHeader.Length * RtpPacketsSent; }
+            }
 
             /// <summary>
             /// The total amount of RtpPackets received
             /// </summary>
-            public long TotalRtpPacketsReceieved { get { return IsDisposed ? 0 : RtpPacketsReceived; } }
+            public long TotalRtpPacketsReceieved
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : RtpPacketsReceived; }
+            }
 
             /// <summary>
             /// The total amount of RtcpPackets recieved
             /// </summary>
-            public long TotalRtcpPacketsSent { get { return IsDisposed ? 0 : RtcpPacketsSent; } }
+            public long TotalRtcpPacketsSent
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : RtcpPacketsSent; }
+            }
 
             /// <summary>
             /// The total amount of sent bytes related to Rtcp 
             /// </summary>
-            public long TotalRtcpBytesSent { get { return IsDisposed ? 0 : RtcpBytesSent; } }
+            public long TotalRtcpBytesSent
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : RtcpBytesSent; }
+            }
 
             /// <summary>
             /// The total amount of received bytes (both Rtp and Rtcp) received
             /// </summary>
-            public long TotalBytesReceieved { get { return IsDisposed ? 0 : TotalRtcpBytesReceieved + TotalRtpBytesReceieved; } }
+            public long TotalBytesReceieved
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : TotalRtcpBytesReceieved + TotalRtpBytesReceieved; }
+            }
 
             /// <summary>
             /// The total amount of received bytes (both Rtp and Rtcp) sent
             /// </summary>
-            public long TotalBytesSent { get { return IsDisposed ? 0 : TotalRtcpBytesSent + TotalRtpBytesSent; } }
+            public long TotalBytesSent
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : TotalRtcpBytesSent + TotalRtpBytesSent; }
+            }
 
             /// <summary>
             /// The total amount of RtcpPackets received
             /// </summary>
-            public long TotalRtcpPacketsReceieved { get { return IsDisposed ? 0 : RtcpPacketsReceived; } }
+            public long TotalRtcpPacketsReceieved
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : RtcpPacketsReceived; }
+            }
 
             /// <summary>
             /// The total amount of bytes related to Rtcp received
             /// </summary>
-            public long TotalRtcpBytesReceieved { get { return IsDisposed ? 0 : RtcpBytesRecieved; } }
+            public long TotalRtcpBytesReceieved
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return IsDisposed ? 0 : RtcpBytesRecieved; }
+            }
 
             /// <summary>            
             /// Gets the sequence number of the last RtpPacket recieved on this channel
             /// </summary>
             public int RecieveSequenceNumber
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return (short)m_SequenceNumber; }
                 internal protected set
                 {
@@ -1269,6 +1406,7 @@ namespace Media.Rtp
 
             public int SendSequenceNumber
             {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return (short)m_SequenceNumber; }
                 internal protected set
                 {
@@ -1587,6 +1725,8 @@ namespace Media.Rtp
             {
                 if (IsDisposed || IsActive) return;
 
+                m_Initialized = DateTime.UtcNow;
+
                 if (localRtp.Address.AddressFamily != remoteRtp.Address.AddressFamily) Media.Common.TaggedExceptionExtensions.RaiseTaggedException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
                 else if (punchHole) punchHole = false == Media.Common.Extensions.IPAddress.IPAddressExtensions.IsOnIntranet(remoteRtp.Address); //Only punch a hole if the remoteIp is not on the LAN by default.
                 
@@ -1765,6 +1905,8 @@ namespace Media.Rtp
                 if (rtcpSocket == null) throw new ArgumentNullException("rtcpSocket");
 
                 //RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
+
+                m_Initialized = DateTime.UtcNow;
 
                 RtpSocket = rtpSocket;
 
@@ -2395,7 +2537,6 @@ namespace Media.Rtp
 
             //Check for premature finalizer problem and if fixed by memory copy then this is not required.
             OnRtpPacketReceieved(packet, transportContext);            
-            //OnRtpPacketReceieved(packet, transportContext);
 
             //If the client shouldn't handle the packet then return.            
             if (false == HandleIncomingRtpPackets || packet.IsCompressed)
@@ -2551,7 +2692,7 @@ namespace Media.Rtp
                 {
                     //Todo, Clone
                     //make a frame with the copy of the packet
-                    transportContext.CurrentFrame = new RtpFrame(new RtpPacket(packet.Prepare().ToArray(), 0));
+                    transportContext.CurrentFrame = new RtpFrame(packet.Clone(true, true, true, true, false));
 
                     //The LastFrame changed
                      OnRtpFrameChanged(transportContext.CurrentFrame, transportContext);                            
@@ -2563,10 +2704,8 @@ namespace Media.Rtp
                 else if (false == IDisposedExtensions.IsNullOrDisposed(transportContext.LastFrame) &&
                     packetTimestamp == transportContext.LastFrame.Timestamp)
                 {
-
-                    //Todo, Clone
                     //If the packet was added to the frame
-                    if (transportContext.LastFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0)))
+                    if (transportContext.LastFrame.TryAdd(packet.Clone(true, true, true, true, false)))
                     {
                         bool final = transportContext.LastFrame.Count >= transportContext.LastFrame.MaxPackets;
 
@@ -2624,7 +2763,7 @@ namespace Media.Rtp
                     transportContext.LastFrame = transportContext.CurrentFrame;
 
                     //make a frame with the copy of the packet
-                    transportContext.CurrentFrame = new RtpFrame(new RtpPacket(packet.Prepare().ToArray(), 0));
+                    transportContext.CurrentFrame = new RtpFrame(packet.Clone(true, true, true, true, false));
 
                     //The current frame changed
                     OnRtpFrameChanged(transportContext.CurrentFrame, transportContext);
@@ -2636,9 +2775,8 @@ namespace Media.Rtp
                 {
                     //Todo, Clone
                     //If the packet was added to the frame
-                    if (transportContext.CurrentFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0)))
+                    if (transportContext.CurrentFrame.TryAdd(packet.Clone(true, true, true, true, false)))
                     {
-
                         bool final = transportContext.CurrentFrame.Count >= transportContext.CurrentFrame.MaxPackets;
 
                         //The CurrentFrame changed
@@ -2796,7 +2934,7 @@ namespace Media.Rtp
             foreach (InterleavedDataHandler handler in action.GetInvocationList())
             {
                 try { handler(this, data, offset, length); }
-                catch { continue; }
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
             }
         }
 
@@ -2812,11 +2950,11 @@ namespace Media.Rtp
             {
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) return;
                 try { ((InterleavedDataHandler)(d))(this, packet.Data, 0, (int)packet.Length); }
-                catch { return; }
-                //finally { packet.Dispose(); }
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }                
             });
 
-            Common.BaseDisposable.SetShouldDispose(packet, true, true);
+            //Don't have to waste cycles on this thread calling dispose...
+            if(false == packet.IsDisposed) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -2833,27 +2971,27 @@ namespace Media.Rtp
 
             if (m_ThreadEvents)
             {
-                //If the frame events are enabled then use the packet otherwise clone the packet and data so it can stay alive.
-                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, FrameChangedEventsEnabled ? packet : packet.Clone(true, true, true, true, true), false, true));
+                //If the frame events are enabled then use the packet otherwise clone the packet and data into a new reference so it can stay alive.
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, FrameChangedEventsEnabled ? packet : packet.Clone(true, true, true, true, false), false, true));
 
                 m_EventReady.Set();
 
                 return;
             }
 
-            bool shouldDispose = packet.ShouldDispose;
+            //bool shouldDispose = packet.ShouldDispose;
 
-            if (shouldDispose) SetShouldDispose(packet, false, false);
+            //if (shouldDispose) SetShouldDispose(packet, false, false);
 
             foreach (RtpPacketHandler handler in action.GetInvocationList())
             {
                 if (packet.IsDisposed) break;
                 try { handler(this, packet, tc); }
-                catch { return; }
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
             }
 
             //Allow the packet to be destroyed.
-            if(shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            //if (packet.ShouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -2877,18 +3015,18 @@ namespace Media.Rtp
                 return;
             }
 
-            bool shouldDispose = packet.ShouldDispose;
+            //bool shouldDispose = packet.ShouldDispose;
 
-            if (shouldDispose) SetShouldDispose(packet, false, false);
+            //if (shouldDispose) SetShouldDispose(packet, false, false);
 
             foreach (RtcpPacketHandler handler in action.GetInvocationList())
             {
                 if (packet.IsDisposed) break;
                 try { handler(this, packet, tc); }
-                catch { return; }
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
             }
 
-            if(shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            //if (packet.ShouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -2909,6 +3047,7 @@ namespace Media.Rtp
 
             if (m_ThreadEvents)
             {
+                                                                                                //new RtpFrame(frame)
                 m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, frame, final, true));
 
                 m_EventReady.Set();
@@ -2920,11 +3059,11 @@ namespace Media.Rtp
             {
                 if (IDisposedExtensions.IsNullOrDisposed(frame)) break;
                 try { handler(this, frame, tc, final); }
-                catch { return; }
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
             }
 
             //On final events set ShouldDispose to true, do not call Dispose
-            if(final) Common.BaseDisposable.SetShouldDispose(frame, true, false);
+            if (final && frame.ShouldDispose) Common.BaseDisposable.SetShouldDispose(frame, true, false);
         }
 
         internal void ParallelRtpFrameChanged(RtpFrame frame = null, TransportContext tc = null, bool final = false)
@@ -2933,18 +3072,18 @@ namespace Media.Rtp
 
             RtpFrameHandler action = RtpFrameChanged;
 
-            if (action == null || IDisposedExtensions.IsNullOrDisposed(frame)) return;
+            if (action == null || IDisposedExtensions.IsNullOrDisposed(frame) || frame.IsEmpty) return;
 
             //RtpFrameHandler would need the cast up front.
             ParallelEnumerable.ForAll(action.GetInvocationList().AsParallel(), (d) =>
             {
                 if (IDisposedExtensions.IsNullOrDisposed(frame)) return;
                 try { ((RtpFrameHandler)(d))(this, frame, tc, final); }
-                catch { return; }                
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }                
             });
 
             //On final events set ShouldDispose to true, do not call Dispose
-            if (final) Common.BaseDisposable.SetShouldDispose(frame, true, false);
+            if (final && frame.ShouldDispose) Common.BaseDisposable.SetShouldDispose(frame, true, false);
         }
 
         //IPacket overload could reduce code but would cost time to check type.
@@ -2962,11 +3101,11 @@ namespace Media.Rtp
             {
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) return;
                 try { ((RtpPacketHandler)(d))(this, packet, tc); }
-                catch { return; }
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
             });
 
             //Allow the packet to be disposed, do not call dispose now.
-            Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            //Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         internal void ParallelRtpPacketSent(RtpPacket packet = null, TransportContext tc = null)
@@ -2982,11 +3121,11 @@ namespace Media.Rtp
             {
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) return;
                 try { ((RtpPacketHandler)(d))(this, packet, tc); }
-                catch { return; }                
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }               
             });
             
             //allow packet to be disposed...
-            Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            //Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         internal void ParallelRtcpPacketRecieved(RtcpPacket packet = null, TransportContext tc = null)
@@ -3002,12 +3141,12 @@ namespace Media.Rtp
             {
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) return;
                 try { ((RtcpPacketHandler)(d))(this, packet, tc); }
-                catch { return; }
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
                 //finally { packet.Dispose(); }
             });
 
             //Allow the packet to be disposed, do not call dispose now.
-            Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            //Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         internal void ParallelRtcpPacketSent(RtcpPacket packet = null, TransportContext tc = null)
@@ -3023,12 +3162,12 @@ namespace Media.Rtp
             {
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) return;
                 try { ((RtcpPacketHandler)(d))(this, packet, tc); }
-                catch { return; }
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
                 //finally { packet.Dispose(); }
             });
 
             //Allow the packet to be disposed, do not call dispose now.
-            Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            //Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
             
 
@@ -3044,9 +3183,9 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-            bool shouldDispose = packet.ShouldDispose;
+            //bool shouldDispose = packet.ShouldDispose;
 
-            if (shouldDispose) SetShouldDispose(packet, false, false);
+            //if (shouldDispose) SetShouldDispose(packet, false, false);
 
             if (m_ThreadEvents)
             {
@@ -3061,10 +3200,10 @@ namespace Media.Rtp
             {
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) break;
                 try { handler(this, packet, tc); }
-                catch { continue; }
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
             }
 
-            if(shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            //if(shouldDispose && false == packet.IsDisposed) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -3079,9 +3218,9 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-            bool shouldDispose = packet.ShouldDispose;
+            //bool shouldDispose = packet.ShouldDispose;
 
-            if (shouldDispose) SetShouldDispose(packet, false, false);
+            //if (shouldDispose) SetShouldDispose(packet, false, false);
 
             if (m_ThreadEvents)
             {
@@ -3094,10 +3233,10 @@ namespace Media.Rtp
             {
                 if (IDisposedExtensions.IsNullOrDisposed(packet)) break;
                 try { handler(this, packet, tc); }
-                catch { continue; }
+                catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
             }
 
-            if (shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            //if (shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         #endregion
@@ -3132,7 +3271,7 @@ namespace Media.Rtp
         /// Gets or sets a value which indicates if events will be threaded or not.
         /// If threading is enabled the call will block until the event thread has started.
         /// </summary>
-        public bool ThreadEvents
+        public bool ThreadEvents //Enable
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_ThreadEvents; }
@@ -4384,7 +4523,7 @@ namespace Media.Rtp
                 m_WorkerThread.Start();                
 
                 //Wait for thread to actually start
-                while (false == IsActive) System.Threading.Thread.Sleep(0);
+                //while (false == IsActive) System.Threading.Thread.Sleep(0);
 
                 #region Unused Feature [Early Rtcp]
 
@@ -4758,7 +4897,7 @@ namespace Media.Rtp
 
 
                 //Use the data received to parse and complete any recieved packets, should take a parseState
-                /*using (var memory = new Common.MemorySegment(buffer.Array, buffer.Offset, received)) */ParseAndCompleteData(buffer, expectRtcp, expectRtp, received);
+                /*using (var memory = new Common.MemorySegment(buffer.Array, buffer.Offset, received)) */ParseAndHandleData(buffer, expectRtcp, expectRtp, received);
                 //}
 
             }
@@ -5176,8 +5315,10 @@ namespace Media.Rtp
                 else if(false == IsDisposed && frameLength > 0)
                 {
                     //Parse the data in the buffer using only the data related to the packet and not the framing.
-                    using (var memory = new Common.MemorySegment(buffer, offset + sessionRequired, frameLength - sessionRequired)) 
-                        ParseAndCompleteData(memory, expectRtcp, expectRtp, memory.Count);
+                    using (var memory = new Common.MemorySegment(buffer, offset + sessionRequired, frameLength - sessionRequired))
+                    {
+                        ParseAndHandleData(memory, expectRtcp, expectRtp, memory.Count);
+                    }
 
                     //Decrease remaining in buffer
                     remainingInBuffer -= frameLength;
@@ -5229,7 +5370,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="memory">The memory to parse</param>
         /// <param name="from">The socket which received the data into memory and may be used for packet completion.</param>
-        internal protected virtual void ParseAndCompleteData(Common.MemorySegment memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
+        internal protected virtual void ParseAndHandleData(Common.MemorySegment memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
         {
 
             if (IDisposedExtensions.IsNullOrDisposed(memory) || memory.Count == 0) return;

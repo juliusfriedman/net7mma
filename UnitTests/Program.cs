@@ -1554,18 +1554,20 @@ namespace Media.UnitTests
         /// </summary>
         static void TestServer()
         {
-            int serverPort = Media.Rtsp.RtspMessage.ReliableTransportDefaultPort + 1;
+            ///555 because 554 may be in use...
+            int serverPort = Media.Rtsp.RtspMessage.UnreliableTransportDefaultPort;
 
-            //
-            var serverIp = System.Net.IPAddress.Parse("192.168.1.151"); //Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
+            //Find the first IP based on the interface type, should select from input during test.. e.g. Wifi or Ethernet.
+
+            var serverIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
 
             Console.WriteLine("Server Starting on: " + serverIp);
 
             //Setup a Media.RtspServer on port 554
             using (Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(serverIp, serverPort)
             {
-                //new Media.Rtsp.Server.RtspServerDebuggingLogger() 
-                Logger = new Media.Rtsp.Server.RtspServerConsoleLogger()
+                Logger = new Media.Rtsp.Server.RtspServerConsoleLogger(),
+                ClientSessionLogger = new Media.Rtsp.Server.RtspServerDebugLogger()
             })
             {
                 //Should be working also, allows rtsp requests to be handled over UDP port 555 by default
@@ -1781,13 +1783,43 @@ namespace Media.UnitTests
                         Console.WriteLine("Performing Load Test");
                         System.Threading.ThreadPool.QueueUserWorkItem(o =>
                         {
+                            Console.WriteLine("Starting Load Test......***,,");
                             SubTestLoad(server);
                             Console.WriteLine("Load Test Completed!!!!!!!!!!");
                         });
                     }
                     else if (keyInfo.Key == ConsoleKey.C)
                     {
+                        //Show how many connections
                         Console.WriteLine(server.ActiveConnections + " Active Connections");
+
+                        //Enumerate those connections
+                        foreach (var client in server.Clients)
+                        {
+                            Console.WriteLine("Created: " + client.Created);
+
+                            Console.WriteLine("LastRequest: " + client.LastRequest ?? string.Empty);
+
+                            Console.WriteLine("LastRequest: " + client.LastResponse ?? string.Empty);
+
+                            Console.WriteLine("RtpClient: " + client.m_RtpClient ?? string.Empty);
+
+                            if (client.m_RtpClient != null)
+                            {
+                                foreach (var clientTransportContext in client.m_RtpClient.GetTransportContexts())
+                                {
+                                    Console.WriteLine("MediaType: " + clientTransportContext.MediaDescription.MediaType);
+
+                                    Console.WriteLine("MediaType: Local Rtp Port" + ((System.Net.IPEndPoint)clientTransportContext.LocalRtp).Port);
+
+                                    Console.WriteLine("MediaType: Local Rtcp Port" + ((System.Net.IPEndPoint)clientTransportContext.LocalRtcp).Port);
+
+                                    Console.WriteLine("MediaType: Remote Rtp Port" + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtp).Port);
+
+                                    Console.WriteLine("MediaType: Remote Rtcp Port" + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtcp).Port);
+                                }
+                            }
+                        }
                     }
                     else if (System.Diagnostics.Debugger.IsAttached)
                     {
@@ -3110,6 +3142,10 @@ a=appversion:1.0");
 
         public static void TestCommonClasses()
         {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.TimeSpanExtensionsTests), TypeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.NetworkInterfaceExtensionsTests), TypeOfVoid);
+
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MemorySegmentTests), TypeOfVoid);
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SegmentStreamTests), TypeOfVoid);
@@ -3368,6 +3404,9 @@ a=appversion:1.0");
                 else
                 {
                     Console.WriteLine(string.Format(TestingFormat, "Matches Context (By PayloadType):", "*******\n\t***********Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier));
+
+                    if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
                     Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSequenceNo = " + rtpPacket.SequenceNumber + " Timestamp=" + rtpPacket.Timestamp + " PayloadType = " + rtpPacket.PayloadType + " " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + " Length = " +
                         rtpPacket.Length + "\nContributingSourceCount = " + rtpPacket.ContributingSourceCount
                         + "\n Version = " + rtpPacket.Version + "\tSynchronizationSourceIdentifier = " + rtpPacket.SynchronizationSourceIdentifier);

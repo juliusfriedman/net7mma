@@ -19,6 +19,14 @@ namespace Media.Common
         //public readonly DateTime Created = DateTime.UtcNow;
 
         public CommonDisposable(bool shouldDispose) : base(shouldDispose) { }
+
+        internal protected override void Dispose(bool disposing)
+        {
+            if (IsDisposed || disposing && false == ShouldDispose) return;
+
+            base.Dispose(ShouldDispose);
+        }
+
     }
 
     //Could provide hooks to determine manually... (SOS wrapper seems like a seperately useful class)

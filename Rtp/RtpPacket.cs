@@ -558,7 +558,7 @@ namespace Media.Rtp
         [CLSCompliant(false)]
         public RtpExtension GetExtension()
         {
-            return Header.Extension && (Payload.Count - ContributingSourceListOctets) > RtpExtension.MinimumSize ? new RtpExtension(this) : null;
+            return false == IsDisposed && Header.Extension && (Payload.Count - ContributingSourceListOctets) > RtpExtension.MinimumSize ? new RtpExtension(this) : null;
         }
 
         /// <summary>
@@ -854,16 +854,14 @@ namespace Media.Rtp
         /// <summary>
         /// Disposes of any private data this instance utilized.
         /// </summary>
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            if (IsDisposed) return;
+            if (disposing && false == ShouldDispose) return;
 
-            base.Dispose();
-
-            if (false == ShouldDispose) return;
+            base.Dispose(ShouldDispose);
 
             //If there is a referenced RtpHeader
-            if (m_OwnsHeader)
+            if (m_OwnsHeader && false == Common.IDisposedExtensions.IsNullOrDisposed(Header))
             {
                 //Dispose it
                 Header.Dispose();
@@ -934,7 +932,7 @@ namespace Media.Rtp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool IsContiguous()
         {
-            return Header.IsContiguous() && Header.PointerToLast10Bytes.Array == Payload.Array && Header.PointerToLast10Bytes.Offset + Header.PointerToLast10Bytes.Count == Payload.Offset;
+            return Header.IsContiguous() && Header.SegmentToLast10Bytes.Array == Payload.Array && Header.SegmentToLast10Bytes.Offset + Header.SegmentToLast10Bytes.Count == Payload.Offset;
         }
 
         #endregion
@@ -965,7 +963,7 @@ namespace Media.Rtp
             buffer  = new System.Collections.Generic.List<ArraySegment<byte>>()
             {
                 Common.MemorySegmentExtensions.ToByteArraySegment(Header.First16Bits.m_Memory),
-                Common.MemorySegmentExtensions.ToByteArraySegment(Header.PointerToLast10Bytes),
+                Common.MemorySegmentExtensions.ToByteArraySegment(Header.SegmentToLast10Bytes),
                 Common.MemorySegmentExtensions.ToByteArraySegment(Payload),
             };
 

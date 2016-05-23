@@ -67,6 +67,7 @@
     <Compile Include="Classes\Bitwise.cs" />
     <Compile Include="Classes\Bus.cs" />
     <Compile Include="Classes\Clock.cs" />
+    <Compile Include="Collections\LinkedCollections.cs" />
     <Compile Include="Classes\CommonIntermediateLanguage.cs" />
     <Compile Include="Classes\Composed.cs" />
     <Compile Include="Classes\Disposable.cs" />

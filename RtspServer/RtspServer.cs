@@ -360,6 +360,8 @@ namespace Media.Rtsp
             }
         }
 
+        //Todo, provide port information etc.
+
         /// <summary>
         /// Indicates the amount of active connections the server has accepted.
         /// </summary>
@@ -370,7 +372,10 @@ namespace Media.Rtsp
         /// </summary>
         public Rtsp.Server.RtspServerLogger Logger { get; set; }
 
-        //Could all a seperate logger for the Clients etc.
+        /// <summary>
+        /// The <see cref="RtspServerLogger"/> used for logging in each ClientSession
+        /// </summary>
+        public Rtsp.Server.RtspServerLogger ClientSessionLogger { get; set; }
 
         public bool HttpEnabled { get { return m_HttpPort != -1; } }
 
@@ -665,14 +670,10 @@ namespace Media.Rtsp
             }
             catch (Exception ex)
             {
-                if (Logger != null) Logger.LogException(ex);
+                Common.ILoggingExtensions.LogException(Logger, ex);
 
                 //Indicate if a failure occured
-                return session == null || session.IsDisposed;
-            }
-            finally
-            {
-                if (Logger != null && any != null) Logger.LogException(any);
+                return Common.IDisposedExtensions.IsNullOrDisposed(session);
             }
         }
 
@@ -1037,8 +1038,8 @@ namespace Media.Rtsp
             //Start it
             m_ServerThread.Start();
 
-            //Timer for maintaince
-            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 4), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
+            //Timer for maintaince ( one quarter of the ticks)
+            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks >> 2), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
 
             if (m_UdpPort != -1) EnableUnreliableTransport(m_UdpPort);
             if (m_HttpPort != -1) EnableHttpTransport(m_HttpPort);
@@ -1097,6 +1098,8 @@ namespace Media.Rtsp
 
                         m_Maintaining = false;
 
+                        if (IsRunning && m_Maintainer != null) m_Maintainer.Change(TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks >> 2), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
+
                     }), Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
                     {
                         Priority = m_ServerThread.Priority
@@ -1109,10 +1112,6 @@ namespace Media.Rtsp
                     m_Maintaining = m_Maintainer != null;
                 }
             }
-
-            if (IsDisposed) return;
-
-            if (m_Maintainer != null) m_Maintainer.Change(TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 2), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
         }
 
         /// <summary>
@@ -1205,18 +1204,13 @@ namespace Media.Rtsp
         {
             foreach (Media.Rtsp.Server.IMedia stream in MediaStreams)
             {
-                if (m_StopRequested) return;
-
                 if (stream == null || stream.Disabled) continue;
 
                 try
                 {
                     Common.ILoggingExtensions.Log(Logger, "Stopping Stream: " + stream.Name + " Id=" + stream.Id);
 
-                    new Thread(stream.Stop, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
-                    {
-                        Priority = m_ServerThread.Priority
-                    }.Start();
+                    new Thread(stream.Stop, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize).Start();
                 }
                 catch (Exception ex)
                 {
@@ -1429,13 +1423,13 @@ namespace Media.Rtsp
         /// <param name="ar">The asynch result</param>
         internal void ProcessReceive(IAsyncResult ar)
         {
-
-            if (ar == null /*|| ar.CompletedSynchronously*/ || false == ar.IsCompleted) return;
+            if (false == IsRunning || ar == null || false == ar.IsCompleted) return;
 
             //Get the client information from the result
             ClientSession session = (ClientSession)ar.AsyncState;
 
-            if (session == null || session.IsDisconnected || session.m_RtspSocket == null) return;
+            //Check if the recieve can proceed.
+            if (Common.IDisposedExtensions.IsNullOrDisposed(session) || session.IsDisconnected || false == session.HasRuningServer) return;
 
             try
             {
@@ -1457,7 +1451,7 @@ namespace Media.Rtsp
                     return;
                 }
 
-                //If we received anything
+                //If we received any application layer data
                 if (received > 0)
                 {
                     //The session is not disconnected 
@@ -1474,6 +1468,10 @@ namespace Media.Rtsp
                 }
                 else //Zero  bytes were received either due to consumption of data or lack thereof.
                 {
+                    //Could track and disconnect if too many of these occur.
+
+                    //Should ensure client is still active and stop receiving if they are.
+
                     //If there is a rtp client but it was disposed or disconnected
                     if (IDisposedExtensions.IsNullOrDisposed(session.m_RtpClient) || false == session.m_RtpClient.IsActive)
                     {
@@ -1501,7 +1499,7 @@ namespace Media.Rtsp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal void ProcessClientBuffer(ClientSession session, int received)
         {
-            if (IDisposedExtensions.IsNullOrDisposed(session) || received <= 0) return;
+            if (IDisposedExtensions.IsNullOrDisposed(session) || received <= 0 || session.IsDisconnected) return;
 
             try
             {
@@ -1662,7 +1660,7 @@ namespace Media.Rtsp
         /// <param name="ar">The asynch result</param>
         internal void ProcessSendComplete(IAsyncResult ar)
         {
-            if (ar == null /*|| ar.CompletedSynchronously*/ || false == ar.IsCompleted) return;
+            if (ar == null || false == ar.IsCompleted) return;
 
             ClientSession session = (ClientSession)ar.AsyncState;
 
@@ -1670,7 +1668,7 @@ namespace Media.Rtsp
             {
 
                 //Don't do anything if the session cannot be acted on.
-                if (IDisposedExtensions.IsNullOrDisposed(session) || session.IsDisconnected) return;
+                if (IDisposedExtensions.IsNullOrDisposed(session) || session.IsDisconnected || false == session.HasRuningServer) return;
 
                 //Ensure the bytes were completely sent..
                 int sent = session.m_RtspSocket.EndSendTo(ar);

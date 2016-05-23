@@ -62,6 +62,7 @@
   <ItemGroup>
     <Compile Include="Classes\EventArgsEx.cs" />
     <Compile Include="Classes\Disposables\LifetimeDisposable.cs" />
+    <Compile Include="Classes\Loggers\TraceLogger.cs" />
     <Compile Include="Classes\Machine.cs" />
     <Compile Include="Classes\PacketBase.cs" />
     <Compile Include="Classes\SegmentStream.cs" />
@@ -101,7 +102,7 @@
     <Compile Include="Extensions\LinqExtensions.cs" />
     <Compile Include="Classes\Loggers\BaseLogger.cs" />
     <Compile Include="Classes\Loggers\ConsoleLogger.cs" />
-    <Compile Include="Classes\Loggers\DebuggingLogger.cs" />
+    <Compile Include="Classes\Loggers\DebugLogger.cs" />
     <Compile Include="Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs" />
     <Compile Include="Extensions\StringExtensions.cs" />
     <Compile Include="Classes\TaggedException.cs" />

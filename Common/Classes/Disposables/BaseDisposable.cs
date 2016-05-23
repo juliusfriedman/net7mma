@@ -52,23 +52,38 @@ namespace Media.Common
     /// <summary>
     /// Provides an implementation which contains the members required to adhere to the IDisposable implementation.
     /// </summary>
+    /// <remarks>
+    /// Influenced by <see href="https://blogs.msdn.microsoft.com/blambert/2009/07/24/a-simple-and-totally-thread-safe-implementation-of-idisposable/">blambert's blog</see>
+    /// </remarks>
     [CLSCompliant(true)]
     [System.Runtime.InteropServices.ComVisible(true)]
     public abstract class BaseDisposable : IDisposed
     {
-        #region Statics
+        #region Constants / Statics
 
-        internal protected static void SetShouldDisposeIfSenderIsBaseDisposable(object sender, EventArgs e)
+        /// <summary>
+        /// The values which represent the state of the disposition of an instance.
+        /// </summary>
+        internal const int Finalized = -1, Undisposed = 0, Disposed = 1;
+
+        /// <summary>
+        /// If the sender is of the type <see cref="BaseDisposable"/> then <see cref="SetShouldDispose"/> will be called to dispose the instance immediately.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected static void SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow(object sender, EventArgs e)
         {
             if (sender != null && sender is BaseDisposable) SetShouldDispose((sender as BaseDisposable), true, true);
         }
 
         /// <summary>
-        /// Sets <see cref="ShouldDispose"/> to the given value and optionally calls Dispose.
+        /// Sets <see cref="ShouldDispose"/> to the given value and optionally calls <see cref="Dispose"/>.
         /// </summary>
         /// <param name="toDispose"></param>
         /// <param name="value"></param>
         /// <param name="callDispose"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void SetShouldDispose(BaseDisposable toDispose, bool value, bool callDispose = false)
         {
             if (IDisposedExtensions.IsNullOrDisposed(toDispose)) return;
@@ -83,9 +98,16 @@ namespace Media.Common
         #region Fields
 
         /// <summary>
-        /// Holds a value which is set to True only during <see cref="Finalize"/>
+        /// Holds a value which indicates the state.
         /// </summary>
-        bool Finalized;
+        int State; // = Undisposed;
+
+#if DEBUG
+        /// <summary>
+        /// Determine if the object was created in the default app domain and which event handler to unhook at dispose
+        /// </summary>
+        bool DefaultAppDomain;
+#endif
 
         #endregion
 
@@ -93,29 +115,21 @@ namespace Media.Common
 
         //These 2 sections can be combined if the next constructor changes shouldDispose to an optional parameter.
 
-#if DEBUG
-        /// <summary>
-        /// Determine if the object was created in the default app domain and which event handler to unhook at dipose
-        /// </summary>
-        readonly bool DefaultAppDomain;
-#endif
         /// <summary>
         /// Constructs a new BaseDisposable
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected BaseDisposable()
         {
-            //ShouldDispose is false
-
-            //This is not really needed at this level.
+            //Debug only, attach handler from AppDomain, Synchronized.
 
 #if DEBUG
             //http://stackoverflow.com/questions/18033100/unload-event-for-the-default-application-domain
             //Catch domain shutdown (Hack: frantically look for things we can catch)
             if (DefaultAppDomain = AppDomain.CurrentDomain.IsDefaultAppDomain())
-                AppDomain.CurrentDomain.ProcessExit += SetShouldDisposeIfSenderIsBaseDisposable;
+                AppDomain.CurrentDomain.ProcessExit += SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
             else
-                AppDomain.CurrentDomain.DomainUnload += SetShouldDisposeIfSenderIsBaseDisposable;
+                AppDomain.CurrentDomain.DomainUnload += SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
 #endif
         }
 
@@ -130,19 +144,52 @@ namespace Media.Common
         }
 
         /// <summary>
-        /// Finalizes the BaseDisposable by calling Dispose.
+        /// Finalizes the BaseDisposable, calls <see cref="Dispose"/> if <see cref="ShouldDispose"/> is true not already diposed.
         /// </summary>
+        /// <remarks>If ever, only called when there are no more references to the object during a GC Collection.</remarks>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         ~BaseDisposable()
         {
-            Finalized = true;
+            //Write state in Finalizer
+            System.Threading.Thread.VolatileWrite(ref State, Finalized);
 
+            //If the object should dispose then call the virtual Dispose method.
             Dispose(ShouldDispose);
+
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(ToString() + "@Finalize Completed");
+#endif
         }
 
         #endregion
 
         #region Properties
+
+        /// <summary>
+        /// Gets a value indicating whether the object is undisposed.
+        /// </summary>
+        internal bool IsUndisposed
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return System.Threading.Thread.VolatileRead(ref State) == Undisposed;
+            }
+        }
+
+        /// <summary>
+        /// Gets a value indicates if <see cref="Finalize"/> has been called.
+        /// </summary>
+        internal bool IsFinalized
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return System.Threading.Thread.VolatileRead(ref State) == Finalized;
+            }
+        }
+
+        //Todo, Virtual overhead
 
         /// <summary>
         /// Indicates if Dispose has been called previously.
@@ -152,26 +199,17 @@ namespace Media.Common
         /// <summary>
         /// Indicates if the instance should dispose any resourced when <see cref="Dispose"/> is called.
         /// </summary>
-        public virtual bool ShouldDispose { get; internal protected set; }
-
-        /// <summary>
-        /// Gets a value indicates if <see cref="Finalize"/> has been called.
-        /// </summary>
-        public bool IsFinalized
-        {
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return Finalized; }
-        }
+        public bool ShouldDispose { get; internal protected set; }
 
         #endregion
 
         #region Methods
 
         /// <summary>
-        /// Throws a System.ObjectDisposedException if <see cref="IsDisposed"/> is true.
+        /// Throws a System.ObjectDisposedException if <see cref="IsDisposed"/> is true and the Finalizer has yet not been called
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal protected void CheckDisposed() { if (IsDisposed) throw new ObjectDisposedException(GetType().Name); }
+        internal protected void CheckDisposed() { if (IsDisposed && false == IsFinalized) throw new ObjectDisposedException(GetType().Name); }
 
         /// <summary>
         /// Allows derived implemenations a chance to destory manged or unmanged resources.
@@ -179,22 +217,45 @@ namespace Media.Common
         /// <param name="disposing">Indicates if resources should be destroyed</param>
         internal protected virtual void Dispose(bool disposing)
         {
-            //If should not dispose or already IsDisposed return
-            if (IsDisposed) return;
-
             //Mark the instance disposed if disposing
             //If the resources are to be removed then the finalizer has been called.
-            if (IsDisposed = disposing)
+            if (disposing)
             {
-                //Do not call the finalizer
-                GC.SuppressFinalize(this);
-            }
-#if DEBUG
-            //http://stackoverflow.com/questions/18020861/how-to-get-notified-before-static-variables-are-finalized/18316325#18316325
+                //Compare and Swap State with Disposed if it was Undisposed.
+                //Determine what to do based on what the State was
+                switch (System.Threading.Interlocked.CompareExchange(ref State, Disposed, Undisposed))
+                {
+                    case Undisposed:
+                        {
+                            //Do not call the finalizer
+                            GC.SuppressFinalize(this);
 
-            if (DefaultAppDomain) AppDomain.CurrentDomain.ProcessExit -= SetShouldDisposeIfSenderIsBaseDisposable;
-            else AppDomain.CurrentDomain.DomainUnload -= SetShouldDisposeIfSenderIsBaseDisposable;
+                            goto case Finalized;
+                        }
+                    case Finalized:
+                        {
+                            //If already was disposed return
+                            if (IsDisposed) return;
+
+                            //Set Disposed now.
+                            IsDisposed = true;
+
+                            //Return
+                            goto default;
+                        }
+                    default:
+                        { 
+                            //Debug only, detach handler from AppDomain, Synchronized.
+#if DEBUG
+                            //http://stackoverflow.com/questions/18020861/how-to-get-notified-before-static-variables-are-finalized/18316325#18316325
+                            if (DefaultAppDomain) AppDomain.CurrentDomain.ProcessExit -= SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
+                            else AppDomain.CurrentDomain.DomainUnload -= SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
 #endif
+
+                            return;
+                        }
+                }
+            }
         }
 
         /// <summary>
@@ -202,16 +263,26 @@ namespace Media.Common
         /// Calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/>
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public virtual void Dispose() { Dispose(ShouldDispose); }
-
-        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        //internal void Destruct() { Dispose(Finalized = true); }
+        public virtual void Dispose()
+        {
+            Dispose(ShouldDispose);
+        }
 
         #endregion
+
+        /// <summary>
+        /// Allows derived implemenations a chance to destory manged or unmanged resources.
+        /// Calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/>
+        /// </summary>
+        void IDisposable.Dispose() { Dispose(ShouldDispose); }
+
+        /// <summary>
+        /// Indicates if the instance is not yet disposed
+        /// </summary>
+        bool IDisposed.IsDisposed { get { return IsUndisposed == false; } }
     }
 
     #endregion
 }
-
 
 //Tests

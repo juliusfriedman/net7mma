@@ -1841,7 +1841,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 //ProfileHeaderInformation.MinimumProfileHeaderSize
 
                 //Need 8 bytes.
-                if (count < 8) throw new InvalidOperationException("Invalid packet.");
+                if (count < 8 || offset > packet.Payload.Count) return;
 
                 //if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
 

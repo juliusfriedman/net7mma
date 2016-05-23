@@ -472,7 +472,7 @@ namespace Media.Http
                     //Should also count headers when body is empty... and then add body length
 
                     //m_Headers.Count *  means each header has a ':' and spacing sequence, + lineEndsLength for the end headersequence
-                    return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_HeaderEncoding.GetByteCount(m_Body)) + (m_Headers.Count > 0 ? m_Headers.Count * (1 + lineEndsLength) + lineEndsLength + m_Headers.Sum(s => m_HeaderEncoding.GetByteCount(s.Key) + m_HeaderEncoding.GetByteCount(s.Value)) : 0);
+                    return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_HeaderEncoding.GetByteCount(m_Body)) + (m_Headers.Count > 0 ? m_Headers.Count * (1 + lineEndsLength) + lineEndsLength + m_Headers.Sum(s => string.IsNullOrWhiteSpace(s.Key) ? 0 : m_HeaderEncoding.GetByteCount(s.Key) + m_HeaderEncoding.GetByteCount(s.Value)) : 0);
 
                     //return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_HeaderEncoding.GetByteCount(m_Body)) + PrepareHeaders().Count();
                 }

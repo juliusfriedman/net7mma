@@ -66,7 +66,7 @@ namespace Media.Sdp
 
             //Assuming given a value NOT a line text to parse...
             public SessionAttributeLine(string value)
-                : base(AttributeType, SessionDescription.SpaceString)
+                : base(AttributeType, SessionDescription.ColonString)
             {
                 Add(value);
             }
@@ -74,7 +74,7 @@ namespace Media.Sdp
             //Should have params values overload with optional seperator
 
             public SessionAttributeLine(string[] sdpLines, ref int index)
-                : base(sdpLines, ref index, SessionDescription.SpaceString, AttributeType) { }
+                : base(sdpLines, ref index, SessionDescription.ColonString, AttributeType) { }
 
             //If going to use SpaceString then should offer a property to get parts for dervived types which wish to use ':'
             //E.g. KeyValuePair<string, string> GetValues

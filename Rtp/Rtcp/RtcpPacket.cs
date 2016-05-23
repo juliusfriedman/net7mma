@@ -643,7 +643,7 @@ namespace Media.Rtcp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool IsContiguous()
         {
-            return Header.IsContiguous() && Header.PointerToLast6Bytes.Array == Payload.Array && Header.PointerToLast6Bytes.Offset + Header.PointerToLast6Bytes.Count == Payload.Offset;
+            return Header.IsContiguous() && Header.SegmentToLast6Bytes.Array == Payload.Array && Header.SegmentToLast6Bytes.Offset + Header.SegmentToLast6Bytes.Count == Payload.Offset;
         }
 
         /// <summary>
@@ -929,22 +929,17 @@ namespace Media.Rtcp
         /// <summary>
         /// Disposes of any private data this instance utilized.
         /// </summary>
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            if (IsDisposed) return;
+            if (disposing && false == ShouldDispose) return;
 
-            base.Dispose();
-
-            if (false == ShouldDispose) return;
+            base.Dispose(ShouldDispose);
 
             //If there is a referenced RtpHeader
-            if (m_OwnsHeader)
+            if (m_OwnsHeader && false == Common.IDisposedExtensions.IsNullOrDisposed(Header))
             {
                 //Dispose it
                 Header.Dispose();
-
-                //Remove of the reference
-                //Header = null;
             }
 
             if (false == Common.IDisposedExtensions.IsNullOrDisposed(Payload))
@@ -1006,7 +1001,7 @@ namespace Media.Rtcp
             buffer = new System.Collections.Generic.List<ArraySegment<byte>>()
             {
                 Common.MemorySegmentExtensions.ToByteArraySegment(Header.First16Bits.m_Memory),
-                Common.MemorySegmentExtensions.ToByteArraySegment(Header.PointerToLast6Bytes),
+                Common.MemorySegmentExtensions.ToByteArraySegment(Header.SegmentToLast6Bytes),
                 Common.MemorySegmentExtensions.ToByteArraySegment(Payload),
             };
 

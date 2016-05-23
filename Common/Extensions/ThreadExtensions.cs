@@ -56,6 +56,19 @@ namespace Media.Common.Extensions.Thread
             return thread != null && (thread.ThreadState & (System.Threading.ThreadState.Stopped | System.Threading.ThreadState.Unstarted)) == 0;
         }
 
+        /// <summary>
+        /// Calls <see cref="Interrupt"/> on the given thread.
+        /// </summary>
+        /// <param name="thread"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static void InterruptThread(ref System.Threading.Thread thread)
+        {
+            if (thread == null) return;
+            try { thread.Interrupt(); }
+            catch (System.Threading.ThreadInterruptedException) { return; }
+            catch { throw; }
+        }
+
         public static void AbortAndFree(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
         {
             //If the worker IsAlive and has the requested state.

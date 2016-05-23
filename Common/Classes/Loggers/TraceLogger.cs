@@ -1,23 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Media.Common.Loggers
+﻿namespace Media.Common.Loggers
 {
-    public class DebuggingLogger : BaseLogger
+    public class TraceLogger : BaseLogger
     {
-
         internal static void CoreWrite(string message)
         {
             if (string.IsNullOrWhiteSpace(message)) return;
 
-            try { System.Diagnostics.Debug.WriteLine(message); }
+            try { System.Diagnostics.Trace.WriteLine(message); }
             catch { throw; }
         }
 
-        public override void LogException(Exception ex)
+        public override void LogException(System.Exception ex)
         {
             try { CoreWrite(ex.Message); }
             catch { throw; }
