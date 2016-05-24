@@ -56,7 +56,7 @@ namespace Media.Rtcp
     /// <remarks>
     /// ReportBlock is a fixed sized structure which must always contain 24 octets.
     /// </remarks>
-    public class ReportBlock : Common.BaseDisposable, IReportBlock, IEnumerable<byte>, ICloneable
+    public class ReportBlock : SuppressedFinalizerDisposable, IReportBlock, IEnumerable<byte>, ICloneable
     {
         #region Constants and Statics
 
@@ -228,11 +228,14 @@ namespace Media.Rtcp
 
         public ReportBlock(int ssrc, byte fractionsLost, int cumulativePacketsLost) : this(ssrc, fractionsLost) { CumulativePacketsLost = cumulativePacketsLost; }
 
-        public ReportBlock(int ssrc, byte fractionsLost, int cumulativePacketsLost, int extendedHighestSequenceNumberReceived) : this(ssrc, fractionsLost, cumulativePacketsLost) { ExtendedHighestSequenceNumberReceived = extendedHighestSequenceNumberReceived; }
+        public ReportBlock(int ssrc, byte fractionsLost, int cumulativePacketsLost, int extendedHighestSequenceNumberReceived) 
+            : this(ssrc, fractionsLost, cumulativePacketsLost) { ExtendedHighestSequenceNumberReceived = extendedHighestSequenceNumberReceived; }
 
-        public ReportBlock(int ssrc, byte fractionsLost, int cumulativePacketsLost, int extendedHighestSequenceNumberReceived, int interarrivalJitterEstimate) : this(ssrc, fractionsLost, cumulativePacketsLost, extendedHighestSequenceNumberReceived) { InterarrivalJitterEstimate = interarrivalJitterEstimate; }
+        public ReportBlock(int ssrc, byte fractionsLost, int cumulativePacketsLost, int extendedHighestSequenceNumberReceived, int interarrivalJitterEstimate) 
+            : this(ssrc, fractionsLost, cumulativePacketsLost, extendedHighestSequenceNumberReceived) { InterarrivalJitterEstimate = interarrivalJitterEstimate; }
 
-        public ReportBlock(int ssrc, byte fractionsLost, int cumulativePacketsLost, int extendedHighestSequenceNumberReceived, int interarrivalJitterEstimate, int lastSendersReportTimestamp) : this(ssrc, fractionsLost, cumulativePacketsLost, extendedHighestSequenceNumberReceived, interarrivalJitterEstimate) { LastSendersReportTimestamp = lastSendersReportTimestamp; }
+        public ReportBlock(int ssrc, byte fractionsLost, int cumulativePacketsLost, int extendedHighestSequenceNumberReceived, int interarrivalJitterEstimate, int lastSendersReportTimestamp) 
+            : this(ssrc, fractionsLost, cumulativePacketsLost, extendedHighestSequenceNumberReceived, interarrivalJitterEstimate) { LastSendersReportTimestamp = lastSendersReportTimestamp; }
 
         public ReportBlock(int ssrc, byte fractionsLost, int cumulativePacketsLost, int extendedHighestSequenceNumberReceived, int interarrivalJitterEstimate, int lastSendersReportTimestamp, int delaySinceLastSendersReport) : this(ssrc, fractionsLost, cumulativePacketsLost, extendedHighestSequenceNumberReceived, interarrivalJitterEstimate, lastSendersReportTimestamp) { DelaySinceLastSendersReport = delaySinceLastSendersReport; }
 

@@ -53,7 +53,7 @@ namespace Media.Rtcp
     /// A managed implemenation of the Rtcp abstraction found in RFC3550.
     /// <see cref="http://tools.ietf.org/html/rfc3550"> RFC3550 </see> for more information
     /// </summary>
-    public class RtcpPacket : BaseDisposable, IPacket, ICloneable
+    public class RtcpPacket : SuppressedFinalizerDisposable, IPacket, ICloneable
     {
         #region Statics
 
@@ -142,8 +142,6 @@ namespace Media.Rtcp
         #endregion
 
         #region Constructor
-
-        //~RtcpPacket() { Dispose(); }
 
         /// <summary>
         /// Creates a RtcpPacket instance by projecting the given sequence to an array which is subsequently owned by the instance.

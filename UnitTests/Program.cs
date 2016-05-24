@@ -3373,101 +3373,97 @@ a=appversion:1.0");
 
             string format = "{0} a {1} {2}";
 
-            Type packetType = packet.GetType();
-
             if (packet is Media.Rtp.RtpPacket)
             {
-                Media.Rtp.RtpPacket rtpPacket = packet as Media.Rtp.RtpPacket;
-
-                if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
-
-                if (packet.IsComplete) Console.ForegroundColor = ConsoleColor.Blue;
-                else Console.ForegroundColor = ConsoleColor.Red;
-
-                Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
-
-                Media.Rtp.RtpClient.TransportContext matched = null;
-
-                if (client != null) matched = client.GetContextForPacket(rtpPacket);
-
-                if (matched == null)
+                using (Media.Rtp.RtpPacket rtpPacket = (packet as Media.Rtp.RtpPacket).Clone(true, true, true, true, false))
                 {
-
                     if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-                    Console.WriteLine("****Unknown RtpPacket context: " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty : "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
-                    if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
-                        {
-                            Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
-                            Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
-                            Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
-                            Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
-                        }
+                    if (packet.IsComplete) Console.ForegroundColor = ConsoleColor.Blue;
+                    else Console.ForegroundColor = ConsoleColor.Red;
+
+                    Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
+
+                    Media.Rtp.RtpClient.TransportContext matched = null;
+
+                    if (client != null) matched = client.GetContextForPacket(rtpPacket);
+
+                    if (matched == null)
+                    {
+
+                        if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
+                        Console.WriteLine("****Unknown RtpPacket context: " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty : "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
+                        if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
+                            {
+                                Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
+                                Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
+                                Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
+                                Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
+                            }
+                    }
+                    else
+                    {
+                        Console.WriteLine(string.Format(TestingFormat, "Matches Context (By PayloadType):", "*******\n\t***********Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier));
+
+                        if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
+                        Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packet.ToString()) + "\tSequenceNo = " + rtpPacket.SequenceNumber + " Timestamp=" + rtpPacket.Timestamp + " PayloadType = " + rtpPacket.PayloadType + " " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + " Length = " +
+                            rtpPacket.Length + "\nContributingSourceCount = " + rtpPacket.ContributingSourceCount
+                            + "\n Version = " + rtpPacket.Version + "\tSynchronizationSourceIdentifier = " + rtpPacket.SynchronizationSourceIdentifier);
+                    }
+
+                    if (false == Media.Common.IDisposedExtensions.IsNullOrDisposed(packet) && rtpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtpPacket.Payload.Array, rtpPacket.Payload.Offset, rtpPacket.Payload.Count)));
                 }
-                else
-                {
-                    Console.WriteLine(string.Format(TestingFormat, "Matches Context (By PayloadType):", "*******\n\t***********Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier));
-
-                    if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
-
-                    Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSequenceNo = " + rtpPacket.SequenceNumber + " Timestamp=" + rtpPacket.Timestamp + " PayloadType = " + rtpPacket.PayloadType + " " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + " Length = " +
-                        rtpPacket.Length + "\nContributingSourceCount = " + rtpPacket.ContributingSourceCount
-                        + "\n Version = " + rtpPacket.Version + "\tSynchronizationSourceIdentifier = " + rtpPacket.SynchronizationSourceIdentifier);
-                }
-
-                if (false == Media.Common.IDisposedExtensions.IsNullOrDisposed(packet) && rtpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtpPacket.Payload.Array, rtpPacket.Payload.Offset, rtpPacket.Payload.Count)));
             }
             else
             {
                 if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
-                Media.Rtcp.RtcpPacket rtcpPacket = packet as Media.Rtcp.RtcpPacket;
-
-                bool complete = rtcpPacket.IsComplete;
-
-                if (complete) if (rtcpPacket.Transferred.HasValue) Console.ForegroundColor = ConsoleColor.Green; else Console.ForegroundColor = ConsoleColor.DarkGreen;
-                else if (Media.Common.IDisposedExtensions.IsNullOrDisposed(rtcpPacket)) return;
-                else Console.ForegroundColor = ConsoleColor.Yellow;
-
-                Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
-
-                Media.Rtp.RtpClient.TransportContext matched = null;
-
-                if (client != null) matched = client.GetContextForPacket(rtcpPacket);
-
-                Type implemented = Media.Rtcp.RtcpPacket.GetImplementationForPayloadType(rtcpPacket.PayloadType);
-
-                if (implemented != null) packetType = implemented;
-
-                if (Media.Common.IDisposedExtensions.IsNullOrDisposed(rtcpPacket)) return;
-
-                Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (complete ? "Complete" : "Incomplete"), packetType.Name) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
-
-                if (rtcpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtcpPacket.Payload.Array, rtcpPacket.Payload.Offset, rtcpPacket.Payload.Count)));
-
-                if (matched != null) Console.WriteLine(string.Format(TestingFormat, "Context:", "*******\n\t*********** Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier + " - Channel = " + matched.ControlChannel));
-                else
+                using (Media.Rtcp.RtcpPacket rtcpPacket = (packet as Media.Rtcp.RtcpPacket).Clone(true, true, false))
                 {
+                    bool complete = rtcpPacket.IsComplete;
+
+                    if (complete) if (rtcpPacket.Transferred.HasValue) Console.ForegroundColor = ConsoleColor.Green; else Console.ForegroundColor = ConsoleColor.DarkGreen;
+                    else if (Media.Common.IDisposedExtensions.IsNullOrDisposed(rtcpPacket)) return;
+                    else Console.ForegroundColor = ConsoleColor.Yellow;
+
+                    Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
+
+                    Media.Rtp.RtpClient.TransportContext matched = null;
+
+                    if (client != null) matched = client.GetContextForPacket(rtcpPacket);
+
+                    Type implemented = Media.Rtcp.RtcpPacket.GetImplementationForPayloadType(rtcpPacket.PayloadType);
+
                     if (Media.Common.IDisposedExtensions.IsNullOrDisposed(rtcpPacket)) return;
 
-                    Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet context -> " + rtcpPacket.PayloadType + "@" + rtcpPacket.Version + " \nAvailables Contexts:", "*******\n\t***********"));
+                    Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (complete ? "Complete" : "Incomplete"), (implemented != null ? implemented.Name : packet.ToString())) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
 
-                    if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
-                        {
-                            Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
-                            Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
-                            Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
-                            Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
-                        }
+                    if (rtcpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtcpPacket.Payload.Array, rtcpPacket.Payload.Offset, rtcpPacket.Payload.Count)));
+
+                    if (matched != null) Console.WriteLine(string.Format(TestingFormat, "Context:", "*******\n\t*********** Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier + " - Channel = " + matched.ControlChannel));
+                    else
+                    {
+                        if (Media.Common.IDisposedExtensions.IsNullOrDisposed(rtcpPacket)) return;
+
+                        Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet context -> " + rtcpPacket.PayloadType + "@" + rtcpPacket.Version + " \nAvailables Contexts:", "*******\n\t***********"));
+
+                        if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
+                            {
+                                Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
+                                Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
+                                Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
+                                Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
+                            }
+                    }
+
+                    if (implemented != null)
+                    {
+                        //Could dump the packet contents here.
+                        Console.WriteLine(Media.RtpTools.RtpSend.ToTextualConvention(Media.RtpTools.FileFormat.Ascii, rtcpPacket));
+                    }
                 }
-
-                if (implemented != null)
-                {
-                    //Could dump the packet contents here.
-                    Console.WriteLine(Media.RtpTools.RtpSend.ToTextualConvention(Media.RtpTools.FileFormat.Ascii, rtcpPacket));
-                }
-
-
             }
 
             Console.ForegroundColor = previousForegroundColor;

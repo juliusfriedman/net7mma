@@ -102,13 +102,6 @@ namespace Media.Common
         /// </summary>
         int State; // = Undisposed;
 
-#if DEBUG
-        /// <summary>
-        /// Determine if the object was created in the default app domain and which event handler to unhook at dispose
-        /// </summary>
-        bool DefaultAppDomain;
-#endif
-
         #endregion
 
         #region Constructor / Destructor
@@ -250,15 +243,13 @@ namespace Media.Common
             Dispose(ShouldDispose);
         }
 
-        //Todo, determine if the virtual check is ever necessary as this level is more fundamental.
-
         /// <summary>
-        /// Indicates if the instance is not yet disposed, does not check virtual constraints.
+        /// Indicates if the instance is not yet disposed, only checks the virtual constraint if not already diposed.
         /// </summary>
         bool IDisposed.IsDisposed
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return IsUndisposed == false /*&& false == IsDisposed*/; } //to also check the virtual uncomment...
+            get { return IsUndisposed == false && false == IsDisposed; }
         }
 
         //Ugly, double check already not Disposed but only through interface...
