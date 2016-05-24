@@ -5164,7 +5164,7 @@ namespace Media.Rtsp
             try
             {
                 //Thrown an exception if IsDisposed
-                if (IsDisposed) return;
+                if (IsDisposed || m_KeepAliveTimer == null) return;
 
                 wasPlaying = IsPlaying;
 
@@ -5600,7 +5600,7 @@ namespace Media.Rtsp
             }
 
             //Finally set Disposed to true
-            base.Dispose();
+            base.Dispose(true);
 
             if (m_Buffer != null)
             {

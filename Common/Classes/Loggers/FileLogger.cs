@@ -22,22 +22,16 @@ namespace Media.Common.Loggers
 
         #region Constructor
 
-        public FileLogger(System.IO.FileInfo fileInfo)
+        public FileLogger(System.IO.FileInfo fileInfo, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             m_FileInfo = fileInfo;
         }
 
-        public FileLogger(string fileName)
-            : this(new System.IO.FileInfo(fileName))
+        public FileLogger(string fileName, bool shouldDispose)
+            : this(new System.IO.FileInfo(fileName), shouldDispose)
         {
 
-        }
-
-        ~FileLogger()
-        {
-            m_FileInfo = null;
-
-            m_Encoding = null;
         }
 
         #endregion
@@ -111,5 +105,16 @@ namespace Media.Common.Loggers
         /// <param name="ex"></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public override void LogException(Exception ex) { CoreWrite(ex.Message); }
+
+        protected internal override void Dispose(bool disposing)
+        {
+            if (false == disposing || false == ShouldDispose) return;
+
+            base.Dispose(ShouldDispose);
+
+            m_FileInfo = null;
+
+            m_Encoding = null;
+        }
     }
 }

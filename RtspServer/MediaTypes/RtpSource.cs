@@ -132,6 +132,7 @@ namespace Media.Rtsp.Server.MediaTypes
             {
                 if (RtpClient != null) RtpClient.Activate();
 
+                //Should be done in first packet recieved...
                 base.Ready = true;
 
                 base.Start();
@@ -154,8 +155,17 @@ namespace Media.Rtsp.Server.MediaTypes
         public override void Dispose()
         {
             if (IsDisposed) return;
+
+            Stop();
+
             base.Dispose();
-            if (RtpClient != null) RtpClient.Dispose();
+
+            if (RtpClient != null)
+            {
+                RtpClient.Dispose();
+
+                RtpClient = null;
+            }
         }
 
         public RtpSource(string name, Sdp.SessionDescription sessionDescription)

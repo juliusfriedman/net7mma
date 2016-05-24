@@ -41,7 +41,7 @@ namespace Media.Rtsp
     /// <summary>
     /// Represents the resources in use by each Session created (during SETUP)
     /// </summary>
-    internal class RtspSession : Common.BaseDisposable
+    internal class RtspSession : Common.SuppressedFinalizerDisposable
     {
         #region Properties [obtained during OPTIONS]
 
@@ -363,12 +363,11 @@ namespace Media.Rtsp
         /// Disposes <see cref="LastRequest"/> and <see cref="LastResponse"/>.
         /// Removes any references stored in the instance.
         /// </summary>
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
+            if (false == disposing || false == ShouldDispose) return;
 
-            if (IsDisposed) return;
-
-            base.Dispose();
+            base.Dispose(ShouldDispose);
 
             //If there is a LastRequest
             if (LastRequest != null)

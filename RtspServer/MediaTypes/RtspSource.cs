@@ -212,7 +212,12 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             if (IsDisposed) return;
 
-            if (false == RtspClient.IsConnected)
+            base.Start();
+
+            //Not quite ready yet.
+            if (base.Ready) base.Ready = false;
+
+            if (State == StreamState.Stopped)
             {
                 RtspClient.OnConnect += RtspClient_OnConnect;
                 RtspClient.OnDisconnect += RtspClient_OnDisconnect;
@@ -221,7 +226,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 RtspClient.OnStop += RtspClient_OnStop;
 
                 try { RtspClient.Connect(); }
-                catch { RtspClient.StopPlaying(); } //Stop stop
+                catch { RtspClient.StopPlaying(); }
             }
             else if (false == RtspClient.IsPlaying)
             {
@@ -234,7 +239,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     m_StartedTimeUtc = DateTime.UtcNow;
 
                     //Call base to set started etc.
-                    base.Start();
+                    base.Ready = RtspClient.IsPlaying;
                 }
                 catch { RtspClient.StopPlaying(); } //Not stop
             }
@@ -286,6 +291,9 @@ namespace Media.Rtsp.Server.MediaTypes
             }
             catch
             {
+                //StoPlaying and Disconnect when an exception occurs.
+                RtspClient.StopPlaying();
+
                 //Indicate not ready
                 base.Ready = false;
             }
@@ -319,9 +327,9 @@ namespace Media.Rtsp.Server.MediaTypes
                 RtspClient.OnConnect -= RtspClient_OnConnect;
                 RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
                 RtspClient.OnPlay -= RtspClient_OnPlay;
+                RtspClient.OnPause -= RtspClient_OnPausing;
                 RtspClient.OnStop -= RtspClient_OnStop;
             }
-
 
             base.Stop();
 
@@ -331,12 +339,15 @@ namespace Media.Rtsp.Server.MediaTypes
         public override void Dispose()
         {
             if (IsDisposed) return;
-           
+
+            Stop();
+
             base.Dispose();
 
             if (RtspClient != null)
             {
                 RtspClient.Dispose();
+
                 RtspClient = null;
             }
         }

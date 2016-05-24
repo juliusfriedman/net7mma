@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Media.Common.Loggers
 {
-    public abstract class BaseLogger : BaseDisposable, ILogging
+    public abstract class BaseLogger : SuppressedFinalizerDisposable, ILogging
     {
         public BaseLogger(bool shouldDispose) : base(shouldDispose) { }
 
