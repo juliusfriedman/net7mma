@@ -43,7 +43,7 @@ namespace Media.Rtp
     /// <summary>
     /// A collection of RtpPackets
     /// </summary>
-    public class RtpFrame : Media.Common.BaseDisposable, IEnumerable<RtpPacket>// IDictionary, IList, etc? IClonable
+    public class RtpFrame : Media.Common.SuppressedFinalizerDisposable, IEnumerable<RtpPacket>// IDictionary, IList, etc? IClonable
     {
         //Todo, should be Lifetime Disposable        (Where Lifetime is given by expected duration + connection time by default or 1 Minute)
 
@@ -183,14 +183,13 @@ namespace Media.Rtp
             #region Constructor
 
             PaD(PaD pad, bool shouldDispose = true)
+                :base(shouldDispose)
             {
                 if (Common.IDisposedExtensions.IsNullOrDisposed(pad)) throw new InvalidOperationException("pad is NullOrDisposed");
 
                 m_Packet = pad.m_Packet;
 
                 Parts = pad.Parts;
-
-                ShouldDispose = m_Packet.ShouldDispose;
             }
 
             PaD(RtpPacket packet)
@@ -1376,23 +1375,20 @@ namespace Media.Rtp
             return GetEnumerator();
         }
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            if (IsDisposed) return;
+            if (false == disposing || false == ShouldDispose) return;
 
             base.Dispose(ShouldDispose);
 
-            if (ShouldDispose)
-            {
-                //Remove packets and any memory
-                Clear();
+            //Remove packets and any memory
+            Clear();
 
-                //Dispose the buffer.
-                DisposeBuffer();
+            //Dispose the buffer.
+            DisposeBuffer();
 
-                //Free the depacketized memory incase packets were removed and we own the memory.
-                FreeDepacketizedMemory(true);
-            }
+            //Free the depacketized memory incase packets were removed and we own the memory.
+            FreeDepacketizedMemory(true);
         }
 
         //Registration ....

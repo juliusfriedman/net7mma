@@ -710,7 +710,11 @@ namespace Media.Http
         /// <summary>
         /// Reserved
         /// </summary>
-        protected HttpMessage(string protocol = HttpMessage.MessageIdentifier) : base() { Protocol = protocol;}
+        protected HttpMessage(string protocol = HttpMessage.MessageIdentifier, bool shouldDispose = true)
+            : base(shouldDispose)
+        {
+            Protocol = protocol;
+        }
 
         /// <summary>
         /// Constructs a HttpMessage
@@ -827,7 +831,8 @@ namespace Media.Http
         /// Creates a HttpMessage by copying the properties of another.
         /// </summary>
         /// <param name="other">The other HttpMessage</param>
-        public HttpMessage(HttpMessage other)
+        public HttpMessage(HttpMessage other, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             MethodString = other.MethodString;
 

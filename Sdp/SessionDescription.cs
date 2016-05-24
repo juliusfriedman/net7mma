@@ -654,7 +654,8 @@ namespace Media.Sdp
 
         #region Constructor
 
-        public SessionDescription(int version)
+        public SessionDescription(int version, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             m_OriginatorLine = new Lines.SessionOriginLine();
 
@@ -663,8 +664,8 @@ namespace Media.Sdp
             SessionDescriptionVersion = version;
         }
 
-        public SessionDescription(string originatorString, string sessionName)
-            :this(0)
+        public SessionDescription(string originatorString, string sessionName, bool shouldDispose = true)
+            :this(0, shouldDispose)
         {
             OriginatorAndSessionIdentifier = originatorString;
 
@@ -677,8 +678,8 @@ namespace Media.Sdp
         /// <param name="protocolVersion">Usually 0</param>
         /// <param name="originatorAndSession">Compound string identifying origionator and session identifier</param>
         /// <param name="sessionName">name of the session</param>
-        public SessionDescription(int protocolVersion, string originatorAndSession, string sessionName)
-            : this(protocolVersion)
+        public SessionDescription(int protocolVersion, string originatorAndSession, string sessionName, bool shouldDispose = true)
+            : this(protocolVersion, shouldDispose)
         {
             OriginatorAndSessionIdentifier = originatorAndSession;
 
@@ -689,7 +690,8 @@ namespace Media.Sdp
         /// Constructs a SessionDescription from the given contents of a Session Description Protocol message
         /// </summary>
         /// <param name="sdpContents">The Session Description Protocol usually recieved in the Describe request of a RtspClient</param>
-        public SessionDescription(string sdpContents)
+        public SessionDescription(string sdpContents, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             if (string.IsNullOrWhiteSpace(sdpContents)) return;
 
@@ -762,7 +764,8 @@ namespace Media.Sdp
         /// Creates a copy of another SessionDescription
         /// </summary>
         /// <param name="other">The SessionDescription to copy</param>
-        public SessionDescription(SessionDescription other, bool reference = false)
+        public SessionDescription(SessionDescription other, bool reference = false, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             SessionDescriptionVersion = other.SessionDescriptionVersion;
 

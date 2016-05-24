@@ -142,10 +142,8 @@ namespace Media.Concepts.Classes
         /// <param name="calendar"></param>
         /// <param name="shouldDispose">Indicates if the instace should be diposed when Dispose is called.</param>
         public Clock(System.TimeSpan timeZoneOffset, System.Globalization.Calendar calendar, bool shouldDispose = true)
+            : base(shouldDispose)
         {
-            //Allow disposal
-            ShouldDispose = shouldDispose;
-
             Calendar = System.Globalization.CultureInfo.CurrentCulture.Calendar;
 
             Created = new System.DateTimeOffset(System.DateTime.Now, timeZoneOffset);

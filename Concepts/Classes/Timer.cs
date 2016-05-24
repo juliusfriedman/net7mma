@@ -170,7 +170,8 @@ namespace Media.Concepts.Classes
             }
         }
 
-        public Timer(System.TimeSpan frequency)
+        public Timer(System.TimeSpan frequency, bool shouldDispose = true) 
+            :base(shouldDispose)
         {
             m_Frequency = frequency;
 

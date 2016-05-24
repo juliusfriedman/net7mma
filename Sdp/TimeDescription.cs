@@ -165,7 +165,7 @@ namespace Media.Sdp
 
         #region Constructor
 
-        public TimeDescription()
+        public TimeDescription(bool shouldDispose = true) : base(shouldDispose)
         {
             TimeDescriptionLine = new Lines.SessionTimeDescriptionLine();
 
@@ -218,7 +218,8 @@ namespace Media.Sdp
 
         }
 
-        public TimeDescription(TimeDescription other, bool referenceRepeatTimes = false)
+        public TimeDescription(TimeDescription other, bool referenceRepeatTimes = false, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             StartTime = other.StartTime;
 

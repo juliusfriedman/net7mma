@@ -139,7 +139,8 @@ namespace Media.Rtp
         /// <param name="sizeInBytes">The known size of the RtpExtension in bytes. The LengthInWords property will reflect this value divided by 4.</param>
         /// <param name="data">The optional extension data itself not including the Flags or LengthInWords fields.</param>
         /// <param name="offset">The optional offset into data to being copying.</param>
-        public RtpExtension(int sizeInBytes, short flags = 0, byte[] data = null, int offset = 0)
+        public RtpExtension(int sizeInBytes, short flags = 0, byte[] data = null, int offset = 0, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             //Allocate memory for the binary
             m_MemorySegment = new Common.MemorySegment(new byte[MinimumSize + sizeInBytes], 0, MinimumSize + sizeInBytes);
@@ -165,7 +166,8 @@ namespace Media.Rtp
         /// <param name="binary">The binary data of the extensions</param>
         /// <param name="offset">The amount of bytes to skip in binary</param>
         /// <param name="count">The amount of bytes to copy from binary</param>
-        public RtpExtension(byte[] binary, int offset, int count)
+        public RtpExtension(byte[] binary, int offset, int count, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             if (binary == null) throw new ArgumentNullException("binary");
             else if (binary.Length < MinimumSize) throw InvalidExtension;
@@ -179,7 +181,8 @@ namespace Media.Rtp
         /// Throws an ArgumentException if the given <paramref name="rtpPacket"/> does not have the <see cref="RtpHeader.Extension"/> bit set.
         /// </summary>
         /// <param name="rtpPacket">The RtpPacket</param>
-        public RtpExtension(RtpPacket rtpPacket)
+        public RtpExtension(RtpPacket rtpPacket, bool shouldDispose = true)
+            : base(shouldDispose)
         {
 
             if (rtpPacket == null) throw new ArgumentNullException("rtpPacket");

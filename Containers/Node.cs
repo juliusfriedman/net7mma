@@ -253,7 +253,8 @@ namespace Media.Container
         /// <param name="offset"></param>
         /// <param name="size"></param>
         /// <param name="complete"></param>
-        public Node(IMediaContainer master, byte[] identifier, int lengthSize, long offset, long size, bool complete)
+        public Node(IMediaContainer master, byte[] identifier, int lengthSize, long offset, long size, bool complete, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             if (master == null) throw new ArgumentNullException("master");
             if (identifier == null) throw new ArgumentNullException("identifier");
@@ -267,7 +268,8 @@ namespace Media.Container
             IsComplete = complete; //Should calulcate here?
         }
 
-        public Node(IMediaContainer master, Common.MemorySegment identifierPointer, int identifierSize, int lengthSize, long offset, long size, bool complete)
+        public Node(IMediaContainer master, Common.MemorySegment identifierPointer, int identifierSize, int lengthSize, long offset, long size, bool complete, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             Master = master;
             DataOffset = offset;
@@ -286,7 +288,8 @@ namespace Media.Container
         /// Creates a shallow copy of the node without the data
         /// </summary>
         /// <param name="n"></param>
-        Node(Node n)
+        Node(Node n, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             if (n == null) throw new ArgumentNullException();
             Master = n.Master;
@@ -305,8 +308,8 @@ namespace Media.Container
         /// <param name="n">The source <see cref="Node"/></param>
         /// <param name="ndc">How to assign <see cref="Data"/></param>
         /// <param name="offset">The optional offset in <see cref="Data"/> to start the copy. (The length of the copy operation is given by <see cref="DataSize"/> minus this parameter) </param>
-        Node(Node n, bool selfReference, int offset = 0) //ndc could just be a bool selfReference
-            : this(n)
+        Node(Node n, bool selfReference, int offset = 0, bool shouldDispose = true)
+            : this(n, shouldDispose)
         {
             if(n != null && n.DataSize > 0 && n.DataAssigned)
             {

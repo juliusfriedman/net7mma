@@ -694,7 +694,7 @@ namespace Media
         /// 
         /// This Type only declares 2 fields which are value types and owns no other references.
         /// </remarks>
-        public class CommonHeaderBits : BaseDisposable, IEnumerable<byte>
+        public class CommonHeaderBits : SuppressedFinalizerDisposable, IEnumerable<byte>
         {
 
             #region Notes
@@ -1258,14 +1258,11 @@ namespace Media
 
             protected override void Dispose(bool disposing)
             {
-                if (disposing && false == ShouldDispose) return;
+                if (false == disposing || false == ShouldDispose) return;
 
                 base.Dispose(ShouldDispose);
 
-                if (ShouldDispose)
-                {
-                    m_Memory.Dispose();
-                }
+                m_Memory.Dispose();
             }
 
             public override int GetHashCode() { return (short)this; }
@@ -1380,7 +1377,8 @@ namespace Media
             /// <param name="sources"></param>
             /// <param name="start"></param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public SourceList(IEnumerable<uint> sources, int start = 0)
+            public SourceList(IEnumerable<uint> sources, int start = 0, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 IEnumerable<byte> binary = Media.Common.MemorySegment.EmptyBytes;
 
@@ -1402,7 +1400,8 @@ namespace Media
             /// <param name="header">The <see cref="RtpHeader"/> to read the <see cref="RtpHeader.ContributingSourceCount"/> from</param>
             /// <param name="buffer">The buffer (which is vector of 32 bit values e.g. it will be read in increments of 32 bits per read)</param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public SourceList(Media.Rtp.RtpHeader header, byte[] buffer, int offset = 0)
+            public SourceList(Media.Rtp.RtpHeader header, byte[] buffer, int offset = 0, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 if (header == null) throw new ArgumentNullException("header");
 
@@ -1429,8 +1428,8 @@ namespace Media
             /// </summary>
             /// <param name="packet">The <see cref="RtpPacket"/> to create a SourceList from</param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public SourceList(Media.Rtp.RtpPacket packet)
-                : this(packet.Header, packet.Payload.Array, packet.Payload.Offset)
+            public SourceList(Media.Rtp.RtpPacket packet, bool shouldDispose = true)
+                : this(packet.Header, packet.Payload.Array, packet.Payload.Offset, shouldDispose)
             {
 
             }
@@ -1480,9 +1479,10 @@ namespace Media
                 }
             }
 
-            public SourceList(SourceList other) : base(true) //bool selfReference..
+            public SourceList(SourceList other, bool selfReference = false, bool shouldDispose = true) //bool selfReference..
+                : base(shouldDispose) 
             {
-                m_Binary = new MemorySegment(other.m_Binary);
+                m_Binary = selfReference ? other.m_Binary : new MemorySegment(other.m_Binary);
 
                 m_Read = other.m_Read;
 

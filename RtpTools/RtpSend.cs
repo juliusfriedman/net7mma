@@ -1153,7 +1153,7 @@ namespace Media.RtpTools
             //};
         }
         
-        public class Program : Common.BaseDisposable
+        public class Program
         {
             public static void Main(string[] args)
             {

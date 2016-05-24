@@ -87,6 +87,7 @@ namespace Media.Rtcp
             : base(header, payload, shouldDispose)
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 200.", "reference");
+            //RtcpReportExtensions.VerifyPayloadType(this);
         }
 
         /// <summary>
@@ -99,12 +100,14 @@ namespace Media.Rtcp
             : base(header, payload, shouldDipose)
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 200.", "reference");
+            //RtcpReportExtensions.VerifyPayloadType(this);
         }
 
         public SendersReport(RtcpPacket reference, bool shouldDispose = true)
             : base(reference.Header, reference.Payload, shouldDispose)
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 200.", "reference");
+            //RtcpReportExtensions.VerifyPayloadType(this);
         }
 
         //Other overloads
@@ -121,10 +124,9 @@ namespace Media.Rtcp
         public int NtpMSW
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian); }
+            
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             internal protected set { Binary.Write32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -134,10 +136,9 @@ namespace Media.Rtcp
         public int NtpLSW
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 4, BitConverter.IsLittleEndian); }
+            
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 4, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -151,10 +152,9 @@ namespace Media.Rtcp
         public int RtpTimestamp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 8, BitConverter.IsLittleEndian); }
+            
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 8, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -165,10 +165,9 @@ namespace Media.Rtcp
         public int SendersPacketCount
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 12, BitConverter.IsLittleEndian); }
+            
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -180,10 +179,9 @@ namespace Media.Rtcp
         public int SendersOctetCount
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 16, BitConverter.IsLittleEndian); }
+            
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
         }
 
@@ -196,15 +194,14 @@ namespace Media.Rtcp
         public long NtpTimestamp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get
             {
                 if (BitConverter.IsLittleEndian) return (long)((ulong)NtpMSW << 32 | (uint)NtpLSW);
 
                 return (long)((ulong)NtpLSW << 32 | (uint)NtpMSW);
             }
+            
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             internal protected set
             {
 
@@ -237,10 +234,9 @@ namespace Media.Rtcp
         public DateTime NtpDateTime
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             get { return Media.Ntp.NetworkTimeProtocol.NptTimestampToDateTime((ulong)NtpTimestamp); }
+            
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-
             internal protected set { NtpTimestamp = (long)Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(ref value); }
         }
 
@@ -260,6 +256,7 @@ namespace Media.Rtcp
         /// </summary>
         public override IEnumerable<byte> ReportData
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 if (false == HasReports || IsDisposed) return Common.MemorySegment.Empty;
@@ -271,18 +268,28 @@ namespace Media.Rtcp
             }
         }
 
+        internal protected Common.MemorySegment SendersInformationSegment
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return new Common.MemorySegment(Payload.Array, Payload.Offset, SendersInformationSize);
+            }
+        }
+
         /// <summary>
         /// Generates a sequence of octets from the Payload which consist of the binary data contained in the Payload which corresponds to the SendersInformation.
         /// These sequence generates is constantly <see cref="SendersInformationSize"/> octets.
         /// </summary>
         public IEnumerable<byte> SendersInformation
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 //Used to use Take to allow this to proceed without an exception
                 //if (Payload.Count < SendersInformationSize) return Common.MemorySegment.Empty;
 
-                return new Common.MemorySegment(Payload.Array, Payload.Offset, SendersInformationSize);
+                return SendersInformationSegment;
             }
         }
 

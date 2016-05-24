@@ -428,13 +428,14 @@ namespace Media.Rtsp
         //Todo
         //Allow for joining of server instances to support multiple end points.
 
-        public RtspServer(AddressFamily addressFamily = AddressFamily.InterNetwork, int listenPort = DefaultPort)
-            : this(new IPEndPoint(Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(addressFamily), listenPort)) { }
+        public RtspServer(AddressFamily addressFamily = AddressFamily.InterNetwork, int listenPort = DefaultPort, bool shouldDispose = true)
+            : this(new IPEndPoint(Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(addressFamily), listenPort), shouldDispose) { }
 
-        public RtspServer(IPAddress listenAddress, int listenPort) 
-            : this(new IPEndPoint(listenAddress, listenPort)) { }
+        public RtspServer(IPAddress listenAddress, int listenPort, bool shouldDispose = true) 
+            : this(new IPEndPoint(listenAddress, listenPort), shouldDispose) { }
 
-        public RtspServer(IPEndPoint listenEndPoint)
+        public RtspServer(IPEndPoint listenEndPoint, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             RtspClientInactivityTimeout = TimeSpan.FromSeconds(60);
             
@@ -1178,7 +1179,7 @@ namespace Media.Rtsp
             {
                 if (m_StopRequested) return;
 
-                if (stream == null || stream.Disabled) continue;
+                if (Common.IDisposedExtensions.IsNullOrDisposed(stream) || stream.Disabled) continue;
 
                 try
                 {
@@ -1186,7 +1187,7 @@ namespace Media.Rtsp
 
                     new Thread(stream.Start, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
                     {
-                        Priority = m_ServerThread.Priority
+                        Priority = ThreadPriority.AboveNormal
                     }.Start();
                 }
                 catch(Exception ex)
@@ -1204,13 +1205,16 @@ namespace Media.Rtsp
         {
             foreach (Media.Rtsp.Server.IMedia stream in MediaStreams)
             {
-                if (stream == null || stream.Disabled) continue;
+                if (Common.IDisposedExtensions.IsNullOrDisposed(stream) || stream.Disabled) continue;
 
                 try
                 {
                     Common.ILoggingExtensions.Log(Logger, "Stopping Stream: " + stream.Name + " Id=" + stream.Id);
 
-                    new Thread(stream.Stop, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize).Start();
+                    new Thread(stream.Stop, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
+                    {
+                        Priority = ThreadPriority.AboveNormal
+                    }.Start();
                 }
                 catch (Exception ex)
                 {

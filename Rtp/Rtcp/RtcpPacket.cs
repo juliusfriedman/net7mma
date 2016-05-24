@@ -932,7 +932,7 @@ namespace Media.Rtcp
         /// </summary>
         protected override void Dispose(bool disposing)
         {
-            if (disposing && false == ShouldDispose) return;
+            if (false == disposing || false == ShouldDispose) return;
 
             base.Dispose(ShouldDispose);
 

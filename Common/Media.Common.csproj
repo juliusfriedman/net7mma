@@ -60,6 +60,7 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Classes\Disposables\SuppressedFinalizerDisposable.cs" />
     <Compile Include="Classes\EventArgsEx.cs" />
     <Compile Include="Classes\Disposables\LifetimeDisposable.cs" />
     <Compile Include="Classes\Loggers\TraceLogger.cs" />

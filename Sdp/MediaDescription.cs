@@ -175,7 +175,8 @@ namespace Media.Sdp
 
         }
 
-        public MediaDescription(MediaType mediaType, int mediaPort, string mediaProtocol, string mediaFormat)
+        public MediaDescription(MediaType mediaType, int mediaPort, string mediaProtocol, string mediaFormat, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             MediaDescriptionLine = new Sdp.Lines.SessionMediaDescriptionLine();
             MediaType = mediaType;
@@ -184,11 +185,12 @@ namespace Media.Sdp
             MediaFormat = mediaFormat;
         }
 
-        public MediaDescription(string[] sdpLines, int index) :
-            this(sdpLines, ref index) { }
+        public MediaDescription(string[] sdpLines, int index, bool shouldDispose = true) 
+            : this(sdpLines, ref index, shouldDispose) { }
 
         [CLSCompliant(false)]
-        public MediaDescription(string[] sdpLines, ref int index)
+        public MediaDescription(string[] sdpLines, ref int index, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             //Create a MediaDescriptionLine.
             MediaDescriptionLine = new Sdp.Lines.SessionMediaDescriptionLine(sdpLines, ref index);

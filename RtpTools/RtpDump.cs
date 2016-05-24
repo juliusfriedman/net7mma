@@ -105,7 +105,7 @@ namespace Media.RtpTools.RtpDump
 
         #endregion
 
-        #region Constructor / Destructor
+        #region Constructor
 
         /// <summary>
         /// Creates a DumpReader on the given stream
@@ -113,7 +113,8 @@ namespace Media.RtpTools.RtpDump
         /// <param name="stream">The stream to read</param>
         /// <param name="leaveOpen">Indicates if the stream should be left open after reading</param>
         /// <param name="DumpFormat">The optional format to force the reader to read the dump in (Useful for <see cref="DumpFormat.Header"/>)</param>
-        public DumpReader(System.IO.Stream stream, bool leaveOpen = false, FileFormat? format = null)
+        public DumpReader(System.IO.Stream stream, bool leaveOpen = false, FileFormat? format = null, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             m_Reader = new System.IO.BinaryReader(stream, System.Text.Encoding.ASCII, leaveOpen); // new System.IO.BinaryReader(stream, System.Text.Encoding.ASCII, leaveOpen);
@@ -125,9 +126,11 @@ namespace Media.RtpTools.RtpDump
         /// The stream will be closed when the Reader is Disposed.
         /// </summary>
         /// <param name="path">The file to read</param>
-        public DumpReader(string path, FileFormat? format = null) : this(new System.IO.FileStream(path, System.IO.FileMode.Open), false, format) { m_Path = path; }
-
-        ~DumpReader() { Dispose(); }
+        public DumpReader(string path, FileFormat? format = null, bool shouldDispose = true)
+            : this(new System.IO.FileStream(path, System.IO.FileMode.Open), false, format, shouldDispose)
+        {
+            m_Path = path;
+        }
 
         #endregion
 
@@ -638,7 +641,8 @@ namespace Media.RtpTools.RtpDump
         /// <param name="utcStart">The optional start of the file recording (used in the header)</param>
         /// <param name="modify">Optionally indicates if the file should be modified or created, by default it will not overwrite files if they exist.</param>
         /// <param name="leaveOpen">Indicates if the stream should be left open after calling Close or Dipose</param>
-        public DumpWriter(System.IO.Stream stream, FileFormat format, System.Net.IPEndPoint defaultSource, DateTime? startTime = null, bool modify = false, bool leaveOpen = false)
+        public DumpWriter(System.IO.Stream stream, FileFormat format, System.Net.IPEndPoint defaultSource, DateTime? startTime = null, bool modify = false, bool leaveOpen = false, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             
@@ -706,12 +710,7 @@ namespace Media.RtpTools.RtpDump
         /// <param name="source">The IPEndPoint from which RtpPackets were recieved</param>
         /// <param name="utcStart">The optional time the file started recording</param>
         /// <param name="overWrite">Indicates the file should be overwritten</param>
-        public DumpWriter(string filePath, FileFormat format, System.Net.IPEndPoint source, DateTime? utcStart = null, bool overWrite = false, bool modify = false) : this(new System.IO.FileStream(filePath, !modify ? overWrite ? System.IO.FileMode.Create : System.IO.FileMode.CreateNew : System.IO.FileMode.OpenOrCreate), format, source, utcStart, modify) { }
-
-        ~DumpWriter()
-        {
-            Dispose();
-        }
+        public DumpWriter(string filePath, FileFormat format, System.Net.IPEndPoint source, DateTime? utcStart = null, bool overWrite = false, bool modify = false, bool shouldDispose = true) : this(new System.IO.FileStream(filePath, !modify ? overWrite ? System.IO.FileMode.Create : System.IO.FileMode.CreateNew : System.IO.FileMode.OpenOrCreate), format, source, utcStart, modify, shouldDispose) { }       
 
         #endregion
 
@@ -723,7 +722,7 @@ namespace Media.RtpTools.RtpDump
         public void WriteFileHeader(bool force = false)
         {
             //If not forcing and the header was already written then do nothing
-            if (!force && m_WroteHeader) return;
+            if (false == force && m_WroteHeader) return;
 
             //Header is only written in Binary files
             if (m_Format < FileFormat.Text)
@@ -887,7 +886,7 @@ namespace Media.RtpTools.RtpDump
     #endregion    
 
 
-    public class Program : Common.BaseDisposable
+    public class Program
     {
 
         public RtpDump.DumpWriter Writer { get; set;  }

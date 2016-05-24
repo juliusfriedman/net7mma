@@ -85,7 +85,7 @@ namespace Media.Rtp
     /// <remarks>
     /// Is IDisposeable because the class OWNS a reference to the CommonHeaderBits and a byte[].
     /// </remarks>
-    public class RtpHeader : BaseDisposable, IEnumerable<byte>
+    public class RtpHeader : SuppressedFinalizerDisposable, IEnumerable<byte>
     {
         #region Implementation Notes and Reference
 
@@ -540,33 +540,30 @@ namespace Media.Rtp
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing && false == ShouldDispose) return;
+            if (false == disposing || false == ShouldDispose) return;
 
             base.Dispose(ShouldDispose);
 
-            if (ShouldDispose)
+            if (false == Common.IDisposedExtensions.IsNullOrDisposed(First16Bits))
             {
-                if (false == Common.IDisposedExtensions.IsNullOrDisposed(First16Bits))
-                {
-                    //Dispose the instance
-                    First16Bits.Dispose();
+                //Dispose the instance
+                First16Bits.Dispose();
 
-                    //Remove the reference to the CommonHeaderBits instance
-                    First16Bits = null;
-                }
-
-
-                if (false == Common.IDisposedExtensions.IsNullOrDisposed(SegmentToLast10Bytes))
-                {
-                    //Invalidate the pointer
-                    SegmentToLast10Bytes.Dispose();
-
-                    SegmentToLast10Bytes = null;
-                }
-
-                //Remove the reference to the allocated array.
-                Last10Bytes = null;
+                //Remove the reference to the CommonHeaderBits instance
+                First16Bits = null;
             }
+
+
+            if (false == Common.IDisposedExtensions.IsNullOrDisposed(SegmentToLast10Bytes))
+            {
+                //Invalidate the pointer
+                SegmentToLast10Bytes.Dispose();
+
+                SegmentToLast10Bytes = null;
+            }
+
+            //Remove the reference to the allocated array.
+            Last10Bytes = null;
         }
 
         /// <summary>

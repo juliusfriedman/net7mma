@@ -153,7 +153,8 @@ namespace Media.Rtsp.Server
 
         #region Constructor        
 
-        public SourceMedia(string name, Uri source)
+        public SourceMedia(string name, Uri source, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             //The stream name cannot be null or consist only of whitespace
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("The stream name cannot be null or consist only of whitespace", "name");
@@ -162,8 +163,8 @@ namespace Media.Rtsp.Server
             m_Source = source;
         }
 
-        public SourceMedia(string name, Uri source, NetworkCredential sourceCredential)
-            :this(name, source)
+        public SourceMedia(string name, Uri source, NetworkCredential sourceCredential, bool shouldDispose = true)
+            :this(name, source, shouldDispose)
         {
             m_SourceCred = sourceCredential;
         }

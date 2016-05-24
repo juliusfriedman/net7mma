@@ -222,7 +222,7 @@ namespace Media.Rtsp
              m_SentMessages, m_ReTransmits,
              m_ReceivedMessages,
              m_PushedMessages,
-             m_MaximumTransactionAttempts,
+             m_MaximumTransactionAttempts = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond,//10
              m_SocketPollMicroseconds;
 
         //Todo, Two timers? should use a single thread instead....
@@ -440,11 +440,11 @@ namespace Media.Rtsp
                     return;
                 }
 
-                m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket));
-
                 //If the socket is connected
                 if (m_RtspSocket.Connected)
                 {
+                    m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket));
+
                     //SO_CONNECT_TIME only exists on Windows...
                     //There are options if the stack supports it elsewhere.
 
@@ -1013,7 +1013,8 @@ namespace Media.Rtsp
         /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize and will not deviate from the protocol is no data is received, if null it will be determined from the location Scheme</param>
         /// <param name="existing">An existing Socket</param>
         /// <param name="leaveOpen"><see cref="LeaveOpen"/></param>
-        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null, int bufferSize = DefaultBufferSize, Socket existing = null, bool leaveOpen = false, int maximumTransactionAttempts = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
+        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null, int bufferSize = DefaultBufferSize, Socket existing = null, bool leaveOpen = false, int maximumTransactionAttempts = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             if (location == null) throw new ArgumentNullException("location");
 

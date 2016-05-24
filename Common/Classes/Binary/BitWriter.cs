@@ -49,7 +49,7 @@
         #region Constructor / Destructor
 
         public BitWriter(System.IO.Stream source, int cacheSize = 32, bool leaveOpen = false)
-            : base()
+            : base(true)
         {
             if (source == null) throw new System.ArgumentNullException("source");
 

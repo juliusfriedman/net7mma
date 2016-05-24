@@ -336,7 +336,10 @@ namespace Media.Sdp
                 internal protected set
                 {
                     if (string.IsNullOrWhiteSpace(value)) throw new System.InvalidOperationException("Cannot be null or consist only of whitespace.");  //Todo, Exceptions in resources.
+
                     SetPart(2, value);
+
+                    m_ConnectionParts = null;
                 }
             }
 
@@ -1299,15 +1302,29 @@ namespace Media.Sdp
             }
 
             /// <summary>
-            /// MediaFormat or <fmt> is a media format description.  
+            /// MediaFormat or `fmt` is a media format description.  
             /// The fourth and any subsequent sub-fields describe the format of the media.  
             /// The interpretation of the media format depends on the value of the <see cref="MediaProtocol"/>.
             /// </summary>
             public string MediaFormat
             {
                 get { return GetPart(3); }
-                set { SetPart(3, value); }
+                set
+                {
+                    SetPart(3, value);
+
+                    //ClearState
+
+                    PayloadTypeTokens = null;
+
+                    ParsedPayloadTypes = null;
+                }
             }
+
+            //Todo getters
+            string[] PayloadTypeTokens;
+
+            int[] ParsedPayloadTypes;
 
             /// <summary>
             /// Parses the port tokens out of the MediaFormat field, this can probably be an extension method.
@@ -1316,12 +1333,22 @@ namespace Media.Sdp
             {
                 get
                 {
-                    foreach (var part in MediaFormat.Split(SessionDescription.Space))
+                    if (PayloadTypeTokens == null)
                     {
-                        if (string.IsNullOrWhiteSpace(part)) continue;
+                        PayloadTypeTokens = MediaFormat.Split(SessionDescription.Space);
 
-                        yield return int.Parse(part);
+                        ParsedPayloadTypes = Array.ConvertAll<string, int>(PayloadTypeTokens, Convert.ToInt32);
                     }
+
+                    //foreach (var part in PayloadTypeTokens)
+                    //{
+                    //    if (string.IsNullOrWhiteSpace(part)) continue;
+
+                    //    yield return int.Parse(part);
+                    //}
+
+                    return ParsedPayloadTypes;
+
                 }
                 set
                 {
@@ -1334,6 +1361,10 @@ namespace Media.Sdp
                     //}
 
                     SetPart(3, string.Join(SessionDescription.SpaceString, value));
+
+                    PayloadTypeTokens = null;
+
+                    ParsedPayloadTypes = null;
                 }
             }
 
@@ -1385,6 +1416,10 @@ namespace Media.Sdp
 
                 //Join in the given type.
                 SetPart(3, string.Join(SessionDescription.SpaceString, payloadType.ToString()));
+
+                PayloadTypeTokens = null;
+
+                ParsedPayloadTypes = null;
             }
         }
 
