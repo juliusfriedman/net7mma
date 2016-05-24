@@ -430,7 +430,7 @@ namespace Media.Rtsp//.Server
                 || 
                 //client != null && client is RtpClient && false == (client as RtpClient).FrameChangedEventsEnabled 
                 //&& 
-                (localContext.SendSequenceNumber == packet.SequenceNumber || false == localContext.UpdateSequenceNumber(packet.SequenceNumber)))
+                false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
             {
                 //The packet may have already been delivered previously.
                 Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Dropping -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
@@ -824,8 +824,8 @@ namespace Media.Rtsp//.Server
 
                 //RtpInfoDatum / SubHeader
                 rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
-                    hasAnyState ? sourceContext.RecieveSequenceNumber : (int?)null,
-                    hasAnyState ? sourceContext.RtpTimestamp : (int?)null,
+                    hasAnyState ? sourceContext.SendSequenceNumber : (int?)null,
+                    hasAnyState ? sourceContext.SenderRtpTimestamp : (int?)null,
                     hasAnyState ? (int?)null : context.SynchronizationSourceIdentifier));
 
                 //Identify now to emulate GStreamer :P
@@ -855,8 +855,8 @@ namespace Media.Rtsp//.Server
                     bool hasAnyState = sourceContext.RtpPacketsReceived > 0 || sourceContext.RtpPacketsSent > 0 && false == context.InDiscovery;
 
                     rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
-                        hasAnyState ? sourceContext.RecieveSequenceNumber : (int?)null,
-                        hasAnyState ? sourceContext.RtpTimestamp : (int?)null,
+                        hasAnyState ? sourceContext.SendSequenceNumber : (int?)null,
+                        hasAnyState ? sourceContext.SenderRtpTimestamp : (int?)null,
                         hasAnyState ? (int?)null : context.SynchronizationSourceIdentifier));
 
                     //Done with context.
@@ -1217,7 +1217,8 @@ namespace Media.Rtsp//.Server
         UpdateContext:
 
             //Synchronize the context sequence numbers
-            setupContext.RecieveSequenceNumber = sourceContext.RecieveSequenceNumber;
+            setupContext.SendSequenceNumber = sourceContext.RecieveSequenceNumber;
+            setupContext.SenderRtpTimestamp = sourceContext.RtpTimestamp;
 
             //Start and end times are always equal.
             setupContext.MediaStartTime = sourceContext.MediaStartTime;

@@ -2346,10 +2346,10 @@ namespace Media.Rtp
                     //Create a wrapper around the packet to access the source list
                     using (GoodbyeReport gb = new GoodbyeReport(packet, false))
                     {
-                        using (var sl = gb.GetSourceList())
+                        using (RFC3550.SourceList sourceList = gb.GetSourceList())
                         {
                             //Iterate each party leaving
-                            foreach (int party in sl)
+                            foreach (int party in sourceList)
                             {
                                 //Attempt to obtain a context by the identifier in the report block
                                 transportContext = GetContextBySourceId(party);
@@ -3009,19 +3009,22 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
+            bool shouldDispose = packet.ShouldDispose;
+
+            if (shouldDispose) SetShouldDispose(packet, false, false);
+
             if (m_ThreadEvents)
             {
-                //If the frame events are enabled then use the packet otherwise clone the packet and data into a new reference so it can stay alive.
-                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, FrameChangedEventsEnabled ? packet : packet.Clone(true, true, true, true, false), false, true));
+                //Use a clone of the packet and data into a new reference so it can stay alive for the event.
+                m_EventData.Enqueue(new Tuple<TransportContext, Common.BaseDisposable, bool, bool>(tc, packet.Clone(true, true, true, true, false), false, true));
 
                 m_EventReady.Set();
 
+                //todo, should call dispose is finalizer was missed...
+                SetShouldDispose(packet, true, false);
+
                 return;
             }
-
-            //bool shouldDispose = packet.ShouldDispose;
-
-            //if (shouldDispose) SetShouldDispose(packet, false, false);
 
             foreach (RtpPacketHandler handler in action.GetInvocationList())
             {
@@ -3030,8 +3033,8 @@ namespace Media.Rtp
                 catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
             }
 
-            //Allow the packet to be destroyed.
-            //if (shouldDispose && packet.ShouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            //Allow the packet to be destroyed if an event did not already change this.
+            if (shouldDispose && packet.ShouldDispose == false) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -3046,6 +3049,10 @@ namespace Media.Rtp
 
             if (action == null || IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
+            bool shouldDispose = packet.ShouldDispose;
+
+            if (shouldDispose) SetShouldDispose(packet, false, false);
+
             if (m_ThreadEvents)
             {
                 //Todo, only clone if ShouldDispose is true.
@@ -3054,12 +3061,11 @@ namespace Media.Rtp
 
                 m_EventReady.Set();
 
+                //todo, should call dispose is finalizer was missed...
+                SetShouldDispose(packet, true, false);
+
                 return;
             }
-
-            //bool shouldDispose = packet.ShouldDispose;
-
-            //if (shouldDispose) SetShouldDispose(packet, false, false);
 
             foreach (RtcpPacketHandler handler in action.GetInvocationList())
             {
@@ -3068,8 +3074,8 @@ namespace Media.Rtp
                 catch (Exception ex) { Common.ILoggingExtensions.LogException(Logger, ex); }
             }
 
-            //Allow the packet to be destroyed.
-            //if (shouldDispose && packet.ShouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
+            //Allow the packet to be destroyed if an event did not already change this.
+            if (shouldDispose && packet.ShouldDispose == false) Common.BaseDisposable.SetShouldDispose(packet, true, false);
         }
 
         /// <summary>
@@ -3106,7 +3112,7 @@ namespace Media.Rtp
             }
 
             //On final events set ShouldDispose to true, do not call Dispose
-            if (final && frame.ShouldDispose) Common.BaseDisposable.SetShouldDispose(frame, true, false);
+            if (final && shouldDispose && frame.ShouldDispose == false) Common.BaseDisposable.SetShouldDispose(frame, true, false);
         }
 
         internal void ParallelRtpFrameChanged(RtpFrame frame = null, TransportContext tc = null, bool final = false)
@@ -3126,7 +3132,7 @@ namespace Media.Rtp
             });
 
             //On final events set ShouldDispose to true, do not call Dispose
-            if (final && frame.ShouldDispose) Common.BaseDisposable.SetShouldDispose(frame, true, false);
+            if (final && frame.ShouldDispose == false) Common.BaseDisposable.SetShouldDispose(frame, true, false);
         }
 
         //IPacket overload could reduce code but would cost time to check type.
@@ -3836,9 +3842,9 @@ namespace Media.Rtp
         /// <param name="context">The context of the report</param>
         /// <param name="reasonForLeaving">An optional reason why the report is being sent.</param>
         /// <param name="ssrc">The optional identity to use in he report.</param>
-        /// <param name="force">Indicates if the call should be forced. <see cref="IsRtcpEnabled"/></param>
+        /// <param name="force">Indicates if the call should be forced. <see cref="IsRtcpEnabled"/>, when true the report will also not be stored</param>
         /// <returns></returns>
-        internal protected virtual int SendGoodbye(TransportContext context, byte[] reasonForLeaving = null, int? ssrc = null, bool force = false)
+        internal protected virtual int SendGoodbye(TransportContext context, byte[] reasonForLeaving = null, int? ssrc = null, bool force = false, RFC3550.SourceList sourceList = null, bool empty = false)
         {
             //Check if the Goodbye can be sent.
             if (IsDisposed //If the RtpClient is disposed 
@@ -3853,14 +3859,16 @@ namespace Media.Rtp
                 return 0;
             }
 
-            //Make a Goodbye, indicate version in Client, allow reason for leaving 
-            //Todo add other parties where null with SourceList
-            GoodbyeReport goodBye = TransportContext.CreateGoodbye(context, reasonForLeaving, ssrc ?? context.SynchronizationSourceIdentifier);
+            //Make a Goodbye, indicate version in Client, allow reason for leaving and optionall other sources
+            GoodbyeReport goodBye = TransportContext.CreateGoodbye(context, reasonForLeaving, ssrc ?? context.SynchronizationSourceIdentifier, sourceList);
 
-            //Noting that I think the SourceDescription is not really requried because the Goodbye would optionally have a SourceList which is leaving.
+            //If the sourceList is null and empty is true then indicate so by using 0 (the source should ignore, this is to indicate various things if required)
+            //Context should have an option SendEmptyGoodbyeOnInactivity
 
-            //Store the Goodbye in the context if the ssrc was given and it was for the context given.
-            if(ssrc.HasValue && ssrc.Value == context.SynchronizationSourceIdentifier) context.Goodbye = goodBye;
+            if (sourceList == null && empty) goodBye.BlockCount = 0;
+
+            //Store the Goodbye in the context if not forced the ssrc was given and it was for the context given.
+            if(false == force && ssrc.HasValue && ssrc.Value == context.SynchronizationSourceIdentifier) context.Goodbye = goodBye;
 
             //Send the packet and return the amount of bytes which resulted.
             return SendRtcpPackets(Enumerable.Concat(PrepareReports(context, false, true), Media.Common.Extensions.Linq.LinqExtensions.Yield(goodBye)));            
@@ -4566,7 +4574,7 @@ namespace Media.Rtp
                 m_WorkerThread.Start();                
 
                 //Wait for thread to actually start
-                //while (false == IsActive) System.Threading.Thread.Sleep(0);
+                while (false == IsActive) m_EventReady.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
 
                 #region Unused Feature [Early Rtcp]
 

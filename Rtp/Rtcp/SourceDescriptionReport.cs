@@ -112,7 +112,7 @@ namespace Media.Rtcp
         /// <remarks>
         /// In cases where Type = 0 (End Of List) up to 4 null octets may be present in the Data of a SourceDescriptionItem. 
         /// </remarks>
-        public class SourceDescriptionItem : Common.SuppressedFinalizerDisposable, IEnumerable<byte>
+        public class SourceDescriptionItem : SuppressedFinalizerDisposable, IEnumerable<byte>
         {
             #region Enumerations and Constants
 
@@ -433,7 +433,7 @@ namespace Media.Rtcp
         /// Provides a construct to enumerate <see cref="SourceDescriptionItem"/>'s from a contigous allocation of memory.
         /// Is effectively a fixed sized read only list.
         /// </summary>
-        internal class SourceDescriptionItemList : BaseDisposable, 
+        internal class SourceDescriptionItemList : SuppressedFinalizerDisposable, 
             IEnumerator<SourceDescriptionItem>, 
             IEnumerable<SourceDescriptionItem>
             //,IReadOnlyCollection<SourceDescriptionItem>

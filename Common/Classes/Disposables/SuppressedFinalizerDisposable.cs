@@ -9,6 +9,9 @@ namespace Media.Common
     /// <summary>
     /// Provides an implementation of the <see cref="BaseDisposable"/> with a supressed finalizer.
     /// </summary>
+    /// <remarks>
+    /// <see href="http://stackoverflow.com/questions/18020861/how-to-get-notified-before-static-variables-are-finalized/18316325#18316325">StackOverflow</see> some for details
+    /// </remarks>
     public class SuppressedFinalizerDisposable : BaseDisposable
     {
         /// <summary>
@@ -20,7 +23,13 @@ namespace Media.Common
         /// Should never run unless immediately finalized.
         /// </summary>
         ~SuppressedFinalizerDisposable()
-        {
+        {            
+
+#if DEBUG
+            if (DefaultAppDomain) AppDomain.CurrentDomain.ProcessExit -= SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
+            else AppDomain.CurrentDomain.DomainUnload -= SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
+#endif
+
             Dispose(ShouldDispose = true);
 
 #if DEBUG
@@ -35,11 +44,12 @@ namespace Media.Common
             //Suppress the finalizer always.
             GC.SuppressFinalize(this);
 
-            //Catch domain shutdown (Hack: frantically look for things we can catch)
+#if DEBUG
             if (DefaultAppDomain = AppDomain.CurrentDomain.IsDefaultAppDomain())
                 AppDomain.CurrentDomain.ProcessExit += SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
             else
                 AppDomain.CurrentDomain.DomainUnload += SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
+#endif
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -48,12 +58,7 @@ namespace Media.Common
             //If already disposed or disposing and should not dispose return.
             if (IsDisposed || disposing && false == ShouldDispose) return;
 
-            //Mark disposed.
-            IsDisposed = disposing;
-
-            //http://stackoverflow.com/questions/18020861/how-to-get-notified-before-static-variables-are-finalized/18316325#18316325
-            if (DefaultAppDomain) AppDomain.CurrentDomain.ProcessExit -= SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
-            else AppDomain.CurrentDomain.DomainUnload -= SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
+            base.Dispose(disposing);
         }
     }
 }
