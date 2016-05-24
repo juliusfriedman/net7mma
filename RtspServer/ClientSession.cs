@@ -417,10 +417,10 @@ namespace Media.Rtsp//.Server
             {                
                 localContext = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
             }
-            else
-            {
-                sourceContext = localContext = m_RtpClient.GetContextByPayloadType(packet.PayloadType);
-            }
+            //else
+            //{
+            //    sourceContext = localContext = m_RtpClient.GetContextByPayloadType(packet.PayloadType);
+            //}
 
             //Todo, revise PerPacket on the source.
 
@@ -430,10 +430,10 @@ namespace Media.Rtsp//.Server
                 || 
                 //client != null && client is RtpClient && false == (client as RtpClient).FrameChangedEventsEnabled 
                 //&& 
-                false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
+                localContext != null && localContext.SendSequenceNumber != localContext.RecieveSequenceNumber && false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
             {
                 //The packet may have already been delivered previously.
-                Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Dropping -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
+                if (false == Common.IDisposedExtensions.IsNullOrDisposed(localContext)) Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Dropping -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
 
                 goto Exit;
             }
@@ -1230,6 +1230,12 @@ namespace Media.Rtsp//.Server
             //Give the sessionid for the transport setup
             response.SetHeader(RtspHeaders.Session, SessionId);
 
+            //Set the amount of packets which are allowed to be queued, if greater than this amount threading is turned on.
+            m_RtpClient.MaximumOutgoingPacketQueueSize = 1000;
+
+            //Activate now.
+            m_RtpClient.Activate();
+
             return response;
         }
 
@@ -1260,7 +1266,6 @@ namespace Media.Rtsp//.Server
 
         void m_RtpClient_RecievedRtcp(object sender, RtcpPacket packet)
         {
-
             if (packet == null || packet.IsDisposed) return;
 
             //Get an implementation for the packet recieved

@@ -3295,6 +3295,11 @@ namespace Media.Rtp
         #region Properties
 
         /// <summary>
+        /// When set to a value > 0, will attempt to enfore the count of outgoing packets to be within this size by settings <see cref="ThreadEvents"/> to true.
+        /// </summary>
+        public int MaximumOutgoingPacketQueueSize { get; internal protected set; }
+
+        /// <summary>
         /// Gets or sets a value which indicates if the socket operations for sending will use the IList overloads.
         /// </summary>
         public bool IListSockets
@@ -4017,8 +4022,18 @@ namespace Media.Rtp
 
         public virtual void EnquePacket(RtcpPacket packet)
         {
-            if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet)) return;
+            if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet) || MaximumOutgoingPacketQueueSize > 0 && m_OutgoingRtpPackets.Count > MaximumOutgoingPacketQueueSize)
+            {
+                //Turn threading on.
+                ThreadEvents = true;
 
+                //Enqueue the packet as not to drop it
+                m_OutgoingRtcpPackets.Add(packet);
+
+                return;
+            }
+
+            //Enqueue the packet
             m_OutgoingRtcpPackets.Add(packet);
         }
 
@@ -5694,7 +5709,7 @@ namespace Media.Rtp
                             //If receiving Rtp and the socket is able to read
                             if (rtpEnabled && false == (shouldStop || IsDisposed || m_StopRequested)
                             //Check if the socket can read data
-                            && tc.RtpSocket.Poll((int)(Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, MidpointRounding.ToEven)  /** 3000*/), SelectMode.SelectRead))
+                            && tc.RtpSocket.Poll((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) >> 1, SelectMode.SelectRead))
                             {
                                 //Receive RtpData
                                 receivedRtp += ReceiveData(tc.RtpSocket, ref tc.RemoteRtp, out lastError, rtpEnabled, duplexing, tc.ContextMemory);
@@ -5728,7 +5743,7 @@ namespace Media.Rtp
                                 if (//The last report was never received or recieved longer ago then required
                                     needsToReceiveReports
                                 &&//And the socket can read
-                                    tc.RtcpSocket.Poll((int)(Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, MidpointRounding.ToEven) /** 3000*/), SelectMode.SelectRead))
+                                    tc.RtcpSocket.Poll((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) >> 1, SelectMode.SelectRead))
                                 {
                                     //ReceiveRtcp Data
                                     receivedRtcp += ReceiveData(tc.RtcpSocket, ref tc.RemoteRtcp, out lastError, duplexing, rtcpEnabled, tc.ContextMemory);
@@ -5860,8 +5875,10 @@ namespace Media.Rtp
                                     //break;
                                 }
 
+                                if (m_StopRequested) break;
+
                                 //If this was a marker packet then stop for now
-                                if (packet.Marker) break;
+                                //if (packet.Marker) break;
 
                                 //Could also check timestamp in cases where marker is not being set
                                 //if (lastTimestamp.HasValue && packet.Timestamp != lastTimestamp) break;

@@ -344,7 +344,7 @@ namespace Media.Common
         /// </summary>
         internal static System.Reflection.ImageFileMachine m_MachineType;
 
-        internal static int m_BitPatternSize = 0;
+        internal static int m_BitPatternSize;
 
         internal static int m_NativePointeSize;
 
@@ -428,7 +428,7 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int GetNativePointerSize()
         {
-            return IsX64() ? Common.Binary.BytesPerLong : Common.Binary.BytesPerInteger;
+            return IsX64() ? Common.Binary.BytesPerLong :  IsX86() ? Common.Binary.BytesPerInteger : System.IntPtr.Size;
         }
 
         /// <summary>
@@ -752,8 +752,8 @@ namespace Media.Common
                 //Determine the size of pointers
                 m_NativePointeSize = GetNativePointerSize();
 
-                //Todo, Determine if this should not throw
-                if (System.IntPtr.Size != m_NativePointeSize) throw new System.InvalidOperationException(string.Format("Did not detect the NativePointerSize correctly, Found:{0}, Expected{1}", m_NativePointeSize, System.IntPtr.Size));
+                //Write out information for tracing if there is a discrepancy
+                System.Diagnostics.Trace.WriteLineIf(System.IntPtr.Size != m_NativePointeSize, string.Format("Did not detect the NativePointerSize correctly, Found:{0}, Expected:{1}", m_NativePointeSize, System.IntPtr.Size));
 
                 //Environment check?
                 //http://superuser.com/questions/305901/possible-values-of-processor-architecture
