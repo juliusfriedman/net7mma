@@ -211,12 +211,11 @@ namespace Media.Rtcp
         /// Allocates 24 octets to represent this ReportBlock instance.
         /// </summary>
         ReportBlock(bool shouldDispose = true)
+            : base(shouldDispose)
         {
             m_OwnedOctets = new byte[ReportBlockSize];
 
             Memory = new Common.MemorySegment(m_OwnedOctets, 0, ReportBlockSize);
-
-            ShouldDispose = shouldDispose;
         }
 
         /// <summary>
@@ -242,7 +241,8 @@ namespace Media.Rtcp
         /// Throws a ArgumentNullException if <paramref name="reference"/> is null.
         /// </summary>
         /// <param name="reference">A reference to a ReportBlock instance.</param>
-        public ReportBlock(ReportBlock reference)
+        public ReportBlock(ReportBlock reference, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             if (reference == null) throw new ArgumentNullException();
 
@@ -250,9 +250,8 @@ namespace Media.Rtcp
         }
 
         public ReportBlock(Common.MemorySegment data, bool shouldDispose = true)
+            :base(shouldDispose)
         {
-            ShouldDispose = shouldDispose;
-
             Memory = data;
         }
 
@@ -302,20 +301,19 @@ namespace Media.Rtcp
 
         #endregion
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            base.Dispose();
+            if (false == disposing || false == ShouldDispose) return;
 
-            if (ShouldDispose)
+            base.Dispose(ShouldDispose);
+
+            IDisposable memory = (IDisposable)Memory;
+
+            if (memory != null)
             {
-                IDisposable memory = (IDisposable)Memory;
+                memory.Dispose();
 
-                if (memory != null)
-                {
-                    memory.Dispose();
-
-                    memory = null;
-                }
+                memory = null;
             }
         }
     }

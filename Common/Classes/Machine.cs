@@ -101,7 +101,7 @@ namespace Media.Common
         /// <summary>
         /// Provides an API to implement left and right shifting
         /// </summary>
-        public abstract class Shift : Common.BaseDisposable
+        public abstract class Shift : Common.CommonDisposable
         {
             /// <summary>
             /// Calulcates the Left Shift
@@ -753,7 +753,7 @@ namespace Media.Common
                 m_NativePointeSize = GetNativePointerSize();
 
                 //Todo, Determine if this should not throw
-                if (System.IntPtr.Size != m_NativePointeSize) throw new System.InvalidOperationException("Did not detect the NativePointerSize correctly.");
+                if (System.IntPtr.Size != m_NativePointeSize) throw new System.InvalidOperationException(string.Format("Did not detect the NativePointerSize correctly, Found:{0}, Expected{1}", m_NativePointeSize, System.IntPtr.Size));
 
                 //Environment check?
                 //http://superuser.com/questions/305901/possible-values-of-processor-architecture

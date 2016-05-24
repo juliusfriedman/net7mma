@@ -14,7 +14,8 @@ namespace Media.Rtsp.Server
 
         IDictionary<IMedia, RtpTools.RtpDump.Program> Attached = new System.Collections.Concurrent.ConcurrentDictionary<IMedia, RtpTools.RtpDump.Program>();
         
-        RtspStreamArchiver()
+        RtspStreamArchiver(bool shouldDispose = true)
+            :base(shouldDispose)
         {
             if (false == System.IO.Directory.Exists(BaseDirectory))
             {
@@ -95,9 +96,11 @@ namespace Media.Rtsp.Server
             if (stream is RtpSource)
             {
                 RtpTools.RtpDump.Program program;
+                
                 if (false == Attached.TryGetValue(stream, out program)) return;
 
-                program.Dispose();
+                if (program != null && false == Common.IDisposedExtensions.IsNullOrDisposed(program.Writer)) program.Writer.Dispose();
+
                 Attached.Remove(stream);
 
                 (stream as RtpSource).RtpClient.RtpPacketReceieved -= RtpClientPacketReceieved;

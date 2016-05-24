@@ -166,28 +166,25 @@ namespace Media.Rtsp
 
         #region Constructor
 
-        public RtspSession(string sessionId)
+        public RtspSession(string sessionId, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             SessionId = sessionId;
         }
 
-        public RtspSession(RtspMessage response)
+        public RtspSession(RtspMessage response, bool shouldDispose = true)
+            : base(shouldDispose)
         {
             if (response != null)
             {
-                LastResponse = response;
-
-                ParseSessionIdAndTimeout(LastResponse);
+                ParseSessionIdAndTimeout(LastResponse = response);
             }
         }
 
-        public RtspSession(RtspMessage request, RtspMessage response)
-            :this(response)
+        public RtspSession(RtspMessage request, RtspMessage response, bool shouldDispose = true)
+            :this(response, shouldDispose)
         {
-            if (request != null)
-            {
-                LastRequest = request;
-            }
+            LastRequest = request;
         }
 
         #endregion

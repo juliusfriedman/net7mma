@@ -514,7 +514,8 @@ namespace Media.Http
         /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize and will not deviate from the protocol is no data is received, if null it will be determined from the location Scheme</param>
         /// <param name="existing">An existing Socket</param>
         /// <param name="leaveOpen"><see cref="LeaveOpen"/></param>
-        public HttpClient(Uri location, int bufferSize = DefaultBufferSize, Socket existing = null, bool leaveOpen = false, int responseTimeoutInterval = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
+        public HttpClient(Uri location, int bufferSize = DefaultBufferSize, Socket existing = null, bool leaveOpen = false, int responseTimeoutInterval = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             if (location == null) throw new ArgumentNullException("location");
 

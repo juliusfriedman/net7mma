@@ -20,9 +20,10 @@ namespace Media.Http
 
         //public virtual long TryCalculateLength() { return 0; }
 
-        public HttpContent() : this(string.Empty) { }
+        public HttpContent(bool shouldDispose = true) : this(string.Empty, shouldDispose) { }
 
-        public HttpContent(string name)
+        public HttpContent(string name, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             if (name == null) throw new ArgumentNullException("name");
 

@@ -112,7 +112,7 @@ namespace Media.Rtcp
         /// <remarks>
         /// In cases where Type = 0 (End Of List) up to 4 null octets may be present in the Data of a SourceDescriptionItem. 
         /// </remarks>
-        public class SourceDescriptionItem : Common.BaseDisposable, IEnumerable<byte>
+        public class SourceDescriptionItem : Common.SuppressedFinalizerDisposable, IEnumerable<byte>
         {
             #region Enumerations and Constants
 
@@ -209,7 +209,8 @@ namespace Media.Rtcp
 
             #region Constructor
 
-            SourceDescriptionItem(SourceDescriptionItem existing, bool doNotCopy)
+            SourceDescriptionItem(SourceDescriptionItem existing, bool doNotCopy, bool shouldDispose = true)
+                :base(shouldDispose)
             {
 
                 //Cache the length because it will be used more than once.
@@ -232,7 +233,8 @@ namespace Media.Rtcp
             /// </summary>
             /// <param name="itemType">The type of item to create</param>
             /// <param name="itemLength">The length in bytes of the item</param>
-            public SourceDescriptionItem(SourceDescriptionItemType itemType, int itemLength)
+            public SourceDescriptionItem(SourceDescriptionItemType itemType, int itemLength, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 if (itemLength > byte.MaxValue) throw Binary.CreateOverflowException("itemType", itemLength, byte.MinValue.ToString(), byte.MaxValue.ToString());
 
@@ -254,8 +256,8 @@ namespace Media.Rtcp
             /// <param name="length">The length in octets of the item</param>
             /// <param name="data">Any data which should be copied to the item</param>
             /// <param name="offset">The offset into data to begin copying</param>
-            public SourceDescriptionItem(SourceDescriptionItemType itemType, int length, byte[] data, int offset)
-                : this(itemType, length)
+            public SourceDescriptionItem(SourceDescriptionItemType itemType, int length, byte[] data, int offset, bool shouldDispose = true)
+                : this(itemType, length, shouldDispose)
             {
                 //If any data is given
                 if (data != null)
@@ -288,7 +290,8 @@ namespace Media.Rtcp
             /// </summary>
             /// <param name="itemType">The type of SourceDescriptionItem to create</param>
             /// <param name="data">The data which cannot exceed 255 octets</param>
-            public SourceDescriptionItem(IEnumerable<byte> data)
+            public SourceDescriptionItem(IEnumerable<byte> data, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 //Assign the segment of data to the item.
                 Data = data;
@@ -300,7 +303,8 @@ namespace Media.Rtcp
             /// </summary>
             /// <param name="itemType">The <see cref="ItemType"/> of the instance</param>
             /// <param name="octets">The enumerable sequence of data which will be projected and owned by this instanced</param>
-            public SourceDescriptionItem(SourceDescriptionItemType itemType, IEnumerable<byte> octets)
+            public SourceDescriptionItem(SourceDescriptionItemType itemType, IEnumerable<byte> octets, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 //Get the count of the sequence
                 int octetCount = octets.Count();
@@ -319,8 +323,6 @@ namespace Media.Rtcp
                 //Use the count obtained previously to generate a segment.
                 m_OwnedOctets = Data.ToArray();
             }
-
-            ~SourceDescriptionItem() { Dispose(); }
 
             #endregion
 
@@ -405,20 +407,19 @@ namespace Media.Rtcp
                 return Data.GetEnumerator();
             }
 
-            public override void Dispose()
+            protected override void Dispose(bool disposing)
             {
-                base.Dispose();
+                if (false == disposing || false == ShouldDispose) return;
 
-                if (ShouldDispose)
+                base.Dispose(ShouldDispose);
+
+                IDisposable data = (IDisposable)Data;
+
+                if (data != null)
                 {
-                    IDisposable data = (IDisposable)Data;
+                    data.Dispose();
 
-                    if (data != null)
-                    {
-                        data.Dispose();
-
-                        data = null;
-                    }
+                    data = null;
                 }
             }
 
@@ -477,7 +478,8 @@ namespace Media.Rtcp
             /// Constructs a new SourceDescriptionItemList from a <see cref="SourceDescriptionChunk" />
             /// </summary>
             /// <param name="parent">The SourceDescriptionChunk</param>
-            internal SourceDescriptionItemList(SourceDescriptionChunk parent)
+            internal SourceDescriptionItemList(SourceDescriptionChunk parent, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 if (parent == null) throw new ArgumentNullException("parent");
 
@@ -490,7 +492,8 @@ namespace Media.Rtcp
             /// Creates a new SourceDescriptionItemList from existing data
             /// </summary>
             /// <param name="chunkData">The data which corresponds to the items in the list</param>
-            internal SourceDescriptionItemList(IEnumerable<byte> chunkData)
+            internal SourceDescriptionItemList(IEnumerable<byte> chunkData, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 ChunkData = chunkData;
 
@@ -503,7 +506,8 @@ namespace Media.Rtcp
             /// If there is not an EndOfList item present one will be added if required.
             /// </summary>
             /// <param name="items">The items to add to the source list.</param>
-            internal SourceDescriptionItemList(IEnumerable<SourceDescriptionItem> items)
+            internal SourceDescriptionItemList(IEnumerable<SourceDescriptionItem> items, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 if (items == null) throw new ArgumentNullException("items");
 
@@ -601,32 +605,31 @@ namespace Media.Rtcp
             /// Disposes of any reference's obtained in parsing.
             /// After calling this method Disposed will be true and the CurrentItem as well as any owned octets will be null.
             /// </summary>
-            public override void Dispose()
+            protected override void Dispose(bool disposing)
             {
-                base.Dispose();
+                if (false == disposing || false == ShouldDispose) return;
 
-                if (ShouldDispose)
+                base.Dispose(ShouldDispose);
+
+                if (CurrentItem != null)
                 {
-                    if (CurrentItem != null)
-                    {
-                        CurrentItem.Dispose();
+                    CurrentItem.Dispose();
 
-                        CurrentItem = null;
-                    }
+                    CurrentItem = null;
+                }
 
-                    m_OwnedOctets = null;
+                m_OwnedOctets = null;
 
-                    m_Count = 0;
+                m_Count = 0;
 
-                    //ChunkData still points to m_OwnedOctets but it is readonly
-                    IDisposable chunkData = (IDisposable)ChunkData;
+                //ChunkData still points to m_OwnedOctets but it is readonly
+                IDisposable chunkData = (IDisposable)ChunkData;
 
-                    if (chunkData != null)
-                    {
-                        chunkData.Dispose();
+                if (chunkData != null)
+                {
+                    chunkData.Dispose();
 
-                        chunkData = null;
-                    }
+                    chunkData = null;
                 }
             }
 
@@ -831,7 +834,7 @@ namespace Media.Rtcp
         /// <remarks>
         /// A SourceDescriptionChunk is a [variable length] 2 Tier Structure which contains an Identifer and a List of <see cref="SourceDescriptionItem"/>.
         /// </remarks>
-        public class SourceDescriptionChunk : Common.BaseDisposable, 
+        public class SourceDescriptionChunk : Common.SuppressedFinalizerDisposable, 
             IEnumerable<SourceDescriptionItem>, 
             IReportBlock //,ReportBlock //? virtual calls are slow but it is do-able.
         {
@@ -858,7 +861,8 @@ namespace Media.Rtcp
             /// </summary>
             /// <param name="reference">The existing <see cref="SourceDescriptionChunk"/> instance.</param>
             /// <param name="copyData">Indicates ifd the data should be copied to this instance</param>
-            public SourceDescriptionChunk(SourceDescriptionChunk reference, bool copyData)
+            public SourceDescriptionChunk(SourceDescriptionChunk reference, bool copyData, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 //If copying the data
                 if (copyData)
@@ -882,24 +886,24 @@ namespace Media.Rtcp
             /// </summary>
             /// <param name="chunkIdentifier">The chunkIdentifier</param>
             /// <param name="items">The pointer to the items in the chunk</param>
-            public SourceDescriptionChunk(int chunkIdentifier, IEnumerable<SourceDescriptionItem> items)
+            public SourceDescriptionChunk(int chunkIdentifier, IEnumerable<SourceDescriptionItem> items, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 m_ChunkData = Enumerable.Concat(Binary.GetBytes(chunkIdentifier, BitConverter.IsLittleEndian),
                     items.DefaultIfEmpty<SourceDescriptionItem>(SourceDescriptionItem.End).SelectMany(i => i));
             }
 
-            public SourceDescriptionChunk(int chunkIdentifier, SourceDescriptionItem item) 
-                : this(chunkIdentifier, Media.Common.Extensions.Linq.LinqExtensions.Yield(item)) { }
+            public SourceDescriptionChunk(int chunkIdentifier, SourceDescriptionItem item, bool shouldDispose = true) 
+                : this(chunkIdentifier, Media.Common.Extensions.Linq.LinqExtensions.Yield(item), shouldDispose) { }
 
-            public SourceDescriptionChunk(int chunkIdentifier, params SourceDescriptionItem[] items)
-                : this(chunkIdentifier, (IEnumerable<SourceDescriptionItem>)items) { }
+            public SourceDescriptionChunk(int chunkIdentifier, bool shouldDispose = true, params SourceDescriptionItem[] items)
+                : this(chunkIdentifier, (IEnumerable<SourceDescriptionItem>)items, shouldDispose) { }
 
-            public SourceDescriptionChunk(IEnumerable<byte> ChunkData)
+            public SourceDescriptionChunk(IEnumerable<byte> ChunkData, bool shouldDispose = true)
+                : base(shouldDispose)
             {
                 m_ChunkData = ChunkData;
-            }
-
-            ~SourceDescriptionChunk() { Dispose(); }
+            }            
 
             #endregion
 
@@ -1008,20 +1012,19 @@ namespace Media.Rtcp
 
             #endregion
 
-            public override void Dispose()
+            protected override void Dispose(bool disposing)
             {
-                base.Dispose();
+                if (false == disposing || false == ShouldDispose) return;
 
-                if (ShouldDispose)
+                base.Dispose(ShouldDispose);
+
+                IDisposable chunkData = (IDisposable)m_ChunkData;
+
+                if (chunkData != null)
                 {
-                    IDisposable chunkData = (IDisposable)m_ChunkData;
+                    chunkData.Dispose();
 
-                    if (chunkData != null)
-                    {
-                        chunkData.Dispose();
-
-                        chunkData = null;
-                    }
+                    chunkData = null;
                 }
             }
         }

@@ -274,7 +274,8 @@ namespace Media.RtpTools
 
         #region Constructor
 
-        internal RtpToolEntry(DateTime timeBase, System.Net.IPEndPoint source, FileFormat format, byte[] memory = null, int? offset = null, long? fileOffset = null)
+        internal RtpToolEntry(DateTime timeBase, System.Net.IPEndPoint source, FileFormat format, byte[] memory = null, int? offset = null, long? fileOffset = null, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             Timebase = timeBase;
             Source = source;
@@ -288,8 +289,8 @@ namespace Media.RtpTools
         //http://net7mma.codeplex.com/workitem/17176
         //Text entries will need another constructor
 
-        public RtpToolEntry(DateTime timeBase, System.Net.IPEndPoint source, Common.IPacket packet, int? offset = null, long? fileOffset = null, FileFormat format = FileFormat.Binary)
-            : this(timeBase, source, format, format >= FileFormat.Binary ? CreatePacketHeader(packet, offset ?? 0).Concat(packet.Prepare()).ToArray() : null, offset, fileOffset)
+        public RtpToolEntry(DateTime timeBase, System.Net.IPEndPoint source, Common.IPacket packet, int? offset = null, long? fileOffset = null, FileFormat format = FileFormat.Binary, bool shouldDispose = true)
+            : this(timeBase, source, format, format >= FileFormat.Binary ? CreatePacketHeader(packet, offset ?? 0).Concat(packet.Prepare()).ToArray() : null, offset, fileOffset, shouldDispose)
         {
             BlobLength = format >= FileFormat.Binary ? (int)(sizeOf_RD_packet_T + packet.Length) : 0;
         }

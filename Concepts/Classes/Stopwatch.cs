@@ -41,7 +41,7 @@ namespace Media.Concepts.Classes
     /// <summary>
     /// Provides a completely managed implementation of <see cref="System.Diagnostics.Stopwatch"/> which expresses time in the same units as <see cref="System.TimeSpan"/>.
     /// </summary>
-    public class Stopwatch : Common.BaseDisposable
+    public class Stopwatch : Common.CommonDisposable
     {
         internal Timer Timer;
 

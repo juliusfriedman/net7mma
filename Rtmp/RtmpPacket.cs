@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace Media.Rtmp
 {
     //http://en.wikipedia.org/wiki/Real_Time_Messaging_Protocol#Specification_document
-    public class RtmpPacket : BaseDisposable, IPacket
+    public class RtmpPacket : CommonDisposable, IPacket
     {
 
         public RtmpPacket(byte[] packet) { m_Packet = packet; }

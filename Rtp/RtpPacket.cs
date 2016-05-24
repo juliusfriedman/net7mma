@@ -306,10 +306,6 @@ namespace Media.Rtp
 
         #region Constructor
 
-        //~RtpPacket() { Dispose(); }
-
-        //Padding...
-
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpPacket(int version, bool padding, bool extension, byte[] payload)
             : this(new RtpHeader(version, padding, extension), payload)
@@ -856,7 +852,7 @@ namespace Media.Rtp
         /// </summary>
         protected override void Dispose(bool disposing)
         {
-            if (disposing && false == ShouldDispose) return;
+            if (false == disposing || false == ShouldDispose) return;
 
             base.Dispose(ShouldDispose);
 

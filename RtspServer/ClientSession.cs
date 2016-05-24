@@ -201,7 +201,8 @@ namespace Media.Rtsp//.Server
 
         #region Constructor
 
-        public ClientSession(RtspServer server, Socket rtspSocket, Common.MemorySegment buffer = null, bool startReceive = true)
+        public ClientSession(RtspServer server, Socket rtspSocket, Common.MemorySegment buffer = null, bool startReceive = true, bool shouldDispose = true)
+            :base(shouldDispose)
         {
             Id = Guid.NewGuid();
 

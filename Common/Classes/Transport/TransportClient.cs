@@ -25,7 +25,7 @@ namespace Media.Common
     //}
 
     /// Will eventually provide the base classes for any type of client
-    public class TransportClient : Common.BaseDisposable, Common.ISocketReference, Common.IThreadReference
+    public class TransportClient : Common.CommonDisposable, Common.ISocketReference, Common.IThreadReference
     {
         #region ISocketReference
 

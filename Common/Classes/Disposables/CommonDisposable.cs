@@ -11,22 +11,18 @@ namespace Media.Common
     /// </summary>
     public class CommonDisposable : BaseDisposable
     {
-        
         //Could store Created time?
 
         //Should be on base class...
 
         //public readonly DateTime Created = DateTime.UtcNow;
 
-        public CommonDisposable(bool shouldDispose) : base(shouldDispose) { }
-
-        internal protected override void Dispose(bool disposing)
-        {
-            if (IsDisposed || disposing && false == ShouldDispose) return;
-
-            base.Dispose(ShouldDispose);
-        }
-
+        /// <summary>
+        /// Creates an instance
+        /// </summary>
+        /// <param name="shouldDispose">Indicates if <see cref="Dispose"/> will change the state of the instance</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public CommonDisposable(bool shouldDispose = true) : base(shouldDispose) { }
     }
 
     //Could provide hooks to determine manually... (SOS wrapper seems like a seperately useful class)

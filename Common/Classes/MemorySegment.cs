@@ -49,7 +49,8 @@ namespace Media.Common
     /// <summary>
     /// Provides a reference to an array of byte with an optional offset.
     /// </summary>
-    public class MemorySegment : BaseDisposable, IEnumerable<byte>
+    /// <remarks>This instance should never finalize</remarks>
+    public class MemorySegment : SuppressedFinalizerDisposable, IEnumerable<byte>
     {
         #region Statics
 
@@ -158,19 +159,27 @@ namespace Media.Common
 
         #region Constructors
 
+        /// <summary>
+        /// Should never run unless immediately finalized.
+        /// </summary>
+        ~MemorySegment()
+        {
+            m_Array = null; 
+            
+            m_Length = 0;
+
+            Dispose(ShouldDispose = true);
+
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(ToString() + "@Finalize Completed");
+#endif
+        }
+        
         #region Chained
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        MemorySegment(bool shouldDispose) : base(shouldDispose)
-        {
-            //Suppress the finalizer always, this reference cannot leak.
-            GC.SuppressFinalize(this);
-        }
-
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemorySegment(byte[] reference, bool shouldDispose = true)
-            : this(shouldDispose)
+            : base(shouldDispose)
         {
             if (reference == null) throw new ArgumentNullException("reference");
             
@@ -222,9 +231,6 @@ namespace Media.Common
             m_Array = new byte[size];
 
             ShouldDispose = shouldDispose;
-
-            //Suppress the finalizer always, this reference cannot leak.
-            GC.SuppressFinalize(this);
         }
 
         /// <summary>
@@ -262,9 +268,6 @@ namespace Media.Common
             m_Length = other.m_Length;
 
             //ByteOrder = other.ByteOrder;
-
-            //Suppress the finalizer always, this reference cannot leak.
-            GC.SuppressFinalize(this);
         }
 
         #endregion

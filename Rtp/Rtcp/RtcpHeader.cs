@@ -73,7 +73,7 @@ namespace Media.Rtcp
     /// Futher information can be found at http://tools.ietf.org/html/rfc3550#section-6.4.1
     /// Note in certain situations the <see cref="CommonHeaderBits.RtcpBlockCount"/> is used for application specific purposes.
     /// </summary>
-    public class RtcpHeader : BaseDisposable, IEnumerable<byte>
+    public class RtcpHeader : SuppressedFinalizerDisposable, IEnumerable<byte>
     {
         #region Constants and Statics
 
@@ -544,32 +544,29 @@ namespace Media.Rtcp
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing && false == ShouldDispose) return;
+            if (false == disposing || false == ShouldDispose) return;
 
             base.Dispose(ShouldDispose);
 
-            if (ShouldDispose)
+            if (false == Common.IDisposedExtensions.IsNullOrDisposed(First16Bits))
             {
-                if (false == Common.IDisposedExtensions.IsNullOrDisposed(First16Bits))
-                {
-                    //Dispose the instance
-                    First16Bits.Dispose();
+                //Dispose the instance
+                First16Bits.Dispose();
 
-                    //Remove the reference to the CommonHeaderBits instance
-                    First16Bits = null;
-                }
-
-                if (false == Common.IDisposedExtensions.IsNullOrDisposed(SegmentToLast6Bytes))
-                {
-                    //Invalidate the pointer
-                    SegmentToLast6Bytes.Dispose();
-
-                    SegmentToLast6Bytes = null;
-                }
-
-                //Remove the reference to the allocated array.
-                Last6Bytes = null;
+                //Remove the reference to the CommonHeaderBits instance
+                First16Bits = null;
             }
+
+            if (false == Common.IDisposedExtensions.IsNullOrDisposed(SegmentToLast6Bytes))
+            {
+                //Invalidate the pointer
+                SegmentToLast6Bytes.Dispose();
+
+                SegmentToLast6Bytes = null;
+            }
+
+            //Remove the reference to the allocated array.
+            Last6Bytes = null;
         }
 
         public override int GetHashCode() { return First16Bits ^ SendersSynchronizationSourceIdentifier; }
