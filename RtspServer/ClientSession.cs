@@ -403,9 +403,10 @@ namespace Media.Rtsp//.Server
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtpPacketRecieved(object client, RtpPacket packet = null, RtpClient.TransportContext tc = null)
         {
-
             //Check if both the packet and our client are null or disposed already.
-            if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) return;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(this) || IsDisconnected 
+                || 
+                Common.IDisposedExtensions.IsNullOrDisposed(packet) || Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) return;
 
             //Thread.BeginCriticalRegion();
 
@@ -417,26 +418,21 @@ namespace Media.Rtsp//.Server
             {                
                 localContext = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
             }
-            //else
-            //{
-            //    sourceContext = localContext = m_RtpClient.GetContextByPayloadType(packet.PayloadType);
-            //}
 
             //Todo, revise PerPacket on the source.
 
             //If there is not context or the sequence number is unchanged or the value is not within the allowed gap
             //When frame change events are enabled this doesn't matter as the event model takes care of skipping the packets for now.
-            if (localContext == null 
-                || 
-                //client != null && client is RtpClient && false == (client as RtpClient).FrameChangedEventsEnabled 
-                //&& 
-                localContext != null && localContext.SendSequenceNumber != localContext.RecieveSequenceNumber && false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
+            if (localContext == null) goto Exit;
+            else if(localContext.SendSequenceNumber != localContext.RecieveSequenceNumber && false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
             {
                 //The packet may have already been delivered previously.
-                if (false == Common.IDisposedExtensions.IsNullOrDisposed(localContext)) Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Dropping -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
+                Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Dropping -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
 
                 goto Exit;
-            }
+            } 
+
+            //Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Sending -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
 
             //If there is no context then don't send.
             //OR
@@ -451,6 +447,11 @@ namespace Media.Rtsp//.Server
             {
                 //Send packet on Client Thread
                 m_RtpClient.EnquePacket(packet);
+
+                //if (m_RtpClient.OutgoingRtpPacketCount > 100 && false == m_RtpClient.ThreadEvents)
+                //{
+                //    m_RtpClient.ThreadEvents = true;
+                //}
             }
 
         Exit:
@@ -554,6 +555,17 @@ namespace Media.Rtsp//.Server
             //Deactivate the RtpClient so it's not hanging around wasting resources for nothing
             if (m_RtpClient != null)
             {
+#if DEBUG
+
+                //m_RtpClient.RtcpPacketReceieved -= m_RtpClient_RecievedRtcp;
+
+                //m_RtpClient.RtpPacketReceieved -= m_RtpClient_RecievedRtp;
+
+                //m_RtpClient.RtcpPacketSent -= m_RtpClient_SentRtcp;
+
+                //m_RtpClient.RtpPacketSent -= m_RtpClient_SentRtp;
+
+#endif
                 try
                 {
                     m_RtpClient.InterleavedData -= m_RtpClient_InterleavedData;
@@ -824,8 +836,8 @@ namespace Media.Rtsp//.Server
 
                 //RtpInfoDatum / SubHeader
                 rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
-                    hasAnyState ? sourceContext.SendSequenceNumber : (int?)null,
-                    hasAnyState ? sourceContext.SenderRtpTimestamp : (int?)null,
+                    hasAnyState ? sourceContext.RecieveSequenceNumber : (int?)null,
+                    hasAnyState ? sourceContext.RtpTimestamp : (int?)null,
                     hasAnyState ? (int?)null : context.SynchronizationSourceIdentifier));
 
                 //Identify now to emulate GStreamer :P
@@ -855,8 +867,8 @@ namespace Media.Rtsp//.Server
                     bool hasAnyState = sourceContext.RtpPacketsReceived > 0 || sourceContext.RtpPacketsSent > 0 && false == context.InDiscovery;
 
                     rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
-                        hasAnyState ? sourceContext.SendSequenceNumber : (int?)null,
-                        hasAnyState ? sourceContext.SenderRtpTimestamp : (int?)null,
+                        hasAnyState ? sourceContext.RecieveSequenceNumber : (int?)null,
+                        hasAnyState ? sourceContext.RtpTimestamp : (int?)null,
                         hasAnyState ? (int?)null : context.SynchronizationSourceIdentifier));
 
                     //Done with context.
@@ -897,10 +909,8 @@ namespace Media.Rtsp//.Server
 
             //SkipIncompleteFrame option?
 
-            //if (false == final && false == frame.IsComplete) return;
+            if (false == final) return;
 
-            //Loop all packets in the frame, if the count changes wait for the next event.
-            //for (int i = 0, e = frame.Count; i < e; ++i)
             //Loop and observe changes each iteration
             for (int i = 0; i < frame.Count; ++i)
             {
@@ -1161,7 +1171,7 @@ namespace Media.Rtsp//.Server
                     //Attach logger (have option?)
                     m_RtpClient.Logger = m_Server.ClientSessionLogger;
 
-                    #region Unused [Helps with debugging]
+#if DEBUG
 
                     //m_RtpClient.RtcpPacketReceieved += m_RtpClient_RecievedRtcp;
 
@@ -1169,7 +1179,9 @@ namespace Media.Rtsp//.Server
 
                     //m_RtpClient.RtcpPacketSent += m_RtpClient_SentRtcp;
 
-                    #endregion
+                    //m_RtpClient.RtpPacketSent += m_RtpClient_SentRtp;
+
+#endif
 
                     //Dont handle frame changed events from the client
                     m_RtpClient.FrameChangedEventsEnabled = false;
@@ -1217,8 +1229,8 @@ namespace Media.Rtsp//.Server
         UpdateContext:
 
             //Synchronize the context sequence numbers
-            setupContext.SendSequenceNumber = sourceContext.RecieveSequenceNumber;
-            setupContext.SenderRtpTimestamp = sourceContext.RtpTimestamp;
+            setupContext.RecieveSequenceNumber = setupContext.SendSequenceNumber = sourceContext.RecieveSequenceNumber;
+            setupContext.RtpTimestamp = setupContext.SenderRtpTimestamp = sourceContext.RtpTimestamp;
 
             //Start and end times are always equal.
             setupContext.MediaStartTime = sourceContext.MediaStartTime;
@@ -1251,12 +1263,12 @@ namespace Media.Rtsp//.Server
             m_Server.ProcessClientBuffer(this, length);
         }
 
-        void m_RtpClient_RecievedRtp(object sender, RtpPacket packet)
+        void m_RtpClient_RecievedRtp(object sender, RtpPacket packet, RtpClient.TransportContext tc = null)
         {
             if (packet == null || packet.IsDisposed) return;
             else Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Recieved Rtp PacketType: " + packet.PayloadType + " - " + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
 
-            var context = m_RtpClient.GetContextForPacket(packet);
+            var context = tc ?? m_RtpClient.GetContextForPacket(packet);
 
             if (context == null) Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Unknown Rtp Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
             else Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Rtp Packet Ssrc = " + packet.SynchronizationSourceIdentifier + " RemoteId = " + context.RemoteSynchronizationSourceIdentifier + " LocalId = " + context.SynchronizationSourceIdentifier));
@@ -1265,7 +1277,7 @@ namespace Media.Rtsp//.Server
             //m_Server.Logger.LogException(new Exception("Recieved PacketType: " + packet.PayloadType + " - " + implementation != null ? implementation.Name : string.Empty));
         }
 
-        void m_RtpClient_RecievedRtcp(object sender, RtcpPacket packet)
+        void m_RtpClient_RecievedRtcp(object sender, RtcpPacket packet, RtpClient.TransportContext tc = null)
         {
             if (packet == null || packet.IsDisposed) return;
 
@@ -1275,7 +1287,7 @@ namespace Media.Rtsp//.Server
             if (implementation == null) Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Recieved Unknown PacketType: " + packet.PayloadType + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
             else Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Recieved Rtcp PacketType: " + packet.PayloadType + " - " + implementation.Name + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
 
-            var context = m_RtpClient.GetContextForPacket(packet);
+            var context = tc ?? m_RtpClient.GetContextForPacket(packet);
 
             if (context == null) m_Server.Logger.LogException(new Exception("Unknown Rtcp Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
             else Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Rtcp Packet Ssrc = " + packet.SynchronizationSourceIdentifier + " RemoteId = " + context.RemoteSynchronizationSourceIdentifier + " LocalId = " + context.SynchronizationSourceIdentifier));
@@ -1284,9 +1296,8 @@ namespace Media.Rtsp//.Server
             //m_Server.Logger.LogException(new Exception("Recieved Rtcp PacketType: " + packet.PayloadType + " - " + implementation != null ? implementation.Name : string.Empty));
         }
 
-        void m_RtpClient_SentRtcp(object sender, RtcpPacket packet)
+        void m_RtpClient_SentRtcp(object sender, RtcpPacket packet, RtpClient.TransportContext tc = null)
         {
-
             if (packet == null || packet.IsDisposed) return;
 
             //Get an implementation for the packet recieved
@@ -1298,7 +1309,7 @@ namespace Media.Rtsp//.Server
             //If the context should have been synchronized then determine if a context can be found
             if (m_RtpClient.Uptime > RtpClient.DefaultReportInterval)
             {
-                var context = m_RtpClient.GetContextForPacket(packet);
+                var context = tc ?? m_RtpClient.GetContextForPacket(packet);
 
                 if (context == null) Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Sent Unknown Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
                 else Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Sent Rtcp Packet Ssrc = " + packet.SynchronizationSourceIdentifier + " RemoteId = " + context.RemoteSynchronizationSourceIdentifier + " LocalId = " + context.SynchronizationSourceIdentifier));
@@ -1306,6 +1317,14 @@ namespace Media.Rtsp//.Server
 
             //Crash... check bugs in compiler.. emited wrong instruction...
             //m_Server.Logger.LogException(new Exception("Sent Rtcp PacketType: " + packet.PayloadType + " - " + implementation != null ? implementation.Name : string.Empty));
+        }
+
+        void m_RtpClient_SentRtp(object sender, RtpPacket packet, RtpClient.TransportContext tc = null)
+        {
+            var context = tc ?? m_RtpClient.GetContextForPacket(packet);
+
+            if (context == null) Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Sent Unknown Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+            else Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Sent (" + context.MediaDescription.MediaType + ") Rtp Packet Timestamp = " + packet.Timestamp + " SequenceNumber = " + packet.SequenceNumber + " , SenderSequenceNumber" + context.SendSequenceNumber + " , RecieveSequenceNumber" + context.RecieveSequenceNumber));
         }
 
         internal RtspMessage ProcessPause(RtspMessage request, RtpSource source)

@@ -1411,26 +1411,19 @@ namespace Media.Rtp
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return (short)m_SequenceNumber; }
-                internal protected set
-                {
-                    m_SequenceNumber = (ushort)value;
-                }
+
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                internal protected set { m_SequenceNumber = (ushort)value; }
             }
 
             public int SendSequenceNumber
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                get { return (short)m_SequenceNumber; }
-                internal protected set
-                {
-                    m_LastSentSequenceNumber = (ushort)value;
-                }
+                get { return (short)m_LastSentSequenceNumber; }
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                internal protected set { m_LastSentSequenceNumber = (ushort)value; }
             }
 
-            /// <summary>
-            /// The RtpTimestamp from the last SendersReport recieved or created;
-            /// </summary>
-            /// TODO Back with logic to increase by frequency?
             public int RtpTimestamp { get; internal set; }
 
             public int SenderRtpTimestamp { get; internal set; }
@@ -2586,6 +2579,8 @@ namespace Media.Rtp
                 return;
             }
 
+            #region Unused [Handles packet version validation
+
             //Already checked in ValidatePacket
             //int packetVersion = packet.Version;
 
@@ -2598,8 +2593,12 @@ namespace Media.Rtp
             //    return;
             //}
 
+            #endregion
+
+            #region Unused [Handles PayloadType validation]
+
             //Cache the payload type of the packet being handled
-            int payloadType = packet.PayloadType;
+            //int payloadType = packet.PayloadType;
 
             //Checked in ValidatePacketAndUpdateSequenceNumber
             ////If the packet payload type has not been defined in the MediaDescription
@@ -2610,6 +2609,8 @@ namespace Media.Rtp
             //    //Do nothing else.
             //    return;
             //}
+
+            #endregion
 
             //Cache the ssrc
             int partyId = packet.SynchronizationSourceIdentifier;               
@@ -2632,25 +2633,29 @@ namespace Media.Rtp
 
             #endregion
 
-            //If the packet was not addressed to the context AND the context is valid
-            if (partyId != transportContext.RemoteSynchronizationSourceIdentifier
-                &&
-                transportContext.IsValid)
-            {
+            #region Unused [Handles remote identify switching]
 
-                //Reset the state if not discovering
-                if (false == transportContext.InDiscovery)
-                {
-                    Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket SSRC Mismatch @ " + transportContext.SynchronizationSourceIdentifier + "<->" + transportContext.RemoteSynchronizationSourceIdentifier + "||" + partyId + ". ResetState");
+            //////If the packet was not addressed to the context AND the context is valid
+            ////if (partyId != transportContext.RemoteSynchronizationSourceIdentifier
+            ////    &&
+            ////    transportContext.IsValid)
+            ////{
 
-                    transportContext.ResetState();
-                }
+            ////    //Reset the state if not discovering
+            ////    if (false == transportContext.InDiscovery)
+            ////    {
+            ////        Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket SSRC Mismatch @ " + transportContext.SynchronizationSourceIdentifier + "<->" + transportContext.RemoteSynchronizationSourceIdentifier + "||" + partyId + ". ResetState");
 
-                //Assign the id of the remote party.
-                transportContext.RemoteSynchronizationSourceIdentifier = partyId;
+            ////        transportContext.ResetState();
+            ////    }
 
-                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier);
-            }         
+            ////    //Assign the id of the remote party.
+            ////    transportContext.RemoteSynchronizationSourceIdentifier = partyId;
+
+            ////    Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier);
+            ////}    
+
+            #endregion
 
             //Don't worry about overflow.
             unchecked
@@ -3298,22 +3303,35 @@ namespace Media.Rtp
         //Should also apply for Rtcp.
 
         /// <summary>
-        /// When set to a value > 0, will attempt to enfore the count of outgoing packets to be within this size by settings <see cref="ThreadEvents"/> to true.
+        /// Used in applications to determine send thresholds.
         /// </summary>
         public int MaximumOutgoingPackets { get; internal protected set; }
+
+
+        /// <summary>
+        /// Gets the number of RtpPacket instances queued to be sent.
+        /// </summary>
+        public int OutgoingRtpPacketCount
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return m_OutgoingRtpPackets.Count;
+            }
+        }
 
         /// <summary>
         /// Gets or sets a value which indicates if the socket operations for sending will use the IList overloads.
         /// </summary>
         public bool IListSockets
         {
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return m_IListSockets;
             }
             
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
                 //Todo, the objects may be in use on the curent call
@@ -4447,11 +4465,13 @@ namespace Media.Rtp
         {
             error = SocketError.SocketError;
 
-            if (m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet) || IDisposedExtensions.IsNullOrDisposed(transportContext)) return 0;
+            if (m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet)) return 0;
 
             //Context could already be known, ssrc may have value.
 
             //TransportContext transportContext = ssrc.HasValue ? GetContextBySourceId(ssrc.Value) : GetContextForPacket(packet);
+
+            if(transportContext == null) transportContext = ssrc.HasValue ? GetContextBySourceId(ssrc.Value) : GetContextForPacket(packet);
 
             //If we don't have an transportContext to send on or the transportContext has not been identified
             if (IDisposedExtensions.IsNullOrDisposed(transportContext) || false == transportContext.IsActive) return 0;
@@ -5829,7 +5849,8 @@ namespace Media.Rtp
 
                         if (remove > 0)
                         {
-                            //System.Threading.Thread.BeginCriticalRegion();
+                            System.Threading.Thread.BeginCriticalRegion();
+
                             //Could check for timestamp more recent then packet at 0  on transporContext and discard...
                             //Send only A few at a time to share with rtcp
 
@@ -5844,26 +5865,42 @@ namespace Media.Rtp
                                 //Get a packet
                                 RtpPacket packet = m_OutgoingRtpPackets[i];
 
-                                //Get the context for the packet
-                                TransportContext sendContext = GetContextForPacket(packet);
+                                //If the packet should dispose
+                                bool shouldDispose = packet.ShouldDispose;
 
-                                //Don't send packets which are disposed but do remove them
+                                //prevent dispose
+                                if(shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, false, false);
 
-                                if (IDisposedExtensions.IsNullOrDisposed(packet) || IDisposedExtensions.IsNullOrDisposed(sendContext) || sendContext.Goodbye != null)
+                                //If already disposed
+                                if (IDisposedExtensions.IsNullOrDisposed(packet))
                                 {
+                                    //Call dispose again
+                                    Common.BaseDisposable.SetShouldDispose(packet, true, true);
+
                                     ++remove;
 
                                     continue;
                                 }
 
+                                //////Get the context for the packet
+                                ////TransportContext sendContext = GetContextForPacket(packet);
+
+                                //////Don't send packets which are disposed but do remove them
+
+                                ////if (IDisposedExtensions.IsNullOrDisposed(sendContext) || sendContext.Goodbye != null)
+                                ////{
+                                ////    ++remove;
+
+                                ////    continue;
+                                ////}
+
                                 SocketError error;
 
-                                if (SendRtpPacket(packet, sendContext, out error) >= packet.Length &&
-                                    error == SocketError.Success)
+                                if (SendRtpPacket(packet, null, out error) >= packet.Length /* && error == SocketError.Success*/)
                                 {
                                     ++remove;
 
-                                    lastOperation = DateTime.UtcNow;
+                                    lastOperation = DateTime.UtcNow;                                    
                                 }
                                 else
                                 {
@@ -5878,10 +5915,10 @@ namespace Media.Rtp
                                     //break;
                                 }
 
-                                if (m_StopRequested) break;
+                                if (shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
 
-                                //If this was a marker packet then stop for now
-                                //if (packet.Marker) break;
+                                if (m_StopRequested) break;
+                                
 
                                 //Could also check timestamp in cases where marker is not being set
                                 //if (lastTimestamp.HasValue && packet.Timestamp != lastTimestamp) break;
@@ -5891,7 +5928,7 @@ namespace Media.Rtp
                             //If any packets should be removed remove them now
                             if (remove > 0) m_OutgoingRtpPackets.RemoveRange(0, remove);
 
-                            //System.Threading.Thread.EndCriticalRegion();
+                            System.Threading.Thread.EndCriticalRegion();
                         }
 
                         #endregion
