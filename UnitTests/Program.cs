@@ -1028,22 +1028,24 @@ namespace Media.UnitTests
                         //Define an event for Rtp Frames Changed.
                         Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame, context, final) =>
                         {
+                            Media.Sdp.MediaType mediaType = context != null ? context.MediaDescription.MediaType : Sdp.MediaType.unknown;
+
                             if (Media.Common.IDisposedExtensions.IsNullOrDisposed(rtpFrame)) return;
                             if (rtpFrame.IsEmpty)
                             {
                                 ++emptyFrames;
-                                Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("\t*******Got a EMTPTY RTP FRAME*******"); Console.BackgroundColor = ConsoleColor.Black;
+                                Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("\t*******Got a EMTPTY RTP FRAME (" + mediaType + ")*******"); Console.BackgroundColor = ConsoleColor.Black;
                             }
                             else if (rtpFrame.IsMissingPackets)
                             {
                                 ++incompleteFrames;
-                                Console.ForegroundColor = ConsoleColor.Yellow; Console.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
+                                Console.ForegroundColor = ConsoleColor.Yellow; Console.WriteLine("\t*******Got a (" + mediaType + ") RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                                 missing.Add(rtpFrame);
                             }
                             else
                             {
                                 ++totalFrames;
-                                Console.ForegroundColor = ConsoleColor.Blue; Console.WriteLine("\tGot a RTPFrame(" + rtpFrame.PayloadType + ") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
+                                Console.ForegroundColor = ConsoleColor.Blue; Console.WriteLine("\tGot a (" + mediaType + ") RTPFrame(" + rtpFrame.PayloadType + ") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
 
                             //A RtpFrame may be changed many times by a RtpClient
@@ -1810,6 +1812,50 @@ namespace Media.UnitTests
                                     Console.WriteLine("State: " + stream.State);
 
                                     Console.WriteLine("Ready: " + stream.Ready);
+
+                                    if (false == stream.Ready) continue;
+
+                                    if (stream is Rtsp.Server.MediaTypes.RtspSource)
+                                    {
+                                        Rtsp.Server.MediaTypes.RtspSource source = stream as Rtsp.Server.MediaTypes.RtspSource;
+
+                                        foreach (var sTc in source.RtpClient.GetTransportContexts())
+                                        {
+                                            Console.WriteLine("MediaType: " + sTc.MediaDescription.MediaType);
+
+                                            Console.WriteLine("SendSeqeunceNumber: " + sTc.SendSequenceNumber);
+
+                                            Console.WriteLine("RecieveSequenceNumber: " + sTc.RecieveSequenceNumber);
+
+                                            if (source.RtpClient != null) Console.WriteLine("m_OutgoingRtpPackets: " + source.RtpClient.m_OutgoingRtpPackets.Count);
+                                        }
+
+                                        source = null;
+
+                                    }
+                                    else if (stream is Rtsp.Server.MediaTypes.RtpSource)
+                                    {
+                                        Rtsp.Server.MediaTypes.RtpSource source = stream as Rtsp.Server.MediaTypes.RtpSource;
+
+                                        foreach (var sTc in source.RtpClient.GetTransportContexts())
+                                        {
+                                            Console.WriteLine("MediaType: " + sTc.MediaDescription.MediaType);
+
+                                            Console.WriteLine("SendSequenceNumber: " + sTc.SendSequenceNumber);
+
+                                            Console.WriteLine("RecieveSequenceNumber: " + sTc.RecieveSequenceNumber);
+
+                                            Console.WriteLine("RecieveSequenceNumber: " + sTc.RtpTimestamp);
+
+                                            if (source.RtpClient != null) Console.WriteLine("m_OutgoingRtpPackets: " + source.RtpClient.m_OutgoingRtpPackets.Count);
+                                        }
+
+                                        source = null;
+                                    }
+                                    else
+                                    {
+                                        ///
+                                    }
                                 }
 
                                 continue;
@@ -1841,21 +1887,31 @@ namespace Media.UnitTests
 
                                     Console.WriteLine("SessionId: " + client.SessionId ?? string.Empty);
 
-                                    Console.WriteLine("Rtp: " + client.m_RtpClient != null && client.m_RtpClient.IsActive ? "Active" : "Inactive");
-
                                     if (client.m_RtpClient != null)
                                     {
+                                        Console.WriteLine("Rtp: " + (client.m_RtpClient.IsActive ? "Active" : "Inactive"));
+
+                                        Console.WriteLine("m_OutgoingRtpPackets: " + client.m_RtpClient.m_OutgoingRtpPackets.Count);
+
                                         foreach (var clientTransportContext in client.m_RtpClient.GetTransportContexts())
                                         {
+                                            Console.WriteLine("Local Rtp Port: " + ((System.Net.IPEndPoint)clientTransportContext.LocalRtp).Port);
+
+                                            Console.WriteLine("Local Rtcp Port: " + ((System.Net.IPEndPoint)clientTransportContext.LocalRtcp).Port);
+
+                                            Console.WriteLine("Remote Rtp Port: " + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtp).Port);
+
+                                            Console.WriteLine("Remote Rtcp Port: " + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtcp).Port);
+
                                             Console.WriteLine("MediaType: " + clientTransportContext.MediaDescription.MediaType);
 
-                                            Console.WriteLine("MediaType: Local Rtp Port" + ((System.Net.IPEndPoint)clientTransportContext.LocalRtp).Port);
+                                            Console.WriteLine("SendSequenceNumber: " + clientTransportContext.SendSequenceNumber);
 
-                                            Console.WriteLine("MediaType: Local Rtcp Port" + ((System.Net.IPEndPoint)clientTransportContext.LocalRtcp).Port);
+                                            Console.WriteLine("RecieveSequenceNumber: " + clientTransportContext.RecieveSequenceNumber);
 
-                                            Console.WriteLine("MediaType: Remote Rtp Port" + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtp).Port);
+                                            Console.WriteLine("RtpTimestamp: " + clientTransportContext.RtpTimestamp);
 
-                                            Console.WriteLine("MediaType: Remote Rtcp Port" + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtcp).Port);
+                                            Console.WriteLine("SenderRtpTimestamp: " + clientTransportContext.SenderRtpTimestamp);
                                         }
                                     }
                                 }
@@ -3432,7 +3488,7 @@ a=appversion:1.0");
                     if (client != null) matched = client.GetContextForPacket(rtpPacket);
 
                     if (matched == null)
-                    {
+                    {                        
 
                         if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
@@ -3447,7 +3503,9 @@ a=appversion:1.0");
                     }
                     else
                     {
-                        Console.WriteLine(string.Format(TestingFormat, "Matches Context (By PayloadType):", "*******\n\t***********Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier));
+                        Media.Sdp.MediaType mediaType = matched != null ? matched.MediaDescription.MediaType : Sdp.MediaType.unknown;
+
+                        Console.WriteLine(string.Format(TestingFormat, "Matches Context (" + mediaType + ") (By PayloadType):", "*******\n\t***********Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier));
 
                         if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 

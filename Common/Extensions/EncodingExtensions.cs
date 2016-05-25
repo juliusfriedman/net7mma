@@ -115,7 +115,7 @@ namespace Media.Common.Extensions.Encoding
             long at = stream.Position;// max = stream.Length
 
             //Let the exception enfore the bounds for now
-            //if ((ulong)at >= count) return false;
+            if (at >= stream.Length) return false;
 
             //Use default..
             if (encoding == null) encoding = System.Text.Encoding.Default;
