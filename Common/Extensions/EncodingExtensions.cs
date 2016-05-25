@@ -98,6 +98,8 @@ namespace Media.Common.Extensions.Encoding
 
             any = null;
 
+            result = string.Empty;
+
             //Todo, check for large delemits and use a hash or always use a hash.
             //System.Collections.Generic.HashSet<char> delimitsC = new System.Collections.Generic.HashSet<char>(delimits);
 
@@ -110,6 +112,11 @@ namespace Media.Common.Extensions.Encoding
                 return false;
             }
 
+            long at = stream.Position;// max = stream.Length
+
+            //Let the exception enfore the bounds for now
+            //if ((ulong)at >= count) return false;
+
             //Use default..
             if (encoding == null) encoding = System.Text.Encoding.Default;
 
@@ -118,9 +125,7 @@ namespace Media.Common.Extensions.Encoding
             bool sawDelimit = false;
 
             //Make the builder
-            builder = new System.Text.StringBuilder();
-
-            long at = stream.Position;// max = stream.Length
+            builder = new System.Text.StringBuilder();            
 
             //Use the BinaryReader on the stream to ensure ReadChar reads in the correct size
             //This prevents manual conversion from byte to char and uses the encoding's code page.

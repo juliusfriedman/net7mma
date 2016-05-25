@@ -2203,8 +2203,10 @@ namespace Media.Rtsp
 
                         RtspStatusCode setupStatusCode = setup.RtspStatusCode;
 
+                        //Stop trying to setup when the transport is not supported.
+                        if (setupStatusCode == RtspStatusCode.UnsupportedTransport) break;
                         //If the setup was okay
-                        if (setupStatusCode <= RtspStatusCode.OK)
+                        else if (setupStatusCode <= RtspStatusCode.OK)
                         {
                             //setup.IsPersistent = true;
 

@@ -401,7 +401,14 @@ namespace Media.UnitTests
                     Uri = "rtsp://127.0.0.1/live/Mirror",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
-                }
+                },
+                //VLC
+                new
+                {
+                    Uri = "rtsp://127.0.0.1:8554/stream",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
             })
             {
                 Media.Rtsp.RtspClient.ClientProtocolType? proto = TestObject.Proto;
@@ -1597,8 +1604,9 @@ namespace Media.UnitTests
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                //Todo, check why this stream works in client and not server..
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Zeta", "rtsp://rtsp-v3-spbtv.msk.spbtv.com:554/spbtv_v3_1/332_110.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Testing", "rtsp://127.0.0.1:8554/stream"));
 
             
 
@@ -1831,7 +1839,9 @@ namespace Media.UnitTests
 
                                     Console.WriteLine("LastRequest: " + client.LastResponse ?? string.Empty);
 
-                                    Console.WriteLine("RtpClient: " + client.m_RtpClient ?? string.Empty);
+                                    Console.WriteLine("SessionId: " + client.SessionId ?? string.Empty);
+
+                                    Console.WriteLine("Rtp: " + client.m_RtpClient != null && client.m_RtpClient.IsActive ? "Active" : "Inactive");
 
                                     if (client.m_RtpClient != null)
                                     {
