@@ -3294,10 +3294,13 @@ namespace Media.Rtp
 
         #region Properties
 
+        //Todo, determine if packets should just not be enqueued anymore
+        //Should also apply for Rtcp.
+
         /// <summary>
         /// When set to a value > 0, will attempt to enfore the count of outgoing packets to be within this size by settings <see cref="ThreadEvents"/> to true.
         /// </summary>
-        public int MaximumOutgoingPacketQueueSize { get; internal protected set; }
+        public int MaximumOutgoingPackets { get; internal protected set; }
 
         /// <summary>
         /// Gets or sets a value which indicates if the socket operations for sending will use the IList overloads.
@@ -3363,7 +3366,7 @@ namespace Media.Rtp
                     }
                     
                     //Wait for the start while the value was not changed and the thread is not started.
-                    while (m_ThreadEvents && EventsStarted == DateTime.MinValue && m_EventThread != null) m_EventReady.Wait(0);
+                    while (m_ThreadEvents && EventsStarted == DateTime.MinValue && m_EventThread != null) m_EventReady.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
                 }
                 else
                 {
@@ -4022,7 +4025,7 @@ namespace Media.Rtp
 
         public virtual void EnquePacket(RtcpPacket packet)
         {
-            if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet) || MaximumOutgoingPacketQueueSize > 0 && m_OutgoingRtpPackets.Count > MaximumOutgoingPacketQueueSize)
+            if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet) || MaximumOutgoingPackets > 0 && m_OutgoingRtpPackets.Count > MaximumOutgoingPackets)
             {
                 //Turn threading on.
                 ThreadEvents = true;

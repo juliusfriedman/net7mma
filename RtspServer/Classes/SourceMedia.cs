@@ -56,8 +56,11 @@ namespace Media.Rtsp.Server
         public enum StreamState
         {
             Stopped,
+            StopRequested,
             Started,
-            //Faulted
+            StartRequested,
+            //Faulted,
+            Unknown
         }
 
         #endregion

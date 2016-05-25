@@ -2469,7 +2469,9 @@ namespace Media.Rtsp
             try
             {
                 //Ensure logic for UDP is correct, may have to store flag.
-                if (false == force && IsConnected) return;
+
+                //If not forcing and is already connected or started to connect return
+                if (false == force && IsConnected || m_BeginConnect.HasValue) return;
 
                 //If there is an RtpClient already connected then attempt to find a socket used by the client with the EndPoint
                 //required to be connected to
@@ -3118,16 +3120,18 @@ namespace Media.Rtsp
                     //TCP RST occurs when the ACK is missed so keep the window open.
                     if (IsConnected
                         &&
-                        Common.Extensions.Socket.SocketExtensions.CanRead(m_RtspSocket, m_SocketPollMicroseconds))
+                        m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectRead))
                     {
                         //Receive if data is actually available.
                         goto Receive;
                     }
 
+                    
+
                     //If we can write before the session will end
                     if (IsConnected
                         &&
-                        Common.Extensions.Socket.SocketExtensions.CanWrite(m_RtspSocket, m_SocketPollMicroseconds))
+                        m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectWrite))
                     {
                         sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
                     }
@@ -3204,7 +3208,7 @@ namespace Media.Rtsp
                     //If IsConnected and we can receive 
                     if (IsConnected
                         &&                                                              //or this is the last attempt at recieving a messge
-                        Common.Extensions.Socket.SocketExtensions.CanRead(m_RtspSocket, m_SocketPollMicroseconds) /*|| message != null && attempts == m_ResponseTimeoutInterval*/)
+                        m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectRead) /*|| message != null && attempts == m_ResponseTimeoutInterval*/)
                     {
                         //Receive
                         received += m_RtspSocket.Receive(m_Buffer.Array, offset, m_Buffer.Count, SocketFlags.None, out error);
@@ -4764,7 +4768,7 @@ namespace Media.Rtsp
                 //Notes that when sending only that one ALSO needs to determine `should something still be received` ?
 
                 //Monitor the protocol for incoming messages
-                if (false == SharesSocket && false == InUse && Common.Extensions.Socket.SocketExtensions.CanRead(m_RtspSocket))
+                if (false == SharesSocket && false == InUse && m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectRead))
                 {
                     DisableKeepAliveRequest = true;
 
@@ -5213,6 +5217,7 @@ namespace Media.Rtsp
                         {
                             using (SendPlay()) ; //Sessionid overload
                         }
+
                     }
 
 

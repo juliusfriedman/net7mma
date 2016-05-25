@@ -426,6 +426,16 @@ r=7d 1h 0 25h";
             new Tuple<string, TimeSpan, TimeSpan>("npt=now-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
             new Tuple<string, TimeSpan, TimeSpan>("npt=now- now", TimeSpan.Zero, TimeSpan.Zero),
             new Tuple<string, TimeSpan, TimeSpan>("npt= 0 - 1", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneSecond),
+            new Tuple<string, TimeSpan, TimeSpan>("npt=0.-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>("npt=0.0-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>("npt=0.00-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>(" npt=0.000-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>("npt=0.0000-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>("npt=0.00000-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>("npt=00.000-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>("npt=000.000-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>(" npt= 0.0 -", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
+            new Tuple<string, TimeSpan, TimeSpan>(" npt=0.00000-", TimeSpan.Zero, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan),
         };
 
         foreach (var test in testVectors)

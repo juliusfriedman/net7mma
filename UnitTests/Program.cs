@@ -1760,73 +1760,106 @@ namespace Media.UnitTests
                 {
                     ConsoleKeyInfo keyInfo = Console.ReadKey(true);
 
-                    if (keyInfo.Key == ConsoleKey.Q) break;
-                    else if (keyInfo.Key == ConsoleKey.H)
+                    switch (keyInfo.Key)
                     {
-                        Console.WriteLine("Enabling Http");
-                        server.EnableHttpTransport();
-                    }
-                    else if (keyInfo.Key == ConsoleKey.U)
-                    {
-                        Console.WriteLine("Enabling Udp");
-                        server.EnableUnreliableTransport();
-                    }
-                    else if (keyInfo.Key == ConsoleKey.F)
-                    {
-                        Console.WriteLine("======= RFC2435 Stream Information =======");
-                        Console.WriteLine("Uptime (Seconds) :" + sampleStream.Uptime.TotalSeconds);
-                        Console.WriteLine("Frames Per Second :" + sampleStream.FramesPerSecond);
-                        Console.WriteLine("==============");
-                    }
-                    else if (keyInfo.Key == ConsoleKey.T)
-                    {
-                        Console.WriteLine("Performing Load Test");
-                        System.Threading.ThreadPool.QueueUserWorkItem(o =>
-                        {
-                            Console.WriteLine("Starting Load Test......***,,");
-                            SubTestLoad(server);
-                            Console.WriteLine("Load Test Completed!!!!!!!!!!");
-                        });
-                    }
-                    else if (keyInfo.Key == ConsoleKey.C)
-                    {
-                        //Show how many connections
-                        Console.WriteLine(server.ActiveConnections + " Active Connections");
-
-                        //Enumerate those connections
-                        foreach (var client in server.Clients)
-                        {
-                            Console.WriteLine("Created: " + client.Created);
-
-                            Console.WriteLine("LastRequest: " + client.LastRequest ?? string.Empty);
-
-                            Console.WriteLine("LastRequest: " + client.LastResponse ?? string.Empty);
-
-                            Console.WriteLine("RtpClient: " + client.m_RtpClient ?? string.Empty);
-
-                            if (client.m_RtpClient != null)
+                        case ConsoleKey.Q: goto End;
+                        case ConsoleKey.H:
                             {
-                                foreach (var clientTransportContext in client.m_RtpClient.GetTransportContexts())
-                                {
-                                    Console.WriteLine("MediaType: " + clientTransportContext.MediaDescription.MediaType);
-
-                                    Console.WriteLine("MediaType: Local Rtp Port" + ((System.Net.IPEndPoint)clientTransportContext.LocalRtp).Port);
-
-                                    Console.WriteLine("MediaType: Local Rtcp Port" + ((System.Net.IPEndPoint)clientTransportContext.LocalRtcp).Port);
-
-                                    Console.WriteLine("MediaType: Remote Rtp Port" + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtp).Port);
-
-                                    Console.WriteLine("MediaType: Remote Rtcp Port" + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtcp).Port);
-                                }
+                                Console.WriteLine("Enabling Http");
+                                server.EnableHttpTransport();
+                                continue;
                             }
-                        }
-                    }
-                    else if (System.Diagnostics.Debugger.IsAttached)
-                    {
-                        System.Diagnostics.Debugger.Break();
+                        case ConsoleKey.U:
+                            {
+                                Console.WriteLine("Enabling Udp");
+                                server.EnableUnreliableTransport();
+                                continue;
+                            }
+                        case ConsoleKey.F:
+                            {
+                                Console.WriteLine("======= RFC2435 Stream Information =======");
+                                Console.WriteLine("Uptime (Seconds) :" + sampleStream.Uptime.TotalSeconds);
+                                Console.WriteLine("Frames Per Second :" + sampleStream.FramesPerSecond);
+                                Console.WriteLine("==============");
+                                continue;
+                            }
+                        case ConsoleKey.M:
+                            {
+                                Console.WriteLine("======= Maintain Server ======= ");
+                                server.MaintainServer();
+                                continue;
+                            }
+                        case ConsoleKey.S:
+                            {
+                                Console.WriteLine("======= Server Streams======= ");
+                                
+                                foreach (var stream in server.MediaStreams)
+                                {
+                                    Console.WriteLine("Id: " + stream.Id);
+
+                                    Console.WriteLine("Name: " + stream.Name);
+
+                                    Console.WriteLine("State: " + stream.State);
+
+                                    Console.WriteLine("Ready: " + stream.Ready);
+                                }
+
+                                continue;
+                            }
+                        case ConsoleKey.T:
+                            {
+                                Console.WriteLine("Performing Load Test");
+                                System.Threading.ThreadPool.QueueUserWorkItem(o =>
+                                {
+                                    Console.WriteLine("Starting Load Test......***,,");
+                                    SubTestLoad(server);
+                                    Console.WriteLine("Load Test Completed!!!!!!!!!!");
+                                });
+                                continue;
+                            }
+                        case ConsoleKey.C:
+                            {
+                                //Show how many connections
+                                Console.WriteLine(server.ActiveConnections + " Active Connections");
+
+                                //Enumerate those connections
+                                foreach (var client in server.Clients)
+                                {
+                                    Console.WriteLine("Created: " + client.Created);
+
+                                    Console.WriteLine("LastRequest: " + client.LastRequest ?? string.Empty);
+
+                                    Console.WriteLine("LastRequest: " + client.LastResponse ?? string.Empty);
+
+                                    Console.WriteLine("RtpClient: " + client.m_RtpClient ?? string.Empty);
+
+                                    if (client.m_RtpClient != null)
+                                    {
+                                        foreach (var clientTransportContext in client.m_RtpClient.GetTransportContexts())
+                                        {
+                                            Console.WriteLine("MediaType: " + clientTransportContext.MediaDescription.MediaType);
+
+                                            Console.WriteLine("MediaType: Local Rtp Port" + ((System.Net.IPEndPoint)clientTransportContext.LocalRtp).Port);
+
+                                            Console.WriteLine("MediaType: Local Rtcp Port" + ((System.Net.IPEndPoint)clientTransportContext.LocalRtcp).Port);
+
+                                            Console.WriteLine("MediaType: Remote Rtp Port" + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtp).Port);
+
+                                            Console.WriteLine("MediaType: Remote Rtcp Port" + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtcp).Port);
+                                        }
+                                    }
+                                }
+                                continue;
+                            }
+                        default:
+                            {
+                                if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
+                                continue;
+                            }
                     }
                 }
-
+            
+            End:
                 server.DisableHttpTransport();
 
                 server.DisableUnreliableTransport();

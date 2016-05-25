@@ -253,7 +253,7 @@ namespace Media.Rtsp//.Server
         public void StartReceive()
         {
             //while the socket cannot read in 1msec or less 
-            while (false == IsDisposed && false == IsDisconnected && HasRuningServer && false == Common.Extensions.Socket.SocketExtensions.CanRead(m_RtspSocket, m_SocketPollMicroseconds))
+            while (false == IsDisposed && false == IsDisconnected && HasRuningServer && false == m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectRead))
             {
                 //Wait for the last recieve to complete
                 //Might not need this when not using Async.
@@ -296,7 +296,7 @@ namespace Media.Rtsp//.Server
             try
             {
                 //while the socket cannot write in bit time
-                while (false == IsDisposed && false == IsDisconnected && HasRuningServer && false == Common.Extensions.Socket.SocketExtensions.CanWrite(m_RtspSocket, m_SocketPollMicroseconds)) 
+                while (false == IsDisposed && false == IsDisconnected && HasRuningServer && false == m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectWrite)) 
                 {
                     ////Wait for the last send to complete
                     if (LastSend != null)
@@ -307,7 +307,7 @@ namespace Media.Rtsp//.Server
 
                             Media.Common.Extensions.WaitHandle.WaitHandleExtensions.TryWaitOnHandleAndDispose(ref wait);
                         }
-                        else if (false == IsDisconnected && Common.Extensions.Socket.SocketExtensions.CanRead(m_RtspSocket, m_SocketPollMicroseconds))
+                        else if (false == IsDisconnected && m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectWrite))
                         {
                             if(m_Server != null) StartReceive();
 
@@ -1230,11 +1230,12 @@ namespace Media.Rtsp//.Server
             //Give the sessionid for the transport setup
             response.SetHeader(RtspHeaders.Session, SessionId);
 
+            //Todo, see if this can be calulcated based on requirements etc.
             //Set the amount of packets which are allowed to be queued, if greater than this amount threading is turned on.
-            m_RtpClient.MaximumOutgoingPacketQueueSize = 1000;
+            //m_RtpClient.MaximumOutgoingPackets = 1000;
 
             //Activate now.
-            m_RtpClient.Activate();
+            //m_RtpClient.Activate();
 
             return response;
         }

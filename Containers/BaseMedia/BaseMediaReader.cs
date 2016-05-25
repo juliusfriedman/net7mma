@@ -1108,6 +1108,10 @@ namespace Media.Containers.BaseMedia
 
                 if (sampleCount == 0 && entries.Count > 0) sampleCount = (ulong)entries[0].Item1;
 
+                //Todo verify this for when entries are present
+
+                //(double)((double)entries.LongLength / ((double)trackDuration)) * trackTimeScale;
+
                 rate = mediaType == Sdp.MediaType.audio ? trackTimeScale : (double)((double)sampleCount / ((double)trackDuration / trackTimeScale));
 
                 Track createdTrack = new Track(trakBox, name, trackId, trackCreated, trackModified, (long)sampleCount, width, height, startTime, calculatedDuration, rate, mediaType, codecIndication, channels, bitDepth, enabled);

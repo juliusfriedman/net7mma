@@ -203,20 +203,14 @@ namespace Media.Common
             {
                 case Undisposed:
                     {
-                        //Do not call the finalizer
-                        GC.SuppressFinalize(this);
-
                         goto case Finalized;
                     }
                 case Finalized:
                     {
-                        //If already was disposed return
-                        if (IsDisposed) break;
-
                         //Set Disposed now.
                         IsDisposed = true;
 
-                        break;
+                        return;
                     }
             }
         }
@@ -228,6 +222,9 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public virtual void Dispose()
         {
+            //Do not call the finalizer
+            GC.SuppressFinalize(this);
+
             Dispose(ShouldDispose);
         }
 
@@ -240,7 +237,7 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void IDisposable.Dispose()
         {
-            Dispose(ShouldDispose);
+            Dispose();
         }
 
         /// <summary>
