@@ -102,22 +102,25 @@ namespace Media.Sdp
 
             int offset = 0;
 
-            int length = value.Length;
+            int length = value.Length;            
 
             //Parse Type
-            do
+            //Find '='
+            offset = value.IndexOf(EqualsSign, offset + 1);
+
+            //Can't find type.
+            if (offset == -1) return false;
+
+            //Set type from substring of value
+            type = value.Substring(0, offset).Trim();
+
+            int colonIndex = type.IndexOf(Colon);
+
+            if (colonIndex >= 0)
             {
-                //Find '='
-                offset = value.IndexOf(EqualsSign, offset);
-
-                //Can't find type.
-                if (offset == -1) return false;
-
-                //Set type from substring of value
-                type = value.Substring(0, offset).Trim();
-
-                //if this was the range: specifier try again
-            } while (type.StartsWith(AttributeFields.Range, StringComparison.OrdinalIgnoreCase) && offset < length);
+                //Remove range if present.
+                type = type.Substring(colonIndex + 1).Trim();
+            }
 
             //If thats all the data in the string return
             if (++offset == length) return true;

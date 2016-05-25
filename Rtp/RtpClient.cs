@@ -496,7 +496,7 @@ namespace Media.Rtp
                 {
                     string type;
 
-                    Media.Sdp.SessionDescription.TryParseRange(rangeInfo.m_Parts[1], out type, out tc.m_StartTime, out tc.m_EndTime);
+                    Media.Sdp.SessionDescription.TryParseRange(rangeInfo.m_Parts.First(), out type, out tc.m_StartTime, out tc.m_EndTime);
                 }
 
                 //https://www.ietf.org/rfc/rfc3605.txt
