@@ -429,6 +429,9 @@
     <Content Include="Media\Video\mov\pages.mov">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Media\Video\mp4\h264_acc_stream.mp4">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Media\Video\mp4\mvi.mp4">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

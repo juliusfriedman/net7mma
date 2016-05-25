@@ -184,6 +184,16 @@ namespace Media.Rtsp.Server.MediaTypes
             if (IsParent)
             {
                 RtspClient = new RtspClient(m_Source, rtpProtocolType, bufferSize);
+
+                RtspClient.OnConnect += RtspClient_OnConnect;
+                
+                RtspClient.OnDisconnect += RtspClient_OnDisconnect;
+
+                RtspClient.OnPlay += RtspClient_OnPlay;
+
+                RtspClient.OnPause += RtspClient_OnPausing;
+
+                RtspClient.OnStop += RtspClient_OnStop;
             }
             //else it is already assigned via the child
 
@@ -210,38 +220,16 @@ namespace Media.Rtsp.Server.MediaTypes
         /// </summary>
         public override void Start()
         {
-            if (IsDisposed) return;
+            if (IsDisposed || State >= StreamState.StopRequested) return;            
 
-            base.Start();
-
-            //Not quite ready yet.
-            if (base.Ready) base.Ready = false;
-
-            if (State == StreamState.Stopped)
+            try
             {
-                RtspClient.OnConnect += RtspClient_OnConnect;
-                RtspClient.OnDisconnect += RtspClient_OnDisconnect;
-                RtspClient.OnPlay += RtspClient_OnPlay;
-                RtspClient.OnPause += RtspClient_OnPausing;
-                RtspClient.OnStop += RtspClient_OnStop;
-
-                try { RtspClient.Connect(); }
-                catch { RtspClient.StopPlaying(); }
+                RtspClient.Connect();
             }
-            else if (false == RtspClient.IsPlaying)
+            catch
             {
-                try
-                {
-                    //Start the playing again
-                    RtspClient.StartPlaying(MediaStartTime, MediaEndTime, SpecificMediaTypes);
-                    
-                    //Indicate when the stream was started.
-                    m_StartedTimeUtc = DateTime.UtcNow;
-
-                    //Call base to set started etc.
-                    base.Ready = RtspClient.IsPlaying;
-                }
-                catch { RtspClient.StopPlaying(); } //Not stop
+                RtspClient.StopPlaying();
+                RtspClient.Disconnect();
             }
         }
 
@@ -254,9 +242,13 @@ namespace Media.Rtsp.Server.MediaTypes
 
         void RtspClient_OnPlay(RtspClient sender, object args)
         {
+            State = StreamState.Started;
+
             if ((base.Ready = RtspClient.IsPlaying)) //  && RtspClient.PlayingMedia.Count is equal to what is supposed to be playing
-            {
+            {                
                 RtspClient.Client.FrameChangedEventsEnabled = PerPacket == false;
+
+                m_StartedTimeUtc = RtspClient.StartedPlaying;
             }
         }
 
@@ -272,30 +264,22 @@ namespace Media.Rtsp.Server.MediaTypes
 
         void RtspClient_OnConnect(RtspClient sender, object args)
         {
-            if (RtspClient != sender || false == RtspClient.IsConnected || RtspClient.IsPlaying) return;
-            
-            //Remove the connect event
-            RtspClient.OnConnect -= RtspClient_OnConnect;
+            if (false == RtspClient.IsConnected || State == StreamState.StartRequested) return;
 
-            //Try to start playing
+            //Not quite ready yet.
+            State = StreamState.StartRequested;
+
             try
-            {
-                //Start listening is not already playing
-                if(false == RtspClient.IsPlaying) RtspClient.StartPlaying(MediaStartTime, MediaEndTime, SpecificMediaTypes);
-
-                //Set the time for stats
-                m_StartedTimeUtc = DateTime.UtcNow;
-
-                //Call base to set started etc.
-                base.Start();
+            {                
+                //Start playing
+                RtspClient.StartPlaying(MediaStartTime, MediaEndTime, SpecificMediaTypes);
             }
             catch
             {
                 //StoPlaying and Disconnect when an exception occurs.
-                RtspClient.StopPlaying();
+                RtspClient.Disconnect(true);
 
-                //Indicate not ready
-                base.Ready = false;
+                State = StreamState.Started;
             }
         }
 
@@ -318,17 +302,12 @@ namespace Media.Rtsp.Server.MediaTypes
         /// </summary>
         public override void Stop()
         {
+            if (IsDisposed || State < StreamState.Started) return;
+
             if (RtspClient != null)
             {
                 if (RtspClient.IsPlaying) RtspClient.StopPlaying();
-
                 else if (RtspClient.IsConnected) RtspClient.Disconnect();
-                
-                RtspClient.OnConnect -= RtspClient_OnConnect;
-                RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
-                RtspClient.OnPlay -= RtspClient_OnPlay;
-                RtspClient.OnPause -= RtspClient_OnPausing;
-                RtspClient.OnStop -= RtspClient_OnStop;
             }
 
             base.Stop();
@@ -346,6 +325,16 @@ namespace Media.Rtsp.Server.MediaTypes
 
             if (RtspClient != null)
             {
+                RtspClient.OnConnect -= RtspClient_OnConnect;
+
+                RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
+
+                RtspClient.OnPlay -= RtspClient_OnPlay;
+
+                RtspClient.OnPause -= RtspClient_OnPausing;
+
+                RtspClient.OnStop -= RtspClient_OnStop;
+
                 RtspClient.Dispose();
 
                 RtspClient = null;

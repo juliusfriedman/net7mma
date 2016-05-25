@@ -127,29 +127,27 @@ namespace Media.Rtsp.Server.MediaTypes
 
         public override void Start()
         {
-            //Add handler for frame events
-            if (State == StreamState.Stopped)
-            {
-                if (RtpClient != null) RtpClient.Activate();
+            //When the stream is not fully stopped
+            if (State >= StreamState.StopRequested) return;
+            
+            if (RtpClient != null) RtpClient.Activate();
 
-                //Should be done in first packet recieved...
-                base.Ready = true;
+            //Should be done in first packet recieved...
+            base.Ready = true;
 
-                base.Start();
-            }
+            base.Start();
         }
 
         public override void Stop()
         {
-            //Remove handler
-            if (State == StreamState.Started)
-            {
-                if (RtpClient != null) RtpClient.Deactivate();
+            //When the stream is not stared
+            if (State < StreamState.Started) return;
+            
+            if (RtpClient != null) RtpClient.Deactivate();
 
-                base.Ready = false;
+            base.Ready = false;
 
-                base.Stop();
-            }
+            base.Stop();
         }
 
         public override void Dispose()

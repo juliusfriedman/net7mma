@@ -84,13 +84,13 @@ namespace Media.Sdp
         internal static System.Text.Encoding DefaultEncoding = System.Text.Encoding.UTF8;
 
         /// <summary>
-        /// Parse a range line.
+        /// Tries to parse a range from the value.
         /// </summary>
-        /// <param name="value"></param>
-        /// <param name="type"></param>
-        /// <param name="start"></param>
-        /// <param name="end"></param>
-        /// <returns></returns>
+        /// <param name="value">Value to parse</param>
+        /// <param name="type">Value parsed or unknown</param>
+        /// <param name="start">Value parsed or 0</param>
+        /// <param name="end">Value parsed or -1</param>
+        /// <returns>True if parsing any part of the value succeeed.</returns>
         public static bool TryParseRange(string value, out string type, out TimeSpan start, out TimeSpan end)
         {
 
@@ -114,7 +114,7 @@ namespace Media.Sdp
                 if (offset == -1) return false;
 
                 //Set type from substring of value
-                type = value.Substring(0, offset);
+                type = value.Substring(0, offset).Trim();
 
                 //if this was the range: specifier try again
             } while (type.StartsWith(AttributeFields.Range, StringComparison.OrdinalIgnoreCase) && offset < length);
@@ -150,50 +150,67 @@ namespace Media.Sdp
                 case "smpte":
                 case "npt":
                     {
-                        //maybe now
-                        if (false == string.IsNullOrWhiteSpace(startTimeString) && string.Compare(startTimeString, "now", StringComparison.OrdinalIgnoreCase) != 0) start = startTimeString.IndexOf(Colon) >= 0 ? TimeSpan.Parse(startTimeString, System.Globalization.CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(double.Parse(startTimeString));
+                        try
+                        {
+                            //maybe now
+                            if (false == string.IsNullOrWhiteSpace(startTimeString) && string.Compare(startTimeString, "now", StringComparison.OrdinalIgnoreCase) != 0) start = startTimeString.IndexOf(Colon) >= 0 ? TimeSpan.Parse(startTimeString, System.Globalization.CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(double.Parse(startTimeString, System.Globalization.CultureInfo.InvariantCulture));
 
-                        //If both strings were the same don't parse again.
-                        if (string.Compare(startTimeString, endTimeString) == 0) end = start;
-                        else if (false == string.IsNullOrWhiteSpace(endTimeString)) end = startTimeString.IndexOf(Colon) >= 0 ? TimeSpan.Parse(endTimeString, System.Globalization.CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(double.Parse(endTimeString));
+                            //If both strings were the same don't parse again.
+                            if (string.Compare(startTimeString, endTimeString) == 0) end = start;
+                            else if (false == string.IsNullOrWhiteSpace(endTimeString)) end = startTimeString.IndexOf(Colon) >= 0 ? TimeSpan.Parse(endTimeString, System.Globalization.CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(double.Parse(endTimeString, System.Globalization.CultureInfo.InvariantCulture));
 
-                        return true;
+                            return true;
+                        }
+                        catch
+                        {
+                            return true;
+                        }
                     }
                 case "clock":
                     {
                         //Check for the format... don't really like this because there is no telling how many digits are specified in the seconds or fractions in advance..
                         //Breaking the string down is possible... but it sucks I can't specify optional arguments to the ParseExact, Maybe DateTime.ParseLike
+                        //e.g. ParseLike (Y4M2D2\\TH2m2s3.fx) where the specifiiers are slightly different and mean the max length of the value and x means whatever is left.
+
+                        //a more general approach would be to take up to 13 chars and then add the milliseconds manually
+                        //each part could also be taken up to what reamains...
 
                         const string clockFormat = "yyyyMMdd\\THHmmsss.ff";
-
-                        DateTime now = DateTime.UtcNow, date;
-
-                        //Parse and determine the start time
-                        if (false == string.IsNullOrWhiteSpace(startTimeString) && DateTime.TryParseExact(startTimeString, clockFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date))
+                        try
                         {
-                            //Time in the past
-                            if (now > date) start = now - date;
-                            //Future?
-                            else start = date - now;
+                            DateTime now = DateTime.UtcNow, date;
 
-                            //Ensure UTC
-                            date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+                            //Parse and determine the start time
+                            if (false == string.IsNullOrWhiteSpace(startTimeString) && DateTime.TryParseExact(startTimeString, clockFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date))
+                            {
+                                //Time in the past
+                                if (now > date) start = now - date;
+                                //Future?
+                                else start = date - now;
+
+                                //Ensure UTC
+                                date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+                            }
+
+                            //Parse and determine the end time
+                            if (string.Compare(startTimeString, endTimeString) == 0) end = start;
+                            else if (false == string.IsNullOrWhiteSpace(endTimeString) && DateTime.TryParseExact(startTimeString, clockFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date))
+                            {
+                                //Time in the past
+                                if (now > date) end = now - date;
+                                //Future?
+                                else end = date - now;
+
+                                //Ensure UTC
+                                date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+                            }
+
+                            return true;
                         }
-
-                        //Parse and determine the end time
-                        if (string.Compare(startTimeString, endTimeString) == 0) end = start;
-                        else if (false == string.IsNullOrWhiteSpace(endTimeString) && DateTime.TryParseExact(startTimeString, clockFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date))
+                        catch
                         {
-                            //Time in the past
-                            if (now > date) end = now - date;
-                            //Future?
-                            else end = date - now;
-
-                            //Ensure UTC
-                            date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+                            return true;
                         }
-
-                        return true;
                     }
             }
         }

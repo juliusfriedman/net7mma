@@ -761,6 +761,9 @@ namespace Media.Common
                 //Interop
                 //http://stackoverflow.com/questions/767613/identifying-the-cpu-architecture-type-using-c-sharp/25284569#25284569
 
+                //Could detect prefer 32 bit code
+                //http://apichange.codeplex.com/SourceControl/changeset/view/76c98b8c7311#ApiChange.Api/src/Introspection/CorFlagsReader.cs
+
                 #endregion
 
                 #region Check Bit Pattern Space

@@ -51,27 +51,6 @@ namespace Media.Common.Extensions.Socket
         //    }
         //}
 
-        public static bool CanWrite(this System.Net.Sockets.Socket socket, int microSeconds = 0)
-        {
-            return Poll(socket, System.Net.Sockets.SelectMode.SelectWrite, microSeconds);
-        }
-
-        public static bool CanRead(this System.Net.Sockets.Socket socket, int microSeconds = 0)
-        {
-            return Poll(socket, System.Net.Sockets.SelectMode.SelectRead, microSeconds);
-        }
-
-        public static bool HasError(this System.Net.Sockets.Socket socket, int microSeconds = 0)
-        {
-            return Poll(socket, System.Net.Sockets.SelectMode.SelectError, microSeconds);
-        }
-        
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool Poll(this System.Net.Sockets.Socket socket, System.Net.Sockets.SelectMode mode, int microSeconds)
-        {
-            return socket.Poll(microSeconds, mode);
-        }
-
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public static System.Net.Sockets.Socket ReservePort(System.Net.Sockets.SocketType socketType, System.Net.Sockets.ProtocolType protocol, System.Net.IPAddress localIp, int port)
         {

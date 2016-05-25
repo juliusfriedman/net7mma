@@ -201,6 +201,12 @@ namespace Media.Concepts.Classes.Threading
         #endregion
     }
 
+    //ManualResetEvent
+    //public sealed class ResetEvent
+    //{
+
+    //}
+
     /// <summary>
     /// Thread safe event invoker
     /// </summary>
@@ -215,8 +221,7 @@ namespace Media.Concepts.Classes.Threading
         readonly System.Collections.Concurrent.ConcurrentDictionary<System.Delegate, DelegateHolder> DelegateDictionary = new System.Collections.Concurrent.ConcurrentDictionary<System.Delegate, DelegateHolder>();
 
         /// <summary>
-        /// List of delegates to be called, we need it because it is relatevely easy to implement a loop with list
-        /// modification inside of it
+        /// List of delegates to be called, we need it because it is relatevely easy to implement a loop with list modification inside of it
         /// </summary>
         readonly System.Collections.Generic.LinkedList<DelegateHolder> DelegateList = new System.Collections.Generic.LinkedList<DelegateHolder>();
 
