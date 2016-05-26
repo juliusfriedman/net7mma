@@ -112,7 +112,7 @@ namespace Media.Containers.Nut
 
         public static string ToTextualConvention(byte[] identifier, int offset = 0)
         {
-            return ((StartCode)Common.Binary.ReadU64(identifier, offset, BitConverter.IsLittleEndian)).ToString();
+            return ((StartCode)Common.Binary.ReadU64(identifier, offset, Common.Binary.IsLittleEndian)).ToString();
         }
 
         public static bool IsFrame(Node node)
@@ -252,7 +252,7 @@ namespace Media.Containers.Nut
 
             foreach (var tag in this)
             {
-                if (names == null || names.Count() == 0 || names.Contains((StartCode)Common.Binary.ReadU64(tag.Identifier, 0, BitConverter.IsLittleEndian)))
+                if (names == null || names.Count() == 0 || names.Contains((StartCode)Common.Binary.ReadU64(tag.Identifier, 0, Common.Binary.IsLittleEndian)))
                     yield return tag;
 
                 count -= tag.TotalSize;

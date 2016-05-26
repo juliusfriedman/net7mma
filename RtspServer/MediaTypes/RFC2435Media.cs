@@ -118,7 +118,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     if (Type > 63 && Type < 128) result += DataRestartIntervalHeaderSize;
 
                     //When FragmentOffset == 0 there is no QTables present.
-                    if (false == (Common.Binary.ReadU24(packet.Payload.Array, offset, BitConverter.IsLittleEndian) == 0)) return result;
+                    if (false == (Common.Binary.ReadU24(packet.Payload.Array, offset, Common.Binary.IsLittleEndian) == 0)) return result;
 
                     //Lookup
                     //Common.Binary.ReadBitsMSB(packet.Payload.Array, Common.Binary.BytesToBits(ref offset), NamedFields["FragmentOffset"]);
@@ -127,7 +127,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     result += QuantizationTableHeaderSize;
 
                     //Read the length
-                    if (Q >= 100) result += Common.Binary.Read16(packet.Payload.Array, offset + result, BitConverter.IsLittleEndian);
+                    if (Q >= 100) result += Common.Binary.Read16(packet.Payload.Array, offset + result, Common.Binary.IsLittleEndian);
 
                     //Lookup
                     //Common.Binary.ReadBitsMSB(packet.Payload.Array, Common.Binary.BytesToBits(ref offset), NamedFields["Length"]);
@@ -187,7 +187,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 int offset = packet.Payload.Offset + packet.HeaderOctets + 1, end = packet.Payload.Count - packet.PaddingOctets;
 
                 //The FragmentOffset must be 0 at the start of a new frame.
-                if (end - offset < 8 || Common.Binary.ReadU24(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian) != 0)
+                if (end - offset < 8 || Common.Binary.ReadU24(packet.Payload.Array, ref offset, Common.Binary.IsLittleEndian) != 0)
                 {
                     precision = 0;
 
@@ -247,7 +247,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 precision = packet.Payload.Array[offset++];
 
                 //Length of all tables
-                ushort Length = Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
+                ushort Length = Common.Binary.ReadU16(packet.Payload.Array, ref offset, Common.Binary.IsLittleEndian); //(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
 
                 //If there is Table Data Read it from the payload, Length should never be larger than 128 * tableCount
                 //This could just create the default tables rather than throw an exception.
@@ -293,7 +293,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //Network ByteOrder            
 
-                Media.Common.Binary.Write16(data, 2, BitConverter.IsLittleEndian, count);
+                Media.Common.Binary.Write16(data, 2, Common.Binary.IsLittleEndian, count);
 
                 if (f) data[2] = (byte)((1) << 7);
 
@@ -341,9 +341,9 @@ namespace Media.Rtsp.Server.MediaTypes
                 //http://tools.ietf.org/search/rfc2435#section-3.1.2
 
                 //Common.Binary.WriteNetwork24()
-                //Common.Binary.GetBytes(fragmentOffset, BitConverter.IsLittleEndian)
+                //Common.Binary.GetBytes(fragmentOffset, Common.Binary.IsLittleEndian)
 
-                if (BitConverter.IsLittleEndian) fragmentOffset = Common.Binary.ReverseU32((uint)fragmentOffset);
+                if (Common.Binary.IsLittleEndian) fragmentOffset = Common.Binary.ReverseU32((uint)fragmentOffset);
 
                 Media.Common.Extensions.List.ListExtensions.AddRange(RtpJpegHeader, BitConverter.GetBytes((uint)fragmentOffset), 1, 3);
 
@@ -368,7 +368,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     if (jpegType >= 63 && dri != null)
                     {
                         //Create a Rtp Restart Marker, Set first and last
-                        RtpJpegHeader.AddRange(CreateRtpJpegDataRestartIntervalMarker(Common.Binary.ReadU16(dri, 0, BitConverter.IsLittleEndian)));
+                        RtpJpegHeader.AddRange(CreateRtpJpegDataRestartIntervalMarker(Common.Binary.ReadU16(dri, 0, Common.Binary.IsLittleEndian)));
                     }
 
                     //Handle Quantization Tables if provided
@@ -387,10 +387,10 @@ namespace Media.Rtsp.Server.MediaTypes
                         RtpJpegHeader.Add(precisionTable);//PrecisionTable may be bit flagged to indicate 16 bit tables
 
                         //Add the Length field
-                        if (BitConverter.IsLittleEndian) RtpJpegHeader.AddRange(BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)qTablesCount)));
+                        if (Common.Binary.IsLittleEndian) RtpJpegHeader.AddRange(BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)qTablesCount)));
                         else RtpJpegHeader.AddRange(BitConverter.GetBytes((ushort)qTablesCount));
 
-                        //here qTables may have 16 bit precision and may need to be reversed if BitConverter.IsLittleEndian
+                        //here qTables may have 16 bit precision and may need to be reversed if Common.Binary.IsLittleEndian
                         RtpJpegHeader.AddRange(qTables);
                     }
                 }
@@ -746,7 +746,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         //Using the 8 bit table offset create the value and copy it to its 16 bit offset
 
                         //Luma
-                        if (BitConverter.IsLittleEndian)
+                        if (Common.Binary.IsLittleEndian)
                             BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, destLuma);
                         else
                             BitConverter.GetBytes((ushort)Common.Binary.Min(Math.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, destLuma);
@@ -754,7 +754,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         destLuma += 2;
 
                         //Chroma
-                        if (BitConverter.IsLittleEndian)
+                        if (Common.Binary.IsLittleEndian)
                             BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, destChroma);
                         else
                             BitConverter.GetBytes((ushort)Common.Binary.Min(Common.Binary.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, destChroma);
@@ -982,7 +982,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     while (TotalNum < tableSize)
                     {
                         //Ignoring the first value, Total the values of the AC components
-                        if (TotalNum != 0) Total += precision ? Common.Binary.ReadU16(tables, (i * tableSize) + sourceOffset, BitConverter.IsLittleEndian) : tables[(i * tableSize) + (int)TotalNum];
+                        if (TotalNum != 0) Total += precision ? Common.Binary.ReadU16(tables, (i * tableSize) + sourceOffset, Common.Binary.IsLittleEndian) : tables[(i * tableSize) + (int)TotalNum];
 
                         //Count components
                         TotalNum++;
@@ -1044,7 +1044,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <remarks>Ported from <see href="https://github.com/socoola/Zheyang/blob/master/rtp-jpeg.c">socoola/Zheyang</see></remarks>
             public static int DetermineQuality(bool precision, IList<byte> table, int offset)
             {
-                int seed = 100 * (precision ? Common.Binary.ReadU16(table, offset, BitConverter.IsLittleEndian) : table[offset]) / defaultQuantizers[0];
+                int seed = 100 * (precision ? Common.Binary.ReadU16(table, offset, Common.Binary.IsLittleEndian) : table[offset]) / defaultQuantizers[0];
 
                 return seed == 0 ? 0 : seed > 100 ? 5000 / seed : 100 - (seed >> 1);
             }
@@ -1394,10 +1394,10 @@ namespace Media.Rtsp.Server.MediaTypes
                                     //++offset;
 
                                     //Y Number of lines [Height] (2)
-                                    Height = Common.Binary.ReadU16(data, ref offset, BitConverter.IsLittleEndian);
+                                    Height = Common.Binary.ReadU16(data, ref offset, Common.Binary.IsLittleEndian);
 
                                     //X Number of lines [Width] (2)
-                                    Width = Common.Binary.ReadU16(data, ref offset, BitConverter.IsLittleEndian);
+                                    Width = Common.Binary.ReadU16(data, ref offset, Common.Binary.IsLittleEndian);
 
                                     //When width, height == 0, DNL Marker should be present..
 
@@ -1708,8 +1708,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                         }
 
                                         //Check for FragmentOffset to exceed 24 bits
-                                        if (streamOffset > Common.Binary.U24MaxValue) Common.Binary.Write24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)(streamOffset - Common.Binary.U24MaxValue));
-                                        else Common.Binary.Write24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)streamOffset);
+                                        if (streamOffset > Common.Binary.U24MaxValue) Common.Binary.Write24(RtpJpegHeader, 1, Common.Binary.IsLittleEndian, (uint)(streamOffset - Common.Binary.U24MaxValue));
+                                        else Common.Binary.Write24(RtpJpegHeader, 1, Common.Binary.IsLittleEndian, (uint)streamOffset);
 
                                         //Copy header
                                         RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
@@ -1771,7 +1771,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Use Payload rather than the array because MemorySegment will fix the offset to start at Payload.Offset
                     //Or
                     //Use packet.Payload.Array and  packet.Payload.Offset + packet.HeaderOctets + 1
-                    return Common.Binary.ReadU24(packet.Payload, packet.HeaderOctets + 1, BitConverter.IsLittleEndian) == 0;
+                    return Common.Binary.ReadU24(packet.Payload, packet.HeaderOctets + 1, Common.Binary.IsLittleEndian) == 0;
                 }
             }
 
@@ -1856,7 +1856,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 TypeSpecific = (packet.Payload.Array[offset++]);
 
-                FragmentOffset = Common.Binary.ReadU24(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(uint)(packet.Payload.Array[offset++] << 16 | packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
+                FragmentOffset = Common.Binary.ReadU24(packet.Payload.Array, ref offset, Common.Binary.IsLittleEndian); //(uint)(packet.Payload.Array[offset++] << 16 | packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
 
                 //Todo, should preserve order even when FragmentOffset and Sequence Number wraps.
                 //May not provide the correct order when sequenceNumber approaches ushort.MaxValue...
@@ -2036,10 +2036,10 @@ namespace Media.Rtsp.Server.MediaTypes
                        |       Restart Interval        |F|L|       Restart Count       |
                        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                      */
-                    RestartInterval = Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian);//(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
+                    RestartInterval = Common.Binary.ReadU16(packet.Payload.Array, ref offset, Common.Binary.IsLittleEndian);//(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
 
                     //Discard first and last bits...
-                    RestartCount = (ushort)(Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian) & 0x3FFF); //((packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]) & 0x3fff);
+                    RestartCount = (ushort)(Common.Binary.ReadU16(packet.Payload.Array, ref offset, Common.Binary.IsLittleEndian) & 0x3FFF); //((packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]) & 0x3fff);
                 }
 
                 // A Q value of 255 denotes that the  quantization table mapping is dynamic and can change on every frame.
@@ -2139,7 +2139,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             #endregion
 
                             //Length of all tables
-                            ushort Length = Common.Binary.ReadU16(packet.Payload.Array, ref offset, BitConverter.IsLittleEndian); //(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
+                            ushort Length = Common.Binary.ReadU16(packet.Payload.Array, ref offset, Common.Binary.IsLittleEndian); //(ushort)(packet.Payload.Array[offset++] << 8 | packet.Payload.Array[offset++]);
 
                             //If there is Table Data Read it from the payload, Length should never be larger than 128 * tableCount
                             if (Length == 0 && Quality == byte.MaxValue/* && false == allowQualityLengthException*/) throw new InvalidOperationException("RtpPackets MUST NOT contain Q = 255 and Length = 0.");

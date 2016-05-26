@@ -287,7 +287,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 #endregion
 
                 //Determine the AU Headers Length (in bits)
-                int auHeaderLengthBits = headersPresent ? Common.Binary.ReadU16(packet.Payload.Array, offset, BitConverter.IsLittleEndian) : 0,
+                int auHeaderLengthBits = headersPresent ? Common.Binary.ReadU16(packet.Payload.Array, offset, Common.Binary.IsLittleEndian) : 0,
                     //It will then be converted to bytes.
                     auHeaderLengthBytes = 0,
                     //AU-Size And the length of the underlying Elementary Stream Data for that access unit      
@@ -339,7 +339,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 // The AU Headers Length is either not present or known..
                 //{
                 //    //Read the 'ES_ID'
-                //    //ushort esId = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian);
+                //    //ushort esId = Common.Binary.ReadU16(rtp.Payload, offset, Common.Binary.IsLittleEndian);
 
                 //    //if (esId == 16) //This is AAC Audio 00 10?
                 //}
@@ -556,7 +556,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         int streamState = (int)Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, streamStateIndication);
 
                         //Read that many more bits
-                        //Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, streamState, BitConverter.IsLittleEndian);
+                        //Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, streamState, Common.Binary.IsLittleEndian);
                         bitOffset += streamState;
                     }
 

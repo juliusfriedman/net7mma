@@ -229,7 +229,7 @@ namespace Media.Rtp
             #endregion
 
             //Return the result of reversing the Unsigned 16 bit integer at the offset
-            return Common.Binary.ReadU16(buffer, offset, BitConverter.IsLittleEndian);
+            return Common.Binary.ReadU16(buffer, offset, Common.Binary.IsLittleEndian);
         }
         
         //Todo, cleanup and allow existing Rtp and Rtcp socket.
@@ -4128,7 +4128,7 @@ namespace Media.Rtp
                         //Todo, Int can be used as bytes and there may only be 2 bytes required.
                         byte[] framing = new byte[] { BigEndianFrameControl, context.ControlChannel, 0, 0 };
 
-                        Common.Binary.Write16(framing, 2, BitConverter.IsLittleEndian, (short)length);
+                        Common.Binary.Write16(framing, 2, Common.Binary.IsLittleEndian, (short)length);
 
                         //Add the framing
                         buffers.Insert(0, new ArraySegment<byte>(framing));
@@ -4170,7 +4170,7 @@ namespace Media.Rtp
                         //Todo, Int can be used as bytes and there may only be 2 bytes required.
                         byte[] framing = new byte[] { BigEndianFrameControl, context.ControlChannel, 0, 0 };
 
-                        Common.Binary.Write16(framing, 2, BitConverter.IsLittleEndian, (short)length);
+                        Common.Binary.Write16(framing, 2, Common.Binary.IsLittleEndian, (short)length);
 
                         while (sent < InterleavedOverhead && (error != SocketError.ConnectionAborted && error != SocketError.ConnectionReset && error != SocketError.NotConnected))
                         {
@@ -4515,7 +4515,7 @@ namespace Media.Rtp
                         byte[] framing = new byte[] { BigEndianFrameControl, transportContext.DataChannel, 0, 0 };
 
                         //Write the length
-                        Common.Binary.Write16(framing, 2, BitConverter.IsLittleEndian, (short)packet.Length);
+                        Common.Binary.Write16(framing, 2, Common.Binary.IsLittleEndian, (short)packet.Length);
 
                         //Add the framing
                         buffers.Insert(0, new ArraySegment<byte>(framing));
@@ -4533,6 +4533,8 @@ namespace Media.Rtp
             else
             {
                 //If the ssrc does not have value and the packet is contigious then it can be sent in place.
+
+                //Check if the packet cannot be sent in place
                 if (ssrc.HasValue && ssrc != packet.SynchronizationSourceIdentifier
                     ||
                     false == packet.IsContiguous())
@@ -4558,10 +4560,6 @@ namespace Media.Rtp
             {
                 ++transportContext.m_FailedRtpTransmissions;
             }
-
-
-            //if the packet needs to be disposed
-            if (disp) packet.Dispose();
 
             return sent;
         }
@@ -4803,7 +4801,7 @@ namespace Media.Rtp
                     {
                         //Data now has an offset and length...
                         //data = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(BigEndianFrameControl), Media.Common.Extensions.Linq.LinqExtensions.Yield(channel.Value))
-                        //    .Concat(Binary.GetBytes((short)length, BitConverter.IsLittleEndian))
+                        //    .Concat(Binary.GetBytes((short)length, Common.Binary.IsLittleEndian))
                         //    .Concat(data).ToArray();
 
                         //Create the framing
@@ -4834,7 +4832,7 @@ namespace Media.Rtp
                         IEnumerable<byte> framingData;
 
                         //The length is always present
-                        framingData = Binary.GetBytes((short)length, BitConverter.IsLittleEndian).Concat(data);
+                        framingData = Binary.GetBytes((short)length, Common.Binary.IsLittleEndian).Concat(data);
 
                         int framingLength = 2;
 
@@ -5719,11 +5717,11 @@ namespace Media.Rtp
                             //Reset the error.
                             lastError = SocketError.SocketError;
 
+                            //Ensure priority is above normal
+                            System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Normal;
+
                             //Critical
                             //System.Threading.Thread.BeginCriticalRegion();
-
-                            //Ensure priority is above normal
-                            System.Threading.Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
 
                             int receivedRtp = 0, receivedRtcp = 0;
 
@@ -5796,23 +5794,20 @@ namespace Media.Rtp
                             }
                         }
 
-                        //If there are no outgoing packets
-                        if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0
-                            || // OR there was a socket error at the last stage
-                            (lastError != SocketError.Success && lastError != SocketError.SocketError))
+                        
+                        //if there was a socket error at the last stage
+                        if (lastError != SocketError.Success && lastError != SocketError.SocketError)
                         {
-
                             //Todo, ThreadInfo.
-
-                            //Check if not already below normal priority
-                            if (System.Threading.Thread.CurrentThread.Priority != ThreadPriority.Lowest)
+                            //If there are no outgoing packets
+                            if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
                             {
-                                //Relinquish priority
                                 System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
                             }
-
-                            //Waste time
-                            //System.Threading.Thread.Sleep(0);
+                            else
+                            {
+                                System.Threading.Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
+                            }
                         }
 
                         //Critical
@@ -5849,6 +5844,9 @@ namespace Media.Rtp
 
                         if (remove > 0)
                         {
+
+                            System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Highest;
+
                             System.Threading.Thread.BeginCriticalRegion();
 
                             //Could check for timestamp more recent then packet at 0  on transporContext and discard...
@@ -5865,55 +5863,40 @@ namespace Media.Rtp
                                 //Get a packet
                                 RtpPacket packet = m_OutgoingRtpPackets[i];
 
+                                //If already disposed
+                                if (IDisposedExtensions.IsNullOrDisposed(packet))
+                                {
+                                    ++remove;
+
+                                    continue;
+                                }
+
                                 //If the packet should dispose
                                 bool shouldDispose = packet.ShouldDispose;
 
                                 //prevent dispose
                                 if(shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, false, false);
 
-                                //If already disposed
-                                if (IDisposedExtensions.IsNullOrDisposed(packet))
-                                {
-                                    //Call dispose again
-                                    Common.BaseDisposable.SetShouldDispose(packet, true, true);
+                                //Get the context for the packet
+                                TransportContext sendContext = GetContextForPacket(packet);
 
+                                if (IDisposedExtensions.IsNullOrDisposed(sendContext) || sendContext.Goodbye != null)
+                                {
                                     ++remove;
 
                                     continue;
                                 }
 
-                                //////Get the context for the packet
-                                ////TransportContext sendContext = GetContextForPacket(packet);
-
-                                //////Don't send packets which are disposed but do remove them
-
-                                ////if (IDisposedExtensions.IsNullOrDisposed(sendContext) || sendContext.Goodbye != null)
-                                ////{
-                                ////    ++remove;
-
-                                ////    continue;
-                                ////}
-
                                 SocketError error;
 
-                                if (SendRtpPacket(packet, null, out error) >= packet.Length /* && error == SocketError.Success*/)
+                                //Send the packet using the context's remote id.
+                                if (SendRtpPacket(packet, sendContext, out error, sendContext.RemoteSynchronizationSourceIdentifier) >= packet.Length /* && error == SocketError.Success*/)
                                 {
-                                    ++remove;
-
                                     lastOperation = DateTime.UtcNow;                                    
                                 }
-                                else
-                                {
 
-                                    //There was an error sending the packet
-
-                                    //Only do this in TCP to avoid duplicate data retransmission?
-
-                                    //Indicate to remove another packet
-                                    ++remove;
-
-                                    //break;
-                                }
+                                //Indicate to remove another packet
+                                ++remove;
 
                                 if (shouldDispose) Common.BaseDisposable.SetShouldDispose(packet, true, false);
 
@@ -5929,6 +5912,8 @@ namespace Media.Rtp
                             if (remove > 0) m_OutgoingRtpPackets.RemoveRange(0, remove);
 
                             System.Threading.Thread.EndCriticalRegion();
+
+                            System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Normal;
                         }
 
                         #endregion

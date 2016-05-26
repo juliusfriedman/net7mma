@@ -361,7 +361,7 @@ namespace Media.Containers.Mpeg
 
             //22-bit unsigned integer. Must be greater than or equal to (>=) the maximum value of the program_mux_rate coded in any pack of the program stream. 
             //For DVD-Video this value should be 25200 decimal.
-            uint rateBound = Common.Binary.ReadU24(node.Data, 0, BitConverter.IsLittleEndian);
+            uint rateBound = Common.Binary.ReadU24(node.Data, 0, Common.Binary.IsLittleEndian);
             rateBound &= 0x80000001; //2147483649
 
             //Make a 'checked' read
@@ -440,7 +440,7 @@ namespace Media.Containers.Mpeg
                  defines a value that is greater than or equal to the maximum P-STD buffer size for all packets of the designated stream in the entire program stream.
                  */
                 //3 bits masked out (0x1FFF = 8191 = 0001111111111111)
-                ushort stdBufferSizeBound = (ushort)(Common.Binary.ReadU16(node.Data, ref offset, BitConverter.IsLittleEndian) & 0x1FFF);
+                ushort stdBufferSizeBound = (ushort)(Common.Binary.ReadU16(node.Data, ref offset, Common.Binary.IsLittleEndian) & 0x1FFF);
 
                 //Create the the StreamBound Entry
                 var entry = new Tuple<bool, ushort, Container.Node>(bufferBoundScale, stdBufferSizeBound, node);

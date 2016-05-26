@@ -889,7 +889,7 @@ namespace Media.Rtcp
             public SourceDescriptionChunk(int chunkIdentifier, IEnumerable<SourceDescriptionItem> items, bool shouldDispose = true)
                 : base(shouldDispose)
             {
-                m_ChunkData = Enumerable.Concat(Binary.GetBytes(chunkIdentifier, BitConverter.IsLittleEndian),
+                m_ChunkData = Enumerable.Concat(Binary.GetBytes(chunkIdentifier, Common.Binary.IsLittleEndian),
                     items.DefaultIfEmpty<SourceDescriptionItem>(SourceDescriptionItem.End).SelectMany(i => i));
             }
 
@@ -915,7 +915,7 @@ namespace Media.Rtcp
             public int ChunkIdentifer
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                get { return (int)Binary.ReadU32(m_ChunkData, 0, BitConverter.IsLittleEndian); }
+                get { return (int)Binary.ReadU32(m_ChunkData, 0, Common.Binary.IsLittleEndian); }
             }
 
             /// <summary>
@@ -1482,7 +1482,7 @@ namespace Media.UnitTests
                     int RandomId =  RFC3550.Random32(Utility.Random.Next());
 
                     //Get the bytes in network order
-                    IEnumerable<byte> ssrcBytes = Binary.GetBytes(RandomId, BitConverter.IsLittleEndian);
+                    IEnumerable<byte> ssrcBytes = Binary.GetBytes(RandomId, Common.Binary.IsLittleEndian);
 
                     //Create the ItemData
                     IEnumerable<byte> ChunkData = Array.ConvertAll(Enumerable.Range(1, (int)ChunkLength).ToArray(), Convert.ToByte);

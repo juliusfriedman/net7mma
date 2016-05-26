@@ -218,10 +218,10 @@ namespace Media.Common.Extensions.IPAddress
             addrBytes = addr.GetAddressBytes();
 
             //First 32 bits must be 0 when mapped.
-            if (Common.Binary.ReadInteger(addrBytes, 0, 4, System.BitConverter.IsLittleEndian) != 0) return false;
+            if (Common.Binary.ReadInteger(addrBytes, 0, 4, Media.Common.Binary.IsLittleEndian) != 0) return false;
             
             //0xff when mapped
-            return Common.Binary.ReadU16(addrBytes, 10, System.BitConverter.IsLittleEndian) == ushort.MaxValue;
+            return Common.Binary.ReadU16(addrBytes, 10, Media.Common.Binary.IsLittleEndian) == ushort.MaxValue;
         }
 
         //could give array when already have it to maximize efficiency.
@@ -258,7 +258,7 @@ namespace Media.Common.Extensions.IPAddress
             byte[] addressBytes = new byte[16];
 
             //Set mapped from ipv4 bytes
-            Common.Binary.Write16(addressBytes, 10, System.BitConverter.IsLittleEndian, ushort.MaxValue);
+            Common.Binary.Write16(addressBytes, 10, Media.Common.Binary.IsLittleEndian, ushort.MaxValue);
 
             //Set address
             addr.GetAddressBytes().CopyTo(addressBytes, 12);

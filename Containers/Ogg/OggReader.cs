@@ -686,24 +686,24 @@ namespace Media.Containers.Ogg
                                 //Theora Mapping
 
                                 //Resolution
-                                //width = Common.Binary.Read16(page.Raw, 10, BitConverter.IsLittleEndian) << 4,
-                                //height = Common.Binary.Read16(page.Raw, 12, BitConverter.IsLittleEndian) << 4;
+                                //width = Common.Binary.Read16(page.Raw, 10, Common.Binary.IsLittleEndian) << 4,
+                                //height = Common.Binary.Read16(page.Raw, 12, Common.Binary.IsLittleEndian) << 4;
 
                                 //Display Resolution
-                                width = (int)Common.Binary.ReadU24(startPage.Data, 14, BitConverter.IsLittleEndian);
-                                height = (int)Common.Binary.ReadU24(startPage.Data, 17, BitConverter.IsLittleEndian);
+                                width = (int)Common.Binary.ReadU24(startPage.Data, 14, Common.Binary.IsLittleEndian);
+                                height = (int)Common.Binary.ReadU24(startPage.Data, 17, Common.Binary.IsLittleEndian);
 
                                 //Offset
                                 //X page.Raw[20]
                                 //Y page.Raw[21]
 
                                 //Frames Per Seconds 4 byte fps_numerator, 4 byte fps_denominator          
-                                rate = Common.Binary.Read64(startPage.Data, 22, BitConverter.IsLittleEndian);
-                                rate /= Common.Binary.Read64(startPage.Data, 26, BitConverter.IsLittleEndian);
+                                rate = Common.Binary.Read64(startPage.Data, 22, Common.Binary.IsLittleEndian);
+                                rate /= Common.Binary.Read64(startPage.Data, 26, Common.Binary.IsLittleEndian);
 
                                 //4 byte aspect_numerator        
                                 //4 byte aspect_denominator                              
-                                //double aspectRation = Common.Binary.Read64(page.Raw, 28, BitConverter.IsLittleEndian);
+                                //double aspectRation = Common.Binary.Read64(page.Raw, 28, Common.Binary.IsLittleEndian);
 
                                 //Color Space
                                 //bitDepth = page.Raw[36];
@@ -828,7 +828,7 @@ namespace Media.Containers.Ogg
                             codecIndication = startPage.Data.Skip(4).Take(4).ToArray();
 
                             //Sample rate
-                            rate = Common.Binary.ReadU32(startPage.Data, 12, BitConverter.IsLittleEndian);
+                            rate = Common.Binary.ReadU32(startPage.Data, 12, Common.Binary.IsLittleEndian);
 
                             //Number of significant bits
                             bitDepth = startPage.Data[15];
@@ -897,13 +897,13 @@ namespace Media.Containers.Ogg
                                 mediaType = Sdp.MediaType.audio;
 
                                 //rate
-                                rate = Common.Binary.ReadU32(startPage.Data, 36, BitConverter.IsLittleEndian);
+                                rate = Common.Binary.ReadU32(startPage.Data, 36, Common.Binary.IsLittleEndian);
 
                                 //channels
-                                channels = (byte)Common.Binary.ReadU32(startPage.Data, 48, BitConverter.IsLittleEndian);
+                                channels = (byte)Common.Binary.ReadU32(startPage.Data, 48, Common.Binary.IsLittleEndian);
 
                                 //bitrate
-                                bitDepth = (byte)Common.Binary.ReadU32(startPage.Data, 52, BitConverter.IsLittleEndian);
+                                bitDepth = (byte)Common.Binary.ReadU32(startPage.Data, 52, Common.Binary.IsLittleEndian);
                             }
                             else //SPOTS
                             {

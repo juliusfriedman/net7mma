@@ -79,12 +79,12 @@ namespace Media.Rtsp.Server.MediaTypes
                 if (nals == null || nals.Count() == 0) throw new InvalidOperationException("Must have at least one nal");
 
                 //Get the data required which consists of the Length and the nal.
-                IEnumerable<byte> data = nals.SelectMany(n => Common.Binary.GetBytes((short)n.Length, BitConverter.IsLittleEndian).Concat(n));
+                IEnumerable<byte> data = nals.SelectMany(n => Common.Binary.GetBytes((short)n.Length, Common.Binary.IsLittleEndian).Concat(n));
 
                 //STAP - B has DON at the very beginning
                 if (DON.HasValue)
                 {
-                    data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationB).Concat(Common.Binary.GetBytes((short)DON, BitConverter.IsLittleEndian)).Concat(data);
+                    data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationB).Concat(Common.Binary.GetBytes((short)DON, Common.Binary.IsLittleEndian)).Concat(data);
                 }//STAP - A
                 else data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationA).Concat(data);
 
@@ -100,7 +100,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 IEnumerable<byte> data = nals.SelectMany(n =>
                 {
                     byte[] lengthBytes = new byte[2];
-                    Common.Binary.Write16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
+                    Common.Binary.Write16(lengthBytes, 0, Common.Binary.IsLittleEndian, (short)n.Length);
 
                     //GetBytes
 
@@ -109,13 +109,13 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     byte[] tsOffsetBytes = new byte[3];
 
-                    Common.Binary.Write24(tsOffsetBytes, 0, BitConverter.IsLittleEndian, tsOffset);
+                    Common.Binary.Write24(tsOffsetBytes, 0, Common.Binary.IsLittleEndian, tsOffset);
 
                     return Media.Common.Extensions.Linq.LinqExtensions.Yield(dond).Concat(lengthBytes).Concat(n);
                 });
 
                 //MTAP has DON at the very beginning
-                data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation16).Concat(Media.Common.Binary.GetBytes((short)DON, BitConverter.IsLittleEndian)).Concat(data);
+                data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation16).Concat(Media.Common.Binary.GetBytes((short)DON, Common.Binary.IsLittleEndian)).Concat(data);
 
                 return data.ToArray();
             }
@@ -129,9 +129,9 @@ namespace Media.Rtsp.Server.MediaTypes
                 IEnumerable<byte> data = nals.SelectMany(n =>
                 {
                     byte[] lengthBytes = new byte[2];
-                    Common.Binary.Write16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
+                    Common.Binary.Write16(lengthBytes, 0, Common.Binary.IsLittleEndian, (short)n.Length);
 
-                    //Common.Binary.GetBytes((short)n.Length, BitConverter.IsLittleEndian);
+                    //Common.Binary.GetBytes((short)n.Length, Common.Binary.IsLittleEndian);
 
                     //DOND
 
@@ -139,13 +139,13 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     byte[] tsOffsetBytes = new byte[2];
 
-                    Common.Binary.Write16(tsOffsetBytes, 0, BitConverter.IsLittleEndian, tsOffset);
+                    Common.Binary.Write16(tsOffsetBytes, 0, Common.Binary.IsLittleEndian, tsOffset);
                     
                     return Media.Common.Extensions.Linq.LinqExtensions.Yield(dond).Concat(tsOffsetBytes).Concat(lengthBytes).Concat(n);
                 });
 
                 //MTAP has DON at the very beginning
-                data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24).Concat(Media.Common.Binary.GetBytes((short)DON, BitConverter.IsLittleEndian)).Concat(data);
+                data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24).Concat(Media.Common.Binary.GetBytes((short)DON, Common.Binary.IsLittleEndian)).Concat(data);
 
                 return data.ToArray();
             }
@@ -326,9 +326,9 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (fragmentType == Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB)// && Count == 0)// highestSequenceNumber == 0)
                         {
                             //byte[] DONBytes = new byte[2];
-                            //Common.Binary.Write16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
+                            //Common.Binary.Write16(DONBytes, 0, Common.Binary.IsLittleEndian, (short)DON);
 
-                            data = Enumerable.Concat(Common.Binary.GetBytes((short)DON, BitConverter.IsLittleEndian), data);
+                            data = Enumerable.Concat(Common.Binary.GetBytes((short)DON, Common.Binary.IsLittleEndian), data);
                         }
 
                         //Add the data the fragment data from the original nal
@@ -464,7 +464,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //Should check for 2 bytes.
 
                                 //Read the DecoderOrderingNumber and add the value from the index.
-                                packetKey = Common.Binary.ReadU16(packetData, ref offset, BitConverter.IsLittleEndian);
+                                packetKey = Common.Binary.ReadU16(packetData, ref offset, Common.Binary.IsLittleEndian);
 
                                 //If the number was already observed skip this packet.
                                 //if (Depacketized.ContainsKey(packetKey)) return;
@@ -477,7 +477,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             while (offset < count) // + 2 <=
                             {
                                 //Determine the nal unit size which does not include the nal header
-                                int tmp_nal_size = Common.Binary.Read16(packetData, ref offset, BitConverter.IsLittleEndian);
+                                int tmp_nal_size = Common.Binary.Read16(packetData, ref offset, Common.Binary.IsLittleEndian);
 
                                 //Should check for tmp_nal_size > 0
                                 //If the nal had data and that data is in this packet then write it
@@ -494,7 +494,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //DOND 1 byte
 
                                                 //Read DOND and TSOFFSET, combine the values with the existing index
-                                                packetKey = (int)Common.Binary.ReadU24(packetData, ref offset, BitConverter.IsLittleEndian);
+                                                packetKey = (int)Common.Binary.ReadU24(packetData, ref offset, Common.Binary.IsLittleEndian);
 
                                                 //If the number was already observed skip this packet.
                                                 //if (Depacketized.ContainsKey(packetKey)) return;
@@ -508,7 +508,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //DOND 2 bytes
 
                                                 //Read DOND and TSOFFSET , combine the values with the existing index
-                                                packetKey = (int)Common.Binary.ReadU32(packetData, ref offset, BitConverter.IsLittleEndian);
+                                                packetKey = (int)Common.Binary.ReadU32(packetData, ref offset, Common.Binary.IsLittleEndian);
 
                                                 //If the number was already observed skip this packet.
                                                 //if (Depacketized.ContainsKey(packetKey)) return;
@@ -591,7 +591,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 if (nalUnitType == Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB)
                                 {
                                     //Needs 2 more bytes...
-                                    Common.Binary.ReadU16(packetData, ref offset, BitConverter.IsLittleEndian);//offset += 2;
+                                    Common.Binary.ReadU16(packetData, ref offset, Common.Binary.IsLittleEndian);//offset += 2;
                                 }
 
                                 //Should verify count... just consumed 1 - 3 bytes and only required 2.

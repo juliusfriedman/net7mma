@@ -154,7 +154,7 @@ namespace Media.Codecs.Image.Jpeg
             result[1] = Media.Codecs.Image.Jpeg.Markers.HuffmanTable;
 
             //Length
-            Common.Binary.Write16(result, 2, System.BitConverter.IsLittleEndian, (ushort)(3 + codeLens.Length + symbols.Length));
+            Common.Binary.Write16(result, 2, Media.Common.Binary.IsLittleEndian, (ushort)(3 + codeLens.Length + symbols.Length));
 
             result[4] = (byte)((tableClass << 4) | tableNo); //Id
 

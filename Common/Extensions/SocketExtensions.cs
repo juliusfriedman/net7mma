@@ -623,8 +623,8 @@ namespace Media.Common.Extensions.Socket
 
             byte [] value = socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.Linger, 8);
 
-            return new System.Net.Sockets.LingerOption(Common.Binary.ReadU32(value, 0, System.BitConverter.IsLittleEndian) > 0, 
-                (int)Common.Binary.ReadU32(value, 4, System.BitConverter.IsLittleEndian));
+            return new System.Net.Sockets.LingerOption(Common.Binary.ReadU32(value, 0, Media.Common.Binary.IsLittleEndian) > 0, 
+                (int)Common.Binary.ReadU32(value, 4, Media.Common.Binary.IsLittleEndian));
         }
 
         public static void SetLingerOption(System.Net.Sockets.Socket socket, System.Net.Sockets.LingerOption lingerOption)

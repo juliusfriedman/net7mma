@@ -380,10 +380,10 @@ namespace Media.Containers.Mpeg
             //Section Length The number of bytes that follow for the syntax section (with CRC value) and/or table data. These bytes must not exceed a value of 1021.
             // section_length field is a 12-bit field that gives the length of the table section beyond this field
             //Since it is carried starting at bit index 12 in the section (the second and third bytes), the actual size of the table section is section_length + 3.
-            ushort sectionLength = (ushort)(Common.Binary.ReadU16(node.Data, ref offset, BitConverter.IsLittleEndian) & 0x0FFF);
+            ushort sectionLength = (ushort)(Common.Binary.ReadU16(node.Data, ref offset, Common.Binary.IsLittleEndian) & 0x0FFF);
 
             //transport_stream_id	24	16	uimsbf
-            ushort transportStreamId = (ushort)(Common.Binary.ReadU16(node.Data, ref offset, BitConverter.IsLittleEndian) & 0x0FFF);
+            ushort transportStreamId = (ushort)(Common.Binary.ReadU16(node.Data, ref offset, Common.Binary.IsLittleEndian) & 0x0FFF);
 
             //Skip reserved, version number and current/next indicator.
             ++offset;
@@ -401,7 +401,7 @@ namespace Media.Containers.Mpeg
             while (offset < end)
             {
                 //2 Bytes ProgramNumber
-                ushort programNumber = Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian);
+                ushort programNumber = Common.Binary.ReadU16(node.Data, offset, Common.Binary.IsLittleEndian);
 
                 //3 bits reserved
 
@@ -429,9 +429,9 @@ namespace Media.Containers.Mpeg
 
             if (tableId != TransportStreamUnit.TableIdentifier.ProgramAssociation) return;
 
-            TransportStreamUnit.PacketIdentifier pcrPid = (TransportStreamUnit.PacketIdentifier)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & TransportStreamUnit.PacketIdentifierMask);
+            TransportStreamUnit.PacketIdentifier pcrPid = (TransportStreamUnit.PacketIdentifier)(Common.Binary.ReadU16(node.Data, offset, Common.Binary.IsLittleEndian) & TransportStreamUnit.PacketIdentifierMask);
 
-            int infoLength = Common.Binary.ReadU16(node.Data, ref offset, BitConverter.IsLittleEndian) & 0x0FFF;
+            int infoLength = Common.Binary.ReadU16(node.Data, ref offset, Common.Binary.IsLittleEndian) & 0x0FFF;
 
             //Determine where to end (don't count the crc)
             int end = (infoLength + 3) - 4;
@@ -443,9 +443,9 @@ namespace Media.Containers.Mpeg
                 
                 //Could store two bytes and have methods to extract with masks.
 
-                TransportStreamUnit.PacketIdentifier esPid = (TransportStreamUnit.PacketIdentifier)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & TransportStreamUnit.PacketIdentifierMask);
+                TransportStreamUnit.PacketIdentifier esPid = (TransportStreamUnit.PacketIdentifier)(Common.Binary.ReadU16(node.Data, offset, Common.Binary.IsLittleEndian) & TransportStreamUnit.PacketIdentifierMask);
 
-                ushort descLength = (ushort)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & 0x0FFF);
+                ushort descLength = (ushort)(Common.Binary.ReadU16(node.Data, offset, Common.Binary.IsLittleEndian) & 0x0FFF);
 
                 var entry = new Tuple<TransportStreamUnit.PacketIdentifier, ushort>(esPid, descLength);
 

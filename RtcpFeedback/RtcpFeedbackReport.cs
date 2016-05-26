@@ -16,7 +16,7 @@ namespace Media.Rtcp.Feedback
             BlockCount = format;
 
             //Write the MediaSynchronizationSourceIdentifier
-            Common.Binary.Write32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian, (uint)mssrc);
+            Common.Binary.Write32(Payload.Array, Payload.Offset, Common.Binary.IsLittleEndian, (uint)mssrc);
 
             //Copy the FCI Data
             if (feedbackControlInformation != null)
@@ -92,11 +92,11 @@ namespace Media.Rtcp.Feedback
             get
             {
 
-                return (int)Common.Binary.ReadU32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian);
+                return (int)Common.Binary.ReadU32(Payload.Array, Payload.Offset, Common.Binary.IsLittleEndian);
             }
             set
             {
-                Common.Binary.Write32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian, (uint)value);
+                Common.Binary.Write32(Payload.Array, Payload.Offset, Common.Binary.IsLittleEndian, (uint)value);
             }
         }
 

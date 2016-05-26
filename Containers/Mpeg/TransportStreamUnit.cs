@@ -368,7 +368,7 @@ namespace Media.Containers.Mpeg
 
         public static bool HasTransportPriority(byte[] header, int offset = 0) { return (header[offset + 1] & PriorityMask) > 0; }
 
-        public static PacketIdentifier GetPacketIdentifier(byte[] header, int offset = 0) { return (PacketIdentifier)(Common.Binary.ReadU16(header, offset + 1, System.BitConverter.IsLittleEndian) & PacketIdentifierMask); }
+        public static PacketIdentifier GetPacketIdentifier(byte[] header, int offset = 0) { return (PacketIdentifier)(Common.Binary.ReadU16(header, offset + 1, Media.Common.Binary.IsLittleEndian) & PacketIdentifierMask); }
 
         public static AdaptationFieldControl GetAdaptationFieldControl(byte[] header, int offset = 0) { return (AdaptationFieldControl)(header[offset + 3] >> 4 & Common.Binary.FourBitMaxValue); }
 

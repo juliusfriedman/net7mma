@@ -375,7 +375,7 @@ namespace Media
         /// <returns>The packets parsed based on the given parameters.</returns>
         public static IEnumerable<RtcpPacket> FromEncryptedCompoundBytes(out int random, byte[] array, int offset, int count, bool skipUnknownTypes = false)
         {
-            random = (int)Media.Common.Binary.ReadU32(array, offset, BitConverter.IsLittleEndian);
+            random = (int)Media.Common.Binary.ReadU32(array, offset, Common.Binary.IsLittleEndian);
             return FromCompoundBytes(array, offset += MagicBytesSize, count -= MagicBytesSize, skipUnknownTypes);
         }
 
@@ -829,7 +829,7 @@ namespace Media
                     remainingBits |= CommonHeaderBits.ExtensionMask;
                 }
 
-                //if (BitConverter.IsLittleEndian) remainingBits = Common.Binary.ReverseU8((byte)remainingBits);
+                //if (Common.Binary.IsLittleEndian) remainingBits = Common.Binary.ReverseU8((byte)remainingBits);
 
                 //Pack the results into an octet
                 return PacketOctet(version, remainingBits);
@@ -897,7 +897,7 @@ namespace Media
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
                 //Only 1 shift is required to read the version and it shouldn't matter about the endian
-                get { return First8Bits >> 6; } //BitConverter.IsLittleEndian ? First8Bits >> 6 : First8Bits << 6; }
+                get { return First8Bits >> 6; } //Common.Binary.IsLittleEndian ? First8Bits >> 6 : First8Bits << 6; }
                 //get { return (int)Common.Binary.ReadBitsMSB(m_Memory.Array, Common.Binary.BitsToBytes(m_Memory.Offset), 2); }
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
@@ -991,7 +991,7 @@ namespace Media
                 //Where 3 | PaddingMask = 224 (decimal) 11100000
                 //Example 255 & 244 = 31 which is the Maximum value which is able to be stored in this field.
                 //Where 255 = byte.MaxValue
-                get { return (byte)(First8Bits & Common.Binary.FiveBitMaxValue); } // BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 3)) : Common.Binary.ReverseU8((byte)(First8Bits >> 3)); }
+                get { return (byte)(First8Bits & Common.Binary.FiveBitMaxValue); } // Common.Binary.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 3)) : Common.Binary.ReverseU8((byte)(First8Bits >> 3)); }
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
                 //get { return (int)Common.Binary.ReadBitsMSB(m_Memory.Array, Common.Binary.BytesToBits(m_Memory.Offset) + 3, 5); }
@@ -1006,7 +1006,7 @@ namespace Media
                     //To make it correct unsigned has to be reversed 10000 = 16
 
                     //Get a unsigned copy to prevent two checks, the value is only 5 bits and must be aligned to this boundary in the octet
-                    byte unsigned = (byte)value; //BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 3) : (byte)(value << 3);
+                    byte unsigned = (byte)value; //Common.Binary.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 3) : (byte)(value << 3);
 
                     //Include the padding bit if it was set prior
                     if (Padding) unsigned |= PaddingMask;
@@ -1026,8 +1026,8 @@ namespace Media
 
                 //Contributing sources only exist in the highest half of the `leastSignificant` octet.
                 //Example 240 = 11110000 and would indicate 0 Contributing Sources etc.
-                //get { return Common.Binary.ReverseU8((byte)Common.Binary.ReadBitsWithShift(First8Bits, 0, 4, BitConverter.IsLittleEndian)); }
-                //get { return BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 4)) : First8Bits << 4;} // Common.Binary.ReverseU8((byte)(First8Bits >> 4)); }
+                //get { return Common.Binary.ReverseU8((byte)Common.Binary.ReadBitsWithShift(First8Bits, 0, 4, Common.Binary.IsLittleEndian)); }
+                //get { return Common.Binary.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 4)) : First8Bits << 4;} // Common.Binary.ReverseU8((byte)(First8Bits >> 4)); }
                 get { return (First8Bits & Common.Binary.FourBitMaxValue); }
                 //get { return (int)Common.Binary.ReadBitsMSB(m_Memory.Array, Common.Binary.BytesToBits(m_Memory.Offset) + 4, 4); }
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -1039,7 +1039,7 @@ namespace Media
                         throw Binary.CreateOverflowException("RtpContributingSourceCount", value, byte.MinValue.ToString(), Binary.FourBitMaxValue.ToString());
 
                     //Get a unsigned copy to prevent two checks, the value is only 4 bits and must be aligned to this boundary in the octet
-                    //byte unsigned = BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value << 4);
+                    //byte unsigned = Common.Binary.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value << 4);
 
                     //re pack the octet
                     First8Bits = PackOctet(Version, Padding, Extension, (byte)value);
@@ -1296,7 +1296,7 @@ namespace Media
             #region Implicit Operators
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public static implicit operator short(CommonHeaderBits bits) { return Common.Binary.Read16(bits, 0, BitConverter.IsLittleEndian); }
+            public static implicit operator short(CommonHeaderBits bits) { return Common.Binary.Read16(bits, 0, Common.Binary.IsLittleEndian); }
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public static bool operator ==(CommonHeaderBits a, CommonHeaderBits b)
@@ -1384,7 +1384,7 @@ namespace Media
 
                 foreach (var ssrc in sources.Skip(start))
                 {
-                    binary = binary.Concat(Binary.GetBytes(ssrc, BitConverter.IsLittleEndian)).ToArray();
+                    binary = binary.Concat(Binary.GetBytes(ssrc, Common.Binary.IsLittleEndian)).ToArray();
                     
                     //Increment for the added value and determine if the maximum is reached.
                     if (++m_SourceCount >= SourceList.MaxItems) break;

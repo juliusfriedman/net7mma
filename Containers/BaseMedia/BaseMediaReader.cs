@@ -184,7 +184,7 @@ namespace Media.Containers.BaseMedia
 
             //Return the result of parsing a Guid from the uuid bytes. The UUID should be in big endian format...
                                                         //BitOrder == LeastSignificant
-            return Common.Binary.ReadGuid(uuidBytes, 0, BitConverter.IsLittleEndian);  //new Guid(uuidBytes);
+            return Common.Binary.ReadGuid(uuidBytes, 0, Common.Binary.IsLittleEndian);  //new Guid(uuidBytes);
         }
 
         public BaseMediaReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
@@ -270,7 +270,7 @@ namespace Media.Containers.BaseMedia
                     bytesRead += stream.Read(lengthBytes, offset, LengthSize);
 
                     //Calculate the length
-                    length = (uint)Common.Binary.Read32(lengthBytes, 0, BitConverter.IsLittleEndian);
+                    length = (uint)Common.Binary.Read32(lengthBytes, 0, Common.Binary.IsLittleEndian);
 
                     //Repeat while 0 or 1 was found
                 } while (length <= 1);                
@@ -338,7 +338,7 @@ namespace Media.Containers.BaseMedia
                 lengthBytesRead += Common.Binary.BytesPerInteger;
 
                 //Calculate the length
-                length = (int.MaxValue << Common.Binary.BitsPerInteger) | (uint)Common.Binary.Read32(lengthBytes, 0, BitConverter.IsLittleEndian);
+                length = (int.MaxValue << Common.Binary.BitsPerInteger) | (uint)Common.Binary.Read32(lengthBytes, 0, Common.Binary.IsLittleEndian);
             }
 
             //Return the node, the Position is the position of the data in the node.
@@ -495,7 +495,7 @@ namespace Media.Containers.BaseMedia
 
                 int offset = 0;
 
-                int versionAndFlags = Common.Binary.Read32(mediaHeader.Data, offset, BitConverter.IsLittleEndian), version = versionAndFlags >> 24 & 0xff;
+                int versionAndFlags = Common.Binary.Read32(mediaHeader.Data, offset, Common.Binary.IsLittleEndian), version = versionAndFlags >> 24 & 0xff;
 
                 offset += 4;
 
@@ -505,19 +505,19 @@ namespace Media.Containers.BaseMedia
                 {
                     case 0:
                         {
-                            created = Common.Binary.ReadU32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
+                            created = Common.Binary.ReadU32(mediaHeader.Data, offset, Common.Binary.IsLittleEndian);
 
                             offset += 4;
 
-                            modified = Common.Binary.ReadU32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
+                            modified = Common.Binary.ReadU32(mediaHeader.Data, offset, Common.Binary.IsLittleEndian);
 
                             offset += 4;
 
-                            m_TimeScale = Common.Binary.ReadU32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
+                            m_TimeScale = Common.Binary.ReadU32(mediaHeader.Data, offset, Common.Binary.IsLittleEndian);
 
                             offset += 4;
 
-                            duration = Common.Binary.ReadU32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
+                            duration = Common.Binary.ReadU32(mediaHeader.Data, offset, Common.Binary.IsLittleEndian);
 
                             break;
                         }
@@ -525,19 +525,19 @@ namespace Media.Containers.BaseMedia
                     case 1:
                         {
 
-                            created = Common.Binary.ReadU64(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
+                            created = Common.Binary.ReadU64(mediaHeader.Data, offset, Common.Binary.IsLittleEndian);
 
                             offset += 4;
 
-                            modified = Common.Binary.ReadU64(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
+                            modified = Common.Binary.ReadU64(mediaHeader.Data, offset, Common.Binary.IsLittleEndian);
 
                             offset += 4;
 
-                            m_TimeScale = Common.Binary.ReadU32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
+                            m_TimeScale = Common.Binary.ReadU32(mediaHeader.Data, offset, Common.Binary.IsLittleEndian);
 
                             offset += 4;
 
-                            duration = Common.Binary.ReadU64(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
+                            duration = Common.Binary.ReadU64(mediaHeader.Data, offset, Common.Binary.IsLittleEndian);
 
                             offset += 4;
 
@@ -548,11 +548,11 @@ namespace Media.Containers.BaseMedia
 
                 //Rate Volume NextTrack
 
-                m_PlayRate = Common.Binary.Read32(mediaHeader.Data, offset, BitConverter.IsLittleEndian) / 65536f;
+                m_PlayRate = Common.Binary.Read32(mediaHeader.Data, offset, Common.Binary.IsLittleEndian) / 65536f;
 
                 offset += 4;
 
-                m_Volume = Common.Binary.ReadU16(mediaHeader.Data, offset, BitConverter.IsLittleEndian) / 256f;
+                m_Volume = Common.Binary.ReadU16(mediaHeader.Data, offset, Common.Binary.IsLittleEndian) / 256f;
 
                 offset += 2;
 
@@ -562,7 +562,7 @@ namespace Media.Containers.BaseMedia
 
                 offset += 28;
 
-                m_NextTrackId = Common.Binary.Read32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
+                m_NextTrackId = Common.Binary.Read32(mediaHeader.Data, offset, Common.Binary.IsLittleEndian);
 
                 offset += 4;
 
@@ -691,16 +691,16 @@ namespace Media.Containers.BaseMedia
                                     //Skip Flags and Version
                                     offset = LengthSize;
 
-                                    int entryCount = Common.Binary.Read32(rawData, offset, BitConverter.IsLittleEndian);
+                                    int entryCount = Common.Binary.Read32(rawData, offset, Common.Binary.IsLittleEndian);
 
                                     offset += 4;
 
                                     for (int i = 0; i < entryCount && offset < length; ++i)
                                     {
                                         //Edit Duration, MediaTime, Rate
-                                        edits.Add(new Tuple<int, int, float>(Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian),
-                                            Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian),
-                                            Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian) / ushort.MaxValue));
+                                        edits.Add(new Tuple<int, int, float>(Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian),
+                                            Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian),
+                                            Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian) / ushort.MaxValue));
                                     }
 
                                     if (edits.Count > 0 && edits[0].Item2 > 0)
@@ -722,7 +722,7 @@ namespace Media.Containers.BaseMedia
 
                                     version = rawData[offset++];
                                     
-                                    flags = Common.Binary.Read24(rawData, offset, BitConverter.IsLittleEndian);
+                                    flags = Common.Binary.Read24(rawData, offset, Common.Binary.IsLittleEndian);
 
                                     offset += 3;
 
@@ -734,18 +734,18 @@ namespace Media.Containers.BaseMedia
 
                                     if (version == 0)
                                     {
-                                        created = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        created = Common.Binary.ReadU32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
-                                        modified = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        modified = Common.Binary.ReadU32(rawData, ref offset, Common.Binary.IsLittleEndian);
                                     }
                                     else
                                     {
-                                        created = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        created = Common.Binary.ReadU64(rawData, ref offset, Common.Binary.IsLittleEndian);
 
-                                        modified = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        modified = Common.Binary.ReadU64(rawData, ref offset, Common.Binary.IsLittleEndian);
                                     }
 
-                                    trackId = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    trackId = Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
                                     //Skip if not the first active track in the moov header..
                                     //if (trackId < NextTrackId) continue;
@@ -756,11 +756,11 @@ namespace Media.Containers.BaseMedia
                                     //Get Duration
                                     if (version == 0)
                                     {
-                                        duration = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        duration = Common.Binary.ReadU32(rawData, ref offset, Common.Binary.IsLittleEndian);
                                     }
                                     else
                                     {
-                                        duration = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        duration = Common.Binary.ReadU64(rawData, ref offset, Common.Binary.IsLittleEndian);
                                     }
 
                                     if (duration == 4294967295L) duration = ulong.MaxValue;
@@ -768,22 +768,22 @@ namespace Media.Containers.BaseMedia
                                     //Reserved
                                     offset += 8;
 
-                                    //int layer = Common.Binary.ReadU16(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    //int layer = Common.Binary.ReadU16(rawData, ref offset, Common.Binary.IsLittleEndian);
 
-                                    //int altGroup = Common.Binary.ReadU16(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    //int altGroup = Common.Binary.ReadU16(rawData, ref offset, Common.Binary.IsLittleEndian);
 
                                     offset += 4;
 
-                                    volume = Common.Binary.ReadU16(rawData, ref offset, BitConverter.IsLittleEndian) / 256;
+                                    volume = Common.Binary.ReadU16(rawData, ref offset, Common.Binary.IsLittleEndian) / 256;
 
                                     //Skip int and Matrix
                                     offset += 38;
 
                                     //Width
-                                    width = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian) / ushort.MaxValue;
+                                    width = Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian) / ushort.MaxValue;
                                     
                                     //Height
-                                    height = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian) / ushort.MaxValue;
+                                    height = Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian) / ushort.MaxValue;
 
                                     offset = (int)length;
 
@@ -797,30 +797,30 @@ namespace Media.Containers.BaseMedia
 
                                     version = rawData[offset++];
 
-                                    flags = Common.Binary.Read24(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    flags = Common.Binary.Read24(rawData, ref offset, Common.Binary.IsLittleEndian);
 
                                     ulong mediaCreated, mediaModified, timescale, mediaduration;
 
                                     if (version == 0)
                                     {
 
-                                        mediaCreated = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        mediaCreated = Common.Binary.ReadU32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
-                                        mediaModified = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        mediaModified = Common.Binary.ReadU32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
-                                        timescale = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        timescale = Common.Binary.ReadU32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
-                                        mediaduration = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        mediaduration = Common.Binary.ReadU32(rawData, ref offset, Common.Binary.IsLittleEndian);
                                     }
                                     else
                                     {
-                                        mediaCreated = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        mediaCreated = Common.Binary.ReadU64(rawData, ref offset, Common.Binary.IsLittleEndian);
 
-                                        mediaModified = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        mediaModified = Common.Binary.ReadU64(rawData, ref offset, Common.Binary.IsLittleEndian);
 
-                                        timescale = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        timescale = Common.Binary.ReadU32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
-                                        mediaduration = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+                                        mediaduration = Common.Binary.ReadU64(rawData, ref offset, Common.Binary.IsLittleEndian);
                                     }
 
                                     trackTimeScale = timescale;
@@ -844,7 +844,7 @@ namespace Media.Containers.BaseMedia
 
                                     stream.Read(rawData, 0, (int)length);
 
-                                    int sampleDescriptionCount = length > 0 ? Common.Binary.Read32(rawData, LengthSize, BitConverter.IsLittleEndian) : 0;
+                                    int sampleDescriptionCount = length > 0 ? Common.Binary.Read32(rawData, LengthSize, Common.Binary.IsLittleEndian) : 0;
 
                                     offset = MinimumSize;
 
@@ -852,7 +852,7 @@ namespace Media.Containers.BaseMedia
                                     {
                                         for (int i = 0; i < sampleDescriptionCount; ++i)
                                         {
-                                            int len = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian) - 4;
+                                            int len = Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian) - 4;
 
                                             var sampleEntry = rawData.Skip(offset).Take(len);
                                             offset += len;
@@ -865,21 +865,21 @@ namespace Media.Containers.BaseMedia
                                                         codecIndication = sampleEntry.Take(4).ToArray();
 
                                                         //32, 16, 16 (dref index)
-                                                        version = Common.Binary.Read16(sampleEntry, 8, BitConverter.IsLittleEndian);
+                                                        version = Common.Binary.Read16(sampleEntry, 8, Common.Binary.IsLittleEndian);
 
                                                         //Revision 16, Vendor 32
 
                                                         //ChannelCount 16
-                                                        channels = (byte)Common.Binary.ReadU16(sampleEntry, 20, BitConverter.IsLittleEndian);
+                                                        channels = (byte)Common.Binary.ReadU16(sampleEntry, 20, Common.Binary.IsLittleEndian);
 
                                                         //SampleSize 16 (A 16-bit integer that specifies the number of bits in each uncompressed sound sample. Allowable values are 8 or 16. Formats using more than 16 bits per sample set this field to 16 and use sound description version 1.)
-                                                        bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 22, BitConverter.IsLittleEndian);
+                                                        bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 22, Common.Binary.IsLittleEndian);
 
                                                         //CompressionId 16
                                                         var compressionId = sampleEntry.Skip(24).Take(2);
 
                                                         //Decode to a WaveFormatID (16 bit)
-                                                        int waveFormatId = Common.Binary.Read16(compressionId, 0, BitConverter.IsLittleEndian);
+                                                        int waveFormatId = Common.Binary.Read16(compressionId, 0, Common.Binary.IsLittleEndian);
 
                                                         //The compression ID is set to -2 and redefined sample tables are used (see “Redefined Sample Tables”).
                                                         if (-2 == waveFormatId)
@@ -887,7 +887,7 @@ namespace Media.Containers.BaseMedia
                                                             //var waveAtom = ReadBox("wave", sampleDescriptionBox.Offset);
                                                             //if (waveAtom != null)
                                                             //{
-                                                            //    flags = Common.Binary.Read24(waveAtom.Raw, 9, BitConverter.IsLittleEndian);
+                                                            //    flags = Common.Binary.Read24(waveAtom.Raw, 9, Common.Binary.IsLittleEndian);
                                                             //    //Extrack from flags?
                                                             //}
                                                         }//If the formatId is known then use it
@@ -899,7 +899,7 @@ namespace Media.Containers.BaseMedia
 
                                                         //sr 32
 
-                                                        rate = (double)Common.Binary.ReadU32(sampleEntry, 28, BitConverter.IsLittleEndian) / 65536F;
+                                                        rate = (double)Common.Binary.ReadU32(sampleEntry, 28, Common.Binary.IsLittleEndian) / 65536F;
 
                                                         //@ 32
 
@@ -908,8 +908,8 @@ namespace Media.Containers.BaseMedia
 
                                                             //36 total
 
-                                                            rate = BitConverter.Int64BitsToDouble(Common.Binary.Read64(sampleEntry, 32, BitConverter.IsLittleEndian));
-                                                            channels = (byte)Common.Binary.ReadU32(sampleEntry, 40, BitConverter.IsLittleEndian);
+                                                            rate = BitConverter.Int64BitsToDouble(Common.Binary.Read64(sampleEntry, 32, Common.Binary.IsLittleEndian));
+                                                            channels = (byte)Common.Binary.ReadU32(sampleEntry, 40, Common.Binary.IsLittleEndian);
 
                                                             //24 More Bytes
                                                         }
@@ -932,9 +932,9 @@ namespace Media.Containers.BaseMedia
                                                         //Version, Revision, Vendor, TemporalQUal, SpacialQual, Width, Height, hRes,vRes, reversed, FrameCount, compressorName, depth, clrTbl, (extensions)
 
                                                         //Width @ 28
-                                                        width = Common.Binary.ReadU16(sampleEntry, 28, BitConverter.IsLittleEndian);
+                                                        width = Common.Binary.ReadU16(sampleEntry, 28, Common.Binary.IsLittleEndian);
                                                         //Height @ 30
-                                                        height = Common.Binary.ReadU16(sampleEntry, 30, BitConverter.IsLittleEndian);
+                                                        height = Common.Binary.ReadU16(sampleEntry, 30, Common.Binary.IsLittleEndian);
 
                                                         //hres, vres, reserved = 12
 
@@ -946,7 +946,7 @@ namespace Media.Containers.BaseMedia
 
                                                         //@78
 
-                                                        bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 78, BitConverter.IsLittleEndian);
+                                                        bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 78, Common.Binary.IsLittleEndian);
 
                                                         //esds box for codec specific data.
 
@@ -973,13 +973,13 @@ namespace Media.Containers.BaseMedia
                                     //Skip Flags and Version
                                     offset = LengthSize;
 
-                                    int entryCount = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    int entryCount = Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
                                     for (int i = 0; i < entryCount && offset < length; ++i)
                                     {
                                         //Sample Count Sample Duration
-                                        entries.Add(new Tuple<long, long>(Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian),
-                                            Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian)));
+                                        entries.Add(new Tuple<long, long>(Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian),
+                                            Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian)));
                                     }
 
                                     offset = (int)length;
@@ -995,15 +995,15 @@ namespace Media.Containers.BaseMedia
                                     //Skip Flags and Version
                                     offset = MinimumSize;
 
-                                    int defaultSize = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    int defaultSize = Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
-                                    int count = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    int count = Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
                                     if (defaultSize == 0)
                                     {
                                         for (int i = 0; i < count && offset < length; ++i)
                                         {
-                                            sampleSizes.Add(Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian));
+                                            sampleSizes.Add(Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian));
                                         }
                                     }
 
@@ -1020,11 +1020,11 @@ namespace Media.Containers.BaseMedia
                                     //Skip Flags and Version
                                     offset = LengthSize;
 
-                                    int chunkCount = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    int chunkCount = Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
                                     for (int i = 0; i < chunkCount && offset < length; ++i)
                                     {
-                                        offsets.Add((long)Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian));
+                                        offsets.Add((long)Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian));
                                     }
 
                                     offset = (int)length;
@@ -1040,11 +1040,11 @@ namespace Media.Containers.BaseMedia
                                     //Skip Flags and Version
                                     offset = MinimumSize;
 
-                                    int chunkCount = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    int chunkCount = Common.Binary.Read32(rawData, ref offset, Common.Binary.IsLittleEndian);
 
                                     for (int i = 0; i < chunkCount && offset < length; ++i)
                                     {
-                                        offsets.Add(Common.Binary.Read64(rawData, ref offset, BitConverter.IsLittleEndian));
+                                        offsets.Add(Common.Binary.Read64(rawData, ref offset, Common.Binary.IsLittleEndian));
                                     }
 
                                     offset = (int)length;
@@ -1106,11 +1106,15 @@ namespace Media.Containers.BaseMedia
 
                 ulong sampleCount = (ulong)sampleSizes.Count();
 
-                if (sampleCount == 0 && entries.Count > 0) sampleCount = (ulong)entries[0].Item1;
+                //If there are no samples defined and there are entries in the sample to time atom
+                if (sampleCount == 0 && entries.Count > 0)
+                {
+                    //Use the count of entries from the sample to time atom as the count of samples.
+                    sampleCount = (ulong)entries.Count;
 
-                //Todo verify this for when entries are present
-
-                //(double)((double)entries.LongLength / ((double)trackDuration)) * trackTimeScale;
+                    //If there is only one entry use the value in the entry
+                    if (sampleCount == 1) sampleCount = (ulong)entries[0].Item1;
+                }
 
                 rate = mediaType == Sdp.MediaType.audio ? trackTimeScale : (double)((double)sampleCount / ((double)trackDuration / trackTimeScale));
 
