@@ -158,7 +158,7 @@ namespace Media.Common.Collections.Generic
         //readonly System.Collections.Concurrent.ConcurrentQueue<T> ConcurrentQueue = new System.Collections.Concurrent.ConcurrentQueue<T>();
 
         /// <summary>
-        /// Cache of first and last nodes before they are added to the list.
+        /// Cache of first and last nodes as they are added to the list.
         /// </summary>
         internal Node First, Last;
 
@@ -216,12 +216,18 @@ namespace Media.Common.Collections.Generic
         /// </summary>
         /// <param name="t"></param>
         /// <returns></returns>
-        /// <remarks>Space Complexity S(4), Time Complexity O(2)</remarks>
+        /// <remarks>Space Complexity S(5), Time Complexity O(2)</remarks>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool TryDequeue(out T t)
         {
-            //Compare and Decrement
-            if (Count <= 0 || Object.ReferenceEquals(First, Node.Null))
+            //Take a read on the First or the last node.
+            //This can probably be reduced to a switch on Count which when < 0 uses Last instead.
+
+            //Keep the read node on the stack
+            Node onStack;
+
+            //VolatileRead, Compare, Call
+            if (Count <= 0 || Object.ReferenceEquals(onStack = First ?? Last, Node.Null))
             {
                 //Store
                 t = default(T);
@@ -229,12 +235,12 @@ namespace Media.Common.Collections.Generic
                 //Return
                 return false;
             }
-
-            //Load And Store
-            t = First.Value;
+            
+            //Load Store
+            t = onStack.Value;
 
             //Exchange
-            System.Threading.Interlocked.Exchange<Node>(ref First, First.Next);
+            System.Threading.Interlocked.Exchange<Node>(ref First, onStack.Next);
 
             //Decrement count
             System.Threading.Interlocked.Decrement(ref m_Count);
@@ -401,10 +407,97 @@ namespace Media.UnitTests
 
         public void TestsThreading()
         {
+            int amount = 1000;
+
+            System.Threading.ManualResetEvent mre = new System.Threading.ManualResetEvent(false);
+
+            int countIn = 0;
+
             //In a thread populate
-            //In another thread read
-            //In another thread enumerate
+            System.Threading.Thread enqueueThread = new System.Threading.Thread(() =>
+            {
+                while (countIn < amount)
+                {
+                    ++LastInputOutput;
+
+                    if (LinkedQueue.TryEnqueue(ref LastInputOutput))
+                    {
+                        System.Console.WriteLine("enqueueThread: " + LastInputOutput);
+
+                        ++countIn;
+
+                        mre.Set();
+
+                        System.Threading.Thread.Sleep(1);
+                    }
+                }
+
+                if (LinkedQueue.IsEmpty) System.Console.WriteLine("enqueueThread Empty");
+
+                System.Console.WriteLine("enqueueThread Exit");
+
+            });
+
+            int countOut = 0;
+
             //In another thread write
+            System.Threading.Thread dequeueThread = new System.Threading.Thread(() =>
+            {
+                while (countOut < amount)
+                {
+                    int dequeue;
+
+                    if (LinkedQueue.TryDequeue(out dequeue))
+                    {
+                        ++countOut;
+
+                        System.Console.WriteLine("dequeueThread: " + dequeue);
+
+                        mre.Set();
+
+                        System.Threading.Thread.Sleep(2);
+                    }
+                }
+
+                //if (false == LinkedQueue.IsEmpty) throw new System.Exception("dequeueThread");
+
+                System.Console.WriteLine("dequeueThread Exit");
+
+            });
+
+            enqueueThread.Start();
+
+            dequeueThread.Start();
+
+            while (countOut == 0 && countIn == 0) mre.WaitOne(0);
+
+            while (countOut < amount)
+            {
+                mre.Reset();
+
+                System.Console.WriteLine("Count: " + LinkedQueue.Count + "," + "CountIn: " + countIn + "," + "CountOut: " + countOut);
+
+                new System.Threading.Thread(() =>
+                {
+                    try
+                    {
+                        System.Console.WriteLine("Enumerate Count: " + LinkedQueue.Count);
+
+                        System.Console.WriteLine("Enumerate First: " + LinkedQueue.First.Value);
+
+                        System.Console.WriteLine("Enumerate Last: " + LinkedQueue.Last.Value);
+                    }
+                    catch { }
+                })
+                {
+                    Priority = System.Threading.ThreadPriority.Highest
+                }.Start();
+
+                mre.WaitOne(0);
+            }
+
+            if (countIn != countOut) throw new System.Exception("count");
+
         }
     }
 }

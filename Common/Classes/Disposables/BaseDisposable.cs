@@ -113,6 +113,8 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected BaseDisposable(bool shouldDispose)
         {
+            //Todo, should add flag for suppression?
+
             //If should not dispose then suppress the finalizer
             if (false == (ShouldDispose = shouldDispose || Environment.HasShutdownStarted)) GC.SuppressFinalize(this);
         }
@@ -207,7 +209,6 @@ namespace Media.Common
                     }
                 case Finalized:
                     {
-                        //Set Disposed now.
                         IsDisposed = true;
 
                         return;

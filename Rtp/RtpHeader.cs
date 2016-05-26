@@ -322,7 +322,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="octets">A reference to a byte array which contains at least 12 octets to copy.</param>
         /// <param name="offset">the offset in <paramref name="octets"/> to start</param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(byte[] octets, int offset = 0, bool shouldDispose = true)
             : base(shouldDispose)
@@ -363,7 +363,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="other">The RtpHeader to copy</param>
         /// <param name="reference">A value indicating if the RtpHeader given should be referenced or copied.</param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(RtpHeader other, bool reference, bool shouldDispose = true)
             : base(shouldDispose)
@@ -376,11 +376,25 @@ namespace Media.Rtp
             }
             else
             {
-                First16Bits = new Media.RFC3550.CommonHeaderBits(other.First16Bits);
+                First16Bits = new Media.RFC3550.CommonHeaderBits(other.First16Bits, false, shouldDispose);
                 Last10Bytes = new byte[10];
-                SegmentToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10);
+                SegmentToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10, shouldDispose);
                 other.Last10Bytes.CopyTo(Last10Bytes, 0);
             }
+        }
+
+        /// <summary>
+        /// Creates a new instance using new references to the existing data.
+        /// </summary>
+        /// <param name="other">The other instance</param>
+        /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public RtpHeader(RtpHeader other, bool shouldDispose = true)
+            : base(shouldDispose)
+        {
+            First16Bits = new RFC3550.CommonHeaderBits(other.First16Bits, shouldDispose);
+
+            SegmentToLast10Bytes = new Common.MemorySegment(other.SegmentToLast10Bytes, shouldDispose);
         }
 
         /// <summary>
@@ -392,9 +406,9 @@ namespace Media.Rtp
         public RtpHeader(Common.MemorySegment memory, bool shouldDispose = true)
             : base(shouldDispose)
         {
-            First16Bits = new Media.RFC3550.CommonHeaderBits(memory);
+            First16Bits = new Media.RFC3550.CommonHeaderBits(memory, shouldDispose);
 
-            SegmentToLast10Bytes = new Common.MemorySegment(memory.Array, memory.Offset + RFC3550.CommonHeaderBits.Size, Binary.Clamp(memory.Count - RFC3550.CommonHeaderBits.Size, 0, 10));
+            SegmentToLast10Bytes = new Common.MemorySegment(memory.Array, memory.Offset + RFC3550.CommonHeaderBits.Size, Binary.Clamp(memory.Count - RFC3550.CommonHeaderBits.Size, 0, 10), shouldDispose);
         }
 
         /// <summary>
@@ -434,7 +448,7 @@ namespace Media.Rtp
         /// <param name="ssrc"></param>
         /// <param name="sequenceNumber"></param>
         /// <param name="timestamp"></param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(int version, bool padding, bool extension, bool marker, int payloadTypeBits, int contributingSourceCount, int ssrc, int sequenceNumber, int timestamp, bool shouldDispose = true)
             :this(version, padding, extension, shouldDispose)

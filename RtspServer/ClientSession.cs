@@ -428,6 +428,9 @@ namespace Media.Rtsp//.Server
             //If the packet seqeuence is out of order in reception to the client
             if(false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
             {
+
+                Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "UpdateSequenceNumber Failed -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
+
                 //And the packet was not already delivered previously.
                 if (localContext.SendSequenceNumber != localContext.RecieveSequenceNumber)
                 {
@@ -450,7 +453,10 @@ namespace Media.Rtsp//.Server
             }
             else if (false == Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) //double check...
             {
-                //Send packet on Client Thread
+                //Send packet on Client Thread, use a new data reference
+                //m_RtpClient.EnquePacket(packet.Clone());
+
+                //use the existing packet reference
                 m_RtpClient.EnquePacket(packet);
 
                 //if (m_RtpClient.OutgoingRtpPacketCount > 100 && false == m_RtpClient.ThreadEvents)

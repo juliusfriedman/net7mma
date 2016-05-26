@@ -114,7 +114,7 @@ namespace Media.Sdp
             //Set type from substring of value
             type = value.Substring(0, offset).Trim();
 
-            int colonIndex = type.IndexOf(Colon);
+            int colonIndex = type.LastIndexOf(Colon);
 
             if (colonIndex >= 0)
             {
