@@ -106,7 +106,7 @@ namespace Media.Containers.Mpeg
         /// <returns></returns>
         public static int DecodeLength(byte[] lengthBytes, int offset = 0)
         {
-            return Common.Binary.ReadU16(lengthBytes, offset, BitConverter.IsLittleEndian);
+            return Common.Binary.ReadU16(lengthBytes, offset, Common.Binary.IsLittleEndian);
         }
 
         /// <summary>
@@ -171,9 +171,9 @@ namespace Media.Containers.Mpeg
 
             byte reserved = node.Data[1];
 
-            ushort infoLength = Common.Binary.ReadU16(node.Data, 2, BitConverter.IsLittleEndian);
+            ushort infoLength = Common.Binary.ReadU16(node.Data, 2, Common.Binary.IsLittleEndian);
 
-            ushort mapLength = Common.Binary.ReadU16(node.Data, 4 + infoLength, BitConverter.IsLittleEndian);
+            ushort mapLength = Common.Binary.ReadU16(node.Data, 4 + infoLength, Common.Binary.IsLittleEndian);
 
             int offset = 4 + infoLength + 2;
 
@@ -189,7 +189,7 @@ namespace Media.Containers.Mpeg
                 byte esId = node.Data[offset++];
 
                 //find out how long the info is
-                ushort esInfoLength = Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian);
+                ushort esInfoLength = Common.Binary.ReadU16(node.Data, offset, Common.Binary.IsLittleEndian);
 
                 //Get a array containing the info
                 byte[] esData = esInfoLength == 0 ? Media.Common.MemorySegment.EmptyBytes : node.Data.Skip(offset).Take(esInfoLength).ToArray();

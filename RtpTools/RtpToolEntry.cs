@@ -189,7 +189,7 @@ namespace Media.RtpTools
         /// <summary>
         /// Indicates if the values being read are on a system which needs to reverse them before processing
         /// </summary>
-        public bool ReverseValues = BitConverter.IsLittleEndian;
+        public bool ReverseValues = Common.Binary.IsLittleEndian;
 
         #endregion
 

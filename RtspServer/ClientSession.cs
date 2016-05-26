@@ -424,12 +424,17 @@ namespace Media.Rtsp//.Server
             //If there is not context or the sequence number is unchanged or the value is not within the allowed gap
             //When frame change events are enabled this doesn't matter as the event model takes care of skipping the packets for now.
             if (localContext == null) goto Exit;
-            else if(localContext.SendSequenceNumber != localContext.RecieveSequenceNumber && false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
+            
+            //If the packet seqeuence is out of order in reception to the client
+            if(false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
             {
-                //The packet may have already been delivered previously.
-                Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Dropping -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
+                //And the packet was not already delivered previously.
+                if (localContext.SendSequenceNumber != localContext.RecieveSequenceNumber)
+                {
+                    Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Dropping -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
 
-                goto Exit;
+                    goto Exit;
+                }
             } 
 
             //Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Sending -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
@@ -1005,7 +1010,14 @@ namespace Media.Rtsp//.Server
             //Todo, destination datum support.
 
             //Check if the ssrc was 0 which indicates any id
-            if (localSsrc == 0) localSsrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
+            if (localSsrc == 0)
+            {
+                //use a new id if your using IListSockets as the stack can merge the buffers into a single pdu.
+                //localSsrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
+
+                //Use the same id to keep the packet headers the same.
+                localSsrc = sourceContext.RemoteSynchronizationSourceIdentifier.Value;
+            }
 
             //Could also randomize the setupContext sequenceNumber here.
             //We need to make an TransportContext in response to a setup

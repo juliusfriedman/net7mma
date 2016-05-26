@@ -12,7 +12,7 @@
 
         internal static readonly byte[] TemplateGuidBytes = TemplateGuid.ToByteArray();
 
-        public static int GetFourCC(System.Guid guid) { return (int)Common.Binary.ReadU32(guid.ToByteArray(), 0, System.BitConverter.IsLittleEndian); }
+        public static int GetFourCC(System.Guid guid) { return (int)Common.Binary.ReadU32(guid.ToByteArray(), 0, Media.Common.Binary.IsLittleEndian); }
 
         public static int GetFourCC(byte[] data, ref int offset, bool reverse) { return (int)Common.Binary.ReadU32(data, ref offset, reverse); }
 
@@ -30,7 +30,7 @@
             //In reverse check for diference where there can be.
             for (int i = 15; i > 4; --i) if (source[i] != TemplateGuidBytes[i]) return false;
 
-            fourCC = (int)Common.Binary.ReadU32(source, 0, System.BitConverter.IsLittleEndian);
+            fourCC = (int)Common.Binary.ReadU32(source, 0, Media.Common.Binary.IsLittleEndian);
 
             return true;
         }
@@ -42,7 +42,7 @@
         {
             byte[] source = TemplateGuid.ToByteArray();
             
-            Common.Binary.Write32(source, 0, System.BitConverter.IsLittleEndian, fourCC);
+            Common.Binary.Write32(source, 0, Media.Common.Binary.IsLittleEndian, fourCC);
 
             return new System.Guid(source);
         }

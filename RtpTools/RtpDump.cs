@@ -230,9 +230,9 @@ namespace Media.RtpTools.RtpDump
             //Read the 8 byte timeval, 4 byte ip and 2 byte port, if there is padding the next bytes will be 0 otherwise the RD_packet_t starts there.
             m_Reader.Read(m_FileHeader, 0, 14);
 
-            m_StartTime = Media.Ntp.NetworkTimeProtocol.UtcEpoch1970.AddSeconds(BitConverter.Int64BitsToDouble(Common.Binary.Read64(m_FileHeader, 0, BitConverter.IsLittleEndian)));
+            m_StartTime = Media.Ntp.NetworkTimeProtocol.UtcEpoch1970.AddSeconds(BitConverter.Int64BitsToDouble(Common.Binary.Read64(m_FileHeader, 0, Common.Binary.IsLittleEndian)));
 
-            m_Source = new System.Net.IPEndPoint((long)Common.Binary.ReadU32(m_FileHeader, 8, BitConverter.IsLittleEndian), Common.Binary.ReadU16(m_FileHeader, 12, BitConverter.IsLittleEndian));
+            m_Source = new System.Net.IPEndPoint((long)Common.Binary.ReadU32(m_FileHeader, 8, Common.Binary.IsLittleEndian), Common.Binary.ReadU16(m_FileHeader, 12, Common.Binary.IsLittleEndian));
 
             //Check if padding was not set, ReadChars is buggy though, this puts two bytes in the read buffer.
             if (m_Reader.PeekChar() != 0) return;
@@ -1025,12 +1025,12 @@ namespace Media.RtpTools.RtpDump
             byte[] result = new byte[RtpToolEntry.sizeOf_RD_hdr_t];
 
             TimeSpan off = timeBase.Subtract(Media.Ntp.NetworkTimeProtocol.UtcEpoch1970);
-            Common.Binary.Write32(result, 0, BitConverter.IsLittleEndian, (int)off.TotalMilliseconds);
-            Common.Binary.Write32(result, 4, BitConverter.IsLittleEndian, (int)(off.TotalMilliseconds / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond));
+            Common.Binary.Write32(result, 0, Common.Binary.IsLittleEndian, (int)off.TotalMilliseconds);
+            Common.Binary.Write32(result, 4, Common.Binary.IsLittleEndian, (int)(off.TotalMilliseconds / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond));
 
-            Common.Binary.Write32(result, 0, BitConverter.IsLittleEndian, (int)source.Address.Address);
+            Common.Binary.Write32(result, 0, Common.Binary.IsLittleEndian, (int)source.Address.Address);
 
-            Common.Binary.Write16(result, 0, BitConverter.IsLittleEndian, (short)source.Port);
+            Common.Binary.Write16(result, 0, Common.Binary.IsLittleEndian, (short)source.Port);
 
             return result;
         }

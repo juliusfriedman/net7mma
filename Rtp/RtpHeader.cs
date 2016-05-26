@@ -274,10 +274,10 @@ namespace Media.Rtp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
             //The sequence number is stored in Netword Byte Order @ + 0x00 from the second octet (relative offset of 0x02 from the beginning of any header pointer)
-            get { /*CheckDisposed();*/ return (ushort)Binary.ReadU16(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset, BitConverter.IsLittleEndian); }
+            get { /*CheckDisposed();*/ return (ushort)Binary.ReadU16(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset, Common.Binary.IsLittleEndian); }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            set { /*CheckDisposed();*/ Binary.Write16(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value); }
+            set { /*CheckDisposed();*/ Binary.Write16(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset, Common.Binary.IsLittleEndian, (ushort)value); }
         }
 
         /// <summary>
@@ -291,10 +291,10 @@ namespace Media.Rtp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
             //The sequence number is stored in Netword Byte Order  @ + 0x02 from the second octet (relative offset of 0x04 from the beginning of any header pointer)
-            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian); } //Always read in reverse
+            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 2, Common.Binary.IsLittleEndian); } //Always read in reverse
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            set { /*CheckDisposed();*/ Binary.Write32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
+            set { /*CheckDisposed();*/ Binary.Write32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 2, Common.Binary.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -305,10 +305,10 @@ namespace Media.Rtp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
             //The sequence number is stored in Netword Byte Order @ + 0x06 from the second octet (relative offset of 0x08 from the beginning of any header pointer)
-            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian); }
+            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 6, Common.Binary.IsLittleEndian); }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            set { /*CheckDisposed();*/ Binary.Write32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian, (uint)value); }
+            set { /*CheckDisposed();*/ Binary.Write32(SegmentToLast10Bytes.Array, SegmentToLast10Bytes.Offset + 6, Common.Binary.IsLittleEndian, (uint)value); }
         }
 
         #endregion

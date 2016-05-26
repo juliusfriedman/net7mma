@@ -101,10 +101,10 @@ namespace Media.Rtcp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset, BitConverter.IsLittleEndian); }
+            get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset, Common.Binary.IsLittleEndian); }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            protected set { Binary.Write32(Memory.Array, Memory.Offset, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write32(Memory.Array, Memory.Offset, Common.Binary.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -130,10 +130,10 @@ namespace Media.Rtcp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
             //Read 32 at offset 4 and shift left 4
-            get { return (int)Binary.ReadU24(Memory.Array, Memory.Offset + 5, BitConverter.IsLittleEndian); }
+            get { return (int)Binary.ReadU24(Memory.Array, Memory.Offset + 5, Common.Binary.IsLittleEndian); }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            protected set { Binary.Write24(Memory.Array, Memory.Offset + 5, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write24(Memory.Array, Memory.Offset + 5, Common.Binary.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -144,10 +144,10 @@ namespace Media.Rtcp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 8, BitConverter.IsLittleEndian); }
+            get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 8, Common.Binary.IsLittleEndian); }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            protected set { Binary.Write32(Memory.Array, Memory.Offset + 8, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write32(Memory.Array, Memory.Offset + 8, Common.Binary.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -157,10 +157,10 @@ namespace Media.Rtcp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 12, BitConverter.IsLittleEndian); }
+            get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 12, Common.Binary.IsLittleEndian); }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            protected set { Binary.Write32(Memory.Array, Memory.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write32(Memory.Array, Memory.Offset + 12, Common.Binary.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -170,10 +170,10 @@ namespace Media.Rtcp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 16, BitConverter.IsLittleEndian); }
+            get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 16, Common.Binary.IsLittleEndian); }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            protected set { Binary.Write32(Memory.Array, Memory.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write32(Memory.Array, Memory.Offset + 16, Common.Binary.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -183,10 +183,10 @@ namespace Media.Rtcp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 20, BitConverter.IsLittleEndian); }
+            get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 20, Common.Binary.IsLittleEndian); }
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            protected set { Binary.Write32(Memory.Array, Memory.Offset + 20, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write32(Memory.Array, Memory.Offset + 20, Common.Binary.IsLittleEndian, (uint)value); }
         }
 
         int IReportBlock.BlockIdentifier

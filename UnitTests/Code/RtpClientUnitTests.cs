@@ -235,7 +235,7 @@ namespace Media.UnitTests
                 byte[] header = new byte[4];
                 header[0] = 0x24;   //  '$'
                 header[1] = 0;      //  Channel 0
-                Media.Common.Binary.Write16(header, 2, BitConverter.IsLittleEndian, (short)length);
+                Media.Common.Binary.Write16(header, 2, Common.Binary.IsLittleEndian, (short)length);
                 return header;
             }
 
@@ -524,7 +524,7 @@ namespace Media.UnitTests
                     var header = new byte[] { Media.Rtp.RtpClient.BigEndianFrameControl, (byte)channel, 0, 0 };
 
                     //Write the length in the header
-                    Media.Common.Binary.Write16(header, 2, BitConverter.IsLittleEndian, (short)length);
+                    Media.Common.Binary.Write16(header, 2, Common.Binary.IsLittleEndian, (short)length);
 
                     //Get the data indicated
                     //var data = header.Concat(Enumerable.Repeat(default(byte), actualLength));
@@ -575,7 +575,7 @@ namespace Media.UnitTests
 
                             var headerLast = new byte[] { 0x24, (byte)channel, 0, 0 };
 
-                            Media.Common.Binary.Write16(headerLast, 2, BitConverter.IsLittleEndian, (short)needed);
+                            Media.Common.Binary.Write16(headerLast, 2, Common.Binary.IsLittleEndian, (short)needed);
 
                             data = new byte[needed];
 

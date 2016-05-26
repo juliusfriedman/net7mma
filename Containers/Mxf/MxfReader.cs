@@ -730,29 +730,29 @@ namespace Media.Containers.Mxf
 
                 int offset = 0;
 
-                m_MajorVersion = Common.Binary.Read16(headerPartition.Data, offset, BitConverter.IsLittleEndian);
+                m_MajorVersion = Common.Binary.Read16(headerPartition.Data, offset, Common.Binary.IsLittleEndian);
                 
-                m_MinorVersion = Common.Binary.Read16(headerPartition.Data, offset + 2, BitConverter.IsLittleEndian);
+                m_MinorVersion = Common.Binary.Read16(headerPartition.Data, offset + 2, Common.Binary.IsLittleEndian);
 
                 offset += 4;
 
-                m_KagSize = Common.Binary.Read32(headerPartition.Data, offset, BitConverter.IsLittleEndian);
+                m_KagSize = Common.Binary.Read32(headerPartition.Data, offset, Common.Binary.IsLittleEndian);
 
                 offset += 4;
 
-                long thisPartition = Common.Binary.Read64(headerPartition.Data, offset, BitConverter.IsLittleEndian),
-                    previousPartition = Common.Binary.Read64(headerPartition.Data, offset + 8, BitConverter.IsLittleEndian),
-                    footerPartitionOffset = Common.Binary.Read64(headerPartition.Data, offset + 16, BitConverter.IsLittleEndian),
-                    headerByteCount = Common.Binary.Read64(headerPartition.Data, offset + 32, BitConverter.IsLittleEndian);
+                long thisPartition = Common.Binary.Read64(headerPartition.Data, offset, Common.Binary.IsLittleEndian),
+                    previousPartition = Common.Binary.Read64(headerPartition.Data, offset + 8, Common.Binary.IsLittleEndian),
+                    footerPartitionOffset = Common.Binary.Read64(headerPartition.Data, offset + 16, Common.Binary.IsLittleEndian),
+                    headerByteCount = Common.Binary.Read64(headerPartition.Data, offset + 32, Common.Binary.IsLittleEndian);
 
-                m_IndexByteCount = (int)Common.Binary.Read64(headerPartition.Data, offset + 40, BitConverter.IsLittleEndian);
+                m_IndexByteCount = (int)Common.Binary.Read64(headerPartition.Data, offset + 40, Common.Binary.IsLittleEndian);
                 
                 //Header should be first partition and have no previous 
                 if (thisPartition != 0 || previousPartition != 0) throw new InvalidOperationException("Invalid HeaderParition");
 
                 offset += 40;
 
-                int indexSid = Common.Binary.Read32(headerPartition.Data, offset, BitConverter.IsLittleEndian);
+                int indexSid = Common.Binary.Read32(headerPartition.Data, offset, Common.Binary.IsLittleEndian);
                 offset += 4;
 
                 //Cannot have a index sid when no byte count, dont throw here.
@@ -760,17 +760,17 @@ namespace Media.Containers.Mxf
 
                 //Specfies offset to body (essence container segment)
 
-                long bodyOffset = Common.Binary.Read64(headerPartition.Data, offset, BitConverter.IsLittleEndian);
+                long bodyOffset = Common.Binary.Read64(headerPartition.Data, offset, Common.Binary.IsLittleEndian);
                 offset += 8;
 
-                int bodySid = Common.Binary.Read32(headerPartition.Data, offset, BitConverter.IsLittleEndian);
+                int bodySid = Common.Binary.Read32(headerPartition.Data, offset, Common.Binary.IsLittleEndian);
                 offset += 4;
 
                 m_OperationalPattern = new Guid(headerPartition.Data.Skip(offset).Take(16).ToArray());
 
                 offset += 16;
 
-                //int batchLen = Common.Binary.Read32(headerPartition.Raw, offset, BitConverter.IsLittleEndian);
+                //int batchLen = Common.Binary.Read32(headerPartition.Raw, offset, Common.Binary.IsLittleEndian);
 
                 //offset += 4;
 
@@ -780,7 +780,7 @@ namespace Media.Containers.Mxf
 
                 //if (batchLen > 0)
                 //{
-                //    int itemLen = Common.Binary.Read32(headerPartition.Raw, offset, BitConverter.IsLittleEndian);
+                //    int itemLen = Common.Binary.Read32(headerPartition.Raw, offset, Common.Binary.IsLittleEndian);
                 //    offset += 4;
 
                 //    for (int i = 0; i < batchLen; ++i)
@@ -807,34 +807,34 @@ namespace Media.Containers.Mxf
 
                         offset = 0;
 
-                        m_MajorVersion = Common.Binary.Read16(footer.Data, offset, BitConverter.IsLittleEndian);
+                        m_MajorVersion = Common.Binary.Read16(footer.Data, offset, Common.Binary.IsLittleEndian);
 
-                        m_MinorVersion = Common.Binary.Read16(footer.Data, offset + 2, BitConverter.IsLittleEndian);
-
-                        offset += 4;
-
-                        m_KagSize = Common.Binary.Read32(footer.Data, offset, BitConverter.IsLittleEndian);
+                        m_MinorVersion = Common.Binary.Read16(footer.Data, offset + 2, Common.Binary.IsLittleEndian);
 
                         offset += 4;
 
-                        thisPartition = Common.Binary.Read64(footer.Data, offset, BitConverter.IsLittleEndian);
-                        previousPartition = Common.Binary.Read64(footer.Data, offset + 8, BitConverter.IsLittleEndian);
-                        footerPartitionOffset = Common.Binary.Read64(footer.Data, offset + 16, BitConverter.IsLittleEndian);
-                        headerByteCount = Common.Binary.Read64(footer.Data, offset + 32, BitConverter.IsLittleEndian);
+                        m_KagSize = Common.Binary.Read32(footer.Data, offset, Common.Binary.IsLittleEndian);
+
+                        offset += 4;
+
+                        thisPartition = Common.Binary.Read64(footer.Data, offset, Common.Binary.IsLittleEndian);
+                        previousPartition = Common.Binary.Read64(footer.Data, offset + 8, Common.Binary.IsLittleEndian);
+                        footerPartitionOffset = Common.Binary.Read64(footer.Data, offset + 16, Common.Binary.IsLittleEndian);
+                        headerByteCount = Common.Binary.Read64(footer.Data, offset + 32, Common.Binary.IsLittleEndian);
                         
                         //this partition should equal Footer
                         if (thisPartition != footerPartitionOffset) throw new InvalidOperationException("Invalid FooterParition");
 
-                        m_IndexByteCount = (int)Common.Binary.Read64(footer.Data, offset + 40, BitConverter.IsLittleEndian);
+                        m_IndexByteCount = (int)Common.Binary.Read64(footer.Data, offset + 40, Common.Binary.IsLittleEndian);
                         offset += 40;
 
-                        indexSid = Common.Binary.Read32(footer.Data, offset, BitConverter.IsLittleEndian);
+                        indexSid = Common.Binary.Read32(footer.Data, offset, Common.Binary.IsLittleEndian);
                         offset += 4;
 
-                        bodyOffset = Common.Binary.Read64(footer.Data, offset, BitConverter.IsLittleEndian);
+                        bodyOffset = Common.Binary.Read64(footer.Data, offset, Common.Binary.IsLittleEndian);
                         offset += 8;
 
-                        bodySid = Common.Binary.Read32(footer.Data, offset, BitConverter.IsLittleEndian);
+                        bodySid = Common.Binary.Read32(footer.Data, offset, Common.Binary.IsLittleEndian);
                         offset += 4;
 
                         if(bodyOffset != 0 || bodySid != 0) throw new InvalidOperationException("Invalid FooterPartition");
@@ -845,7 +845,7 @@ namespace Media.Containers.Mxf
 
                         //Some times defines the codecs in use...
 
-                        //batchLen = Common.Binary.Read32(headerPartition.Raw, offset, BitConverter.IsLittleEndian);
+                        //batchLen = Common.Binary.Read32(headerPartition.Raw, offset, Common.Binary.IsLittleEndian);
 
                         //offset += 4;
 
@@ -853,7 +853,7 @@ namespace Media.Containers.Mxf
 
                         //if (batchLen > 0)
                         //{
-                        //    int itemLen = Common.Binary.Read32(headerPartition.Raw, offset, BitConverter.IsLittleEndian);
+                        //    int itemLen = Common.Binary.Read32(headerPartition.Raw, offset, Common.Binary.IsLittleEndian);
                         //    offset += 4;
 
                         //    for (int i = 0; i < batchLen; ++i)
@@ -902,8 +902,8 @@ namespace Media.Containers.Mxf
                 while (offset < lenth)
                 {
 
-                    short tag = Common.Binary.Read16(preface.Data, offset, BitConverter.IsLittleEndian),
-                        tagLen = Common.Binary.Read16(preface.Data, offset + 2, BitConverter.IsLittleEndian);
+                    short tag = Common.Binary.Read16(preface.Data, offset, Common.Binary.IsLittleEndian),
+                        tagLen = Common.Binary.Read16(preface.Data, offset + 2, Common.Binary.IsLittleEndian);
 
                     offset += 4;
 
@@ -911,7 +911,7 @@ namespace Media.Containers.Mxf
                     {
                         case 0x3b02:
                             {
-                                m_PrefaceLastModifiedDate = new DateTime((int)Common.Binary.ReadU16(preface.Data, offset, BitConverter.IsLittleEndian),
+                                m_PrefaceLastModifiedDate = new DateTime((int)Common.Binary.ReadU16(preface.Data, offset, Common.Binary.IsLittleEndian),
                                     (int)preface.Data[offset + 2],
                                     (int)preface.Data[offset + 3],
                                     (int)preface.Data[offset + 4],
@@ -926,7 +926,7 @@ namespace Media.Containers.Mxf
                                 //Should be 259
                                 //Also found 258 and lower
                                 //Sometimes found something higher....
-                                m_PrefaceVersion = (short)Common.Binary.ReadInteger(preface.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                m_PrefaceVersion = (short)Common.Binary.ReadInteger(preface.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                 goto default;
                             }
                         #region Unused
@@ -948,7 +948,7 @@ namespace Media.Containers.Mxf
                         //    }
                         //case 0x3b07:
                         //    {
-                        //        m_ObjectModelVersion = (int)Common.Binary.ReadInteger(preface.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                        //        m_ObjectModelVersion = (int)Common.Binary.ReadInteger(preface.Raw, offset, tagLen, Common.Binary.IsLittleEndian);
                         //        goto default;
                         //    }
                         //case 0x3b08:
@@ -1052,8 +1052,8 @@ namespace Media.Containers.Mxf
                 while (offset < lenth)
                 {
 
-                    short tag = Common.Binary.Read16(identification.Data, offset, BitConverter.IsLittleEndian),
-                        tagLen = Common.Binary.Read16(identification.Data, offset + 2, BitConverter.IsLittleEndian);
+                    short tag = Common.Binary.Read16(identification.Data, offset, Common.Binary.IsLittleEndian),
+                        tagLen = Common.Binary.Read16(identification.Data, offset + 2, Common.Binary.IsLittleEndian);
 
                     offset += 4;
 
@@ -1095,7 +1095,7 @@ namespace Media.Containers.Mxf
                             }
                         case 0x3c06:
                             {
-                                m_IdentificationModificationDate = new DateTime((int)Common.Binary.ReadU16(identification.Data, offset, BitConverter.IsLittleEndian),
+                                m_IdentificationModificationDate = new DateTime((int)Common.Binary.ReadU16(identification.Data, offset, Common.Binary.IsLittleEndian),
                                    (int)identification.Data[offset + 2],
                                    (int)identification.Data[offset + 3],
                                    (int)identification.Data[offset + 4],
@@ -1157,8 +1157,8 @@ namespace Media.Containers.Mxf
                 while (offset < lenth)
                 {
 
-                    short tag = Common.Binary.Read16(materialPackage.Data, offset, BitConverter.IsLittleEndian),
-                        tagLen = Common.Binary.Read16(materialPackage.Data, offset + 2, BitConverter.IsLittleEndian);
+                    short tag = Common.Binary.Read16(materialPackage.Data, offset, Common.Binary.IsLittleEndian),
+                        tagLen = Common.Binary.Read16(materialPackage.Data, offset + 2, Common.Binary.IsLittleEndian);
 
                     offset += 4;
 
@@ -1171,7 +1171,7 @@ namespace Media.Containers.Mxf
                         //        //TrackId List (16 * count)
                         //        //Standard indicated 8 but seems 32 is right?
 
-                        //        long count = Common.Binary.Read32(preface.Raw, offset, BitConverter.IsLittleEndian);
+                        //        long count = Common.Binary.Read32(preface.Raw, offset, Common.Binary.IsLittleEndian);
 
                         //        int localOffset = offset + 4;
 
@@ -1192,7 +1192,7 @@ namespace Media.Containers.Mxf
                         //    }
                         case 0x4404:
                             {
-                                m_MaterialModifiedDate = new DateTime((int)Common.Binary.ReadU16(materialPackage.Data, offset, BitConverter.IsLittleEndian),
+                                m_MaterialModifiedDate = new DateTime((int)Common.Binary.ReadU16(materialPackage.Data, offset, Common.Binary.IsLittleEndian),
                                    (int)materialPackage.Data[offset + 2],
                                    (int)materialPackage.Data[offset + 3],
                                    (int)materialPackage.Data[offset + 4],
@@ -1204,7 +1204,7 @@ namespace Media.Containers.Mxf
                             }
                         case 0x4405:
                             {
-                                m_MaterialCreationDate = new DateTime((int)Common.Binary.ReadU16(materialPackage.Data, offset, BitConverter.IsLittleEndian),
+                                m_MaterialCreationDate = new DateTime((int)Common.Binary.ReadU16(materialPackage.Data, offset, Common.Binary.IsLittleEndian),
                                    (int)materialPackage.Data[offset + 2],
                                    (int)materialPackage.Data[offset + 3],
                                    (int)materialPackage.Data[offset + 4],
@@ -1378,8 +1378,8 @@ namespace Media.Containers.Mxf
                 {
                     //Maybe should check Registry of descriptor.Identifier to determine if use Ber Length or otherwise...
 
-                    short tag = Common.Binary.Read16(descriptor.Data, offset, BitConverter.IsLittleEndian),
-                        tagLen = Common.Binary.Read16(descriptor.Data, offset + 2, BitConverter.IsLittleEndian);
+                    short tag = Common.Binary.Read16(descriptor.Data, offset, Common.Binary.IsLittleEndian),
+                        tagLen = Common.Binary.Read16(descriptor.Data, offset + 2, Common.Binary.IsLittleEndian);
 
                     offset += 4;
 
@@ -1389,7 +1389,7 @@ namespace Media.Containers.Mxf
                         case 0x3006:// Linked Track ID
                         case 0x4801:// Track ID
                             {
-                                trackId = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                trackId = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                 //Only parse the trackId
                                 offset = lenth;
                                 goto default;
@@ -1453,8 +1453,8 @@ namespace Media.Containers.Mxf
                     while (offset < lenth)
                     {
                         //Maybe should check Registry of descriptor.Identifier to determine if use Der Length or otherwise...
-                        short tag = Common.Binary.Read16(descriptor.Data, offset, BitConverter.IsLittleEndian),
-                            tagLen = Common.Binary.Read16(descriptor.Data, offset + 2, BitConverter.IsLittleEndian);
+                        short tag = Common.Binary.Read16(descriptor.Data, offset, Common.Binary.IsLittleEndian),
+                            tagLen = Common.Binary.Read16(descriptor.Data, offset + 2, Common.Binary.IsLittleEndian);
 
                         //Move offset for bytes consumed
                         offset += 4;
@@ -1464,7 +1464,7 @@ namespace Media.Containers.Mxf
                             case 0x3006:// Linked Track ID
                             case 0x4801:// Track ID
                                 {
-                                    trackId = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    trackId = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             case 0x4804: //Track Number
@@ -1478,12 +1478,12 @@ namespace Media.Containers.Mxf
                                         and non-zero values of the Track Number Property in Descriptive Metadata Tracks should be treated as Dark
                                         Metadata.
                                      */
-                                    trackNumber = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    trackNumber = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             case 0x4405: //Package Creation Date
                                 {
-                                    trackCreated = new DateTime((int)Common.Binary.ReadU16(descriptor.Data, offset, BitConverter.IsLittleEndian),
+                                    trackCreated = new DateTime((int)Common.Binary.ReadU16(descriptor.Data, offset, Common.Binary.IsLittleEndian),
                                        (int)descriptor.Data[offset + 2],
                                        (int)descriptor.Data[offset + 3],
                                        (int)descriptor.Data[offset + 4],
@@ -1497,7 +1497,7 @@ namespace Media.Containers.Mxf
                             case 0x3c06: // Modification Date
                             case 0x3b02: // Last Modified Date
                                 {
-                                    trackModified = new DateTime((int)Common.Binary.ReadU16(descriptor.Data, offset, BitConverter.IsLittleEndian),
+                                    trackModified = new DateTime((int)Common.Binary.ReadU16(descriptor.Data, offset, Common.Binary.IsLittleEndian),
                                         (int)descriptor.Data[offset + 2],
                                         (int)descriptor.Data[offset + 3],
                                         (int)descriptor.Data[offset + 4],
@@ -1516,20 +1516,20 @@ namespace Media.Containers.Mxf
                                 }
                             case 0x4b01: //Edit Rate (in hertz)
                                 {
-                                    editRate = Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    editRate = Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             //case 0x1501: //Start Timecode (Position) Starting Timecode (Converted to integer frame count from XX:XX:XX:XX)
                             case 0x1201: //Start Position (Position)
                             case 0x4b02: //Origin (Position)
                                 {
-                                    startTime = Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    startTime = Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             //case 0x3001: //Sample Rate ([RP 210 Specifies the number of addressable elements of essence data per second]
                             case 0x1502: //Rounded Timecode Base (UInt16) (2 byte) (Nearest Integer Frames Per Second)
                                 {
-                                    rate = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    rate = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             //case 0x1503: { goto default; } // DropFrame (Boolean 1 byte) Specifies wheater timecode is drop frame, non Drop Frame = 0                            
@@ -1563,7 +1563,7 @@ namespace Media.Containers.Mxf
                             case 0x3002: //Container Duration (measured in Edit Units)
                             case 0x0202: //Duration (in units of Edit Rate)
                                 {
-                                    duration = Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    duration = Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             case 0x3201: // Picture Essence Coding (UniversalLabel)
@@ -1576,21 +1576,21 @@ namespace Media.Containers.Mxf
                             case 0x3204: //Sampled Height
                                 {
                                     mediaType = Sdp.MediaType.video;
-                                    height = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    height = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             case 0x3203: //Stored Width
                             case 0x3205: //Sampled With
                                 {
                                     mediaType = Sdp.MediaType.video;
-                                    width = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    width = (int)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
 
                             case 0x3301: //Component Depth (Video)
                                 {
                                     mediaType = Sdp.MediaType.video;
-                                    bitDepth = (byte)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    bitDepth = (byte)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             //case 0x3303:
@@ -1603,19 +1603,19 @@ namespace Media.Containers.Mxf
                             //case 0x3302:
                             //    {
                             //        //Horizontal Sub Sampling
-                            //        bitDepth *= (byte)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                            //        bitDepth *= (byte)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, Common.Binary.IsLittleEndian);
                             //        goto default;
                             //    }
                             //case 0x3308:
                             //    {
                             //        //Vertical Sub Sampling
-                            //        bitDepth *= (byte)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                            //        bitDepth *= (byte)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, Common.Binary.IsLittleEndian);
                             //        goto default;
                             //    }
                             //case 0x3309:
                             //    {
                             //        //Number of bits per alpha sub sample?
-                            //        int AlphaSubSampl = (int)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                            //        int AlphaSubSampl = (int)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, Common.Binary.IsLittleEndian);
                             //        goto default;
                             //    }
                             case 0x3401:
@@ -1646,19 +1646,19 @@ namespace Media.Containers.Mxf
                             case 0x3d07://ChannelCount
                                 {
                                     mediaType = Sdp.MediaType.audio;
-                                    channels = (byte)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    channels = (byte)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             case 0x3d03:
                                 {
                                     //Audio Sampling Rate (8 bytes but the Distinguised Value is either 0 or 1)
                                     mediaType = Sdp.MediaType.audio;
-                                    rate = Common.Binary.ReadU32(descriptor.Data, offset, BitConverter.IsLittleEndian);
+                                    rate = Common.Binary.ReadU32(descriptor.Data, offset, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             case 0x3d01:  //Quantization bits (Audio)
                                 {
-                                    bitDepth = (byte)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, BitConverter.IsLittleEndian);
+                                    bitDepth = (byte)Common.Binary.ReadInteger(descriptor.Data, offset, tagLen, Common.Binary.IsLittleEndian);
                                     goto default;
                                 }
                             //case 0x4803:
@@ -1669,7 +1669,7 @@ namespace Media.Containers.Mxf
                             //case 0x1902: //EssenceContainerData (Batch of Universal Label)
                             //case 0x1901: //Packages (Batch of Universal Label)
                             //    {
-                            //        int amount = (int)Common.Binary.ReadInteger(timelineTrackObject.Raw, offset, 4, BitConverter.IsLittleEndian);
+                            //        int amount = (int)Common.Binary.ReadInteger(timelineTrackObject.Raw, offset, 4, Common.Binary.IsLittleEndian);
 
                             //        int localOffset = offset + 4;
 

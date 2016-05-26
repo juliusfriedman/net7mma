@@ -113,7 +113,7 @@ namespace Media.Containers.Gxf
             byte[] identifier = new byte[IdentiferSize];
             Read(identifier, 0, IdentifierParts);
 
-            if (Common.Binary.ReadU32(identifier, 0, BitConverter.IsLittleEndian) > VersionMajor
+            if (Common.Binary.ReadU32(identifier, 0, Common.Binary.IsLittleEndian) > VersionMajor
                 ||
                 identifier[5] != VersionMinor) throw new InvalidOperationException("Invalid Packet Header");
 
@@ -121,7 +121,7 @@ namespace Media.Containers.Gxf
             byte[] lengthBytes = new byte[LengthSize];
             Read(lengthBytes, 0, LengthSize);
 
-            long length = Common.Binary.ReadU32(lengthBytes, 0, BitConverter.IsLittleEndian);
+            long length = Common.Binary.ReadU32(lengthBytes, 0, Common.Binary.IsLittleEndian);
 
             //4 byte all 0
 
@@ -136,7 +136,7 @@ namespace Media.Containers.Gxf
 
             if (length >> 24 > 0 || length < MinimumSize) length = 0;
 
-            if (Common.Binary.ReadU32(identifier, IdentifierParts, BitConverter.IsLittleEndian) > VersionMajor 
+            if (Common.Binary.ReadU32(identifier, IdentifierParts, Common.Binary.IsLittleEndian) > VersionMajor 
                 ||
                 identifier[IdentifierParts + 1] != (byte)Identifier.PacketStartA && identifier[IdentifierParts + 2] != (byte)Identifier.PacketStartB) throw new InvalidOperationException("Invalid Packet Header");
 

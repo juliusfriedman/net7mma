@@ -84,8 +84,8 @@ namespace Media.Rtp
         public int Flags
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return IsDisposed ? ushort.MinValue : Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian); }
-            protected set { if (IsDisposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian, (ushort)value); }
+            get { return IsDisposed ? ushort.MinValue : Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset, Common.Binary.IsLittleEndian); }
+            protected set { if (IsDisposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset, Common.Binary.IsLittleEndian, (ushort)value); }
         }
 
         /// <summary>
@@ -94,8 +94,8 @@ namespace Media.Rtp
         public int LengthInWords
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return IsDisposed ? ushort.MinValue : Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian); }
-            protected set { if (IsDisposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian, (ushort)value); }
+            get { return IsDisposed ? ushort.MinValue : Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, Common.Binary.IsLittleEndian); }
+            protected set { if (IsDisposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, Common.Binary.IsLittleEndian, (ushort)value); }
         }
 
         //Todo Segment properties.
