@@ -307,7 +307,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="octets">A reference to a byte array which contains at least 4 octets to copy.</param>
         /// <param name="offset">the offset in <paramref name="octets"/> to start</param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(byte[] octets, int offset = 0, bool shouldDispose = true)
             :base(shouldDispose)
@@ -362,11 +362,11 @@ namespace Media.Rtcp
             }
             else
             {
-                First16Bits = new Media.RFC3550.CommonHeaderBits(other.First16Bits);
+                First16Bits = new Media.RFC3550.CommonHeaderBits(other.First16Bits, false, shouldDispose);
                 
                 Last6Bytes = new byte[6];
-                
-                SegmentToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
+
+                SegmentToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6, shouldDispose);
 
                 if (other.Last6Bytes != null)
                 {
@@ -377,6 +377,20 @@ namespace Media.Rtcp
                     System.Array.Copy(other.SegmentToLast6Bytes.Array, other.SegmentToLast6Bytes.Offset, Last6Bytes, 0, 6);
                 }
             }
+        }
+
+         /// <summary>
+        /// Creates a new instance using new references to the existing data.
+        /// </summary>
+        /// <param name="other">The other instance</param>
+        /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public RtcpHeader(RtcpHeader other, bool shouldDispose = true)
+            : base(shouldDispose)
+        {
+            First16Bits = new RFC3550.CommonHeaderBits(other.First16Bits, shouldDispose);
+
+            SegmentToLast6Bytes = new Common.MemorySegment(other.SegmentToLast6Bytes, shouldDispose);
         }
 
         /// <summary>

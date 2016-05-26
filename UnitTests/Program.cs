@@ -1823,6 +1823,10 @@ namespace Media.UnitTests
                                         {
                                             Console.WriteLine("MediaType: " + sTc.MediaDescription.MediaType);
 
+                                            Console.WriteLine("SynchronizationSourceIdentifier: " + sTc.SynchronizationSourceIdentifier);
+
+                                            Console.WriteLine("RemoteSynchronizationSourceIdentifier: " + sTc.RemoteSynchronizationSourceIdentifier);
+
                                             Console.WriteLine("SendSeqeunceNumber: " + sTc.SendSequenceNumber);
 
                                             Console.WriteLine("RecieveSequenceNumber: " + sTc.RecieveSequenceNumber);
@@ -1839,7 +1843,12 @@ namespace Media.UnitTests
 
                                         foreach (var sTc in source.RtpClient.GetTransportContexts())
                                         {
+
                                             Console.WriteLine("MediaType: " + sTc.MediaDescription.MediaType);
+
+                                            Console.WriteLine("SynchronizationSourceIdentifier: " + sTc.SynchronizationSourceIdentifier);
+
+                                            Console.WriteLine("RemoteSynchronizationSourceIdentifier: " + sTc.RemoteSynchronizationSourceIdentifier);
 
                                             Console.WriteLine("SendSequenceNumber: " + sTc.SendSequenceNumber);
 
@@ -1902,6 +1911,10 @@ namespace Media.UnitTests
                                             Console.WriteLine("Remote Rtp Port: " + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtp).Port);
 
                                             Console.WriteLine("Remote Rtcp Port: " + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtcp).Port);
+
+                                            Console.WriteLine("SynchronizationSourceIdentifier: " + clientTransportContext.SynchronizationSourceIdentifier);
+
+                                            Console.WriteLine("RemoteSynchronizationSourceIdentifier: " + clientTransportContext.RemoteSynchronizationSourceIdentifier);
 
                                             Console.WriteLine("MediaType: " + clientTransportContext.MediaDescription.MediaType);
 

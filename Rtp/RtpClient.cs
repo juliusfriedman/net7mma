@@ -4496,10 +4496,10 @@ namespace Media.Rtp
             {
                 IList<ArraySegment<byte>> buffers;
 
-                if (ssrc.HasValue && ssrc != packet.SynchronizationSourceIdentifier)
+                if (ssrc.HasValue && ssrc.Value != packet.SynchronizationSourceIdentifier)
                 {
                     //Temporarily make a new packet with the same data and new header with the correct ssrc.
-                    packet = new RtpPacket(new RtpHeader(packet.Version, packet.Padding, packet.Extension, packet.Marker, packet.PayloadType, packet.ContributingSourceCount, ssrc.Value, packet.SequenceNumber, packet.Timestamp), packet.Payload);
+                    packet = new RtpPacket(new RtpHeader(packet.Version, packet.Padding, packet.Extension, packet.Marker, packet.PayloadType, packet.ContributingSourceCount, ssrc.Value, packet.SequenceNumber, packet.Timestamp), new Common.MemorySegment(packet.Payload));
 
                     //mark to dispose the packet instance
                     disp = true;
@@ -4560,6 +4560,8 @@ namespace Media.Rtp
             {
                 ++transportContext.m_FailedRtpTransmissions;
             }
+
+            if (disp) packet.Dispose();
 
             return sent;
         }
@@ -5794,20 +5796,27 @@ namespace Media.Rtp
                             }
                         }
 
-                        
                         //if there was a socket error at the last stage
-                        if (lastError != SocketError.Success && lastError != SocketError.SocketError)
+                        switch (lastError)
                         {
-                            //Todo, ThreadInfo.
-                            //If there are no outgoing packets
-                            if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
-                            {
-                                System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
-                            }
-                            else
-                            {
-                                System.Threading.Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
-                            }
+                            case SocketError.SocketError:
+                            case SocketError.Success:
+                                break;
+                            default:
+                                {
+                                    //Todo, ThreadInfo and Halt
+
+                                    if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
+                                    {
+                                        System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
+                                    }
+                                    else
+                                    {
+                                        System.Threading.Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
+                                    }
+
+                                    break;
+                                }
                         }
 
                         //Critical
@@ -5887,10 +5896,8 @@ namespace Media.Rtp
                                     continue;
                                 }
 
-                                SocketError error;
-
-                                //Send the packet using the context's remote id.
-                                if (SendRtpPacket(packet, sendContext, out error, sendContext.RemoteSynchronizationSourceIdentifier) >= packet.Length /* && error == SocketError.Success*/)
+                                //Send the packet using the context's SynchronizationSourceIdentifier
+                                if (SendRtpPacket(packet, sendContext, out lastError, sendContext.SynchronizationSourceIdentifier) >= packet.Length /* && lastError == SocketError.Success*/)
                                 {
                                     lastOperation = DateTime.UtcNow;                                    
                                 }

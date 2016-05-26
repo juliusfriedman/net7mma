@@ -1129,7 +1129,7 @@ namespace Media
             /// </summary>
             /// <param name="other">The CommonHeaderBits instance to copy</param>
             /// <param name="reference">indicates if this instance should reference the data of the other instance</param>
-            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called</param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public CommonHeaderBits(CommonHeaderBits other, bool reference = false, bool shouldDispose = true)
                 :base(shouldDispose)
@@ -1147,11 +1147,22 @@ namespace Media
             }
 
             /// <summary>
+            /// Creates a new instance using new references to the existing data.
+            /// </summary>
+            /// <param name="other">The other instance</param>
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called</param>
+            public CommonHeaderBits(CommonHeaderBits other, bool shouldDispose = true)
+                : base(shouldDispose)
+            {
+                m_Memory = new MemorySegment(other.m_Memory);
+            }
+
+            /// <summary>
             /// Constructs a managed representation around a copy of the given two octets
             /// </summary>
             /// <param name="one">The first byte</param>
             /// <param name="two">The second byte</param>
-            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called</param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public CommonHeaderBits(byte one, byte two, bool shouldDispose = true)
                 : base(shouldDispose)
@@ -1198,7 +1209,7 @@ namespace Media
             /// <param name="version">The version of the common header bits</param>
             /// <param name="padding">The value of the Padding bit</param>
             /// <param name="extension">The value of the Extension bit</param>
-            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called</param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public CommonHeaderBits(int version, bool padding, bool extension, bool shouldDispose = true) //, int additionalOffset = 0)
                 : this(CommonHeaderBits.PackOctet(version, padding, extension), byte.MinValue, shouldDispose)

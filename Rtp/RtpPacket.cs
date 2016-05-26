@@ -400,7 +400,9 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="size"></param>
         /// <param name="shouldDispose"></param>
-        public RtpPacket(int size, bool shouldDispose = true) : base(shouldDispose)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public RtpPacket(int size, bool shouldDispose = true) 
+            : base(shouldDispose)
         {
             size = Common.Binary.Max(0, size);
 
@@ -534,7 +536,11 @@ namespace Media.Rtp
             }
         }
 
-        public bool IsReadOnly { get { return false == m_OwnsHeader || m_OwnedOctets == null; } }
+        public bool IsReadOnly
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return false == m_OwnsHeader || m_OwnedOctets == null; }
+        }
 
         #endregion
 
@@ -569,7 +575,7 @@ namespace Media.Rtp
         public RtpPacket Clone(bool includeSourceList, bool includeExtension, bool includePadding, bool includeCoeffecients, bool selfReference)
         {
             //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-            if (includeSourceList && includeExtension && includePadding && includeCoeffecients) return selfReference ? new RtpPacket(Header, Payload, false) { Transferred = Transferred } : new RtpPacket(Prepare().ToArray(), 0) { Transferred = Transferred };
+            if (includeSourceList && includeExtension && includePadding && includeCoeffecients) return selfReference ? new RtpPacket(Header, Payload) { Transferred = Transferred } : new RtpPacket(Prepare().ToArray(), 0) { Transferred = Transferred };
 
             IEnumerable<byte> binarySequence = Media.Common.MemorySegment.EmptyBytes;
 
@@ -619,6 +625,16 @@ namespace Media.Rtp
                 ContributingSourceCount = includeSourceList ? Header.ContributingSourceCount : 0
             }.Concat(binarySequence).ToArray(), 0) { Transferred = Transferred };
         }
+
+        /// <summary>
+        /// Creates a new instance of the packet which contains new references to the <see cref="Header"/> and <see cref="Payload"/>
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public RtpPacket Clone()
+        {
+            return new RtpPacket(new RtpHeader(Header), new Common.MemorySegment(Payload)) { Transferred = Transferred };
+        } 
 
         /// <summary>
         /// Generates a sequence of bytes containing the RtpHeader and any data contained in Payload.

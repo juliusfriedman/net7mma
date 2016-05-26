@@ -199,7 +199,7 @@ namespace Media.Rtcp
                         if (packetLength <= 0) goto case ushort.MaxValue;
 
                         //Assign the payload
-                        Payload = new Common.MemorySegment(m_OwnedOctets, true);
+                        Payload = new Common.MemorySegment(m_OwnedOctets, shouldDispose);
 
                         return;
                     }
@@ -238,7 +238,7 @@ namespace Media.Rtcp
             m_OwnsHeader = shouldDispose;
 
             //Create the header
-            Header = new RtcpHeader(buffer, offset);
+            Header = new RtcpHeader(buffer, offset, shouldDispose);
 
             //Calulate how many bytes the header used
             int headerSize = Header.Size;
@@ -252,7 +252,7 @@ namespace Media.Rtcp
                 //case ushort.MaxValue: // FFFF + 1 = 0
                 case ushort.MinValue:// 0 + 1 = 1 * 4 = 4, header only.???
                     {
-                        Payload = new MemorySegment(0);
+                        Payload = new MemorySegment(0, shouldDispose);
                         
                         m_OwnedOctets = Payload.Array;
 
@@ -273,7 +273,7 @@ namespace Media.Rtcp
                         System.Array.Copy(buffer, offset + headerSize, m_OwnedOctets, 0, remains);
 
                         //Assign the payload
-                        Payload = new Common.MemorySegment(m_OwnedOctets, 0, Binary.Clamp(0, Binary.MachineWordsToBytes(Header.LengthInWordsMinusOne + 1) - headerSize, remains));
+                        Payload = new Common.MemorySegment(m_OwnedOctets, 0, Binary.Clamp(0, Binary.MachineWordsToBytes(Header.LengthInWordsMinusOne + 1) - headerSize, remains), shouldDispose);
 
                         return;
                     }
@@ -737,6 +737,16 @@ namespace Media.Rtcp
             catch { throw; } //If anything goes wrong deliver the exception
             finally { binarySequence = null; } //When the stack is cleaned up remove the reference to the binarySequence
         }
+
+        /// <summary>
+        /// Creates a new instance of the packet which contains new references to the <see cref="Header"/> and <see cref="Payload"/>
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public RtcpPacket Clone()
+        {
+            return new RtcpPacket(new RtcpHeader(Header), new Common.MemorySegment(Payload)) { Transferred = Transferred };
+        } 
 
         /// <summary>
         /// Provides a sample implementation of what would be required to complete a RtpPacket that has the IsComplete property False.
