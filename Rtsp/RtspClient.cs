@@ -3278,15 +3278,10 @@ namespace Media.Rtsp
                     else if (false == SharesSocket)
                     {
                         //Check for non fatal exceptions and continue to wait
-                        if (error != SocketError.ConnectionAborted || error != SocketError.ConnectionReset /*|| error != SocketError.Interrupted || error == SocketError.Success*/)
+                        if (++attempt <= m_MaximumTransactionAttempts && error != SocketError.ConnectionAborted || error != SocketError.ConnectionReset)
                         {
                             //We don't share the socket so go to recieve again (note if this is the timer thread this can delay outgoing requests)
-                            if ((message != null && message.Transferred.HasValue && (int)(DateTime.UtcNow - message.Transferred.Value).TotalMilliseconds <= m_MaximumTransactionAttempts)
-                                ||
-                                ++attempt <= m_MaximumTransactionAttempts)
-                            {
-                                goto Wait;
-                            }
+                            goto Wait;
                         }
 
                         //Todo, this isn't really needed once there is a thread monitoring the protocol.

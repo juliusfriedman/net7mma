@@ -3794,6 +3794,8 @@ namespace Media.Rtp
             //Start with a sequence of empty packets
             IEnumerable<RtcpReport> compound = Enumerable.Empty<RtcpReport>();
 
+            int reports = 0;
+
             //If Rtp data was sent then send a Senders Report.
             if (context.RtpPacketsSent > 0)
             {
@@ -3802,6 +3804,8 @@ namespace Media.Rtp
                     compound = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield((context.SendersReport = TransportContext.CreateSendersReport(context, false))), compound);
                 else
                     compound = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(TransportContext.CreateSendersReport(context, false)), compound);
+
+                ++reports;
             }
 
             //If Rtp data was received OR Rtcp data was sent then send a Receivers Report.
@@ -3812,10 +3816,12 @@ namespace Media.Rtp
                     compound = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield((context.ReceiversReport = TransportContext.CreateReceiversReport(context, false))), compound);
                 else
                     compound = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(TransportContext.CreateReceiversReport(context, false)), compound);
+
+                ++reports;
             }
 
             //If there are any packets to be sent AND we don't care about bandwidth OR the bandwidth is not exceeded
-            if (compound.Any() && 
+            if (reports > 0 && 
                 (checkBandwidth == false || false == context.RtcpBandwidthExceeded))
             {
                 //Todo, possibly send additional items only when AverageRtcpBandwidth is not exceeded...
