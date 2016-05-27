@@ -413,13 +413,9 @@ namespace Media.Rtcp
 
                 base.Dispose(ShouldDispose);
 
-                IDisposable data = (IDisposable)Data;
-
-                if (data != null)
+                if (Data is IDisposable)
                 {
-                    data.Dispose();
-
-                    data = null;
+                    (Data as IDisposable).Dispose();
                 }
             }
 

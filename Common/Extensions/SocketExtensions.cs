@@ -974,16 +974,21 @@ namespace Media.Common.Extensions.Socket
             error = System.Net.Sockets.SocketError.SocketError;
 
             //Return the amount if its negitive;
-            if (amount <= 0) return amount;
+            if (amount <= 0) return amount;            
 
             //To hold what was received and the maximum amount to receive
-            int totalReceived = 0, max = buffer.Length - offset, attempt = 0, justReceived = 0;
+            int totalReceived = 0, max , attempt = 0, justReceived = 0;
+
+            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(buffer, out max)) return 0;
+
+            //Account for the offset
+            max -= offset;
 
             //Ensure that only max is received
             if (amount > max) amount = max;
 
             //While there is something to receive
-            while (amount > 0)
+            while (amount > 0 && socket.Connected) //poll write 0
             {
                 //Receive it into the buffer at the given offset taking into account what was already received
                 justReceived = socket.Receive(buffer, offset, amount, System.Net.Sockets.SocketFlags.None, out error);
@@ -1003,7 +1008,7 @@ namespace Media.Common.Extensions.Socket
                                 ++attempt;
 
                                 //Only if the attempts in operations were greater then the amount of bytes requried
-                                if (attempt > amount) goto Done;//case System.Net.Sockets.SocketError.TimedOut;
+                                if (attempt > amount) goto Done;
 
                                 continue;
                             }
@@ -1024,6 +1029,41 @@ namespace Media.Common.Extensions.Socket
 
         Done:
             return totalReceived;
+        }
+
+        /// <summary>
+        /// Provides a way to Call SendTo specifying an <see cref="System.Net.Sockets.SocketError"/>.
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="size"></param>
+        /// <param name="socket"></param>
+        /// <param name="remote"></param>
+        /// <param name="error"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static int SendTo(byte[] buffer, int offset, int size, System.Net.Sockets.Socket socket, System.Net.EndPoint remote, System.Net.Sockets.SocketFlags flags, out System.Net.Sockets.SocketError error)
+        {
+            error = System.Net.Sockets.SocketError.SocketError;
+
+            int sent = 0;
+
+            try
+            {
+                while (sent < size) sent += socket.SendTo(buffer, offset + sent, size - sent, flags, remote);
+
+                error = System.Net.Sockets.SocketError.Success;
+            }
+            catch (System.Net.Sockets.SocketException se)
+            {
+                error = se.SocketErrorCode;
+            }
+            catch
+            {
+                throw;
+            }
+
+            return sent;
         }
     }
 }

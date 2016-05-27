@@ -754,11 +754,8 @@ namespace Media.Http
             CacheStrings();
 
             //Sanely
-
-            length = Media.Common.Extensions.Math.MathExtensions.Clamp(length, 0, data.Length);
-
             //length could be > data.Length or offset could be allowed to be negitive...
-            if (data == null || offset < 0 || length == 0)
+            if (data == null || offset < 0 || offset >= (length = Media.Common.Binary.Clamp(length, 0, data.Length)))
             {
                 return;
             }
