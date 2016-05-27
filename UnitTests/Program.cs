@@ -409,6 +409,18 @@ namespace Media.UnitTests
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
+                new
+                {
+                    Uri = "rtsp://192.168.1.151:555/live/Mirror",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = "rtsp://192.168.1.151:555/live/Testing",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
             })
             {
                 Media.Rtsp.RtspClient.ClientProtocolType? proto = TestObject.Proto;

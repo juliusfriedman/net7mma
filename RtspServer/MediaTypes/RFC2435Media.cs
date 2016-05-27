@@ -2407,11 +2407,12 @@ namespace Media.Rtsp.Server.MediaTypes
 
             //Create a context
             m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1,  //data and control channel id's (can be any number and should not overlap but can...)
-                sourceId, //A randomId which was alredy generated 
+                RFC3550.Random32(RFC2435Frame.RtpJpegPayloadType), //A randomId which was alredy generated 
                 SessionDescription.MediaDescriptions.First(), //This is the media description we just created.
                 false, //Don't enable Rtcp reports because this source doesn't communicate with any clients
-                1, // This context is not in discovery
-                0)
+                sourceId, // This context is not in discovery
+                2,
+                true)
             {
                 //Never has to send
                 SendInterval = Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan,

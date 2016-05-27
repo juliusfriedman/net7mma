@@ -2290,11 +2290,7 @@ namespace Media.Rtsp
                         //If the response was a success
                         if (playStatusCode <= RtspStatusCode.OK)
                         {
-                            //Enumerate the setup media and add it to the playing list.
-                            foreach (var media in setupMedia) if (false == m_Playing.Contains(media)) m_Playing.Add(media);
-
-                            //Fire an event
-                            OnPlaying();
+                           
 
                             //play.IsPersistent = false;
 
@@ -2345,10 +2341,16 @@ namespace Media.Rtsp
 
                     continue;
 
-                } while (IsConnected);
+                } while (IsConnected && false == m_RtpClient.IsActive);
+
+            //Enumerate the setup media and add it to the playing list.
+            foreach (var media in setupMedia) if (false == m_Playing.Contains(media)) m_Playing.Add(media);
+
+            //Fire an event
+            OnPlaying();
 
             //Ensure the RtpClient is still active.
-            m_RtpClient.Activate();
+            //m_RtpClient.Activate();
 
             //Should be an option..
             //Initiate a keep alive now if data is still not flowing.
@@ -3128,14 +3130,15 @@ namespace Media.Rtsp
                         goto Receive;
                     }
 
-                    
-
                     //If we can write before the session will end
                     if (IsConnected
                         &&
                         m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectWrite))
                     {
-                        sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
+                        //Send all the data now
+                        sent += Common.Extensions.Socket.SocketExtensions.SendTo(buffer, 0, length, m_RtspSocket, m_RemoteRtsp, SocketFlags.None, out error);
+                        
+                        //sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
                     }
 
                     #region Auto Reconnect
@@ -3255,6 +3258,12 @@ namespace Media.Rtsp
                             //This can throw off the call if SharesSocket changes during the life of this call.
                             //In cases where this is off it can be fixed by using Clamp, it usually only occurs when someone is disconnecting.
                             received -= m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
+
+                            //////Acitvate the client if the packets were valid.
+                            ////if (false == m_RtpClient.IsActive)
+                            ////{
+                            ////    OnPlaying();
+                            ////}
 
                             //Handle when the client received a lot of data and no response was found when interleaving.
                             //One possibility is transport packets such as Rtp or Rtcp.
@@ -4652,23 +4661,15 @@ namespace Media.Rtsp
                         }
 
                         //Get the available context's
-                        var availableContexts = m_RtpClient.GetTransportContexts().Where(tc => tc != null && false == tc.IsDisposed);
+                        var availableContexts = m_RtpClient.GetTransportContexts().Where(tc => false == Common.IDisposedExtensions.IsNullOrDisposed(tc));
 
-                        //If there are aren't any then create one using the default values
-                        if (false == availableContexts.Any())
-                        {
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, (byte)(multiplexing ? 0 : 1), mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
-                        }
-                        else
-                        {
-                            //OrderBy(c=>c.ControlChannel - c.DataChannel) to get the highest, then would need to determine if at max and could wrap... e.g. getAvailableContextNumber()
-                            RtpClient.TransportContext lastContext = availableContexts.LastOrDefault();
+                        //OrderBy(c=>c.ControlChannel - c.DataChannel) to get the highest, then would need to determine if at max and could wrap... e.g. getAvailableContextNumber()
+                        RtpClient.TransportContext lastContext = availableContexts.LastOrDefault();
 
-                            //Todo, destinationIp should still be sourceIp.
+                        //Todo, destinationIp should still be sourceIp.
 
-                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
-                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
-                        }
+                        if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
+                        else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, needsRtcp, remoteSsrc, remoteSsrc != 0 ? 0 : 2, localIp, sourceIp);
 
                         created.ContextMemory = m_RtpClient.m_Buffer;
 
@@ -4964,7 +4965,7 @@ namespace Media.Rtsp
                         //No response or invalid range.
                         if (response == null || response.RtspStatusCode == RtspStatusCode.InvalidRange)
                         {
-                            //if (response == null)
+                            //if (response == null && m_RtpProtocol == ProtocolType.Tcp)
                             //{
                             //    //If there is transport
                             //    if (false == Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient))
@@ -4973,7 +4974,7 @@ namespace Media.Rtsp
                             //        m_RtpClient.Activate();
                             //    }
 
-                            //    //return response;
+                            //    return response;
                             //}
 
                             play.RemoveHeader(Rtsp.RtspHeaders.Range);

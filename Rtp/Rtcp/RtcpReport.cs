@@ -257,7 +257,7 @@ namespace Media.Rtcp
 
             //Loop for the BlockCount, bounded by BlockCount and count of bytes in the ReportData
             for (int currentSize = 0, count = ReportBlockOctets, blockCounter = BlockCount, localOffset = Payload.Offset + offset; 
-                count > 0 && false == IsDisposed && --blockCounter >= 0; 
+                count > 0 && false == IsDisposed && --blockCounter >= 0 && localOffset + count <= Payload.Count; 
                 count -= currentSize) //Subtract the currentSize each iteration
             {
                 //Create the report block using the payload data available, should probably Clamp(count, 0, ReportBlock.ReportBlockSize at report block size since the sdes has its own enumerator.

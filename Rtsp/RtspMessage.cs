@@ -1718,7 +1718,6 @@ namespace Media.UnitTests
                     //Complete a message in chunks
                     using (Media.Rtsp.RtspMessage toComplete = new Rtsp.RtspMessage(Media.Common.MemorySegment.EmptyBytes))
                     {
-
                         //Store the sizes encountered
                         List<int> chunkSizes = new List<int>();
 

@@ -226,8 +226,10 @@ namespace Media.Rtsp//.Server
                 return;
             }
 
-            //Caulcate the poll timeout.
-            m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket));
+            //Todo, calulcate using least value possible...
+
+            //Caulcate the poll timeout. use one tick causes higher cpu for now but reduces poll collisions.
+            m_SocketPollMicroseconds = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);  //(int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket));
 
             //Use the same socket configuration as per the server.
             m_Server.ConfigureSocket(m_RtspSocket);
@@ -438,7 +440,10 @@ namespace Media.Rtsp//.Server
 
                     goto Exit;
                 }
-            } 
+            }
+
+            //Allow the context to keep track of the 
+            ++localContext.RtpPacketsReceived;
 
             //Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Sending -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
 
