@@ -56,6 +56,8 @@ namespace Media.Rtsp.Server.MediaTypes
             RtpClient = client;
         }
 
+        //These could be turned into properties...
+
         public readonly bool PerPacket;
 
         public readonly bool PassthroughRtcp;
