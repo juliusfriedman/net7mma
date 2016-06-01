@@ -139,7 +139,7 @@ namespace Media.Rtsp.Server.MediaTypes
             Height = height;
             Width += Width % 8;
             Height += Height % 8;
-            clockRate = 80;
+            ClockRate = 80;
         }
 
         #endregion
@@ -163,7 +163,7 @@ namespace Media.Rtsp.Server.MediaTypes
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             //Should be a field set in constructor.
             //=fmtp:xx CPCF=36,1000,0,1,1,0,0,2;CUSTOM=640,480,2;CIF=1;QCIF=1
-            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions.First().MediaFormat + " telephone-event/" + clockRate));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions.First().MediaFormat + " telephone-event/" + ClockRate));
 
             m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, sourceId));
         }

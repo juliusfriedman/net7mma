@@ -347,7 +347,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="other">The RtcpHeader to copy</param>
         /// <param name="reference">A value indicating if the RtpHeader given should be referenced or copied.</param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(RtcpHeader other, bool reference, bool shouldDispose = true)
             :base(shouldDispose)
@@ -397,7 +397,7 @@ namespace Media.Rtcp
         /// Creates an exact copy of the RtcpHeader from the given memory
         /// </summary>
         /// <param name="memory">The memory</param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(Common.MemorySegment memory, bool shouldDispose = true)//, int additionalOffset = 0) 
             : base(shouldDispose)
@@ -416,7 +416,7 @@ namespace Media.Rtcp
         /// <param name="payloadType"></param>
         /// <param name="padding"></param>
         /// <param name="blockCount"></param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount, bool shouldDispose = true)
             : base(shouldDispose)
@@ -439,7 +439,7 @@ namespace Media.Rtcp
         /// <param name="padding"></param>
         /// <param name="blockCount"></param>
         /// <param name="ssrc"></param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc, bool shouldDispose = true)
             : this(version, payloadType, padding, blockCount, shouldDispose)
@@ -456,7 +456,7 @@ namespace Media.Rtcp
         /// <param name="blockCount"></param>
         /// <param name="ssrc"></param>
         /// <param name="lengthInWordsMinusOne"></param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc, int lengthInWordsMinusOne, bool shouldDispose = true)
             : this(version, payloadType, padding, blockCount, ssrc, shouldDispose)

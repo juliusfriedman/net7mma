@@ -50,13 +50,84 @@ namespace Media.Sdp
         {
             internal const char AttributeType = 'a';
 
-            //When GetPart(0) contains ':' the AttributeName does not include the ':' or any characters after it.
+            /// <summary>
+            /// Gets the parts of the attribute such as the name and value / type.
+            /// </summary>
+            public IEnumerable<string> AttributeParts
+            {
+                get
+                {
+                    if (m_AttributeParts != null) return m_AttributeParts;
 
-            //public string AttributeName
-            //{
-            //    get { return GetPart(0).Split(SessionDescription.Colon)[0]; }
-            //    set { SetPart(0, string.Join(SessionDescription.Colon.ToString(), value)); }
-            //}
+                    //Todo, should be contigious to all derived parts which do not occur within m_Parts
+                    m_AttributeParts = new string[2];
+
+                    Common.Extensions.String.StringExtensions.SplitTrim(GetPart(0), SessionDescription.ColonSplit, 2, StringSplitOptions.RemoveEmptyEntries).CopyTo(m_AttributeParts, 0);
+
+                    return m_AttributeParts; //= Common.Extensions.String.StringExtensions.SplitTrim(GetPart(0), SessionDescription.ColonSplit, 2, StringSplitOptions.RemoveEmptyEntries);
+                }
+            }
+
+            string[] m_AttributeParts;
+
+            /// <summary>
+            /// 
+            /// </summary>
+            public string AttributeName
+            {
+
+                get
+                {
+                    return AttributeParts.FirstOrDefault();
+                }
+
+                protected set
+                {
+                    if (value.Equals(AttributeName, StringComparison.OrdinalIgnoreCase)) return;
+
+                    m_AttributeParts[0] = value;
+
+                    //Todo, Concat
+
+                    SetPart(0, string.Join(HasAttributeValue ? SessionDescription.ColonString : string.Empty, m_AttributeParts));
+                }
+
+                //get
+                //{
+                //    return GetPart(0).Split(SessionDescription.Colon)[0].Trim();
+                //}
+                //protected set
+                //{
+                //    SetPart(0, string.Join(false == string.IsNullOrEmpty(value) && value.EndsWith(SessionDescription.ColonString) ? string.Empty : SessionDescription.ColonString, value, string.Empty));
+                //}
+            }
+
+            /// <summary>
+            /// Indicates if the <see cref="AttributeValue"/> is present
+            /// </summary>
+            public bool HasAttributeValue
+            {
+                get { return AttributeParts.Count() > 1; }
+            }
+
+            /// <summary>
+            /// Get the value which occurs after the <see cref="AttributeName"/>
+            /// </summary>
+            public string AttributeValue
+            {
+                get { return AttributeParts.Skip(1).Take(1).FirstOrDefault(); }
+                protected set
+                {
+                    if (value.Equals(AttributeValue, StringComparison.OrdinalIgnoreCase)) return;
+
+                    //byte-string
+                    // 1*(%x01-09/%x0B-0C/%x0E-FF)
+
+                    m_AttributeParts[1] = value;
+
+                    SetPart(0, string.Join(SessionDescription.ColonString, m_AttributeParts));
+                }
+            }
 
             public SessionAttributeLine(SessionDescriptionLine line)
                 : base(line)
@@ -64,17 +135,50 @@ namespace Media.Sdp
                 if (m_Type != AttributeType) throw new InvalidOperationException("Not a SessionAttributeLine line");
             }
 
+
             //Assuming given a value NOT a line text to parse...
-            public SessionAttributeLine(string value)
-                : base(AttributeType, SessionDescription.ColonString, 1)
+            
+            public SessionAttributeLine(string seperator = null,  int partCount = 1, 
+                string attributeName = Common.Extensions.String.StringExtensions.UnknownString,                 
+                string attributeValue = null)
+                : base(AttributeType, seperator, partCount)
             {
-                Add(value);
+                //If any parts are expected
+                if (partCount > 0 && false == string.IsNullOrWhiteSpace(attributeName))
+                {
+                    //(AttributeName)
+                    //SetPart(0, attributeName);
+                    SetPart(0, string.Concat(attributeName, SessionDescription.ColonString));
+
+                    //If there is any value
+                    if (partCount > 1 && false == string.IsNullOrWhiteSpace(attributeValue))
+                    {
+                        int reduce = 0;
+
+                        int valueLength = attributeValue.Length;
+
+                        if (valueLength >= 1)
+                        {
+                            if (attributeValue[0] == AttributeType) ++reduce;
+
+                            if (valueLength >= 2 && attributeValue[1] == SessionDescription.EqualsSign) ++reduce;
+
+                            if (reduce > 0) attributeValue = attributeValue.Substring(reduce);
+                        }
+
+                        //(AttributeValue)
+                        SetPart(1, attributeValue);
+                    }
+                }
             }
 
-            //Should have params values overload with optional seperator
+            //Should have params values overload with optional seperator(s)
 
-            public SessionAttributeLine(string[] sdpLines, ref int index)
-                : base(sdpLines, ref index, SessionDescription.ColonString, AttributeType, 1) { }
+            public SessionAttributeLine(string[] sdpLines, ref int index, string seperator = null, int partCount = 1) 
+                : base(sdpLines, ref index, seperator, AttributeType, partCount)
+            {
+
+            }
 
             //If going to use SpaceString then should offer a property to get parts for dervived types which wish to use ':'
             //E.g. KeyValuePair<string, string> GetValues
@@ -86,7 +190,9 @@ namespace Media.Sdp
 
         //CharsetAttribute  a=charset:<character set>
 
-        //LandAttribute a=lang:<language tag>
+        //LangAttribute a=lang:<language tag>
+
+        //EncryptionTypeLine k=
 
         //https://tools.ietf.org/html/rfc4566 @ 5.8.  Bandwidth ("b=")
         /// <summary>
@@ -372,6 +478,8 @@ namespace Media.Sdp
                     if (m_ConnectionParts != null) return m_ConnectionParts;
 
                     if (string.IsNullOrWhiteSpace(ConnectionAddress)) return Enumerable.Empty<string>();
+
+                    //Todo, should be contigious to all derived parts which do not occur within m_Parts
 
                     return m_ConnectionParts = ConnectionAddress.Split(SessionDescription.ForwardSlashSplit, 3);
                 }
@@ -1335,6 +1443,7 @@ namespace Media.Sdp
                 {
                     if (PayloadTypeTokens == null)
                     {
+                        //Todo, should be contigious to all derived parts which do not occur within m_Parts
                         PayloadTypeTokens = MediaFormat.Split(SessionDescription.Space);
 
                         ParsedPayloadTypes = Array.ConvertAll<string, int>(PayloadTypeTokens, Convert.ToInt32);
@@ -1422,6 +1531,8 @@ namespace Media.Sdp
                 ParsedPayloadTypes = null;
             }
         }
+
+        //Possibly could be combined with repeat line logic.
 
         /// <summary>
         /// Represents an 't=' <see cref="SessionDescriptionLine"/>
@@ -1779,16 +1890,47 @@ namespace Media.Sdp
 
         public class FormatTypeLine : SessionAttributeLine
         {
-            public string FormatToken
+
+            string[] m_FormatParts;
+
+            public IEnumerable<string> FormatParts
             {
-                get { return GetPart(0); }
-                set { SetPart(0, value); }
+                get
+                {
+                    if (m_FormatParts != null) return m_FormatParts;
+
+                    string attributeValue = AttributeValue;
+
+                    if (string.IsNullOrWhiteSpace(attributeValue)) return Enumerable.Empty<string>();
+
+                    m_FormatParts = attributeValue.Split(SessionDescription.SpaceSplit, 2, System.StringSplitOptions.RemoveEmptyEntries);
+
+                    return m_FormatParts;
+                }
             }
 
-            public bool HasFormatValue
+            internal int FormatPartCount
             {
-                get { return FormatToken.IndexOf(SessionDescription.Colon) >= 0; }
+                get { return FormatParts.Count(); }
             }
+
+            public string FormatToken
+            {
+                get
+                {
+                    return FormatParts.FirstOrDefault();
+                }
+                set
+                {
+                    if (value.Equals(FormatToken, StringComparison.OrdinalIgnoreCase)) return;
+
+                    m_FormatParts[0] = value;
+
+                    base.AttributeValue = string.Join(SessionDescription.SpaceString, m_FormatParts);
+                }
+            }
+
+            int ParsedFormatToken = -1;
 
             /// <summary>
             /// The format value as parsed from the a=fmtp:x portion of the line, -1 if not found.
@@ -1797,11 +1939,11 @@ namespace Media.Sdp
             {
                 get
                 {
-                    int index = FormatToken.IndexOf(SessionDescription.Colon);
+                    if (ParsedFormatToken >= 0) return ParsedFormatToken;
 
-                    if (index == -1) return index;
-
-                    return int.Parse(FormatToken.Substring(index));
+                    int.TryParse(FormatParts.FirstOrDefault(), out ParsedFormatToken);
+                    
+                    return ParsedFormatToken;
                 }
             }
 
@@ -1809,13 +1951,26 @@ namespace Media.Sdp
 
             public bool HasFormatSpecificParameters
             {
-                get { return m_Parts.Count > 1 && FormatSpecificParametersCount > 0; }
+                get { return m_Parts.Count >= 1 && FormatSpecificParametersCount > 0; }
             }
 
+            //Could be last part that is not string null or empty.
             public string FormatSpecificParameterToken
             {
-                get { return GetPart(1); }
-                set { SetPart(1, value); }
+                //get { return GetPart(1); }
+                //set { SetPart(1, value); }
+                get
+                {
+                    return FormatParts.Skip(1).Take(1).FirstOrDefault();
+                }
+                set
+                {
+                    if (value.Equals(m_FormatParts[1], StringComparison.OrdinalIgnoreCase)) return;
+
+                    m_FormatParts[1] = value;
+
+                    base.AttributeValue = string.Join(SessionDescription.SpaceString, m_FormatParts);
+                }
             }
 
             string[] m_FormatSpecificParameters;
@@ -1843,33 +1998,59 @@ namespace Media.Sdp
                 get { return FormatSpecificParameters.Count(); }
             }
 
-            //Could be verified ina common class given a start type.
+            //Could be verified in a common class given a start type.
             public FormatTypeLine(SessionDescriptionLine line)
                 : base(line)
             {
                 if (m_Parts.Count == 0
-                    ||//Should not ignore case.
-                    false == GetPart(0).StartsWith(AttributeFields.FormatType, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Not a FormatTypeLine line");
+                    ||
+                    false == AttributeName.StartsWith(AttributeFields.FormatType, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Not a FormatTypeLine line");
+                //else if (m_Parts.Count == 1)
+                //{
+                //    //Extract parts
+                //    var z = m_Parts[0].Split(SessionDescription.SpaceSplit, 2, StringSplitOptions.RemoveEmptyEntries);
+
+                //    m_Parts.Clear();
+
+                //    //Part 0 of above contains the FormatToken
+                //    m_Parts.AddRange(z[0].Split(SessionDescription.ColonSplit, 2, StringSplitOptions.RemoveEmptyEntries));
+
+                //    m_Parts.AddRange(z.Skip(1));
+                //}
             }
 
-            public FormatTypeLine(string value)
-                : base(string.Join(SessionDescription.Colon.ToString(), AttributeFields.FormatType, value))
+            //So Add values are seperates by ;
+
+            public FormatTypeLine(string formatToken)
+                : base(SessionDescription.SemiColonString, 1, AttributeFields.FormatType, null/*formatToken*/)  //, null, null, null/*formatToken*/, SessionDescription.SpaceString)
+            {
+                //Todo, should be contigious to all derived parts which do not occur within m_Parts
+                m_FormatParts = new string[2];
+                
+                FormatToken = formatToken;
+            }
+
+            public FormatTypeLine(string formatToken, string formatSpecificParameters)
+                : this(formatToken)
+            {                
+                FormatSpecificParameterToken = formatSpecificParameters;
+
+                //Add(formatSpecificParameters);
+            }
+
+            public FormatTypeLine(int payloadType, string formatSpecificParameters)
+                : this(payloadType.ToString(), formatSpecificParameters)
             {
 
             }
 
-            public FormatTypeLine(string value, string formatSpecificParameters)
-                : this(value)
-            {
-                Add(formatSpecificParameters);
-            }
-
-            public FormatTypeLine(string[] sdpLines, ref int index)
-                : base(sdpLines, ref index)
+            public FormatTypeLine(string[] sdpLines, ref int index, string seperator = null, int partCount = 1)
+                : base(sdpLines, ref index, seperator ?? SessionDescription.SemiColonString, partCount)
             {
                 if (m_Parts.Count == 0
-                    ||//Should not ignore case.
-                    false == GetPart(0).StartsWith(AttributeFields.FormatType, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Not a FormatTypeLine line");
+                    ||
+                    false == AttributeName.StartsWith(AttributeFields.FormatType, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Not a FormatTypeLine line");
+                    //false == GetPart(0).StartsWith(AttributeFields.FormatType, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Not a FormatTypeLine line");
             }
         }
     }

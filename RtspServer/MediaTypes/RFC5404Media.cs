@@ -61,7 +61,7 @@ namespace Media.Rtsp.Server.MediaTypes
             Height = height;
             Width += Width % 8;
             Height += Height % 8;
-            clockRate = 80;
+            ClockRate = 80;
         }
 
         #endregion

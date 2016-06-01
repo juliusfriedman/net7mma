@@ -75,27 +75,47 @@ namespace Media.Concepts.Classes
         /// <summary>
         /// The TimeZone offset of the clock from UTC
         /// </summary>
-        public System.TimeSpan Offset { get { return Created.Offset; } }
+        public System.TimeSpan Offset
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return Created.Offset; }
+        }
 
         /// <summary>
         /// The average amount of operations per tick.
         /// </summary>
-        public long AverageOperationsPerTick { get { return InstructionsPerClockUpdate / TicksPerUpdate; } }
+        public long AverageOperationsPerTick
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return InstructionsPerClockUpdate / TicksPerUpdate; }
+        }
 
         /// <summary>
         /// The <see cref="System.TimeSpan"/> which represents <see cref="TicksPerUpdate"/> as an amount of time.
         /// </summary>
-        public System.TimeSpan SystemClockResolution { get { return System.TimeSpan.FromTicks(TicksPerUpdate); } }
+        public System.TimeSpan SystemClockResolution
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return System.TimeSpan.FromTicks(TicksPerUpdate); }
+        }
 
         /// <summary>
         /// Return the current system time in the TimeZone offset of this clock
         /// </summary>
-        public System.DateTimeOffset Now { get { return System.DateTimeOffset.Now.ToOffset(Offset).Add(new System.TimeSpan((long)(AverageOperationsPerTick / System.TimeSpan.TicksPerMillisecond))); } }
+        public System.DateTimeOffset Now
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return System.DateTimeOffset.Now.ToOffset(Offset).Add(new System.TimeSpan((long)(AverageOperationsPerTick / System.TimeSpan.TicksPerMillisecond))); }
+        }
 
         /// <summary>
         /// Return the current system time in the TimeZone offset of this clock converter to UniversalTime.
         /// </summary>
-        public System.DateTimeOffset UtcNow { get { return Now.ToUniversalTime(); } }
+        public System.DateTimeOffset UtcNow
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return Now.ToUniversalTime(); }
+        }
 
         //public bool IsUtc { get { return Offset == System.TimeSpan.Zero; } }
 
@@ -111,6 +131,7 @@ namespace Media.Concepts.Classes
         /// <see cref="System.DateTimeOffset.Now.Offset"/>
         /// <see cref="System.Globalization.CultureInfo.CurrentCulture.Calendar"/>
         /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Clock(bool shouldDispose = true)
             : this(System.DateTimeOffset.Now.Offset, System.Globalization.CultureInfo.CurrentCulture.Calendar, shouldDispose)
         {
@@ -141,6 +162,7 @@ namespace Media.Concepts.Classes
         /// <param name="timeZoneOffset"></param>
         /// <param name="calendar"></param>
         /// <param name="shouldDispose">Indicates if the instace should be diposed when Dispose is called.</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Clock(System.TimeSpan timeZoneOffset, System.Globalization.Calendar calendar, bool shouldDispose = true)
             : base(shouldDispose)
         {
@@ -174,11 +196,13 @@ namespace Media.Concepts.Classes
 
         #endregion
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public long EstimateOperations(System.TimeSpan ts)
         {
             unchecked { return AverageOperationsPerTick * ts.Ticks; }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public System.TimeSpan EstimateTime(long operations)
         {
             return new System.TimeSpan((operations / AverageOperationsPerTick));

@@ -1798,7 +1798,7 @@ namespace Media.Rtsp.Server.MediaTypes
             public void ProcessPacket(Rtp.RtpPacket packet, bool rfc2035Quality = false, bool useRfcQuantizer = false) //Should give tables here and should have option to check for EOI
             {
 
-                if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+                if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || packet.PayloadType != PayloadType) return;
 
                 //Depacketize the single packet to Depacketized.
 
@@ -1833,15 +1833,20 @@ namespace Media.Rtsp.Server.MediaTypes
                 ushort RestartInterval = 0, RestartCount;
 
                 //Payload starts at the offset of the first PayloadOctet within the Payload segment after the sourceList or extensions.
-                int offset = packet.Payload.Offset + packet.HeaderOctets,
-                    padding = packet.PaddingOctets,
-                    count = (packet.Payload.Count - padding),
-                    end = packet.Length - padding;
+                int offset = packet.Payload.Offset,
+                   headerOctets = +packet.HeaderOctets,
+                   padding = packet.PaddingOctets,
+                   count = packet.Payload.Count - (padding + headerOctets),
+                   end = packet.Length - padding;
 
                 //ProfileHeaderInformation.MinimumProfileHeaderSize
 
                 //Need 8 bytes.
-                if (count < 8 || offset > packet.Payload.Count) return;
+                if (count < 8) return;
+
+                //Start after the headerOctets
+                offset += headerOctets;
+
 
                 //if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
 
@@ -2278,7 +2283,8 @@ namespace Media.Rtsp.Server.MediaTypes
         #region Fields
 
         //Should be moved to SourceStream? Should have Fps and calculate for developers?
-        protected int clockRate = 9;//kHz //90 dekahertz
+        //Should then be a TimeSpan or Frequency
+        internal protected int ClockRate = 9;//kHz //90 dekahertz
 
         //Should be moved to RtpSourceSource;
         protected readonly int sourceId = RFC3550.Random32(RFC2435Frame.RtpJpegPayloadType); //Doesn't really matter what seed was used, if really desired could be set in constructor
@@ -2554,6 +2560,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 {
                     using (var thumb = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
                     {
+                        //could give timestamp here
                         m_Frames.Enqueue(RFC2435Media.RFC2435Frame.Packetize(thumb, Quality, Interlaced, (int)sourceId));
                     }
                 }
@@ -2566,7 +2573,7 @@ namespace Media.Rtsp.Server.MediaTypes
         //This logic is general enough, that it could go in RtpSource...
         internal override void SendPackets()
         {
-            //m_RtpClient.FrameChangedEventsEnabled = false;
+            m_RtpClient.FrameChangedEventsEnabled = false;
 
             unchecked
             {
@@ -2578,12 +2585,12 @@ namespace Media.Rtsp.Server.MediaTypes
                         {
                             if (m_RtpClient.IsActive) m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.Lowest;
 
-                            System.Threading.Thread.Sleep(clockRate);
+                            System.Threading.Thread.Sleep(ClockRate);
 
                             continue;
                         }
 
-                        int period = (clockRate * 1000 / m_Frames.Count);
+                        //int period = (clockRate * 1000 / m_Frames.Count);
 
                         //Dequeue a frame or die
                         Rtp.RtpFrame frame = m_Frames.Dequeue();
@@ -2602,9 +2609,12 @@ namespace Media.Rtsp.Server.MediaTypes
                             //Ensure HasRecievedRtpWithinSendInterval is true
                             //transportContext.m_LastRtpIn = DateTime.UtcNow;
 
-                            transportContext.RtpTimestamp += period;
+                            transportContext.RtpTimestamp += ClockRate * 1000;
 
                             frame.Timestamp = (int)transportContext.RtpTimestamp;
+
+                            //Fire a frame changed event manually
+                            if (m_RtpClient.FrameChangedEventsEnabled) m_RtpClient.OnRtpFrameChanged(frame, transportContext, true);
 
                             //Todo, should not copy packets
 
@@ -2656,13 +2666,11 @@ namespace Media.Rtsp.Server.MediaTypes
 
                             packets = null;
 
-                            //Modified frame HasMissingPackets because SequenceNumbers were modified and the SortedList's keys were assigned to the previous sequence numbers
-
-                            //Fire a frame changed event manually
-                            if (m_RtpClient.FrameChangedEventsEnabled) m_RtpClient.OnRtpFrameChanged(frame, transportContext, true);
-
                             //Check for if previews should be updated (only for the jpeg type for now)
-                            if (DecodeFrames && frame.PayloadType == RFC2435Frame.RtpJpegPayloadType) OnFrameDecoded((RFC2435Media.RFC2435Frame)frame);
+                            if (DecodeFrames && frame.PayloadType == RFC2435Frame.RtpJpegPayloadType)
+                            {
+                                OnFrameDecoded((RFC2435Media.RFC2435Frame)frame);
+                            }
 
                             ++m_FramesPerSecondCounter;
 
@@ -2680,7 +2688,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                         m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.BelowNormal;
 
-                        System.Threading.Thread.Sleep(clockRate);
+                        System.Threading.Thread.Sleep(ClockRate);
                     }
                     catch (Exception ex)
                     {

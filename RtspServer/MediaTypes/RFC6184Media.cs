@@ -398,34 +398,58 @@ namespace Media.Rtsp.Server.MediaTypes
             {
                 //If the packet is null or disposed then do not process it.
                 if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
-
+               
                 //Just put the packets into Depacketized at the end for most cases.
-                int packetKey = Depacketized.Count;
+                int packetKey = packet.SequenceNumber;
 
                 //The packets are not stored by SequenceNumber in Depacketized, they are stored in whatever Decoder Order is necessary.
-                //Already contained. (Might want to wait for the Decoder Order Number to be checked.
-                //if (Depacketized.ContainsKey(packetKey)) return;
+                if (Depacketized.ContainsKey(packetKey)) return;
 
                 //(May need to handle re-ordering)
                 //In such cases this step needs to place the packets into a seperate collection for sorting on DON / TSOFFSET before writing to the buffer.
 
                 //From the beginning of the data in the actual payload
-                int offset = packet.Payload.Offset + packet.HeaderOctets,
+                int offset = packet.Payload.Offset,
+                   headerOctets = +packet.HeaderOctets,
                    padding = packet.PaddingOctets,
-                   count = (packet.Payload.Count - padding),
-                   end = packet.Length - padding;
+                   count = packet.Payload.Count - (padding + headerOctets);
 
                 //Must have at least 2 bytes (When nalUnitType is a FragmentUnit.. 3)
-                if (count <= 2 || offset > packet.Payload.Count) return;
+                if (count <= 2) return;
+
+                //Start after the headerOctets
+                offset += headerOctets;
 
                 //Obtain the data of the packet with respect to extensions and csrcs present.
                 byte[] packetData = packet.Payload.Array;
+
+                if (packet.PayloadType != PayloadType)
+                {
+                    if (false == AllowsMultiplePayloadTypes) return;
+
+                    //This is probably a new sps pps set
+
+                    //The order should be in seqeuence and there must be data for it to be used.
+
+                    //(Stores the nalType) Write the start code
+                    DepacketizeStartCode(ref packetKey, ref packetData[offset], fullStartCodes);
+
+                    //Add the depacketized data
+                    Depacketized.Add(packetKey++, new Common.MemorySegment(packetData, offset, count));
+
+                    return;
+                }
 
                 //Determine if the forbidden bit is set and the type of nal from the first byte
                 byte firstByte = packetData[offset];
 
                 //Should never be set... (unless decoding errors are present)
-                if (false == ignoreForbiddenZeroBit && ((firstByte & 0x80) >> 7) != 0) return; //throw new Exception("forbiddenZeroBit");
+                if (false == ignoreForbiddenZeroBit && ((firstByte & 0x80) >> 7) != 0)
+                {
+                    //would need additional state to ensure all packets now have this bit.
+
+                    return; //throw new Exception("forbiddenZeroBit");
+                }
 
                 byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
 
@@ -832,7 +856,7 @@ namespace Media.Rtsp.Server.MediaTypes
             Height = height;
             Width += Width % 8;
             Height += Height % 8;
-            clockRate = 90;
+            ClockRate = 90;
         }
 
         #endregion

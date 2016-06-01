@@ -326,7 +326,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the client will automatically disconnect the RtspSocket after StartPlaying is called.
         /// </summary>
-        public bool AutomaticallyDisconnect { get; set; }
+        public bool AutomaticallyDisconnectAfterStartPlaying { get; set; }
 
         /// <summary>
         /// Indicates if the client will send a <see cref="KeepAliveRequest"/> during <see cref="StartPlaying"/> if no data is flowing immediately after the PLAY response is recieved.
@@ -2079,7 +2079,7 @@ namespace Media.Rtsp
             if (false == SupportedMethods.Contains(RtspMethod.DESCRIBE.ToString()) && SessionDescription == null) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(SupportedMethods, "SupportedMethods does not allow Describe and SessionDescription is null. See Tag with SupportedMessages.");
 
             //Check for automatic disconnect
-            if (AutomaticallyDisconnect) Disconnect(true);
+            if (AutomaticallyDisconnectAfterStartPlaying) Disconnect(true);
 
         Describe:
             //Send describe if we need a session description
@@ -2349,6 +2349,9 @@ namespace Media.Rtsp
             //Fire an event
             OnPlaying();
 
+            //Don't monitor the protocol or send keep alives
+            if (AutomaticallyDisconnectAfterStartPlaying) return;
+
             //Ensure the RtpClient is still active.
             //m_RtpClient.Activate();
 
@@ -2370,7 +2373,6 @@ namespace Media.Rtsp
 
             //Todo, should check for Udp, but hopefully people who use this know what they are doing...
             //m_RtpProtocol == ProtocolType.Udp
-            if (AutomaticallyDisconnect) DisconnectSocket();
         }
 
         //Params?
@@ -2674,7 +2676,7 @@ namespace Media.Rtsp
             if (m_RtspSocket != null)
             {
                 //If LeaveOpen was false and the socket is not shared.
-                if (false == LeaveOpen && false == SharesSocket)
+                if (force || false == LeaveOpen && false == SharesSocket)
                 {
                     #region The Great Debate on Closing
 
@@ -3080,7 +3082,7 @@ namespace Media.Rtsp
                     offset = m_Buffer.Offset;
 
                     length = buffer.Length;
-                    #endregion
+                    #endregion                    
 
                 Connect:
                     #region Connect
@@ -4944,6 +4946,14 @@ namespace Media.Rtsp
                         play.SetHeader(RtspHeaders.Range, rangeType);
                     }
 
+
+                    //If CloseConnection was specified and the message does not already contain a Connection header
+                    if (AutomaticallyDisconnectAfterStartPlaying && false == play.ContainsHeader(RtspHeaders.Connection))
+                    {
+                        //Set the Connection header to close.
+                        play.AppendOrSetHeader(RtspHeaders.Connection, "close");
+                    }
+
                     //Store any error
                     SocketError error;
 
@@ -5071,6 +5081,15 @@ namespace Media.Rtsp
                                 }
                             }
                         }
+                    }
+
+                    //The CloseConnection was specified and the response was received
+                    if (AutomaticallyDisconnectAfterStartPlaying && false == Common.IDisposedExtensions.IsNullOrDisposed(response))
+                    {
+                        //Should also check if response was seen that it has closed the servers connection...
+
+                        //Disconnect the socket.
+                        DisconnectSocket();
                     }
 
                     return response;

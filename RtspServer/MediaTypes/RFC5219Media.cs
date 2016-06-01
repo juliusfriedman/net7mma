@@ -331,7 +331,7 @@ namespace Media.Rtsp.Server.MediaTypes
             Height = height;
             Width += Width % 8;
             Height += Height % 8;
-            clockRate = 90;
+            ClockRate = 90;
         }
 
         #endregion
@@ -353,7 +353,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             //Add the control line
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
-            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 mpa-robust/" + clockRate));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 mpa-robust/" + ClockRate));
             m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, sourceId));
         }
 

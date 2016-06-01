@@ -97,6 +97,8 @@ namespace Media.Common
 
         #region Fields
 
+        //Todo, byte fields which are accessed by properties.
+
         /// <summary>
         /// Holds a value which indicates the state.
         /// </summary>
@@ -133,7 +135,7 @@ namespace Media.Common
             Dispose(ShouldDispose);
 
 #if DEBUG
-            System.Diagnostics.Debug.WriteLine(ToString() + "@Finalize Completed");
+            System.Diagnostics.Debug.WriteLine(DateTime.UtcNow.ToFileTimeUtc() + "@" + GetType().Name + "\r\n" + ToString() + "\r\n@Finalize Completed");
 #endif
         }
 
@@ -218,7 +220,8 @@ namespace Media.Common
 
         /// <summary>
         /// Allows derived implemenations a chance to destory manged or unmanged resources.
-        /// Calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/>
+        /// Calls <see cref="GC.SuppressFinalize"/>
+        /// Calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/>.
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public virtual void Dispose()

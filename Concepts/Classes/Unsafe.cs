@@ -605,6 +605,27 @@ namespace Media.Concepts.Classes
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe long UInt64ToInt64Bits(ulong* x)
+        {
+            return *((long*)(void*)x);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe long UInt64ToInt64Bits(ref ulong x)
+        {
+            return *((long*)(void*)x);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe long UInt64ToInt64Bits(ulong x)
+        {
+            return *((long*)(void*)&x);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe int UInt32ToInt32Bits(uint * x)
         {
             return *((int*)(void*)x);
@@ -619,6 +640,20 @@ namespace Media.Concepts.Classes
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe int UInt32ToInt32Bits(ref uint x)
+        {
+            return *((int*)(void*)x);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe short Int32ToInt16Bits(int * x) //Int15Bits
+        {
+            return *((short*)(void*)x);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe short Int32ToInt16Bits(int x) //Int15Bits
         {
             return *((short*)(void*)&x);
@@ -626,9 +661,9 @@ namespace Media.Concepts.Classes
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static unsafe ushort Int32ToUInt16Bits(int x)
+        public static unsafe short Int32ToInt16Bits(ref int x) //Int15Bits
         {
-            return *((ushort*)(void*)&x);
+            return *((short*)(void*)x);
         }
 
         #endregion
@@ -678,7 +713,7 @@ namespace Media.Concepts.Classes
         }
 
         #endregion
-    }
+    }  
 }
 
 #endif

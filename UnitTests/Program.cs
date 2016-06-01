@@ -53,6 +53,8 @@ namespace Media.UnitTests
         /// </summary>
         internal static string TestingFormat = "{0}:=>{1}";
 
+        //Todo, make state for when debugger is attached what to run.
+
         /// <summary>
         /// The UnitTests which will be run to test the implemenation logic
         /// </summary>
@@ -811,17 +813,17 @@ namespace Media.UnitTests
 
             //Delete previous output
 
-            System.IO.File.Delete(currentPath + @"\mybark.rtp");
+            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => System.IO.File.Delete(currentPath + @"\mybark.rtp"));
 
-            System.IO.File.Delete(currentPath + @"\BinaryDump.rtpdump");
+            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => System.IO.File.Delete(currentPath + @"\BinaryDump.rtpdump"));
 
-            System.IO.File.Delete(currentPath + @"\AsciiDump.rtpdump");
+            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => System.IO.File.Delete(currentPath + @"\AsciiDump.rtpdump"));
 
-            System.IO.File.Delete(currentPath + @"\HexDump.rtpdump");
+            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => System.IO.File.Delete(currentPath + @"\HexDump.rtpdump"));
 
-            System.IO.File.Delete(currentPath + @"\Header.rtpdump");
+            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => System.IO.File.Delete(currentPath + @"\Header.rtpdump"));
 
-            System.IO.File.Delete(currentPath + @"\ShortDump.rtpdump");
+            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => System.IO.File.Delete(currentPath + @"\ShortDump.rtpdump"));
 
             #region Test Reader with Unknown format on example file with expected format
 
@@ -1718,6 +1720,9 @@ namespace Media.UnitTests
                             {
                                 try
                                 {
+
+                                    //System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
+
                                     // Take the screenshot from the upper left corner to the right bottom corner.
                                     gfxScreenshot.CopyFromScreen(Screen.PrimaryScreen.Bounds.X,
                                                                 Screen.PrimaryScreen.Bounds.Y,
@@ -1726,11 +1731,23 @@ namespace Media.UnitTests
                                                                 Screen.PrimaryScreen.Bounds.Size,
                                                                 System.Drawing.CopyPixelOperation.SourceCopy);
 
-                                    //Convert to JPEG and put in packets
-                                    mirror.Packetize(bmpScreenshot);
+                                    //Could put this on another thread for increased speed.
 
-                                    //REST
-                                    System.Threading.Thread.Sleep(50);
+                                    //Perhaps sources should also support a BeingPacketize, EndPacketize paradigm.
+
+                                    //System.Threading.ThreadPool.QueueUserWorkItem((cb) =>
+                                    //{
+                                        //Convert to JPEG and put in packets
+                                        mirror.Packetize(bmpScreenshot);
+                                    //});
+
+                                    //HALT, REST
+                                    if (false == System.Threading.Thread.Yield())
+                                    {
+                                        //System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
+
+                                        System.Threading.Thread.Sleep(mirror.ClockRate);
+                                    }
                                 }
                                 catch (Exception ex)
                                 {
@@ -3096,34 +3113,35 @@ a=appversion:1.0");
             //Should be in Generic / CommonIntermediateLanguage tests
             Concepts.Classes.CommonIntermediateLanguage.UsageTest();
 
-            System.Console.WriteLine(Concepts.Classes.Generic<int>.SizeOf());
+            System.Console.WriteLine("SizeOf long: " + Concepts.Classes.Generic<long>.SizeOf());
 
-            System.Console.WriteLine(Concepts.Classes.Generic<byte>.SizeOf());
+            System.Console.WriteLine("SizeOf byte: " + Concepts.Classes.Generic<byte>.SizeOf());
 
-            System.Console.WriteLine(Concepts.Classes.Generic<int>.SizeOf());
+            System.Console.WriteLine("SizeOf int: " + Concepts.Classes.Generic<int>.SizeOf());
 
             ///
 
-            System.Console.WriteLine(Concepts.Classes.CommonIntermediateLanguage.SizeOf<int>());
+            System.Console.WriteLine("SizeOf int: " + Concepts.Classes.CommonIntermediateLanguage.SizeOf<int>());
 
-            System.Console.WriteLine(Concepts.Classes.CommonIntermediateLanguage.SizeOf<long>());
+            System.Console.WriteLine("SizeOf long: " + Concepts.Classes.CommonIntermediateLanguage.SizeOf<long>());
 
-            System.Console.WriteLine(Concepts.Classes.CommonIntermediateLanguage.SizeOf<System.Guid>());
+            System.Console.WriteLine("SizeOf Guid: " + Concepts.Classes.CommonIntermediateLanguage.SizeOf<System.Guid>());
 
             int test = 1;
 
-            System.Console.WriteLine(Concepts.Classes.Generic<int>.Read(ref test));
+            System.Console.WriteLine("ReinterpretCast bool: " + Concepts.Classes.Generic<int>.Read(ref test));
 
             bool dunno = Concepts.Classes.Unsafe.ReinterpretCast<int, bool>(test);
 
-            System.Console.WriteLine(dunno);
+            System.Console.WriteLine("ReinterpretCast bool: " + dunno);
 
             test = 0;
             
             //Don't work as expected..
             dunno = Concepts.Classes.Unsafe.ReinterpretCast<int, bool>(test);
 
-            System.Console.WriteLine(dunno);
+            System.Console.WriteLine("ReinterpretCast bool: " + dunno);
+
 
             //Could destabalize the runtime...
             //System.Console.WriteLine(Concepts.Classes.Generic<bool>._As(test)); 
@@ -3131,6 +3149,44 @@ a=appversion:1.0");
             //System.Console.WriteLine(Concepts.Classes.Generic<int>.UnalignedRead(ref test));
 
             //Concepts.Classes.Generic<int>.Write(ref test);
+
+            //---
+
+            System.Console.WriteLine("CpuId VendorString: " + Concepts.Classes.CpuId.GetVendorString());
+
+            System.Console.WriteLine("CpuId ProcessorBrandString: " + Concepts.Classes.CpuId.GetProcessorBrandString());
+
+            System.Console.WriteLine("CpuId MaximumFeatureLevel: " + Concepts.Classes.CpuId.GetMaximumFeatureLevel());
+
+            System.Console.WriteLine("CpuId MaximumExtendedFeatureLevel: " + Concepts.Classes.CpuId.GetMaximumExtendedFeatureLevel());
+
+            foreach (var feature in Concepts.Classes.CpuId.GetSupportedFeatures())
+            {
+                System.Console.WriteLine("Supports Features: " + feature);
+            }
+
+            //---
+
+            System.Console.WriteLine("Rtdsc GetTimestamp: " + Concepts.Classes.Rtdsc.GetTimestamp());
+
+            System.Console.WriteLine("Rtdsc GetTimestampUnsigned: " + Concepts.Classes.Rtdsc.GetTimestampUnsigned());
+
+            //using (var rtdsc = new Concepts.Classes.Rtdsc())
+            //{
+            //    System.Console.WriteLine(rtdsc.InvokeUnsigned());
+
+            //    System.Console.WriteLine(rtdsc.NativeInvoke());
+            //}
+
+            //---
+
+            //System.Console.WriteLine("Rdrand GetRandom: " + Concepts.Classes.Rdrand.GetRandom());
+
+            //System.Console.WriteLine("Rdrand GetRandomUnsigned: " + Concepts.Classes.Rdrand.GetRandomUnsigned());
+
+            //RdSeed
+
+            //---
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ExperimentalTests), TypeOfVoid);
         }

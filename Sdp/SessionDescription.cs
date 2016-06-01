@@ -57,8 +57,10 @@ namespace Media.Sdp
         public const string MimeType = "application/sdp";
 
         internal const char EqualsSign = (char)Common.ASCII.EqualsSign,
-            HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon,
-            Colon = (char)Common.ASCII.Colon, Space = (char)Common.ASCII.Space,
+            HyphenSign = (char)Common.ASCII.HyphenSign, 
+            SemiColon = (char)Common.ASCII.SemiColon,
+            Colon = (char)Common.ASCII.Colon, 
+            Space = (char)Common.ASCII.Space,
             ForwardSlash = (char)Common.ASCII.ForwardSlash,
             Asterisk = (char)Common.ASCII.Asterisk,
             LineFeed = (char)Common.ASCII.LineFeed,
@@ -70,6 +72,7 @@ namespace Media.Sdp
             WildcardString = new string(Asterisk, 1),
             LineFeedString = new string(LineFeed, 1), 
             CarriageReturnString = new string(NewLine, 1),
+            SemiColonString = new string(SemiColon, 1), 
             ColonString = new string(Colon, 1), 
             NewLineString = CarriageReturnString + LineFeedString;
 
@@ -77,7 +80,9 @@ namespace Media.Sdp
             ForwardSlashSplit = new char[] { ForwardSlash },
             SemiColonSplit = new char[] { SemiColon };
                              //CRSPlit, LFSplit...
-        internal static string[] ColonSplit = new string[] { Colon.ToString() }, CRLFSplit = new string[] { NewLineString };
+        internal static char[] ColonSplit = new char[] { Colon };
+        
+        internal static string[] CRLFSplit = new string[] { NewLineString };
 
         internal static string TrimLineValue(string value) { return string.IsNullOrWhiteSpace(value) ? value : value.Trim(); }
 
@@ -219,6 +224,8 @@ namespace Media.Sdp
         }
 
         //Typed Line would call ParseTime with each part
+
+        //fixed-len-time-unit = %x64 / %x68 / %x6d / %x73
 
         public static TimeSpan ParseTime(string time)
         {

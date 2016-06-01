@@ -538,6 +538,7 @@ namespace Media.Rtsp
                 {
                     builder.Append(SemiColon);
 
+                    //todo, put in static grammar
                     builder.Append("source=");
                     builder.Append(source);
                 }
@@ -546,12 +547,14 @@ namespace Media.Rtsp
                 {
                     builder.Append(SemiColon);
 
+                    //todo, put in static grammar
                     builder.Append("unicast");
                 }
                 else if (multicast.HasValue && multicast.Value == true)
                 {
                     builder.Append(SemiColon);
 
+                    //todo, put in static grammar
                     builder.Append("multicast");
                 }
 
@@ -570,6 +573,7 @@ namespace Media.Rtsp
                 {
                     builder.Append(SemiColon);
 
+                    //todo, put in static grammar
                     builder.Append("client_port=");
                     builder.Append(clientRtpPort.Value);
 
@@ -578,12 +582,15 @@ namespace Media.Rtsp
                         builder.Append(HyphenSign);
                         builder.Append(clientRtcpPort);
                     }
-                } //else if
+                }
+
+                //
 
                 if (serverRtpPort.HasValue)
                 {
                     builder.Append(SemiColon);
-
+                    
+                    //todo, put in static grammar
                     builder.Append("server_port=");
                     builder.Append(serverRtpPort.Value);
 
@@ -592,7 +599,7 @@ namespace Media.Rtsp
                         builder.Append(HyphenSign);
                         builder.Append(serverRtcpPort);
                     }
-                } //else if
+                }
 
                 //
 
@@ -600,6 +607,7 @@ namespace Media.Rtsp
                 {
                     builder.Append(SemiColon);
 
+                    //todo, put in static grammar
                     builder.Append("interleaved=");
 
                     if (dataChannel.HasValue)
@@ -614,11 +622,14 @@ namespace Media.Rtsp
                         builder.Append(controlChannel);
                     }
                 }
+                
+                //
 
                 if (ttl.HasValue)
                 {
                     builder.Append(SemiColon);
 
+                    //todo, put in static grammar
                     builder.Append("ttl=");
 
                     builder.Append(ttl);
@@ -638,7 +649,9 @@ namespace Media.Rtsp
                 {
                     builder.Append(SemiColon);
 
-                    builder.Append("ssrc=");
+                    builder.Append(Media.Sdp.AttributeFields.SynchronizationSourceIdentifier);
+
+                    builder.Append(Media.Sdp.SessionDescription.EqualsSign);
 
                     builder.Append(ssrc.Value.ToString("X"));
                 }
@@ -649,6 +662,7 @@ namespace Media.Rtsp
                 {
                     builder.Append(SemiColon);
 
+                    //todo, put in static grammar
                     builder.Append("mode=\"");
 
                     builder.Append(mode);
@@ -686,7 +700,6 @@ namespace Media.Rtsp
 
                 for (int i = 0, e = allParts.Length; i < e; ++i)
                 {
-
                     string part = allParts[i];
 
                     if (string.IsNullOrWhiteSpace(part)) continue;
@@ -697,6 +710,9 @@ namespace Media.Rtsp
 
                         if (subParts.Length < 2) continue;
 
+                        //todo put all tokens in static grammar
+
+                        //possibly optomize as to lower produces another string.
                         switch (subParts[0].Trim().ToLowerInvariant())
                         {
                             case "url":

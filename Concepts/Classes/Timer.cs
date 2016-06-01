@@ -42,7 +42,10 @@ namespace Media.Concepts.Classes
     /// Provides a Timer implementation which can be used across all platforms and does not rely on the existing Timer implementation.
     /// This is fast enough to count all cycles and measure micro time, almost nano time.
     /// </summary>
-    public class Timer : Common.BaseDisposable
+    /// <remarks>
+    /// <see ref="http://www.pinvoke.net/default.aspx/kernel32.getthreadtimes">Also</see>
+    /// </remarks>
+    public class Timer : Common.SuppressedFinalizerDisposable
     {
         internal readonly System.Threading.Thread m_Counter; // m_Consumer, m_Producer
 
@@ -58,9 +61,20 @@ namespace Media.Concepts.Classes
 
         public event TickEvent Tick;
 
-        public bool Enabled { get { return m_Enabled; } set { m_Enabled = value; } }
+        public bool Enabled
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Enabled; }
 
-        public System.TimeSpan Frequency { get { return m_Frequency; } }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set { m_Enabled = value; }
+        }
+
+        public System.TimeSpan Frequency
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Frequency; }
+        }
 
         internal ulong m_Bias;
 
@@ -76,6 +90,7 @@ namespace Media.Concepts.Classes
         
         readonly internal Media.Common.Collections.Generic.ConcurrentLinkedQueue<long> Producer;
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void Count()
         {
 
@@ -106,7 +121,6 @@ namespace Media.Concepts.Classes
                 finally { System.Threading.Thread.EndCriticalRegion(); }
             }))
             {
-                IsBackground = false,
                 Priority = System.Threading.ThreadPriority.AboveNormal
             };
 
@@ -170,6 +184,7 @@ namespace Media.Concepts.Classes
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Timer(System.TimeSpan frequency, bool shouldDispose = true) 
             :base(shouldDispose)
         {
@@ -179,7 +194,6 @@ namespace Media.Concepts.Classes
 
             m_Counter = new System.Threading.Thread(new System.Threading.ThreadStart(Count))
             {
-                IsBackground = false,
                 Priority = System.Threading.ThreadPriority.AboveNormal
             };
 
@@ -188,6 +202,7 @@ namespace Media.Concepts.Classes
             Tick = delegate { unchecked { m_Ops += 1 + m_Bias; } };
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Start()
         {
             if (m_Enabled) return;
@@ -207,11 +222,13 @@ namespace Media.Concepts.Classes
             System.Threading.Thread.CurrentThread.Priority = previous;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Stop()
         {
             m_Enabled = false;            
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void Change(System.TimeSpan interval, System.TimeSpan dueTime)
         {
             m_Enabled = false;
@@ -223,11 +240,11 @@ namespace Media.Concepts.Classes
 
         delegate void ElapsedEvent(object sender, object args);
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            if (IsDisposed) return;            
+            if (IsDisposed || false == disposing || false == ShouldDispose) return;
 
-            base.Dispose();
+            base.Dispose(disposing);
 
             Stop();
 
@@ -698,7 +715,7 @@ namespace Media.UnitTests
                 //Write the rough amount of time taken in nano seconds
                 System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalNanoseconds(t.Frequency) + "ns");
 
-                //Write the rough amount of time taken in  micro seconds
+                //Write the rough amount of time taken in  micro seconds, only when using the same bus frequency as was sampled in the clock
                 System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(t.Frequency) + "μs");
 
                 //How many more times the event was fired than needed

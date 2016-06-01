@@ -47,7 +47,7 @@ namespace Media.Sdp
     /// Low level class for dealing with Sdp lines with a format of 'X=V{st:sv0,sv1;svN}'    
     /// </summary>
     /// <remarks>Should use byte[]</remarks>
-    public class SessionDescriptionLine : IEnumerable<String>//, IUpdateable
+    public class SessionDescriptionLine : IEnumerable<String>, ICloneable//, IUpdateable
     {
         #region Statics
 
@@ -58,7 +58,7 @@ namespace Media.Sdp
             return SessionDescriptionLine.Parse(lines, ref index);
         }
 
-        public static SessionDescriptionLine Parse(string[] sdpLines, ref int index) //Count?
+        public static SessionDescriptionLine Parse(string[] sdpLines, ref int index) //Todo, count.
         {
             string sdpLine = sdpLines[index].Trim();
 
@@ -102,7 +102,7 @@ namespace Media.Sdp
             }
         }
 
-        public static bool TryParse(string[] sdpLines, ref int index, out SessionDescriptionLine result)
+        public static bool TryParse(string[] sdpLines, ref int index, out SessionDescriptionLine result) //Todo, count
         {
             try
             {
@@ -139,13 +139,15 @@ namespace Media.Sdp
         internal char m_Type;
 
         //array would allow easier parsing,
-        internal readonly protected string m_Seperator = SessionDescription.SemiColon.ToString();
+        internal readonly protected string m_Seperator = string.Empty;
 
         internal readonly protected List<string> m_Parts;
 
         internal readonly Encoding m_Encoding = SessionDescription.DefaultEncoding;
 
         //bool m_AllowWhiteSpace, m_AssumedPart.
+
+        //MaxParts
 
         //IUpdateable, IUsable
 
@@ -217,13 +219,26 @@ namespace Media.Sdp
 
         //EndUpdate
 
-        //Inline
+        //Todo, add string[] field for state, keep all parts contigious
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected virtual void ClearState(int part)
+        {
+            //part < 0 == all state, otherwise the state for the given part
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public SessionDescriptionLine Clone()
+        {
+            return new SessionDescriptionLine(this, false, m_Seperator);
+        }
 
         /// <summary>
         /// Gets the part with the specified index.
         /// </summary>
         /// <param name="index">The index</param>
         /// <returns>String.Empty if the result was out of range, otherwise the value at the specified index.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal string GetPart(int index)
         {
             return m_Parts.Count > index ? m_Parts[index] : string.Empty;
@@ -235,6 +250,7 @@ namespace Media.Sdp
         /// </summary>
         /// <param name="index">The index</param>
         /// <param name="value">The value</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void SetPart(int index, string value)
         {
             if (value == null) value = string.Empty;
@@ -242,6 +258,7 @@ namespace Media.Sdp
             if (m_Parts.Count > index) m_Parts[index] = value;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void EnsureParts(int count)
         {
             while (m_Parts.Count < count) m_Parts.Add(string.Empty);
@@ -249,18 +266,21 @@ namespace Media.Sdp
             //if(count > Count) Array.Resize(ref m_Parts, count);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void Insert(int index, string part)
         {
             //ArrayHelpers
             m_Parts.Insert(index, part);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void Add(string part)
         {
             //ArrayHelpers
             m_Parts.Add(part);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void RemoveAt(int index)
         {
             //ArrayHelpers
@@ -272,10 +292,13 @@ namespace Media.Sdp
         #region Constructor
 
         /// <summary>
-        /// Copies an existing instance
+        /// Copies a SessionDescriptionLine
         /// </summary>
-        /// <param name="other">The instance to copy.</param>
-        public SessionDescriptionLine(SessionDescriptionLine other)
+        /// <param name="other"></param>
+        /// <param name="reference">The instance to copy or reference, when true changes to this instance will be reflected in other also.</param>
+        /// <param name="seperator">The optional new seperator of the instance</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public SessionDescriptionLine(SessionDescriptionLine other, bool reference = true, string seperator = null)
         {
             if (other == null) throw new ArgumentNullException();
 
@@ -284,15 +307,17 @@ namespace Media.Sdp
             //Copies ValueType
             m_Type = other.m_Type;
 
-            m_Seperator = other.m_Seperator;
+            m_Seperator = seperator ?? other.m_Seperator;
 
-            m_Parts = other.m_Parts;
+            if(reference) m_Parts = other.m_Parts;
+            else m_Parts = new List<string>(other.m_Parts);
         }
 
         /// <summary>
         /// Constructs a new SessionDescriptionLine with the given type
         /// </summary>
         /// <param name="type">The type of the line</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public SessionDescriptionLine(char type, int partCount = 0)
         {
             m_Parts = new List<string>(partCount);
@@ -321,6 +346,7 @@ namespace Media.Sdp
         /// Parses and creates a SessionDescriptionLine from the given line
         /// </summary>
         /// <param name="line">The line from a SessionDescription</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public SessionDescriptionLine(string line, string seperator = null, int partCount = -1)
         {
             //Trim the line (Trim Line Value)?
@@ -344,6 +370,8 @@ namespace Media.Sdp
             //Split the parts (creates new string array)
             
             //a=<flag>|<name>|:<value> where value = {...,...,...;x;y;z}
+
+            //Could also add Space to the ToArray to ensure spaces are removed if all derived types agree spaces seperate their tokens.
 
             if (partCount > 0)
             {
@@ -400,11 +428,7 @@ namespace Media.Sdp
 
         //ToString should be implemented by GetEnumerator and String.Join(string.Empty, GetEnumerator)
 
-        /// <summary>
-        /// The string representation of the SessionDescriptionLine including the required new lines.
-        /// </summary>
-        /// <returns>The string representation of the SessionDescriptionLine including the required new lines.</returns>
-        public override string ToString()
+        internal protected string ToString(string seperator = null)
         {
             StringBuilder result;
 
@@ -416,9 +440,22 @@ namespace Media.Sdp
 
                 result.Append(SessionDescription.EqualsSign);
 
+                result.Append(string.Join(seperator ?? m_Seperator, m_Parts));
+
                 //Add all parts with seperator
                 //Could also loop parts and add seperator
-                result.Append(string.Join(m_Seperator, m_Parts));
+                //if (m_Parts.Count > 2) result.Append(string.Join(seperator ?? m_Seperator, m_Parts));
+                //else if(m_Parts.Count > 0)
+                //{
+                //    result.Append(m_Parts[0]);
+
+                //    if (m_Parts.Count > 1)
+                //    {
+                //        result.Append(seperator ?? m_Seperator);
+
+                //        result.Append(m_Parts[1]);
+                //    }
+                //}
 
                 result.Append(SessionDescription.NewLineString);
 
@@ -440,9 +477,16 @@ namespace Media.Sdp
             //return string.Join(string.Empty, GetEnumerator());
         }
 
-        #endregion
+        /// <summary>
+        /// The string representation of the SessionDescriptionLine including the required new lines.
+        /// </summary>
+        /// <returns>The string representation of the SessionDescriptionLine including the required new lines.</returns>
+        public override string ToString()
+        {
+            return ToString(m_Seperator);
+        }
 
-        //Could have ToString overload with (bool newLine) etc.
+        #endregion
 
         #region Prepare
 
@@ -487,7 +531,9 @@ namespace Media.Sdp
 
         #endregion
 
-        public IEnumerator<string> GetEnumerator()
+        //Should allow for an optional enumerator of seperators
+
+        public IEnumerator<string> GetEnumerator() //IEnumerable<string> seperators
         {
             //Widens char to string
             yield return m_Type.ToString();
@@ -499,6 +545,9 @@ namespace Media.Sdp
             foreach (string part in m_Parts)
             {
                 if (count++ > 0) yield return m_Seperator;
+
+                //>= 0
+                //else
 
                 yield return part;
             }
@@ -522,6 +571,11 @@ namespace Media.Sdp
         public static bool operator !=(SessionDescriptionLine a, SessionDescriptionLine b) { return false == (a == b); }
 
         #endregion
+
+        object ICloneable.Clone()
+        {
+            return Clone();
+        }
     }
 
     #endregion

@@ -47,10 +47,15 @@ namespace Media.Concepts.Classes
 
         internal long Units;
 
-        public bool Enabled { get { return Timer != null && Timer.Enabled; } }
+        public bool Enabled
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return Timer != null && Timer.Enabled; }
+        }
 
         public double ElapsedTicks
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 if (Timer.Frequency <= Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick) return Units;
@@ -60,6 +65,7 @@ namespace Media.Concepts.Classes
 
         public double ElapsedNanoseconds
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 if (Timer.Frequency <= Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick) return Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalNanoseconds(Timer.Frequency) / Units;
@@ -69,6 +75,7 @@ namespace Media.Concepts.Classes
 
         public double ElapsedMicroseconds
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 //return Units * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Timer.Frequency);
@@ -79,6 +86,7 @@ namespace Media.Concepts.Classes
 
         public double ElapsedMilliseconds
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 //return Units * Timer.Frequency.TotalMilliseconds;
@@ -89,6 +97,7 @@ namespace Media.Concepts.Classes
 
         public double ElapsedSeconds
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 //return Units * Timer.Frequency.TotalSeconds;
@@ -101,6 +110,7 @@ namespace Media.Concepts.Classes
 
         public System.TimeSpan Elapsed
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 switch (Units)
@@ -135,6 +145,7 @@ namespace Media.Concepts.Classes
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Start()
         {
             if (Enabled) return;
@@ -142,7 +153,7 @@ namespace Media.Concepts.Classes
             Units = 0;
 
             //Create a Timer that will elapse every OneTick //`OneMicrosecond`
-            Timer = new Timer(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
+            Timer = new Timer(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
 
             //Handle the event by incrementing count
             Timer.Tick += Count;
@@ -150,6 +161,7 @@ namespace Media.Concepts.Classes
             Timer.Start();
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Stop()
         {
             if (false == Enabled) return;
@@ -159,6 +171,7 @@ namespace Media.Concepts.Classes
             Timer.Dispose();           
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void Count(ref long count) { unchecked { ++Units; } }
     }
 }

@@ -451,10 +451,10 @@ namespace Media.RtpTools.RtpDump
         /// </summary>
         public override void Dispose()
         {
-            if (IsDisposed) return;
-            base.Dispose();
+            if (IsDisposed || false == ShouldDispose) return;
             m_FileIdentifier = null;
             Close();
+            base.Dispose(ShouldDispose);
         }
 
         /// <summary>
@@ -626,7 +626,7 @@ namespace Media.RtpTools.RtpDump
 
         #endregion
 
-        #region Constructor / Destructor
+        #region Constructor
 
         /// <summary>
         /// Creates a DumpWriter which writes rtpdump comptaible files.
@@ -654,7 +654,7 @@ namespace Media.RtpTools.RtpDump
 
             m_Start = startTime ?? DateTime.UtcNow;
 
-            if (!modify) // New file
+            if (false == modify) // New file
             {               
                 //Create the writer
                 m_Writer = new System.IO.BinaryWriter(stream, Encoding.ASCII, leaveOpen);
@@ -873,9 +873,9 @@ namespace Media.RtpTools.RtpDump
         /// </summary>
         public override void Dispose()
         {
-            if (IsDisposed) return;
-            base.Dispose();
+            if (IsDisposed || false == ShouldDispose) return;
             Close();
+            base.Dispose(ShouldDispose);
             m_FileHeader = null;
             m_Writer = null;
         }

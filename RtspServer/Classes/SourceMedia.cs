@@ -46,6 +46,7 @@ namespace Media.Rtsp.Server
     /// </summary>
     /// <remarks>
     /// Provides a way to augment all classes from one place.
+    /// API is not yet 100% finalized or complete, yet shouldn't matter as rtp itself is incomplete and still over 20 years later we use it on all of cameras along with rtsp which is complete but completely buggy.
     /// </remarks>
     public abstract class SourceMedia : Common.BaseDisposable, IMediaSource
     {
@@ -95,27 +96,53 @@ namespace Media.Rtsp.Server
         /// <summary>
         /// The amount of time the Stream has been Started
         /// </summary>
-        public TimeSpan Uptime { get { if (m_StartedTimeUtc.HasValue) return DateTime.UtcNow - m_StartedTimeUtc.Value; return TimeSpan.MinValue; } }
+        public TimeSpan Uptime
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { if (m_StartedTimeUtc.HasValue) return DateTime.UtcNow - m_StartedTimeUtc.Value; return TimeSpan.MinValue; }
+        }
 
         /// <summary>
         /// The unique Id of the RtspStream
         /// </summary>
-        public Guid Id { get { return m_Id; } internal protected set { m_Id = value; } }
+        public Guid Id
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Id; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            internal protected set { m_Id = value; }
+        }
 
         /// <summary>
         /// The name of this stream, also used as the location on the server
         /// </summary>
-        public virtual string Name { get { return m_Name; } set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Name", "Cannot be null or consist only of whitespace"); m_Aliases.Add(m_Name); m_Name = value; } }
+        public virtual string Name
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Name; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Name", "Cannot be null or consist only of whitespace"); m_Aliases.Add(m_Name); m_Name = value; }
+        }
 
         /// <summary>
         /// Any Aliases the stream is known by
         /// </summary>
-        public virtual IEnumerable<string> Aliases { get { return m_Aliases; } }
+        public virtual IEnumerable<string> Aliases
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Aliases; }
+        }
 
         /// <summary>
         /// The credential the source requires
         /// </summary>
-        public virtual NetworkCredential SourceCredential { get { return m_SourceCred; } set { m_SourceCred = value; } }
+        public virtual NetworkCredential SourceCredential
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_SourceCred; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set { m_SourceCred = value; }
+        }
 
         /// <summary>
         /// The type of Authentication the source requires for the SourceCredential
@@ -125,7 +152,11 @@ namespace Media.Rtsp.Server
         /// <summary>
         /// Gets a Uri which indicates to the RtspServer the name of this stream reguardless of alias
         /// </summary>
-        public virtual Uri ServerLocation { get { return new Uri(UriScheme + Id.ToString()); } }
+        public virtual Uri ServerLocation
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return new Uri(UriScheme + Id.ToString()); }
+        }
 
         /// <summary>
         /// State of the stream 
@@ -135,12 +166,22 @@ namespace Media.Rtsp.Server
         /// <summary>
         /// Is this RtspStream dependent on another
         /// </summary>
-        public bool IsParent { get { return !(this is ChildMedia); } }
+        public bool IsParent
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return false == (this is ChildMedia); }
+        }
 
         /// <summary>
         /// The Uri to the source media
         /// </summary>
-        public virtual Uri Source { get { return m_Source; } set { m_Source = value; } }
+        public virtual Uri Source
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Source; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set { m_Source = value; }
+        }
 
         /// <summary>
         /// Indicates the source is ready to have clients connect
@@ -174,7 +215,7 @@ namespace Media.Rtsp.Server
 
         #endregion
 
-        #region Events
+        #region Events        
 
         public delegate void FrameDecodedHandler(object sender, System.Drawing.Image decoded);
 
@@ -184,14 +225,29 @@ namespace Media.Rtsp.Server
 
         public event DataDecodedHandler DataDecoded;
 
-        internal void OnFrameDecoded(System.Drawing.Image decoded) { if (DecodeFrames && decoded != null && FrameDecoded != null) FrameDecoded(this, decoded); }
+        internal void OnFrameDecoded(System.Drawing.Image decoded)
+        {
+            if (DecodeFrames && decoded != null && FrameDecoded != null)
+            {
+                FrameDecoded(this, decoded);
+            }
+        }
 
-        internal void OnFrameDecoded(byte[] decoded) { if (DecodeFrames && decoded != null && DataDecoded != null) DataDecoded(this, decoded); }
+        internal void OnFrameDecoded(byte[] decoded)
+        {
+            if (DecodeFrames && decoded != null && DataDecoded != null)
+            {
+                DataDecoded(this, decoded);
+            }
+        }
 
         #endregion
 
         #region Methods
 
+        #region Virtual
+
+        //Sets the logger
         public virtual bool TrySetLogger(Media.Common.ILogging logger)
         {
             //Logger = logger...
@@ -217,6 +273,9 @@ namespace Media.Rtsp.Server
             m_StartedTimeUtc = null;
         }
 
+        #endregion
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void AddAlias(string name)
         {
             if (m_Aliases.Any(a=> string.Compare(a, name, true) == 0)) return;
@@ -224,22 +283,27 @@ namespace Media.Rtsp.Server
             m_Aliases.Add(name);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void RemoveAlias(string alias)
         {
             m_Aliases.Remove(alias);
         }
 
-        public void ClearAliases() { m_Aliases.Clear(); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public void ClearAliases()
+        {
+            m_Aliases.Clear();
+        }
 
         #endregion
 
         public override void Dispose()
         {
             if (IsDisposed) return;
+            
+            Stop();
 
             base.Dispose();
-
-            Stop();
         }
     }
 }

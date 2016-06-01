@@ -641,11 +641,24 @@ namespace Media.Common
 
         public static bool IsEven(int x) { return IsEven(ref x); }
 
-        //Uint
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsEven(ref uint x) { return Binary.Nihil == (x & Binary.Ūnus); }
 
-        //Long
+        [CLSCompliant(false)]
+        public static bool IsEven(uint x) { return IsEven(ref x); }
 
-        //ULong
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsEven(ref long x) { return Binary.Nihil == (x & Binary.Ūnus); }
+
+        public static bool IsEven(long x) { return IsEven(ref x); }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsEven(ref ulong x) { return Binary.Nihil == (x & Binary.Ūnus); }
+
+        public static bool IsEven(ulong x) { return IsEven(ref x); }
 
         #endregion
 
@@ -657,11 +670,27 @@ namespace Media.Common
 
         public static bool IsOdd(int x) { return IsOdd(ref x); }
 
-        //Uint
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsOdd(ref uint x) { return Binary.Ūnus == (x & Binary.Ūnus); }
 
-        //Long
+        [CLSCompliant(false)]
+        public static bool IsOdd(uint x) { return IsOdd(ref x); }
 
-        //ULong
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsOdd(ref long x) { return Binary.Ūnus == (x & Binary.Ūnus); }
+
+        [CLSCompliant(false)]
+        public static bool IsOdd(long x) { return IsOdd(ref x); }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsOdd(ref ulong x) { return Binary.Ūnus == (x & Binary.Ūnus); }
+
+        [CLSCompliant(false)]
+        public static bool IsOdd(ulong x) { return IsOdd(ref x); }
+
 
         #endregion
 

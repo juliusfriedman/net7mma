@@ -89,7 +89,7 @@ namespace Media.Rtsp.Server.MediaTypes
             Height = height;
             Width += Width % 8;
             Height += Height % 8;
-            clockRate = 90;
+            ClockRate = 90;
         }
 
         public override void Start()

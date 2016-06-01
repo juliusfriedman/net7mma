@@ -67,7 +67,11 @@ namespace Media.Rtcp
         /// <param name="payloadType">The optional <see cref="RtcpPacket.PayloadType"/> of all packets</param>
         /// <param name="ssrc">The optional <see cref="RtcpPacket.SynchronizationSourceIdentifier"/> of all packets</param>
         /// <returns>A pointer to each packet found</returns>
-        public static IEnumerable<RtcpPacket> GetPackets(byte[] array, int offset, int count, int version = 2, int? payloadType = null, int? ssrc = null, bool shouldDispose = true)
+        public static IEnumerable<RtcpPacket> GetPackets(byte[] array, int offset, int count, 
+            int version = 2, //Todo, should possibly be Enumerable
+            int? payloadType = null, //Todo, should be Enumerable
+            int? ssrc = null, //Todo, should be Enumerable
+            bool shouldDispose = true)
         {
 
             //array.GetLowerBound(0) for VB, UpperBound(0) is then the index of the last element
@@ -88,7 +92,7 @@ namespace Media.Rtcp
             while (remains >= RtcpHeader.Length)
             {
                 //Get the header of the packet to verify if it is wanted or not
-                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, remains)))
+                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, remains, shouldDispose), shouldDispose))
                 {
                     //Determine how long the header was
                     int headerSize = header.Size;
@@ -719,19 +723,24 @@ namespace Media.Rtcp
         /// <param name="padding">Indicates if the Padding should be copied.</param>
         /// <param name="selfReference">Indicates if the new instance should reference the data contained in this instance.</param>
         /// <returns>The RtcpPacket cloned as result of calling this function</returns>
-        public RtcpPacket Clone(bool reportBlocks, bool padding, bool selfReference)
+        public RtcpPacket Clone(bool reportBlocks, bool padding, bool selfReference, bool shouldDispose = true)
         {
             IEnumerable<byte> binarySequence = Media.Common.MemorySegment.EmptyBytes;
 
             try
             {
                 //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-                if (padding && reportBlocks) return selfReference ? new RtcpPacket(Header, Payload) { Transferred = Transferred } : new RtcpPacket(Prepare().ToArray(), 0, Length) { Transferred = Transferred };
+                if (padding && reportBlocks) return selfReference ? new RtcpPacket(Header, Payload, shouldDispose) { Transferred = Transferred } : new RtcpPacket(Prepare().ToArray(), 0, Length, shouldDispose) { Transferred = Transferred };
                 else if (reportBlocks) binarySequence = binarySequence.Concat(RtcpData); //Add the binary data to the packet except any padding
                 else if (padding) binarySequence = binarySequence.Concat(Payload.Array.Skip(Payload.Count - PaddingOctets)); //Add only the padding
 
                 //Return the result of creating the new instance with the given binary
-                return new RtcpPacket(new RtcpHeader(Header.Version, Header.PayloadType, padding ? Header.Padding : false, reportBlocks ? Header.BlockCount : 0, Header.SendersSynchronizationSourceIdentifier), binarySequence) { Transferred = Transferred };
+                return new RtcpPacket(new RtcpHeader(Header.Version, Header.PayloadType, padding ? Header.Padding : false, reportBlocks ? Header.BlockCount : 0, Header.SendersSynchronizationSourceIdentifier, shouldDispose),
+                    binarySequence, 
+                    shouldDispose)
+                {
+                    Transferred = Transferred
+                };
                 
             }
             catch { throw; } //If anything goes wrong deliver the exception

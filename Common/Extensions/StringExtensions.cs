@@ -157,5 +157,78 @@ namespace Media.Common.Extensions.String
             //The substring must be within the source after the length of the pattern.
             return startIndex >= 0 && startIndex <= sourceLength ? source.Substring(startIndex + patternLength) : string.Empty;
         }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static string[] SplitTrim(this string ex, string[] seperator, int count, System.StringSplitOptions options)
+        {
+            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+
+            string[] results = ex.Split(seperator, count, options);
+
+            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].Trim();
+
+            return results;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static string[] SplitTrim(this string ex, char[] seperator, int count, System.StringSplitOptions options)
+        {
+            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+
+            string[] results = ex.Split(seperator, count, options);
+
+            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].Trim();
+
+            return results;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static string[] SplitTrimEnd(this string ex, string[] seperator, int count, System.StringSplitOptions options)
+        {
+            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+
+            string[] results = ex.Split(seperator, count, options);
+
+            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].TrimEnd();
+
+            return results;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static string[] SplitTrimEnd(this string ex, char[] seperator, int count, System.StringSplitOptions options)
+        {
+            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+
+            string[] results = ex.Split(seperator, count, options);
+
+            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].TrimEnd();
+
+            return results;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static string[] SplitTrimStart(this string ex, string[] seperator, int count, System.StringSplitOptions options)
+        {
+            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+
+            string[] results = ex.Split(seperator, count, options);
+
+            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].TrimStart();
+
+            return results;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static string[] SplitTrimStart(this string ex, char[] seperator, int count, System.StringSplitOptions options)
+        {
+            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+
+            string[] results = ex.Split(seperator, count, options);
+
+            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].TrimStart();
+
+            return results;
+        }
+
     }
 }

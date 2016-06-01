@@ -57,7 +57,7 @@ namespace Media.Rtsp.Server.MediaTypes
             Height = height;
             Width += Width % 8;
             Height += Height % 8;
-            clockRate = 90;
+            ClockRate = 90;
         }
 
         #endregion
@@ -81,7 +81,7 @@ namespace Media.Rtsp.Server.MediaTypes
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             //Should be a field set in constructor.
             //sampling=RG+B; depth=5; colorimetry=SMPTE240M
-            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions.First().MediaFormat + " raw/" + clockRate));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions.First().MediaFormat + " raw/" + ClockRate));
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=fmtp:" + SessionDescription.MediaDescriptions.First().MediaFormat + " sampling=RG+B; width=" + Width + "; height=" + Height + ";")); //depth=5; colorimetry=SMPTE240M
 
             m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, sourceId));

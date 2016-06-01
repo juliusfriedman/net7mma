@@ -25,7 +25,7 @@
     <DefineConstants>TRACE;DEBUG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -91,6 +91,7 @@
     <Compile Include="Extensions\NetworkInterfaceExtensions.cs" />
     <Compile Include="Extensions\ObjectExtensions.cs" />
     <Compile Include="Extensions\OperatingSystemExtensions.cs" />
+    <Compile Include="Extensions\ProcessExtensions.cs" />
     <Compile Include="Extensions\RuntimeExtensions.cs" />
     <Compile Include="Extensions\SocketExtensions.cs" />
     <Compile Include="Extensions\StreamExtensions.cs" />

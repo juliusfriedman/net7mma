@@ -1009,12 +1009,14 @@ namespace Media.Rtp
                             case 0://(sequenceNumber == m_LowestSequenceNumber)
                                 {
                                     m_LowestSequenceNumber = Packets[0].SequenceNumber;
+
                                     break;
                                 }
                             case 1: break; //Index 1 when there was 3 packets cannot effect the lowest or highest but may have a marker if multiple marker packets are stored.
                             case 2://(sequenceNumber == m_HighestSequenceNumber)
                                 {
                                     m_HighestSequenceNumber = Packets[1].SequenceNumber;
+
                                     break;
                                 }
                         }
@@ -1213,9 +1215,12 @@ namespace Media.Rtp
         /// Depacketizes a single packet
         /// </summary>
         /// <param name="packet"></param>
-        public virtual void Depacketize(RtpPacket packet)
+        public virtual void Depacketize(RtpPacket packet) //bool if data was added.
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
+            //Not really helpful at this level?
+            if (false == AllowsMultiplePayloadTypes && packet.PayloadType != PayloadType) return;
 
             int index = (short)packet.SequenceNumber;
 
@@ -1382,7 +1387,7 @@ namespace Media.Rtp
             base.Dispose(ShouldDispose);
 
             //Remove packets and any memory
-            Clear();
+            //Clear();
 
             //Dispose the buffer.
             DisposeBuffer();

@@ -357,7 +357,7 @@ r=7d 1h 0 25h";
         ///Todo, seperate tests.
     }
 
-    public void TestRangeParsing()
+    public void TestTryParseRange()
     {
         //https://www.ietf.org/mail-archive/web/mmusic/current/msg01854.html
         //This attribute is defined in ABNF [14] as:
@@ -378,7 +378,7 @@ r=7d 1h 0 25h";
              smpte-25=10:07:00-10:07:33:05.01
          */
 
-        //should be Tuple<string, TimeSpan> with the expected values for start and end.
+        //Should also test ToString.
 
         Tuple<string, TimeSpan, TimeSpan>[] testVectors = new[] 
         { 
@@ -488,6 +488,135 @@ r=7d 1h 0 25h";
 
             if (end != test.Item3) throw new System.Exception("TryParseRange -> End");
         }
+    }
+
+    public void TestAttributeLine()
+    {
+        string testVector = "a=range : npt = 1 - 1\r\n";
+
+        Media.Sdp.SessionDescriptionLine line = new Media.Sdp.SessionDescriptionLine(testVector);
+
+        if (string.Compare(line.ToString(), testVector) != 0) throw new System.Exception("ToString");
+
+        line = Media.Sdp.SessionDescriptionLine.Parse(testVector);
+
+        if (string.Compare(line.ToString(), testVector) != 0) throw new System.Exception("ToString");
+
+        Media.Sdp.Lines.SessionAttributeLine attributeLine = new Media.Sdp.Lines.SessionAttributeLine(line);
+
+        if (string.Compare(attributeLine.ToString(), testVector) != 0) throw new System.Exception("ToString");
+
+        if (string.Compare(attributeLine.AttributeName, "range") != 0) throw new System.Exception("AttributeName");
+
+        if (string.Compare(attributeLine.AttributeValue, "npt = 1 - 1") != 0) throw new System.Exception("AttributeValue");
+
+        testVector = "a=fmtp:97 packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==\r\n";
+
+        line = new Media.Sdp.SessionDescriptionLine(testVector);
+
+        if (string.Compare(line.ToString(), testVector) != 0) throw new System.Exception("ToString");
+
+        line = Media.Sdp.SessionDescriptionLine.Parse(testVector);
+
+        if (string.Compare(line.ToString(), testVector) != 0) throw new System.Exception("ToString");
+
+        attributeLine = new Media.Sdp.Lines.SessionAttributeLine(line);
+
+        if (string.Compare(attributeLine.ToString(), testVector) != 0) throw new System.Exception("ToString");
+
+        if (string.Compare(attributeLine.AttributeName, "fmtp") != 0) throw new System.Exception("AttributeName");
+
+        if (string.Compare(attributeLine.AttributeValue, "97 packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==") != 0) throw new System.Exception("AttributeValue");
+
+        testVector = "a=control:trackId=1\r\n";
+
+        line = new Media.Sdp.SessionDescriptionLine(testVector);
+
+        if (string.Compare(line.ToString(), testVector) != 0) throw new System.Exception("ToString");
+
+        line = Media.Sdp.SessionDescriptionLine.Parse(testVector);
+
+        if (string.Compare(line.ToString(), testVector) != 0) throw new System.Exception("ToString");
+
+        attributeLine = new Media.Sdp.Lines.SessionAttributeLine(line);
+
+        if (string.Compare(attributeLine.ToString(), testVector) != 0) throw new System.Exception("ToString");
+
+        if (string.Compare(attributeLine.AttributeName, "control") != 0) throw new System.Exception("AttributeName");
+
+        if (string.Compare(attributeLine.AttributeValue, "trackId=1") != 0) throw new System.Exception("AttributeName");
+    }
+
+
+    public void TestFormatType()
+    {
+        Media.Sdp.Lines.FormatTypeLine fmtp = fmtp = new Media.Sdp.Lines.FormatTypeLine(" ");
+
+        if (string.Compare(fmtp.ToString(), "a=fmtp:  \r\n") != 0)
+            throw new System.Exception("ToString");
+
+        fmtp = new Media.Sdp.Lines.FormatTypeLine(string.Empty);
+
+        if (string.Compare(fmtp.ToString(), "a=fmtp: \r\n") != 0)
+            throw new System.Exception("ToString");
+
+        fmtp = new Media.Sdp.Lines.FormatTypeLine("-", "packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==");
+
+        if (string.Compare(fmtp.ToString(), "a=fmtp:- packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==\r\n") != 0)
+            throw new System.Exception("ToString");
+
+        if (fmtp.FormatSpecificParametersCount != 3) throw new System.Exception("FormatSpecificParametersCount");
+
+        if (fmtp.FormatSpecificParameterToken != "packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==") throw new System.Exception("FormatSpecificParameterToken");
+
+        if (false == fmtp.HasFormatSpecificParameters) throw new System.Exception("HasFormatSpecificParameters is false");
+
+        fmtp = new Media.Sdp.Lines.FormatTypeLine(97, "packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==");
+
+        if (string.Compare(fmtp.ToString(), "a=fmtp:97 packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==\r\n") != 0)
+            throw new System.Exception("ToString");
+
+        if (fmtp.FormatToken != "97") throw new System.Exception("FormatToken");
+
+        if (fmtp.FormatValue != 97) throw new System.Exception("FormatValue");
+
+        if (fmtp.FormatSpecificParametersCount != 3) throw new System.Exception("FormatSpecificParametersCount");
+
+        if (fmtp.FormatSpecificParameterToken != "packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==") throw new System.Exception("FormatSpecificParameterToken");
+
+        if (false == fmtp.HasFormatSpecificParameters) throw new System.Exception("HasFormatSpecificParameters is false");
+
+        //We will extract the sps and pps from that line.
+        byte[] sps = null, pps = null;
+
+        //If there was a fmtp line then iterate the parts contained.
+        foreach (string p in fmtp.FormatSpecificParameters)
+        {
+            //Determine where in the string the desired token in.
+            string token = Media.Common.Extensions.String.StringExtensions.Substring(p, "sprop-parameter-sets=");
+
+            //If present extract it.
+            if (false == string.IsNullOrWhiteSpace(token))
+            {
+                //Get the strings which corresponds to the data without the datum split by ','
+                string[] data = token.Split(',');
+
+                //If there is any data then assign it
+
+                if (data.Length > 0) sps = System.Convert.FromBase64String(data[0]);
+
+                if (data.Length > 1) pps = System.Convert.FromBase64String(data[1]);
+
+                //Done
+                break;
+            }
+        }
+
+        //Prepend the SPS if it was found
+        if (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(sps)) throw new System.Exception("SequenceParameterSet not found");
+
+        //Prepend the PPS if it was found.
+        if (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(pps)) throw new System.Exception("PicutureParameterSet not found");
     }
 
     ///// <summary>

@@ -6,6 +6,28 @@
     /// </summary>
     public sealed class RFC2361
     {
+
+#if UNSAFE
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit, Size = Common.Binary.BytesPerInteger)]
+        public struct FourCharacterCode
+        {
+            const int Size = Common.Binary.BytesPerInteger;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            Common.Word m_Word;
+
+            public FourCharacterCode(string value)
+            {
+                m_Word = new Common.Word(System.Text.Encoding.UTF8.GetBytes(value), 0, Size);
+            }
+
+            public unsafe override string ToString()
+            {
+                return m_Word.Bytes.ToString(System.Text.Encoding.UTF8);
+            }
+        }
+#endif
+
         const string TemplateGuidString = "00000000-0000-0010-8000-00AA00389B71";
 
         public static readonly System.Guid TemplateGuid = new System.Guid(TemplateGuidString);
