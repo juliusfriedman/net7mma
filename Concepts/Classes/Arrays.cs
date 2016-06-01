@@ -372,7 +372,11 @@ namespace Media.Concepts.Classes
         #region Fields
 
         //------------
-        
+
+        //not really needed
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public System.Runtime.InteropServices.GCHandle m_GCHandle;
+
         //4 or 8 bytes
         [System.Runtime.InteropServices.FieldOffset(0)]
         internal System.IntPtr m_IntPtr;

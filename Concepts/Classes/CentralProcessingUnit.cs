@@ -1,5 +1,4 @@
-﻿#region Copyright
-/*
+﻿/*
 This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
  Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
@@ -34,16 +33,63 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-#endregion
 
 namespace Media.Concepts.Classes
 {
-    /// <summary>
-    /// Provides a way of calling inline assembler via C#. 
-    /// This may be integrated into the Machine class.
-    /// </summary>
-    static unsafe class Asm
+    public static class CentralProcessingUnit
     {
-        //Todo, Windows, Mono and NetMF Support.
+        #region References
+
+        //https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/tree/arch/x86/include/asm/cpufeature.h?id=refs/tags/v4.1.3        
+
+        //http://wiki.osdev.org/X86-64
+
+        #endregion
+
+        //Todo, provide a was to associate from VendorString to this enum with parse.
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public enum Vendor : byte
+        {
+            Unknown,
+            Advanced,
+            Intel,
+            MicroDevices,
+            Motorola,    
+            //
+            //VIA
+            //Transmeta
+            //NSC
+            //KVM
+            //MSVM
+            //XenHVM
+            AMD = Advanced | MicroDevices,
+            AdvancedMicroDevices = AMD,
+            ReducedInstructionSet,
+            ARM = Advanced | ReducedInstructionSet,
+            AdvancedReducedInstructionSet = ARM
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static long GetTimestampCounter()
+        {
+            //Determine the best method and return the result
+            throw new System.NotImplementedException();
+        }
+
+        //Mode
+
+        //CurrentMode
+
+        //SetMode(Mode)
+
+        //EnterLongMode => SetMode(Long)
+
+        //ChangeByteOrder
+
+        //...
+
     }
 }

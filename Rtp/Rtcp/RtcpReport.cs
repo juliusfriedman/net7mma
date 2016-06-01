@@ -66,6 +66,10 @@ namespace Media.Rtcp
 
         //Todo, Should have copy data from array constructor also
 
+        //-1 for lengthInWords could mean to call SetLengthInWordsMinusOne.
+
+        //Todo, should rename lengthInWords to lengthInWordsMinusOne.
+
         /// <summary>
         /// Constructs a new instance of a RtcpReport.
         /// </summary>

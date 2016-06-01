@@ -428,6 +428,11 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int GetNativePointerSize()
         {
+            //Todo, determine with native uint/int or native float
+
+            //128 bits
+            //512 etc
+
             return IsX64() ? Common.Binary.BytesPerLong :  IsX86() ? Common.Binary.BytesPerInteger : System.IntPtr.Size;
         }
 

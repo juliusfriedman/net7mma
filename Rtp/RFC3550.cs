@@ -1666,6 +1666,10 @@ namespace Media
                     //indicate success
                     return true;
                 }
+                else
+                {
+                    m_Read = m_SourceCount;
+                }
 
                 //An enumerator remains valid as long as the collection remains unchanged. 
                 //If MoveNext passes the end of the collection, the enumerator is positioned after the last element in the collection and MoveNext returns false. When the enumerator is at this position, subsequent calls to MoveNext also return false until Reset is called.

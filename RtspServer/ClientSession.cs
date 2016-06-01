@@ -1289,6 +1289,16 @@ namespace Media.Rtsp//.Server
 
             //Process the data received
             m_Server.ProcessClientBuffer(this, length);
+
+            //Handle high usage when client disconnects.
+            if (length == 0 && m_RtpClient.IsActive)
+            {
+                //should also check activity on each context to properly determine :)
+
+                IsDisconnected = true;
+
+                m_RtpClient.Deactivate();
+            }
         }
 
         void m_RtpClient_RecievedRtp(object sender, RtpPacket packet, RtpClient.TransportContext tc = null)

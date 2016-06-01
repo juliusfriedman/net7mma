@@ -76,7 +76,7 @@ namespace Media.Rtcp
         /// <param name="extensionData"></param>
         internal GoodbyeReport(int version, int padding, int ssrc, ref int blockCount, ref int extensionSize, ref int bytesInSourceList, byte[] extensionData)
             : base(version, PayloadType, padding, ssrc, blockCount, 0, //caulcated via extensionSize 
-                2, //lengthInWords because the ssrc is present...
+                2, //lengthInWords because the ssrc is present... (todo, should be 1 because the value is inserted directly into the header, doesn't matter because SetLengthInWordsMinusOne is called).
                 (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(extensionData, out extensionSize) ? bytesInSourceList : 1 + extensionSize + bytesInSourceList)) //reasonForLeaving
         {
             #region Babble

@@ -50,7 +50,7 @@ namespace Media.Common
     /// Provides a reference to an array of byte with an optional offset.
     /// </summary>
     /// <remarks>This instance should never finalize</remarks>
-    public class MemorySegment : SuppressedFinalizerDisposable, IEnumerable<byte>
+    public class MemorySegment : SuppressedFinalizerDisposable, IEnumerable<byte>, ICloneable
     {
         #region Statics
 
@@ -368,6 +368,9 @@ namespace Media.Common
         #region Methods
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public MemorySegment Clone(bool force = false, bool shouldDispose = true) { return new MemorySegment(this, force, shouldDispose); }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Update(ref byte[] source, ref int offset, ref int length)
         {
             if (IsDisposed) return;
@@ -436,6 +439,9 @@ namespace Media.Common
         //>> , << etc
 
         #endregion
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        object ICloneable.Clone() { return Clone(); }
     }
 
     //Should probably enforce usability with additional derivations, Todo
@@ -604,6 +610,317 @@ namespace Media.Common
     }
 
     #region Musing
+
+#if UNSAFE
+
+    //Ugly and requires unsafe to build but is efficient
+
+    //Could probably just keep the array managed and not require unsafe and at if I changed up the layout a bit.
+
+    //Could or should also have native functionality
+
+    /// <summary>
+    /// Provides a structure which contains a byte array of 4 bytes
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit, Size = Common.Binary.BytesPerInteger)]
+    public unsafe struct FourBytes
+    {
+        [CLSCompliant(false)]
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public fixed byte ByteArray[Common.Binary.BytesPerInteger];
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public FourBytes(byte* b, int offset, int length, bool reverse = false)
+        {
+            if (b == null) throw new System.ArgumentNullException();
+
+            if(reverse) fixed (byte* B = ByteArray) for (int i = length - 1; i <= 0; --i) *((byte*)(B + i)) = *((byte*)(b + i + offset));
+            else fixed (byte* B = ByteArray) for (int i = 0; i < length; ++i) *((byte*)(B + i)) = *((byte*)(b + i + offset));
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe FourBytes(byte[] bytes, int offset, int length, bool reverse = false)
+            :this()
+        {
+            if (bytes == null) throw new System.ArgumentNullException();
+
+            fixed (byte* b = bytes)
+            {
+                if (reverse) fixed (byte* B = ByteArray) for (int i = length - 1; i <= 0; --i) *((byte*)(B + i)) = *((byte*)(b + i + offset));
+                else fixed (byte* B = ByteArray) for (int i = 0; i < length; ++i) *((byte*)(B + i)) = *((byte*)(b + i + offset));
+            }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override int GetHashCode()
+        {
+            fixed (byte* b = ByteArray)
+            {
+                return b->GetHashCode();
+            }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe override string ToString()
+        {
+            return ToString(null);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe string ToString(System.Text.Encoding encoding)
+        {
+            fixed (byte* b = ByteArray)
+            {
+                return (encoding ?? System.Text.Encoding.Default).GetString(b, Common.Binary.BytesPerInteger);
+            }
+        }
+
+    }
+
+    /// <summary>
+    /// Provides a structure which contains a byte array of 8 bytes
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit, Size = Common.Binary.BytesPerLong)]
+    public unsafe struct EightBytes
+    {
+        [CLSCompliant(false)]
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public fixed byte ByteArray[Common.Binary.BytesPerLong];
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe EightBytes(byte* b, int offset, int length, bool reverse = false)
+        {
+            if (b == null) throw new System.ArgumentNullException();
+
+            if (reverse) fixed (byte* B = ByteArray) for (int i = length - 1; i <= 0; --i) *((byte*)(B + i)) = *((byte*)(b + i + offset));
+            else fixed (byte* B = ByteArray) for (int i = 0; i < length; ++i) *((byte*)(B + i)) = *((byte*)(b + i + offset));
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override int GetHashCode()
+        {
+            fixed (byte* b = ByteArray)
+            {
+                return b->GetHashCode();
+            }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe override string ToString()
+        {
+            return ToString(null);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe string ToString(System.Text.Encoding encoding)
+        {
+            fixed (byte* b = ByteArray)
+            {
+                return (encoding ?? System.Text.Encoding.Default).GetString(b, Common.Binary.BytesPerLong);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Provides a structure of 4 bytes, 32 bits which allows access to the individual bytes as value types.
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit, Size = Common.Binary.BytesPerInteger)]
+    public struct Word
+    {
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public FourBytes Bytes;
+
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public int Value;
+
+        [CLSCompliant(false)]
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public uint UnsignedValue;
+
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public short High;
+
+        [System.Runtime.InteropServices.FieldOffset(2)]
+        public short Low;
+
+        [CLSCompliant(false)]
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public ushort UnsignedHigh;
+
+        [CLSCompliant(false)]
+        [System.Runtime.InteropServices.FieldOffset(2)]
+        public ushort UnsignedLow;
+
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public byte Zero;
+
+        [System.Runtime.InteropServices.FieldOffset(1)]
+        public byte One;
+
+        [System.Runtime.InteropServices.FieldOffset(2)]
+        public byte Two;
+
+        [System.Runtime.InteropServices.FieldOffset(3)]
+        public byte Three;
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Word(byte[] value, int offset, int length)
+            : this()
+        {
+            if (value == null) throw new System.ArgumentNullException();
+
+            Bytes = new FourBytes(value, offset, length);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Word(int value)
+            : this()
+        {
+            Value = value;
+        }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Word(uint value)
+            : this()
+        {
+            UnsignedValue = value;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Word(byte zero, byte one, byte two, byte three)
+            : this()
+        {
+            Zero = zero;
+
+            One = one;
+
+            Two = two;
+
+            Three = three;
+        }
+    }
+
+    /// <summary>
+    /// Provides a struvture of 8 bytes, 64 bits which allows access to the individual bytes as value types.
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit, Size = Common.Binary.BytesPerLong)]
+    public struct DoubleWord
+    {
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public long Value;
+
+        [CLSCompliant(false)]
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public ulong UnsignedValue;
+
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        internal EightBytes Bytes;
+
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        public Word One;
+
+        [System.Runtime.InteropServices.FieldOffset(4)]
+        public Word Two;
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public DoubleWord(uint value)
+            : this()
+        {
+            One = new Word(value);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public DoubleWord(int value)
+            : this()
+        {
+            One = new Word(value);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public DoubleWord(long value)
+            : this()
+        {
+            Value = value;
+        }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public DoubleWord(ulong value)
+            : this()
+        {
+            UnsignedValue = value;
+        }
+
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public DoubleWord(byte zero, byte one, byte two, byte three)
+            : this()
+        {
+            One = new Word(zero, one, two, three);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public DoubleWord(byte zero, byte one, byte two, byte three, byte four, byte five, byte six, byte seven)
+            : this(zero, one, two, three)
+        {
+            Two = new Word(four, five, six, seven);
+        }
+
+    }
+
+    //All to get something like this
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit, Size = Common.Binary.BytesPerInteger)]
+    public struct Framing
+    {
+        [System.Runtime.InteropServices.FieldOffset(0)]
+        Word Word;
+
+        [CLSCompliant(false)]
+        public Framing(byte channel, ushort length)
+        {
+            Word = new Word();
+
+            Word.One = channel;
+
+            Word.UnsignedLow = length;
+        }
+
+        public Framing(byte channel, short length)
+        {
+            Word = new Word();
+
+            Word.One = channel;
+
+            Word.Low = length;
+        }
+
+        public Framing(short length)
+        {
+            Word = new Word();
+
+            Word.High = length;
+        }
+
+        [CLSCompliant(false)]
+        public Framing(ushort length)
+        {
+            Word = new Word();
+
+            Word.UnsignedHigh = length;
+        }
+
+        //Wouldn't be able to send on a socket without interop.
+        //public byte[] ToBytes()
+        //{
+        //    return Word.Bytes.ByteArray;
+        //}
+    }
+
+#endif
 
     //The AlignedByteSegment could store it's values in the m_Offset, keep m_Array null and use a special m_Count or not
     //Coulbe be IntPtr for aligned access also.... but that would be super abusive and non intuitive...

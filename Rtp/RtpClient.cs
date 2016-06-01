@@ -5190,7 +5190,7 @@ namespace Media.Rtp
 
                                             //Check that the supposed  amount of contained words is greater than or equal to the frame length conveyed by the application layer framing
                                             //it must also be larger than the buffer
-                                            incompatible = rtcpLen > frameLength && rtcpLen > bufferLength ;//&& GetContextByPayloadType(common.RtpPayloadType) != null;
+                                            incompatible = rtcpLen > frameLength && rtcpLen > bufferLength ;//&& GetContextByPayloadType(common.RtpPayloadType) != null;                                            
 
                                             //if rtcpLen >= ushort.MaxValue the packet may possibly span multiple segments unless a large buffer is used.
 
@@ -5202,8 +5202,12 @@ namespace Media.Rtp
                                             {
                                                 //Determine if Rtcp is expected
                                                 //Perform another lookup and check compatibility
-                                                expectRtcp = (incompatible = (GetContextBySourceId(header.SendersSynchronizationSourceIdentifier)) == null) ? false : true;
+                                                expectRtcp = true == (incompatible = (GetContextBySourceId(header.SendersSynchronizationSourceIdentifier)) == null) ? false : true;
                                             }
+
+                                            //Todo, option AdvancedChecks
+                                            //Check that PayloadType has implementation to decoder it otherwise either not rtcp or out of band.
+                                            //if (expectRtcp) incompatible = true == (expectRtcp = RtcpPacket.GetImplementationForPayloadType(header.PayloadType) == null ? false : true);
                                         }
                                     }
 
@@ -5231,16 +5235,33 @@ namespace Media.Rtp
                                                 //The context was obtained by the frameChannel
                                                 //Use the SSRC to determine where it should be handled.
                                                 //If there is no context the packet is incompatible
-                                                expectRtp = (incompatible = (GetContextBySourceId(header.SynchronizationSourceIdentifier)) == null) ? false : true;
 
-                                                //(Could also check SequenceNumber to prevent duplicate packets from being processed.)
+                                                TransportContext tc;
 
-                                                ////Verify extensions (handled by ValidatePacket)
-                                                //if (header.Extension)
+                                                expectRtp = true == (incompatible = (tc = GetContextBySourceId(header.SynchronizationSourceIdentifier)) == null) ? false : true;
+
+                                                ////Todo, option AdvancedChecks
+                                                ////if still expected check the PayloadType
+                                                //if (expectRtp)
                                                 //{
+                                                //    //Check it
+                                                //    expectRtp = true == (incompatible = tc.MediaDescription.PayloadTypes.Contains(header.PayloadType) ? false : true);
 
+                                                //    //If still expected
+                                                //    if (expectRtp)
+                                                //    {
+                                                //        //(Could also check SequenceNumber to prevent duplicate packets from being processed.)
+
+                                                //        ////Verify extensions (handled by ValidatePacket)
+                                                //        //if (header.Extension)
+                                                //        //{
+
+                                                //        //}
+                                                //    }                                                    
                                                 //}
 
+                                                //No longer reference
+                                                tc = null;
                                             }
                                         }
                                         else incompatible = false;

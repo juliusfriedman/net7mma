@@ -171,7 +171,7 @@ namespace Media.Rtsp.Server.MediaTypes
             Height = height;
             Width += Width % 8;
             Height += Height % 8;
-            clockRate = 44100;
+            ClockRate = 44100;
         }
 
         #endregion
@@ -205,7 +205,7 @@ namespace Media.Rtsp.Server.MediaTypes
                ch_anchor=__7F_00-7F_04_01.02__;
               tsmode=async; linerate=320000; octpos=first (tsmode=buffer; linerate=320000; octpos=last; mperiod=44) (rtp_ptime=0; rtp_maxptime=0) (guardtime=44100)
              */
-            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions.First().MediaFormat + " rtp-midi/" + clockRate));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions.First().MediaFormat + " rtp-midi/" + ClockRate));
 
             m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, sourceId));
         }

@@ -203,6 +203,10 @@ namespace Media.Concepts.Classes
 
     public static class CommonIntermediateLanguage
     {
+        public static System.Type TypeOfVoid = typeof(void);
+
+        public static System.Type TypeOfIntPtr = typeof(System.IntPtr);
+
         static readonly System.Action<System.IntPtr, byte, int> InitblkDelegate;
 
         static readonly System.Action<System.IntPtr, System.IntPtr, int> CpyblkDelegate;
@@ -210,6 +214,53 @@ namespace Media.Concepts.Classes
         //static readonly System.Func<System.Type, int> SizeOfDelegate;
 
         //static readonly System.Func<int, int> SizeOfDelegate2;
+
+        //Should be IntPtr, int, IntPtr, int...
+
+        static readonly System.Func<System.IntPtr, int, byte[], int> CallIndirectDelegate1;
+
+        static readonly System.Action<System.IntPtr> CallIndirectPointer;
+
+        static readonly System.Func<System.IntPtr, System.IntPtr> CallIndirectPointerIntPtr;
+
+        static readonly System.Func<System.IntPtr, ulong> CallIndirectPointerULong;
+
+        static readonly System.Func<System.IntPtr, uint> CallIndirectPointerUInt;
+
+        //Todo, CallIndirect (byte*, byte[], void*)
+
+        //Todo, Just have IntPtr return so returns can be chained if required, results read at the pointer.
+        //Should probably then not clean stack with std call, could also use this call.
+
+        //[System.CLSCompliant(false)]
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //public static void CallIndirect(System.IntPtr ptr)
+        //{
+        //    if (ptr == null) return;
+
+        //    CallIndirectDelegate(ptr);
+        //}
+
+        [System.CLSCompliant(false)]
+        [System.Security.SuppressUnmanagedCodeSecurity]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static ulong CallIndirect(System.IntPtr ptr)
+        {
+            if (ptr == null) return ulong.MinValue;
+
+            return CallIndirectPointerULong(ptr);
+        }
+
+        //Can't define in c# with the same name, Should just define one that return IntPtr...
+
+        //[System.CLSCompliant(false)]
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //public static uint CallIndirect(System.IntPtr ptr)
+        //{
+        //    if (ptr == null) return uint.MinValue;
+
+        //    return CallIndirectDelegate3(ptr);
+        //}
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static CommonIntermediateLanguage()
@@ -219,7 +270,7 @@ namespace Media.Concepts.Classes
             #region Initblk
             System.Reflection.Emit.DynamicMethod initBlkMethod = new System.Reflection.Emit.DynamicMethod("Initblk",
                 System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                typeof(void), new[] { typeof(System.IntPtr), typeof(byte), typeof(int) }, typeof(CommonIntermediateLanguage), true);
+                TypeOfVoid, new[] { TypeOfIntPtr, typeof(byte), typeof(int) }, typeof(CommonIntermediateLanguage), true);
 
             System.Reflection.Emit.ILGenerator generator = initBlkMethod.GetILGenerator();
             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);//src
@@ -236,7 +287,7 @@ namespace Media.Concepts.Classes
 
             System.Reflection.Emit.DynamicMethod cpyBlkMethod = new System.Reflection.Emit.DynamicMethod("Cpyblk",
                 System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                typeof(void), new[] { typeof(System.IntPtr), typeof(System.IntPtr), typeof(int) }, typeof(CommonIntermediateLanguage), true);
+                TypeOfVoid, new[] { TypeOfIntPtr, TypeOfIntPtr, typeof(int) }, typeof(CommonIntermediateLanguage), true);
 
              generator = cpyBlkMethod.GetILGenerator();
 
@@ -247,6 +298,78 @@ namespace Media.Concepts.Classes
              generator.Emit(System.Reflection.Emit.OpCodes.Ret);             
 
              CpyblkDelegate = (System.Action<System.IntPtr, System.IntPtr, int>)cpyBlkMethod.CreateDelegate(typeof(System.Action<System.IntPtr, System.IntPtr, int>));
+
+            #endregion
+
+            #region Calli
+
+             System.Reflection.Emit.DynamicMethod calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_1",
+                 System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
+                 typeof(int), new[] { TypeOfIntPtr, typeof(int), typeof(byte[]) }, typeof(CommonIntermediateLanguage), true);
+
+             generator = calliMethod.GetILGenerator();
+             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_2);//byte[], should be IntPtr...
+             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_1);//int
+             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
+             generator.EmitCalli(System.Reflection.Emit.OpCodes.Calli, 
+                 System.Runtime.InteropServices.CallingConvention.StdCall,
+                 typeof(int), new System.Type[] { typeof(int), typeof(byte[]) });
+             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+             CallIndirectDelegate1 = (System.Func<System.IntPtr, int, byte[], int>)calliMethod.CreateDelegate(typeof(System.Func<System.IntPtr, int, byte[], int>));
+
+             //--- IntPtr
+
+             calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_IntPtr",
+                  System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
+                  TypeOfIntPtr, new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+
+             generator = calliMethod.GetILGenerator();
+             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr             
+             generator.EmitCalli(System.Reflection.Emit.OpCodes.Calli, System.Runtime.InteropServices.CallingConvention.StdCall, TypeOfIntPtr, System.Type.EmptyTypes);
+             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+             CallIndirectPointerIntPtr = (System.Func<System.IntPtr, System.IntPtr>)calliMethod.CreateDelegate(typeof(System.Func<System.IntPtr, System.IntPtr>));
+
+             //--- void
+
+             calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_Void",
+                  System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
+                  TypeOfVoid, new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+
+             generator = calliMethod.GetILGenerator();
+             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr
+             generator.EmitCalli(System.Reflection.Emit.OpCodes.Calli, System.Runtime.InteropServices.CallingConvention.StdCall, TypeOfVoid, System.Type.EmptyTypes);
+             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+             CallIndirectPointer = (System.Action<System.IntPtr>)calliMethod.CreateDelegate(typeof(System.Action<System.IntPtr>));
+
+            //--- ulong
+
+             calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_ulong",
+                  System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
+                  typeof(ulong), new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+
+             generator = calliMethod.GetILGenerator();
+             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr
+             generator.EmitCalli(System.Reflection.Emit.OpCodes.Calli, System.Runtime.InteropServices.CallingConvention.StdCall, typeof(ulong), System.Type.EmptyTypes);
+             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+             CallIndirectPointerULong = (System.Func<System.IntPtr, ulong>)calliMethod.CreateDelegate(typeof(System.Func<System.IntPtr, ulong>));
+
+            //--- uint
+
+             calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_uint",
+                   System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
+                   typeof(uint), new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+
+             generator = calliMethod.GetILGenerator();
+             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr
+             generator.Emit(System.Reflection.Emit.OpCodes.Conv_I); // Convert to native int, pushing native int on stack.
+             generator.EmitCalli(System.Reflection.Emit.OpCodes.Calli, System.Runtime.InteropServices.CallingConvention.StdCall, typeof(uint), System.Type.EmptyTypes);
+             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+             CallIndirectPointerUInt = (System.Func<System.IntPtr, uint>)calliMethod.CreateDelegate(typeof(System.Func<System.IntPtr, uint>));
 
             #endregion
 
@@ -381,101 +504,81 @@ namespace Media.Concepts.Classes
 
         //Maybe add a Pin construct to put the type on the stack to ensure it's not moved.
 
+        [System.Security.SuppressUnmanagedCodeSecurity]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void InitBlock(byte[] array, byte what, int length)
+        public static void InitBlock(ref byte[] array, byte what, int length)
         {
-            System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
-
-            try
-            {
-                gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(array, System.Runtime.InteropServices.GCHandleType.Pinned);
-
-                InitblkDelegate(gcHandle.AddrOfPinnedObject(), what, length);
-            }
-            finally
-            {
-                if(gcHandle.IsAllocated) gcHandle.Free();
-            }
-        }
-
-        public static void InitBlock(byte[] array, int offset, byte what, int length)
-        {
-            System.Runtime.InteropServices.GCHandle gcHandle = default(System.Runtime.InteropServices.GCHandle);
-
-            try
-            {
-                gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(array, System.Runtime.InteropServices.GCHandleType.Pinned);
-
-                InitblkDelegate(gcHandle.AddrOfPinnedObject() + offset, what, length);
-            }
-            finally
-            {
-                if (gcHandle.IsAllocated) gcHandle.Free();
-            }
+            InitblkDelegate(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array, 0), what, length);
         }
 
         [System.CLSCompliant(false)]
+        public static void InitBlock(byte[] array, byte what, int length)
+        {
+            InitBlock(ref array, what, length);
+        }
+
+        [System.Security.SuppressUnmanagedCodeSecurity]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static void InitBlock(ref byte[] array, int offset, byte what, int length)
+        {
+            InitblkDelegate(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(array, offset), what, length);
+        }
+        
+        [System.CLSCompliant(false)]
+        public static void InitBlock(byte[] array, int offset, byte what, int length)
+        {
+            InitBlock(ref array, offset, what, length);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Security.SuppressUnmanagedCodeSecurity]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe void InitBlock(byte* array, byte what, int len)
         {
             InitblkDelegate((System.IntPtr)array, what, len);
         }
 
+        [System.Security.SuppressUnmanagedCodeSecurity]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void CopyBlock(byte[] src, byte[] dst, int length)
         {
-            System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
-            System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
-
-            try
-            {
-                srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
-                dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
-                CpyblkDelegate(dstHandle.AddrOfPinnedObject(), srcHandle.AddrOfPinnedObject(), length);
-            }
-            finally
-            {
-                if (srcHandle.IsAllocated) srcHandle.Free();
-                if (dstHandle.IsAllocated) dstHandle.Free();
-            }
-        }
-
-        public static void CopyBlock(byte[] src, byte[] dst, int offset, int length)
-        {
-            System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
-            System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
-
-            try
-            {
-                srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
-                dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
-                CpyblkDelegate(dstHandle.AddrOfPinnedObject(), srcHandle.AddrOfPinnedObject() + offset, length);
-            }
-            finally
-            {
-                if (srcHandle.IsAllocated) srcHandle.Free();
-                if (dstHandle.IsAllocated) dstHandle.Free();
-            }
-        }
-
-        public static void CopyBlock(byte[] src, int srcOffset, byte[] dst, int dstOffset, int length)
-        {
-            System.Runtime.InteropServices.GCHandle srcHandle = default(System.Runtime.InteropServices.GCHandle);
-            System.Runtime.InteropServices.GCHandle dstHandle = default(System.Runtime.InteropServices.GCHandle);
-
-            try
-            {
-                srcHandle = System.Runtime.InteropServices.GCHandle.Alloc(src, System.Runtime.InteropServices.GCHandleType.Pinned);
-                dstHandle = System.Runtime.InteropServices.GCHandle.Alloc(dst, System.Runtime.InteropServices.GCHandleType.Pinned);
-                CpyblkDelegate(dstHandle.AddrOfPinnedObject() + srcOffset, srcHandle.AddrOfPinnedObject() + dstOffset, length);
-            }
-            finally
-            {
-                if (srcHandle.IsAllocated) srcHandle.Free();
-                if (dstHandle.IsAllocated) dstHandle.Free();
-            }
+            CpyblkDelegate(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(src, 0), System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(dst, 0), length);
         }
 
         [System.CLSCompliant(false)]
+        public static void CopyBlock(ref byte[] src, ref byte[] dst, int length)
+        {
+            CopyBlock(ref src, ref dst, length);
+        }
+
+        [System.Security.SuppressUnmanagedCodeSecurity]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static void CopyBlock(ref byte[] src, ref byte[] dst, int offset, int length)
+        {
+            CpyblkDelegate(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(src, offset), System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(dst, offset), length);
+        }
+
+        [System.CLSCompliant(false)]
+        public static void CopyBlock(byte[] src, byte[] dst, int offset, int length)
+        {
+            CopyBlock(ref src, ref dst, offset, length);
+        }
+
+        [System.Security.SuppressUnmanagedCodeSecurity]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static void CopyBlock(ref byte[] src, int srcOffset, ref byte[] dst, int dstOffset, int length)
+        {
+            CpyblkDelegate(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(src, srcOffset), System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(dst, dstOffset), length);
+        }
+
+        [System.CLSCompliant(false)]
+        public static void CopyBlock(byte[] src, int srcOffset, byte[] dst, int dstOffset, int length)
+        {
+            CopyBlock(ref src, srcOffset, ref dst, dstOffset, length);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Security.SuppressUnmanagedCodeSecurity]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe void CopyBlock(byte* src, byte* dst, int len) //CopyBlock
         {

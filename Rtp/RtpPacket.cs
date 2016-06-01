@@ -375,7 +375,7 @@ namespace Media.Rtp
             Array.Copy(buffer, offset, m_OwnedOctets, 0, count);
 
             //Read the header
-            Header = new RtpHeader(new Common.MemorySegment(m_OwnedOctets, offset, count));
+            Header = new RtpHeader(new Common.MemorySegment(m_OwnedOctets, 0));
 
             m_OwnsHeader = true;
 
@@ -572,10 +572,10 @@ namespace Media.Rtp
         /// <param name="includePadding">Indicates if the Padding should be copied.</param>
         /// <param name="selfReference">Indicates if the new instance should reference the data contained in this instance.</param>
         /// <returns>The RtpPacket cloned as result of calling this function</returns>
-        public RtpPacket Clone(bool includeSourceList, bool includeExtension, bool includePadding, bool includeCoeffecients, bool selfReference)
+        public RtpPacket Clone(bool includeSourceList, bool includeExtension, bool includePadding, bool includeCoeffecients, bool selfReference, bool shouldDispose = true)
         {
             //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-            if (includeSourceList && includeExtension && includePadding && includeCoeffecients) return selfReference ? new RtpPacket(Header, Payload) { Transferred = Transferred } : new RtpPacket(Prepare().ToArray(), 0) { Transferred = Transferred };
+            if (includeSourceList && includeExtension && includePadding && includeCoeffecients) return selfReference ? new RtpPacket(Header, Payload, shouldDispose) { Transferred = Transferred } : new RtpPacket(Prepare().ToArray(), 0, Length, shouldDispose) { Transferred = Transferred };
 
             IEnumerable<byte> binarySequence = Media.Common.MemorySegment.EmptyBytes;
 
@@ -584,11 +584,8 @@ namespace Media.Rtp
             //If the source list is included then include it.
             if (includeSourceList && hasSourceList)
             {
-                var sourceList = GetSourceList();
-                if (sourceList != null)
-                {
-                    binarySequence = GetSourceList().GetBinaryEnumerable();
-                }
+                RFC3550.SourceList sourceList = GetSourceList();
+                if (sourceList != null) binarySequence = sourceList.GetBinaryEnumerable();
                 else binarySequence = Media.Common.MemorySegment.EmptyBytes;
             }
 
@@ -623,7 +620,7 @@ namespace Media.Rtp
                 SynchronizationSourceIdentifier = Header.SynchronizationSourceIdentifier,
                 PayloadType = Header.PayloadType,
                 ContributingSourceCount = includeSourceList ? Header.ContributingSourceCount : 0
-            }.Concat(binarySequence).ToArray(), 0) { Transferred = Transferred };
+            }.Concat(binarySequence).ToArray(), 0, shouldDispose) { Transferred = Transferred };
         }
 
         /// <summary>
