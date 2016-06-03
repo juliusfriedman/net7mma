@@ -53,7 +53,7 @@ namespace Media.Common.Collections.Generic
     /// The implementation is fast (does not does not take more than 5 - 10 operations for any call) and can enqueue and dequeue from multiple threads with minimal; only minimal cache and branch misprediction. 
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class ConcurrentLinkedQueue<T>
+    public class ConcurrentLinkedQueue<T> : IEnumerable<T>
     {
         #region Nested Types
 
@@ -293,12 +293,15 @@ namespace Media.Common.Collections.Generic
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        /// <remarks>Space Complexity S(2), Time Complexity O(2-3)</remarks>
+        /// <remarks>Space Complexity S(2), Time Complexity O(3)</remarks>
         public bool TryEnqueue(ref T t)
         {
+            //Compare, Store, Store, Allocate
+
             if (Object.ReferenceEquals(First, Node.Null)) Last = First = new Node(ref t);
             else Last = Last.Next = new Node(ref t);
 
+            //Increment (1) @ Count
             System.Threading.Interlocked.Increment(ref m_Count);
 
             return true;
@@ -338,6 +341,31 @@ namespace Media.Common.Collections.Generic
 
         #endregion
 
+        /// <summary>
+        /// Enumerates the elements.
+        /// </summary>
+        /// <returns></returns>
+        IEnumerator<T> GetEnumerator()
+        {
+            Node Current = First ?? Last;
+
+            while (false == Object.ReferenceEquals(Current, Node.Null))
+            {
+                yield return Current.Value;
+
+                if (Object.ReferenceEquals(System.Threading.Interlocked.Exchange(ref Current, Current.Next), Node.Null)) yield break;
+            }
+        }
+
+        IEnumerator<T> IEnumerable<T>.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 }
 
@@ -518,6 +546,13 @@ namespace Media.UnitTests
                             System.Console.WriteLine("Enumerate Last: " + LinkedQueue.Last.Value);
 
                             System.Console.WriteLine("Enumerate First: " + LinkedQueue.First.Value);
+
+                            //Increases test time by 10 and keeps the main thread busy
+                            ////foreach (long value in LinkedQueue)
+                            ////{
+                            ////    System.Console.WriteLine("Enumerate Value: " + value);
+                            ////}
+
                         }
                     }
                     catch { }
