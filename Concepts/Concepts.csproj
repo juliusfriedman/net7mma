@@ -67,6 +67,7 @@
     <Compile Include="Classes\Bus.cs" />
     <Compile Include="Classes\CentralProcessingUnit.cs" />
     <Compile Include="Classes\Clock.cs" />
+    <Compile Include="Classes\Hardware.cs" />
     <Compile Include="Classes\Intrinsics.cs" />
     <Compile Include="Collections\LinkedCollections.cs" />
     <Compile Include="Classes\CommonIntermediateLanguage.cs" />

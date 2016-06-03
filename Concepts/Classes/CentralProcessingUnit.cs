@@ -54,23 +54,66 @@ namespace Media.Concepts.Classes
         public enum Vendor : byte
         {
             Unknown,
+            Centaur,
             Advanced,
             Intel,
             MicroDevices,
             Motorola,    
-            //
-            //VIA
-            //Transmeta
-            //NSC
-            //KVM
-            //MSVM
-            //XenHVM
+            VIA,
+            Cyrix = VIA,
+            Transmeta,
+            NationalSemiConductor,
+            NSC = NationalSemiConductor,
+            KVM,
+            MSVM,
+            XenHVM,
+            NexGen,
+            Rise,
+            SiS,
+            UMC,
+            Vortex,
             AMD = Advanced | MicroDevices,
             AdvancedMicroDevices = AMD,
             ReducedInstructionSet,
             ARM = Advanced | ReducedInstructionSet,
-            AdvancedReducedInstructionSet = ARM
+            AdvancedReducedInstructionSet = ARM,
+            Microsoft,
+            Parallels,
+            VMware,
+            Xen
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public static Vendor GetVendor(string vendorString)
+        {
+            switch (Concepts.Hardware.Intrinsics.CpuId.GetVendorString())
+            {
+                //case null:
+                //case "":
+                default: return Vendor.Unknown;
+                // Actual Hardware
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.GenuineIntel: return Vendor.Intel;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.AMDisbetter_: //early engineering samples of AMD K5 processor
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.AuthenticAMD: return Vendor.AMD;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.CentaurHauls: return Vendor.Centaur;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.CyrixInstead: return Vendor.Cyrix;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.TransmetaCPU: //Transmets
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.GenuineTMx86: return Vendor.Transmeta;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.Geode_by_NSC: return Vendor.NationalSemiConductor;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.NexGen: return Vendor.NexGen;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.Vortext86_SoC: return Vendor.Vortex;
+                //Virtual Machines
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.KVMKVMKVM: return Vendor.KVM;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.Microsoft_Hv: return Vendor.Microsoft;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings._lrpepyh_vr: return Vendor.Parallels;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.VMwareVMware: return Vendor.VMware;
+                case Concepts.Hardware.Intrinsics.CpuId.VendorStrings.XenVMMXenVMM: return Vendor.Xen;
+            }
+        }
+
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long GetTimestampCounter()

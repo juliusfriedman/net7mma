@@ -221,6 +221,19 @@ namespace Media.Sdp
 
         #region Methods
 
+        //public Sdp.Lines.FormatTypeLine CreateFormatTypeLine(int payloadType, string parameters)
+        //{
+        //    return new Lines.FormatTypeLine(payloadType, parameters);
+        //}
+
+        //public IEnumerable<Sdp.Lines.FormatTypeLine> CreateFormatTypeLines(string parameters)
+        //{
+        //    foreach (int payloadType in PayloadTypes)
+        //    {
+        //        yield return new Lines.FormatTypeLine(payloadType, parameters);
+        //    }
+        //}
+
         public void Add(SessionDescriptionLine line)
         {
             if (line == null) return;
