@@ -889,10 +889,10 @@ namespace Media.Rtcp
         {            
 
             //Get all loaded assemblies in the current application domain
-            foreach (var assembly in (domain ?? AppDomain.CurrentDomain).GetAssemblies())
+            foreach (System.Reflection.Assembly assembly in (domain ?? AppDomain.CurrentDomain).GetAssemblies())
             {
                 //Iterate each derived type which is a SubClassOf RtcpPacket.
-                foreach (var derivedType in assembly.GetTypes().Where(t => t.IsSubclassOf(RtcpPacketType)))
+                foreach (System.Type derivedType in assembly.GetTypes().Where(t => t.IsSubclassOf(RtcpPacketType)))
                 {
                     //If the derivedType is an abstraction then add to the AbstractionBag and continue
                     if(derivedType.IsAbstract)
@@ -902,8 +902,11 @@ namespace Media.Rtcp
                         continue;
                     }
 
+                    //Get the TypeInfo
+                    System.Reflection.TypeInfo typeInfo = System.Reflection.IntrospectionExtensions.GetTypeInfo(derivedType);
+
                     //Obtain the field mapped to the derviedType which corresponds to the PayloadTypeField defined by the RtcpPacket implementation.
-                    System.Reflection.FieldInfo payloadTypeField = derivedType.GetField(PayloadTypeField);
+                    System.Reflection.FieldInfo payloadTypeField = typeInfo.GetField(PayloadTypeField);
 
                     //If the field exists then try to map it, the field should be instance and have the attributes Static and Literal
                     if (payloadTypeField != null)

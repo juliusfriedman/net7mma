@@ -105,6 +105,7 @@ namespace Media.Common
 
         #region Methods
 
+        //Write without copy
         public void AddMemory(Common.MemorySegment segment)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(segment)) segment = Common.MemorySegment.Empty;
@@ -114,6 +115,7 @@ namespace Media.Common
             m_Count += segment.m_Length;
         }
 
+        //Write with copy
         public void AddPersistedMemory(Common.MemorySegment segment)
         {
             //Allow dead space...
@@ -126,10 +128,10 @@ namespace Media.Common
 
             //Could avoid LOH allocation by splitting blocks..
             //Would need additional state, seems like a job for a dervied class, BlockSegmentStream...
-            Common.MemorySegment copy = new MemorySegment(segment.Count, false); //Don't dispose unless forced
+            Common.MemorySegment copy = new MemorySegment(segment.m_Length, false); //Don't dispose unless forced
 
             //Copy the data
-            System.Array.Copy(segment.Array, segment.Offset, copy.Array, 0, segment.Count);
+            System.Array.Copy(segment.m_Array, segment.m_Offset, copy.m_Array, 0, segment.m_Length);
 
             //Add it.
             AddMemory(copy);
@@ -188,7 +190,7 @@ namespace Media.Common
 
             Common.MemorySegment copy = new MemorySegment(toInsert.Count);
 
-            System.Array.Copy(toInsert.Array, toInsert.Offset, copy.Array, 0, toInsert.Count);
+            System.Array.Copy(toInsert.m_Array, toInsert.m_Offset, copy.m_Array, 0, toInsert.m_Length);
 
             InsertMemory(ref index, copy);
         }
@@ -279,7 +281,7 @@ namespace Media.Common
             {
                 min = Binary.Min(count, ms.Count);
 
-                System.Array.Copy(ms.Array, ms.Offset, destination, offset, min);
+                System.Array.Copy(ms.Array, ms.m_Offset, destination, offset, min);
 
                 offset += min;
 
@@ -336,16 +338,18 @@ namespace Media.Common
                 toCopy = (int)(WorkingSegment.m_Length - m_Cursor);
 
                 //Call Write
-                destination.Write(WorkingSegment.Array, (int)(WorkingSegment.Offset + m_Cursor), toCopy);
+                destination.Write(WorkingSegment.Array, (int)(WorkingSegment.m_Offset + m_Cursor), toCopy);
 
                 //Move the adjusted amount and if not at the end continue 
                 if ((m_Position += toCopy) < m_Count)
                 {
-                    //Move to the next segment
-                    WorkingSegment = Segments[++m_Index];
+                    do //See notes in ReadByte
+                    {
+                        WorkingSegment = Segments[++m_Index];
 
-                    //Set the cursor to 0
-                    m_Cursor = 0;
+                        m_Cursor = 0;
+
+                    } while (m_Cursor >= WorkingSegment.m_Length);
 
                     continue;
                 }
@@ -510,11 +514,11 @@ namespace Media.Common
             }
 
 #if UNSAFE
-            byte result = *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.Array, (int)(WorkingSegment.Offset + m_Cursor++));
+            byte result = *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++));
 #elif NATIVE
-            byte result = System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.Array, (int)(WorkingSegment.Offset + m_Cursor++)));
+            byte result = System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++)));
 #else
-            byte result = WorkingSegment.Array[WorkingSegment.Offset + m_Cursor++];
+            byte result = WorkingSegment.m_Array[WorkingSegment.m_Offset + m_Cursor++];
 #endif
             ++m_Position;
 
@@ -562,12 +566,12 @@ namespace Media.Common
                 m_Cursor = 0;
             }
 #if UNSAFE
-            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.Array, (int)(WorkingSegment.Offset + m_Cursor++)) = value;
+            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++)) = value;
 #elif NATIVE
-            System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.Array, (int)(WorkingSegment.Offset + m_Cursor++)), value);
+            System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++)), value);
 #else
             //Write the value
-            WorkingSegment.Array[WorkingSegment.Offset + m_Cursor++] = value;
+            WorkingSegment.m_Array[WorkingSegment.m_Offset + m_Cursor++] = value;
 #endif
 
             //Move the position
@@ -604,7 +608,7 @@ namespace Media.Common
                 toCopy = Common.Binary.Min(ref count, ref toCopy);
 
                 //Copy the data from the working segment from the offset + cursor to the amount of bytes to copy.
-                Array.Copy(WorkingSegment.Array, WorkingSegment.Offset + m_Cursor, buffer, offset, toCopy);
+                Array.Copy(WorkingSegment.m_Array, WorkingSegment.m_Offset + m_Cursor, buffer, offset, toCopy);
 
                 //Increment for total
                 total += toCopy;
@@ -656,7 +660,7 @@ namespace Media.Common
                 len = Common.Binary.Min(WorkingSegment.m_Length - m_Cursor, count);
 
                 //Copy len from the buffer at the offset to the working segment's array at the offset + the cursor
-                Array.Copy(buffer, offset, WorkingSegment.Array, WorkingSegment.Offset + m_Cursor, len);
+                Array.Copy(buffer, offset, WorkingSegment.m_Array, WorkingSegment.m_Offset + m_Cursor, len);
                 
                 //Move the cursor
                 m_Cursor += len;
@@ -931,7 +935,7 @@ namespace Media.Common
             using (Common.MemorySegment previouslyWorkingSegment = WorkingSegment)
             {
                 //make the new segment
-                WorkingSegment = new MemorySegment(previouslyWorkingSegment.Array, (int)previouslyWorkingSegment.Offset, (int)m_Cursor, previouslyWorkingSegment.ShouldDispose);
+                WorkingSegment = new MemorySegment(previouslyWorkingSegment.m_Array, (int)previouslyWorkingSegment.Offset, (int)m_Cursor, previouslyWorkingSegment.ShouldDispose);
 
                 ////Set the position to count, Decrease for the change in bytes
                 m_Position = m_Count -= WorkingSegment.m_Length - previouslyWorkingSegment.m_Length;

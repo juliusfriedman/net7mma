@@ -59,6 +59,7 @@
     <Compile Include="..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
+    <Compile Include="Classes\Allocators.cs" />
     <Compile Include="Classes\ArithmeticLogicUnit.cs" />
     <Compile Include="Classes\Arrays.cs" />
     <Compile Include="Classes\BindableBase.cs" />

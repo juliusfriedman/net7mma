@@ -70,7 +70,7 @@ namespace Media.Sdp
         }
 
         /// <summary>
-        /// The MediaPort of the MediaDescription
+        /// The MediaPort of the MediaDescription as parsed from the port token.
         /// </summary>
         public int MediaPort
         {
