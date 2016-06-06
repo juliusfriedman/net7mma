@@ -905,22 +905,33 @@ namespace Media.Rtcp
                     //Get the TypeInfo
                     System.Reflection.TypeInfo typeInfo = System.Reflection.IntrospectionExtensions.GetTypeInfo(derivedType);
 
-                    //Obtain the field mapped to the derviedType which corresponds to the PayloadTypeField defined by the RtcpPacket implementation.
-                    System.Reflection.FieldInfo payloadTypeField = typeInfo.GetField(PayloadTypeField);
-
-                    //If the field exists then try to map it, the field should be instance and have the attributes Static and Literal
-                    if (payloadTypeField != null)
+                    //Enumerate the fields of the typeInfo
+                    foreach (System.Reflection.FieldInfo field in typeInfo.DeclaredFields)
                     {
-                        //Unbox the payloadType from an integer to a byte
-                        byte payloadType = (byte)((int)payloadTypeField.GetValue(derivedType));
-
-                        //if the mapping was not successful and the debbuger is attached break.
-                        if (false == TryMapImplementation(payloadType, derivedType) && System.Diagnostics.Debugger.IsAttached)
+                        //Obtain the field mapped to the derviedType which corresponds to the PayloadTypeField defined by the RtcpPacket implementation.
+                        switch (field.Name)
                         {
-                            //Another type was already mapped to the given payloadTypeField
-                            System.Diagnostics.Debugger.Break();
+                            default: continue;
+                            case PayloadTypeField:
+                                {
+                                    //Unbox the payloadType from an integer to a byte via reflection
+                                    byte payloadType = (byte)((int)field.GetValue(derivedType));
+
+                                    //if the mapping was not successful and the debbuger is attached break.
+                                    if (false == TryMapImplementation(payloadType, derivedType) && System.Diagnostics.Debugger.IsAttached)
+                                    {
+                                        //Another type was already mapped to the given payloadTypeField
+                                        System.Diagnostics.Debugger.Break();
+                                    }
+
+                                    //Finished
+                                    goto Continue;
+                                }
                         }
                     }
+
+                    Continue:
+                    continue;
                 }
             }
         }
@@ -1019,7 +1030,6 @@ namespace Media.Rtcp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool TryGetBuffers(out System.Collections.Generic.IList<System.ArraySegment<byte>> buffer)
         {
-
             if (IsDisposed)
             {
                 buffer = default(System.Collections.Generic.IList<System.ArraySegment<byte>>);

@@ -3123,6 +3123,8 @@ a=appversion:1.0");
             //    System.Console.WriteLine("ReadCpuType: " + readCpuType.NativeInvoke());
             //}
 
+            System.Console.WriteLine(Concepts.Hardware.PlatformRtdsc.GetTimestampUnsigned());
+
             if (false == Concepts.Hardware.Intrinsics.CpuId.IsSupported()) System.Console.WriteLine("Hardware.Intrinsics Not Supported!");
             else 
             {
@@ -3419,7 +3421,7 @@ a=appversion:1.0");
             if (writeNames) writeInfo("Running all tests within: " + instanceType.Name);
 
             //Get the methods of the class
-            foreach (var method in System.Reflection.IntrospectionExtensions.GetTypeInfo(instanceType).GetMethods())
+            foreach (var method in System.Reflection.IntrospectionExtensions.GetTypeInfo(instanceType).DeclaredMethods)
             {
                 //Ensure for the void type
                 if (method.ReturnType != returnType) continue;

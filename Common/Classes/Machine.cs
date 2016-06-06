@@ -433,6 +433,8 @@ namespace Media.Common
             //128 bits
             //512 etc
 
+            //false == CodeType == System.Reflection.PortableExecutableKinds.PE32Plus ?
+
             return IsX64() ? Common.Binary.BytesPerLong :  IsX86() ? Common.Binary.BytesPerInteger : System.IntPtr.Size;
         }
 

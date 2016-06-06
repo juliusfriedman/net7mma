@@ -38,6 +38,392 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Concepts.Hardware
 {
+    /// <summary>
+    /// The class which is the base class of all intrinsic functions.
+    /// </summary>
+    public abstract class ManagedIntrinsic : Common.SuppressedFinalizerDisposable
+    {
+
+        /// <summary>
+        /// The default binding flags used to local a fallback method when creating an instance 
+        /// </summary>
+        internal static System.Reflection.BindingFlags DefaultBindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+
+        #region Stubs
+
+        /// <summary>
+        /// Stub method which is used for fallback
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        internal static void Fallback_Void()
+        {
+            
+        }
+
+        /// <summary>
+        /// Stub method which is used for fallback
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        internal static System.IntPtr Fallback_IntPtr()
+        {
+            return System.IntPtr.Zero;
+        }
+
+        /// <summary>
+        /// Stub method which is used for fallback
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        internal static System.UInt64 Fallback_ULong()
+        {
+            return 0;
+        }
+
+        #endregion
+
+        #region Methods
+
+        /// <summary>
+        /// Executes the <see cref="EntryPoint.ManagedDelegate"/> and returns the result.
+        ///If an exception occurs <see cref="NotSupported"/> is called to set the state.
+        /// </summary>
+        /// <returns></returns>
+        protected object DynamicInvoke()
+        {
+            try
+            {
+                return EntryPoint.ManagedDelegate.DynamicInvoke();
+            }
+            catch
+            {
+                NotSupported();
+
+                return EntryPoint.ManagedDelegate.DynamicInvoke();
+            }
+        }
+
+        /// <summary>
+        /// Attempts to execute the <see cref="EntryPoint.InstructionPointer"/> using 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        protected T Execute<T>()
+        {
+            try
+            {
+                //needs IL
+                //Media.Common.Extensions.Generic.GenericExtensions.As<System.IntPtr, T>(EntryPoint.InstructionPointer);
+
+                ulong result = Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer);
+
+                //return Concepts.Classes.Unsafe.Read<T>((System.IntPtr)Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer));
+
+                return Concepts.Classes.Unsafe.ReinterpretCast<ulong, T>(ref result);
+            }
+            catch
+            {
+                NotSupported();
+
+                //return (T)EntryPoint.ManagedDelegate.DynamicInvoke();
+
+                ulong result = Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer);
+
+                //return Concepts.Classes.Unsafe.Read<T>((System.IntPtr)Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer));
+
+                return Concepts.Classes.Unsafe.ReinterpretCast<ulong, T>(ref result);
+            }
+
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        void NotSupported()
+        {
+
+            //Todo, Make EntryPoint a PlatformMethod or store the PlatformMethod for fallback instead of the PlatformFallbackDelegate.
+            //EntryPoint.VirtualFree();
+
+            EntryPoint.Dispose();
+
+            EntryPoint = null;
+
+            State = IntrinsicState.NotAvailable;
+
+            ///Put the old method back.            
+
+            //Replace the ManagedDelegate method with the Fallback method.
+            //new PlatformMethodReplacement(EntryPoint.ManagedDelegate.Method, PlatformFallback.Method.GetMethodBody().GetILAsByteArray(), false, ShouldDispose);
+
+            //Concepts.Classes.InjectionHelper.Install(GetType(), "", GetType(), "");
+
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Described the state of the intrinsic on the current system after calling Compile
+        /// </summary>
+        public enum IntrinsicState
+        {
+            Unknown,
+            Compiled,
+            NotAvailable,
+            Available
+        }
+
+        #region Fields
+
+        /// <summary>
+        /// The <see cref="PlatformMethod"/> which represents the logical entry point for the intrinsic
+        /// </summary>
+        internal UnmanagedAction EntryPoint;
+
+        /// <summary>
+        /// The method which is used when the EntryPoint is not suitable to run in the current platform.
+        /// </summary>
+        System.Delegate PlatformFallback;
+
+        /// <summary>
+        /// The state of the intrinsic
+        /// </summary>
+        internal IntrinsicState State;
+
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// Gets a value which indicates if the <see cref="PlatformFallback"/> is being utilized.
+        /// </summary>
+        public bool IsFallback
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return EntryPoint.ManagedDelegate.Equals(PlatformFallback);
+            }
+        }
+
+        #endregion        
+
+         #region Constructors
+
+
+        /// <summary>
+        /// Creates an instance using an existing <see cref="UnmanagedAction"/>
+        /// </summary>
+        /// <param name="shouldDispose"></param>
+        /// <param name="entryPoint">An existing <see cref="UnmanagedAction"/></param>
+        /// <param name="fallback">The logic to execute during fallback</param>
+        /// <param name="bindingFlags">The flags which are used to locate an existing fallback method</param>
+        public ManagedIntrinsic(bool shouldDispose, UnmanagedAction entryPoint, System.Delegate fallback, System.Reflection.BindingFlags bindingFlags)
+            : base(shouldDispose)
+        {
+            //If no fallback function was specified
+            if (fallback == null)
+            {
+                //Determine if an existing Fallback method exists
+                string name = "Fallback_" + entryPoint.ReturnType;
+
+                //Get the method
+                System.Reflection.MethodInfo existingFallback = System.Reflection.IntrospectionExtensions.GetTypeInfo(GetType()).GetMethod(name, bindingFlags);
+
+                //If none exists create one, otherwise use the existing method
+                if (existingFallback == null) fallback = System.Delegate.CreateDelegate(entryPoint.ReturnType, this, name);
+                else fallback = System.Delegate.CreateDelegate(entryPoint.ReturnType, this, existingFallback);
+            }
+
+            if(Common.IDisposedExtensions.IsNullOrDisposed(entryPoint)) throw new System.InvalidOperationException("entryPoint, IsNullOrDisposed.");
+
+            EntryPoint = entryPoint;
+
+            PlatformFallback = fallback;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="shouldDispose"></param>
+        /// <param name="entryPoint"></param>
+        /// <param name="fallback"></param>
+        public ManagedIntrinsic(bool shouldDispose, UnmanagedAction entryPoint, System.Delegate fallback)
+            : this(shouldDispose, entryPoint, fallback, DefaultBindingFlags)
+        {
+
+        }
+
+        /// <summary>
+        /// Used for derived classes only
+        /// </summary>
+        /// <param name="shouldDispose"></param>
+        /// <param name="entryPoint"></param>
+        /// <param name="fallback"></param>
+        public ManagedIntrinsic(bool shouldDispose, PlatformMethodReplacement entryPoint, System.Delegate fallback)
+            : this(shouldDispose, new UnmanagedAction(fallback, shouldDispose), fallback, DefaultBindingFlags)
+        {
+
+        }
+
+        #endregion
+    }
+
+    #region Rtdsc
+
+    /// <summary>
+    /// Represents the `rtdsc` intrinsic in managed code.
+    /// </summary>
+    public sealed class PlatformRtdsc : ManagedIntrinsic
+    {
+        /// <summary>
+        /// Fallback if Rdtsc isn't available
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        static ulong Fallback()
+        {
+            return unchecked((ulong)System.Diagnostics.Stopwatch.GetTimestamp());
+        }
+
+        /// <summary>
+        /// Stud method used to 
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static ulong Replacement()
+        {
+            return 0;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static ulong GetTimestampUnsigned()
+        {
+            using (PlatformRtdsc rtdsc = new PlatformRtdsc())
+            {
+                return rtdsc.ReadTimestampCounterUnsigned();
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static long GetTimestamp()
+        {
+            using (PlatformRtdsc rtdsc = new PlatformRtdsc())
+            {
+                return rtdsc.ReadTimestampCounter();
+            }
+        }
+
+        [System.Security.SuppressUnmanagedCodeSecurity]
+        [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.StdCall)]
+        internal delegate ulong TimestampDelegate();
+
+        internal TimestampDelegate ReadTimestampDelegate;
+
+        static byte[] x86CodeBytes = new byte[] 
+            {
+                0x0F, 0x31, // rdtsc
+                0xC3, // ret
+            };
+
+        /// <summary>
+        /// Pipeline aware
+        /// </summary>
+        static byte[] x86Rdtscp = new byte[] 
+            { 
+                0x0F, 0x01, 0xF9, //rdtscp
+                0xC3 //ret
+            };
+
+        /// <summary>
+        /// Serialized with Cpuid
+        /// </summary>
+        static byte[] x86RdtscCpuid = new byte[] 
+            { 
+               0x53, //push ebx
+               0x31, 0xC0, //xor eax,eax
+               0x0F, 0xA2, //cpuid
+               0x0F, 0x31, // rdtsc
+               0x5B, //pop ebx
+               0xC3 // ret
+            };
+
+        //http://stackoverflow.com/questions/17401914/why-should-i-use-rdtsc-diferently-on-x86-and-x86-x64
+        //In x86-64 mode, RDTSC also clears the higher 32 bits of RAX. To compensate those bits we have to shift hi left by 32 bits.
+
+        /// <summary>
+        /// Raw call
+        /// </summary>
+        static byte[] x64CodeBytes = 
+            {
+                0x0F, 0x31, // rdtsc
+                0x48, 0xC1, 0xE2, 0x20, // shl rdx,20h 
+                0x48, 0x0B, 0xC2, // or rax,rdx 
+                0xC3, // ret
+            };
+
+        /// <summary>
+        /// Pipeline aware
+        /// </summary>
+        static byte[] x64Rdtscp = new byte[] 
+            { 
+                0x0F, 0x01, 0xF9, //rdtscp
+                0x48, 0xC1, 0xE2, 0x20, // shl rdx, 20h
+                0x48, 0x09, 0xD0, //or rax,rdx
+                0xC3 //ret
+            };
+
+        /// <summary>
+        /// Serialized with Cpuid
+        /// </summary>
+        static byte[] x64RdtscCpuid = new byte[] 
+            { 
+                0x53, //push rbx
+                0x31, 0xC0, //xor eax,eax
+                0x0F, 0xA2, //cpuid
+                0x0F, 0x31, //rdtsc
+                0x48, 0xC1, 0xE2, 0x20, //shl rdx,0x20
+                0x48, 0x09, 0xD0, //or rax,rdx
+                0x5B, //pop rbx
+                0xC3  //ret
+            };
+
+        //Todo
+        //Arm, => Setup access call (needs Epilog, Prolog and possibly auth)
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public PlatformRtdsc(bool machine = true, bool shouldDispose = true)
+            : base(shouldDispose,
+            new PlatformMethodReplacement(Common.Extensions.ExpressionExtensions.SymbolExtensions.GetMethodInfo(() => Replacement()), 
+                //Use either the x64 of x86 code
+                machine ? Common.Machine.IsX64() ? x64Rdtscp : x86Rdtscp : System.IntPtr.Size == Common.Binary.BytesPerLong ? x64RdtscCpuid : x86Rdtscp,
+                false, //Restore
+                shouldDispose),
+            (System.Func<ulong>)Fallback) 
+        {
+            
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public long ReadTimestampCounter()
+        {
+            return (long)ReadTimestampDelegate();
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal ulong ReadTimestampCounterUnsigned()
+        {
+            return Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer);
+        }
+    }
+
+    #endregion
+
     #region Intrinsic
 
     /// <summary>
@@ -47,7 +433,7 @@ namespace Media.Concepts.Hardware
     /// The name of the derived class SHOULD represent the intrinsic you intend to call.
     /// If the intrinsic has variants then name the derivation for the most specific, derive for the variants (naming appropriatley) and check support appropriately.
     /// </remarks>
-    public abstract class Intrinsic : Common.SuppressedFinalizerDisposable
+    public abstract class PlatformIntrinsic : Common.SuppressedFinalizerDisposable
     {
         /// <summary>
         /// Described the state of the intrinsic on the current system after calling Compile
@@ -68,7 +454,7 @@ namespace Media.Concepts.Hardware
         internal static System.Action<FunctionPointerAllocation> Allocator, Protector, ReverseAllocator;
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        static Intrinsic()
+        static PlatformIntrinsic()
         {
             if (Allocator != null | Protector != null | ReverseAllocator != null) return;
 
@@ -201,7 +587,7 @@ namespace Media.Concepts.Hardware
         /// </summary>
         /// <param name="shouldDipose">true if the instance should be disposed of when <see cref="Dispose"/> is called.</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal Intrinsic(bool shouldDispose) 
+        internal PlatformIntrinsic(bool shouldDispose) 
             : base(shouldDispose)
         {
             MetadataToken = GetType().MetadataToken;
@@ -214,7 +600,7 @@ namespace Media.Concepts.Hardware
         /// </summary>
         /// <param name="shouldDispose"></param>
         /// <param name="entryPoint">An existing <see cref="PlatformMethod"/></param>
-        internal Intrinsic(bool shouldDispose, PlatformMethod entryPoint)
+        internal PlatformIntrinsic(bool shouldDispose, PlatformMethod entryPoint)
             : base(shouldDispose)
         {
             if(Common.IDisposedExtensions.IsNullOrDisposed(entryPoint)) throw new System.InvalidOperationException("entryPoint, IsNullOrDisposed.");
@@ -224,14 +610,20 @@ namespace Media.Concepts.Hardware
             EntryPoint = entryPoint;
         }
 
-        //Preferred so the delegate can be known and created without having to define it in advance.
-        //public Intrinsic(bool shouldDispose, System.Delegate fallback)
-        //    : base(shouldDispose)
-        //{
-        //    MetadataToken = GetType().MetadataToken;
+        /// <summary>
+        /// Creates an intrinsic and the subsequent <see cref="EntryPoint"/>.
+        /// </summary>
+        /// <param name="shouldDispose"></param>
+        /// <param name="fallback"></param>
+        public PlatformIntrinsic(bool shouldDispose, System.Delegate fallback)
+            : base(shouldDispose)
+        {
+            MetadataToken = GetType().MetadataToken;
 
-        //    EntryPoint = new PlatformMethod(shouldDispose);
-        //}
+            EntryPoint = new PlatformMethod(shouldDispose);
+
+            //new UnmanagedAction(fallback, shouldDispose).InstructionPointer
+        }
 
         #endregion
 
@@ -685,7 +1077,7 @@ namespace Media.Concepts.Hardware
         /// <summary>
         /// When an intrinsic is compiled it will store it's metadata token and state so that if it's not supported it can be known later on in runtime.
         /// </summary>
-        internal static System.Collections.Generic.Dictionary<int, Intrinsic.IntrinsicState> RuntimeIntrinsicInformation = new System.Collections.Generic.Dictionary<int, Intrinsic.IntrinsicState>();
+        internal static System.Collections.Generic.Dictionary<int, PlatformIntrinsic.IntrinsicState> RuntimeIntrinsicInformation = new System.Collections.Generic.Dictionary<int, PlatformIntrinsic.IntrinsicState>();
 
         /// <summary>
         /// Gets any state assoicted with the given Metadatatoken
@@ -693,9 +1085,9 @@ namespace Media.Concepts.Hardware
         /// <param name="metadataToken"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static Intrinsic.IntrinsicState GetRuntimeState(int metadataToken)
+        internal static PlatformIntrinsic.IntrinsicState GetRuntimeState(int metadataToken)
         {
-            Intrinsic.IntrinsicState state;
+            PlatformIntrinsic.IntrinsicState state;
 
             Intrinsics.RuntimeIntrinsicInformation.TryGetValue(metadataToken, out state);
 
@@ -708,7 +1100,7 @@ namespace Media.Concepts.Hardware
         /// <param name="intrinsic"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static bool GetRuntimeState(Intrinsic intrinsic)
+        internal static bool GetRuntimeState(PlatformIntrinsic intrinsic)
         {
             return Intrinsics.RuntimeIntrinsicInformation.TryGetValue(intrinsic.MetadataToken, out intrinsic.State);
         }
@@ -719,7 +1111,7 @@ namespace Media.Concepts.Hardware
         /// <param name="intrinsic"></param>
         /// <param name="state"></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static void SetRuntimeState(Intrinsic intrinsic, Intrinsic.IntrinsicState state)
+        internal static void SetRuntimeState(PlatformIntrinsic intrinsic, PlatformIntrinsic.IntrinsicState state)
         {
             Intrinsics.RuntimeIntrinsicInformation[intrinsic.MetadataToken] = state;
         }
@@ -758,7 +1150,7 @@ namespace Media.Concepts.Hardware
         /// <summary>
         /// This class cannot be used in user mode.
         /// </summary>
-        public sealed class ReadCpuType : Intrinsic
+        public sealed class ReadCpuType : PlatformIntrinsic
         {
             //http://www.microbe.cz/docs/CPUID.pdf
 
@@ -854,7 +1246,7 @@ namespace Media.Concepts.Hardware
         /// <remarks>
         /// <see cref="Media.Common.Extensions.Process.ProcessExtensions.SetAffinity"/> if using multiple processors are used in the system.
         /// </remarks>
-        public sealed class CpuId : Intrinsic
+        public sealed class CpuId : PlatformIntrinsic
         {
             #region References
 
@@ -1349,12 +1741,12 @@ namespace Media.Concepts.Hardware
             public const int EDX = 3;
 
             /// <summary>
-            /// Indicates if there is a corresponding <see cref="CpuId.CpuIdFeature"/> through the name of the type of the <see cref="Intrinsic"/>.
+            /// Indicates if there is a corresponding <see cref="CpuId.CpuIdFeature"/> through the name of the type of the <see cref="PlatformIntrinsic"/>.
             /// </summary>
             /// <param name="intrinsic">The intrinsic to check</param>
-            /// <returns>True, if the <see cref="Intrinsic"/> is supported.</returns>
+            /// <returns>True, if the <see cref="PlatformIntrinsic"/> is supported.</returns>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public static bool IsSupported(Intrinsic intrinsic)
+            public static bool IsSupported(PlatformIntrinsic intrinsic)
             {
                 if (Common.IDisposedExtensions.IsNullOrDisposed(intrinsic) || CpuId.GetMaximumFeatureLevel() == -1) return false;
 
@@ -1390,7 +1782,7 @@ namespace Media.Concepts.Hardware
                 //Get the TypeInfo
                 System.Reflection.TypeInfo typeInfo = System.Reflection.IntrospectionExtensions.GetTypeInfo(CpuIdFeatureType);
 
-                foreach (System.Reflection.MemberInfo member in typeInfo.GetMembers())
+                foreach (System.Reflection.MemberInfo member in typeInfo.DeclaredMembers)
                 {
                     foreach (object attribute in member.GetCustomAttributes(CpuIdFeaturesAtttributeType, false))
                     {
@@ -2180,7 +2572,7 @@ namespace Media.Concepts.Hardware
                 System.Reflection.TypeInfo typeInfo = System.Reflection.IntrospectionExtensions.GetTypeInfo(CpuIdFeatureType);
 
                 //Test for the features.
-                foreach (System.Reflection.MemberInfo member in typeInfo.GetMembers())
+                foreach (System.Reflection.MemberInfo member in typeInfo.DeclaredMembers)
                 {
                     foreach (object attrib in member.GetCustomAttributes(CpuIdFeaturesAtttributeType, false))
                     {
@@ -2214,7 +2606,16 @@ namespace Media.Concepts.Hardware
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             static void Fallback(byte[] buffer)
             {
-                //
+                //Could use WMI or Proc/CpuInfo
+                if (MaximumFeatureLevel == -1 | MaximumExtendedFeatureLevel == -1) return;
+
+                FeatureInformation.Clear();
+
+                MaximumFeatureLevel = -1;
+
+                MaximumExtendedFeatureLevel = -1;
+
+                VendorString = string.Empty;
             }
 
             #endregion
@@ -2231,7 +2632,7 @@ namespace Media.Concepts.Hardware
 
             #region Fields
 
-            CpuIdExDelegate FunctionPointer;           
+            CpuIdExDelegate CpuIdEx;           
 
             //edi = buffer
             byte[] x86CodeBytes = new byte[] { 
@@ -2301,16 +2702,16 @@ namespace Media.Concepts.Hardware
                     case IntrinsicState.NotAvailable:
                         {
                             //Create the delegate to use the fallback
-                            FunctionPointer = Fallback;
+                            CpuIdEx = Fallback;
 
                             //Allocate a new EntryPoint
                             EntryPoint = new PlatformMethod();
 
                             //Setup the InstructionPointer
-                            EntryPoint.InstructionPointer = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(FunctionPointer);
+                            EntryPoint.InstructionPointer = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(CpuIdEx);
 
-                            //Indicate not supported
-                            MaximumFeatureLevel = -1;
+                            //Fallback
+                            CpuIdEx(CpuIdBuffer);
 
                             break;
                         }
@@ -2327,7 +2728,7 @@ namespace Media.Concepts.Hardware
                             EntryPoint.VirtualProtect();
 
                             // Create a delegate to the "function"
-                            FunctionPointer = (CpuIdExDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(EntryPoint.InstructionPointer, typeof(CpuIdExDelegate));
+                            CpuIdEx = (CpuIdExDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(EntryPoint.InstructionPointer, typeof(CpuIdExDelegate));
 
                             if (State == IntrinsicState.Unknown)
                             {
@@ -2337,7 +2738,7 @@ namespace Media.Concepts.Hardware
                                 try
                                 {
                                     //Invoke with the level 0 to the static buffer, subleaf 0
-                                    FunctionPointer(CpuIdBuffer);
+                                    CpuIdEx(CpuIdBuffer);
 
                                     //Store the result
                                     CpuIdResults[0] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
@@ -2365,7 +2766,7 @@ namespace Media.Concepts.Hardware
                                     EntryPoint.Dispose();
 
                                     //Set the delegate to null
-                                    FunctionPointer = null;
+                                    CpuIdEx = null;
                                 }
 
                                 //If the function is not available then allocate the fallback
@@ -2401,7 +2802,7 @@ namespace Media.Concepts.Hardware
                 //edx
                 //Unused
 
-                FunctionPointer(buffer);
+                CpuIdEx(buffer);
             }
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -2412,7 +2813,7 @@ namespace Media.Concepts.Hardware
                 if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(buffer, out length)) throw new System.ArgumentNullException("buffer");
                 else if (length < 16) throw new System.InvalidOperationException("buffer must have room to store at least 4 32 bit values.");
 
-                FunctionPointer(buffer);
+                CpuIdEx(buffer);
             }
 
             /// <summary>
@@ -2466,7 +2867,7 @@ namespace Media.Concepts.Hardware
         /// <summary>
         /// Represents the `rtdsc` intrinsic
         /// </summary>
-        public sealed class Rtdsc : Intrinsic
+        public sealed class Rtdsc : PlatformIntrinsic
         {
             /// <summary>
             /// Fallback if Rdtsc isn't available
@@ -2642,7 +3043,7 @@ namespace Media.Concepts.Hardware
         /// <summary>
         /// Provides and implementation of the rdrand intrinsic
         /// </summary>
-        public sealed class Rdrand : Intrinsic
+        public sealed class Rdrand : PlatformIntrinsic
         {
             #region References
 
@@ -3020,7 +3421,7 @@ namespace Media.Concepts.Hardware
         /// <summary>
         /// Provides an implementation of the rdseed intrinsic
         /// </summary>
-        public class Rdseed : Intrinsic
+        public class Rdseed : PlatformIntrinsic
         {
 
             #region References
