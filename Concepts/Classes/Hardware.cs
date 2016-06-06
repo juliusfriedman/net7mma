@@ -43,7 +43,7 @@ namespace Media.Concepts.Hardware
     /// <summary>
     /// Provides a class which can be used to call machine code.
     /// </summary>
-    public class MachineFunction : Common.SuppressedFinalizerDisposable
+    public abstract class MachineFunction : Common.SuppressedFinalizerDisposable
     {
         /// <summary>
         /// The location of the code to be called.
@@ -431,35 +431,125 @@ namespace Media.Concepts.Hardware
         public PlatformMethod(bool shouldDispose = true) : base(shouldDispose) { }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public PlatformMethod(byte[] newCode, bool shouldDispose = true) : base(shouldDispose, newCode) { }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected internal override void VirtualAllocate()
         {
-            Intrinsic.Allocator(this);
+            PlatformIntrinsic.Allocator(this);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected internal override void VirtualProtect()
         {
-            Intrinsic.Protector(this);
+            PlatformIntrinsic.Protector(this);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected internal override void VirtualFree()
         {
-            Intrinsic.ReverseAllocator(this);
+            PlatformIntrinsic.ReverseAllocator(this);
         }
     }
 
     /// <summary>
     /// Represents a call which can replace a managed method with custom assembler code.
     /// </summary>
-    public class PlatformMethodReplacement : FunctionPointerAllocation
+    public class PlatformMethodReplacement : PlatformMethod
     {
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public PlatformMethodReplacement(System.Reflection.MethodInfo method, byte[] newCode, bool shouldDispose = true)
-            : base(shouldDispose, newCode) //Set the instructions
+        #region Constants
+
+        /// <summary>
+        /// should be nameof(PreviousMethod)
+        /// </summary>
+        const string PreviousMethodSymbol = "PreviousMethod";
+
+        #endregion
+
+        #region Methods
+
+        /// <summary>
+        /// Stub method used to offer the ability to restore the replaced method.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        void PreviousMethod()
         {
-            //Get the handle
-            System.RuntimeMethodHandle methodHandle = method.MethodHandle;
+
+        }
+
+        /// <summary>
+        /// Restores the method replacement to the previous state.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        void RestoreCode()
+        {
+            if (Restore)
+            {
+                //Swaps IL. Only Dynamic methods.
+                //System.Reflection.Emit.MethodRental.SwapMethodBody(MethodInfo.DeclaringType, MethodInfo.MetadataToken, Concepts.Classes.Unsafe.AddressOf(ref PreviousMethodInstructions), PreviousMethodInstructions.Length, System.Reflection.Emit.MethodRental.JitImmediate);
+
+                //Swap this.PreiviousMethod and the actual method.
+                Media.Concepts.Classes.InjectionHelper.Install(GetType(), PreviousMethodSymbol, MethodInfo.DeclaringType, MethodInfo.Name);
+
+                Restore = false;
+            }
+        }
+
+        #endregion
+
+        #region Fields
+
+        /// <summary>
+        /// The <see cref="System.Reflection.MethodInfo"/> to be replaced.
+        /// </summary>
+        internal readonly System.Reflection.MethodInfo MethodInfo;
+
+        #region Unused
+
+        /// <summary>
+        /// The previous IL instructions of the method
+        /// </summary>
+        //internal byte[] PreviousMethodInstructions;
+
+        #endregion
+
+        /// <summary>
+        /// Indicates if the original method will be restored upon calling <see cref="VirtualFree"/>
+        /// </summary>
+        internal bool Restore;        
+
+        #endregion
+
+        #region Constructor
+
+        /// <summary>
+        /// Provides the ability to replace a MethodInfo with custom assembler code and the option to restore the method when finished.
+        /// </summary>
+        /// <param name="method">The method to be replaced</param>
+        /// <param name="newCode">The new machine code</param>
+        /// <param name="restore">Indicates if the code should be restored to whatever it was previously</param>
+        /// <param name="shouldDispose">Indicates if resources will be disposed</param>
+        public PlatformMethodReplacement(System.Reflection.MethodInfo method, byte[] newCode, bool restore = true, bool shouldDispose = true)
+            : base(newCode, shouldDispose) //Set the Instructions member
+        {
+            //Ensure not null
+            if (method == null) throw new System.ArgumentNullException("method");
+
+            //Store the MethodInfo
+            MethodInfo = method;
+
+            //Determine if VirtualFree will restore the method
+            if (Restore = restore)
+            {
+                //Save the previous IL of the method if indicated to do so
+                //PreviousMethodInstructions = MethodInfo.GetMethodBody().GetILAsByteArray();
+
+                //Swap this.PreiviousMethod and the actual method.
+                Media.Concepts.Classes.InjectionHelper.Install(MethodInfo.DeclaringType, MethodInfo.Name, GetType(), PreviousMethodSymbol);
+            }
+
+            //Get the handle of the method.
+            System.RuntimeMethodHandle methodHandle = MethodInfo.MethodHandle;
 
             //Ensure the method was JIT to machine code
             System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(methodHandle);
@@ -470,6 +560,10 @@ namespace Media.Concepts.Hardware
             //Replace the instructions
             System.Runtime.InteropServices.Marshal.Copy(Instructions, 0, InstructionPointer, Instructions.Length);
         }
+
+        #endregion
+
+        #region Overrides
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected internal override void VirtualAllocate()
@@ -486,8 +580,24 @@ namespace Media.Concepts.Hardware
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected internal override void VirtualFree()
         {
-            //Nothing to free
+            if (Restore)
+            {
+                RestoreCode();
+            }
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (IsDisposed || false == disposing || false == ShouldDispose) return;
+
+            //Call VirtualFree first
+            base.Dispose(disposing);
+
+            //Remove the reference
+            //PreviousMethodInstructions = null;
+        }
+
+        #endregion
     }
 
     /// <summary>
@@ -551,7 +661,7 @@ namespace Media.Concepts.Hardware
     /// <summary>
     /// Provides a class which can be derived to support an intrinsic which is specific to a processor.
     /// </summary>
-    public abstract class ProcessorIntrinsic : Intrinsic
+    public abstract class ProcessorIntrinsic : PlatformIntrinsic
     {
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public ProcessorIntrinsic(bool shouldDispose) : base(shouldDispose) { }
@@ -560,7 +670,7 @@ namespace Media.Concepts.Hardware
     /// <summary>
     /// Provides a class which can be derived to support an intrinsic which is specific to the central processor.
     /// </summary>
-    public abstract class CentralProcessorIntrinsic : Intrinsic
+    public abstract class CentralProcessorIntrinsic : PlatformIntrinsic
     {
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public CentralProcessorIntrinsic(bool shouldDispose) : base(shouldDispose) { }
@@ -605,7 +715,7 @@ namespace Media.Concepts.Hardware
     /// <summary>
     /// Provides a class which can be derived to support an intrinsic which is specific to a memory processor.
     /// </summary>
-    public abstract class MemoryProcessorIntrinsic : Intrinsic
+    public abstract class MemoryProcessorIntrinsic : PlatformIntrinsic
     {
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public MemoryProcessorIntrinsic(bool shouldDispose) : base(shouldDispose) { }
@@ -614,31 +724,31 @@ namespace Media.Concepts.Hardware
     /// <summary>
     /// Provides a class which can be derived to support an intrinsic which is specific to a chipset.
     /// </summary>
-    public abstract class ChipsetIntrinsic : Intrinsic
+    public abstract class ChipsetIntrinsic : PlatformIntrinsic
     {
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public ChipsetIntrinsic(bool shouldDispose) : base(shouldDispose) { }
     }
 
-    public abstract class DirectModeAccess : Intrinsic
+    public abstract class DirectModeAccess : PlatformIntrinsic
     {
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public DirectModeAccess(bool shouldDispose) : base(shouldDispose) { }
     }
 
-    public abstract class PCIIntrinsic : Intrinsic
+    public abstract class PCIIntrinsic : PlatformIntrinsic
     {
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public PCIIntrinsic(bool shouldDispose) : base(shouldDispose) { }
     }
 
-    public abstract class AGPIntrinsic : Intrinsic
+    public abstract class AGPIntrinsic : PlatformIntrinsic
     {
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public AGPIntrinsic(bool shouldDispose) : base(shouldDispose) { }
     }
 
-    public abstract class PCIExpressIntrinsic : Intrinsic
+    public abstract class PCIExpressIntrinsic : PlatformIntrinsic
     {
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public PCIExpressIntrinsic(bool shouldDispose) : base(shouldDispose) { }

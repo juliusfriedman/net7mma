@@ -107,13 +107,13 @@ namespace Media.Common.Collections.Generic
             
 
             //or the ctor
-            System.Reflection.ConstructorInfo[] ctors = System.Reflection.IntrospectionExtensions.GetTypeInfo(TypeOfLinkedListNodeT).GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+            System.Collections.Generic.IEnumerable<System.Reflection.ConstructorInfo> ctors = System.Reflection.IntrospectionExtensions.GetTypeInfo(TypeOfLinkedListNodeT).DeclaredConstructors;
             
             Constructor = ctors.LastOrDefault();
             //ctors[0].Invoke(new object[] { list, value });
 
             //Could also use properties but it's a tad slower...
-            System.Reflection.PropertyInfo[] props = System.Reflection.IntrospectionExtensions.GetTypeInfo(TypeOfLinkedListNodeT).GetProperties();
+            System.Collections.Generic.IEnumerable<System.Reflection.PropertyInfo> props = System.Reflection.IntrospectionExtensions.GetTypeInfo(TypeOfLinkedListNodeT).DeclaredProperties;
 
             ListProperty = props.Where(p => p.Name == "List").FirstOrDefault();
 

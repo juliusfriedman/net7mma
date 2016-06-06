@@ -917,7 +917,7 @@ namespace Media.Rtp
             internal bool InDiscovery
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                get { return RemoteSynchronizationSourceIdentifier == 0; }
+                get { return RemoteSynchronizationSourceIdentifier == 0 /*&& ValidRtpPacketsReceived < MinimumSequentialValidRtpPackets*/; }
             }
 
             /// <summary>

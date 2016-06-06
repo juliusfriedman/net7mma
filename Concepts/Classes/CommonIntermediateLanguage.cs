@@ -57,14 +57,6 @@ namespace Media.Concepts.Classes
     //Used to build the UnalignedReadDelegate for each T
     internal static class Generic<T>
     {
-        /// <summary>
-        /// <see cref="typeof(T).MetadataToken"/>
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <returns></returns>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static int MetadataToken() { return typeof(T).MetadataToken; }
-
         //Public API which will be in the framework is at
         //Try to provide versions of everything @
         //https://github.com/dotnet/corefx/blob/ca5d1174dbaa12b8b6e55dc494fcd4609ed553cc/src/System.Runtime.CompilerServices.Unsafe/src/System.Runtime.CompilerServices.Unsafe.il
@@ -271,7 +263,7 @@ namespace Media.Concepts.Classes
         [System.CLSCompliant(false)]
         [System.Security.SuppressUnmanagedCodeSecurity]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static ulong CallIndirect(System.IntPtr ptr)
+        public static ulong CallIndirect(System.IntPtr ptr) // ref
         {
             ulong result;
 

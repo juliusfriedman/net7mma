@@ -35,13 +35,19 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * v//
  */
 #endregion
-
-using System.Linq;
-
 namespace Media.Common.Extensions.Delegate
 {
+    using System.Linq;
+
+    /// <summary>
+    /// Provides extension methods which are useful for working with delegates
+    /// </summary>
     public static class DelegateExtensions
     {
+
+        public static readonly System.Type TypeOfDelegate = typeof(System.Delegate);
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static System.Delegate ConvertTo(this System.Delegate self, System.Type type)
         {
             if (type == null) { throw new System.ArgumentNullException("type"); }
@@ -56,25 +62,23 @@ namespace Media.Common.Extensions.Delegate
                     .ToArray());
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void CreateDelegate(ref System.Delegate self, System.Type type = null)
         {
             if(self != null) foreach(var inv in self.GetInvocationList())
                     self = System.Delegate.Combine(self, System.Delegate.CreateDelegate(type ?? inv.Method.ReturnType, inv.Target, inv.Method));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static T ConvertTo<T>(this System.Delegate self)
         {
             return (T)(object)self.ConvertTo(typeof(T));
         }
 
-        public static U As<T, U>(T t) where U : class
-        {
-            return t as U;
-        }
-
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void AppendTo<T>(this System.Delegate newDel, ref T baseDel) where T : class
         {
-            baseDel = DelegateExtensions.As<System.Delegate, T>(newDel);
+            baseDel = Common.Extensions.Generic.GenericExtensions.As<System.Delegate, T>(newDel);
             T oldBaseDel, newBaseDel;
             do
             {
@@ -83,9 +87,10 @@ namespace Media.Common.Extensions.Delegate
             } while (System.Threading.Interlocked.CompareExchange(ref baseDel, newBaseDel, oldBaseDel) != oldBaseDel);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void SubtractFrom<T>(this System.Delegate newDel, ref T baseDel) where T : class
         {
-            baseDel = DelegateExtensions.As<System.Delegate, T>(newDel);
+            baseDel = Common.Extensions.Generic.GenericExtensions.As<System.Delegate, T>(newDel);
             T oldBaseDel, newBaseDel;
             do
             {
