@@ -988,7 +988,6 @@ namespace Media.Common
     #endregion
 }
 
-
 namespace Media.UnitTests
 {
 

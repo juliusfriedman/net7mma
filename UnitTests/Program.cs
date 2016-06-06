@@ -1624,59 +1624,21 @@ namespace Media.UnitTests
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Testing", "rtsp://127.0.0.1:8554/stream"));
 
-            
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("EverFocus1", "rtsp://user1:11111111@76.79.115.83:559/cgi-bin/rtspStreamOvf/1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://demo:abcd1234@118.70.181.233:2121/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision2", "rtsp://demo:abcd1234@118.70.181.233:2221/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision3", "rtsp://demo:abcd1234@118.70.181.233:2033/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision4", "rtsp://demo:abcd1234@118.70.181.233:6027/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision5", "rtsp://demo:abcd1234@118.70.181.233:2833/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision6", "rtsp://demo:abcd1234@118.70.181.233:2043/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision7", "rtsp://demo:abcd1234@118.70.181.233:2415/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision8", "rtsp://demo:abcd1234@118.70.181.233:2943/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision9", "rtsp://demo:abcd1234@118.70.181.233:2813/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision10", "rtsp://demo:abcd1234@118.70.181.233:7175/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("MegaPixel5", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                //All are good except this one which seems to be bandwidth realted.
 
-                //thaibienbac Test Cameras - Thanks!
-
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1920x1080, 30 fps
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic1", "rtsp://118.70.125.33:20554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic2", "rtsp://118.70.125.33:21554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic3", "rtsp://118.70.125.33:22554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic4", "rtsp://118.70.125.33:23554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic5", "rtsp://118.70.125.33:24554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic6", "rtsp://118.70.125.33:25554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic7", "rtsp://118.70.125.33:26554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("oem1", "rtsp://admin:12345@118.70.125.33:12554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1280x960, 30 fps
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("oem2", "rtsp://admin:12345@118.70.125.33:13554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco1", "rtsp://118.70.125.33:35554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco2", "rtsp://118.70.125.33:36554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco3", "rtsp://118.70.125.33:37554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco4", "rtsp://118.70.125.33:38554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam1", "rtsp://hptvn:hptvn@hptvn-com.dyndns.org:9821/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam2", "rtsp://hptvn:hptvn@fe7037.myfoscam.org:9826/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam3", "rtsp://hptvn:hptvn@eq6842.myfoscam.org:9831/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("avtech1", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("avtech2", "rtsp://admin:admin@avm561.ddns.eagleeyes.tw:161/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("lilin", "rtsp://admin:pass@118.70.125.33:27554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("arecont", "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));                
-
-
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("h264Test", "rtsp://118.70.125.33:15654/mediainput/h264/stream_2", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("bluetest", "rtsp://admin:admin@118.70.125.33:23254/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("rootTest", "rtsp://admin:admin@118.70.125.33:23154/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/101", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision2", "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/201", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision3", "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/301", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision4", "rtsp://admin:11111111@118.70.125.33:8801/Streaming/channels/201", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision5", "rtsp://admin:admin@118.70.125.33:23054/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Test_0", "rtsp://admin:admin@118.70.125.33:21254/defaultPrimary?streamType=u", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Test_1", "rtsp://admin:pass@118.70.125.33:9554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Test_2", "rtsp://admin:admin@118.70.125.33:15554/channel1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco1", "rtsp://118.70.125.33/user=admin&password=admin12345&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
                 string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
@@ -3156,6 +3118,11 @@ a=appversion:1.0");
 
             //--- Hardware.Intrinsics
 
+            //using (var readCpuType = new Concepts.Hardware.Intrinsics.ReadCpuType())
+            //{
+            //    System.Console.WriteLine("ReadCpuType: " + readCpuType.NativeInvoke());
+            //}
+
             if (false == Concepts.Hardware.Intrinsics.CpuId.IsSupported()) System.Console.WriteLine("Hardware.Intrinsics Not Supported!");
             else 
             {
@@ -3214,20 +3181,20 @@ a=appversion:1.0");
 
                 using (var rtdsc = new Concepts.Hardware.Intrinsics.Rtdsc())
                 {
-                    System.Console.WriteLine("Rtdsc InvokeUnsigned: " + rtdsc.InvokeUnsigned());
+                    System.Console.WriteLine("Rtdsc InvokeUnsigned: " + rtdsc.ReadTimestampCounter());
 
-                    System.Console.WriteLine("Rtdsc NativeInvoke: " + rtdsc.NativeInvoke());
+                    System.Console.WriteLine("Rtdsc NativeInvoke: " + rtdsc.ReadTimestampCounterUnsigned());
                 }
 
                 //---
 
                 using (var rdrand = new Concepts.Hardware.Intrinsics.Rdrand())
                 {
-                    System.Console.WriteLine("Rdrand NativeInvoke: " + rdrand.GenerateRandom());
+                    System.Console.WriteLine("Rdrand GenerateRandom: " + rdrand.GenerateRandom());
 
-                    System.Console.WriteLine("Rdrand NativeInvoke: " + rdrand.GenerateRandom());
+                    System.Console.WriteLine("Rdrand GenerateRandom: " + rdrand.GenerateRandom());
 
-                    System.Console.WriteLine("Rdrand NativeInvoke: " + rdrand.GenerateRandom());
+                    System.Console.WriteLine("Rdrand GenerateRandom: " + rdrand.GenerateRandom());
                 }
 
                 System.Console.WriteLine("Rdrand GetRandom63: " + Concepts.Hardware.Intrinsics.Rdrand.GetRandom63());
@@ -3250,11 +3217,11 @@ a=appversion:1.0");
 
                 using (var rdseed = new Concepts.Hardware.Intrinsics.Rdseed())
                 {
-                    System.Console.WriteLine("Rdseed NativeInvoke: " + rdseed.GenerateSeed());
+                    System.Console.WriteLine("Rdseed GenerateSeed: " + rdseed.GenerateSeed());
 
-                    System.Console.WriteLine("Rdseed NativeInvoke: " + rdseed.GenerateSeed());
+                    System.Console.WriteLine("Rdseed GenerateSeed: " + rdseed.GenerateSeed());
 
-                    System.Console.WriteLine("Rdseed NativeInvoke: " + rdseed.GenerateSeed());
+                    System.Console.WriteLine("Rdseed GenerateSeed: " + rdseed.GenerateSeed());
                 }
 
                 System.Console.WriteLine("Rdseed GetSeed64: " + Concepts.Hardware.Intrinsics.Rdseed.GetSeed64());
@@ -3417,7 +3384,7 @@ a=appversion:1.0");
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SegmentStreamTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ConcurrentLinkedQueueTests), TypeOfVoid);
+            //CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ConcurrentLinkedQueueTests), TypeOfVoid);
         }
 
         static void TestCodec()
@@ -3442,7 +3409,7 @@ a=appversion:1.0");
 
         #region Methods (To Support Unit Tests)
 
-        static Type TypeOfVoid = typeof(void);
+        static Type TypeOfVoid = typeof(void);        
 
         static void CreateInstanceAndInvokeAllMethodsWithReturnType(Type instanceType, Type returnType, bool writeNames = true)
         {
@@ -3452,7 +3419,7 @@ a=appversion:1.0");
             if (writeNames) writeInfo("Running all tests within: " + instanceType.Name);
 
             //Get the methods of the class
-            foreach (var method in instanceType.GetMethods())
+            foreach (var method in System.Reflection.IntrospectionExtensions.GetTypeInfo(instanceType).GetMethods())
             {
                 //Ensure for the void type
                 if (method.ReturnType != returnType) continue;

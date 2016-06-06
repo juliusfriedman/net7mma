@@ -607,63 +607,104 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe long UInt64ToInt64Bits(ulong* x)
         {
-            return *((long*)(void*)x);
+            return *((long*)x);
         }
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe long UInt64ToInt64Bits(ref ulong x)
         {
-            return *((long*)(void*)x);
+            return *((long*)x);
         }
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe long UInt64ToInt64Bits(ulong x)
         {
-            return *((long*)(void*)&x);
+            return *((long*)&x);
         }
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe int UInt32ToInt32Bits(uint * x)
         {
-            return *((int*)(void*)x);
+            return *((int*)x);
         }
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe int UInt32ToInt32Bits(uint x)
         {
-            return *((int*)(void*)&x);
+            return *((int*)&x);
         }
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe int UInt32ToInt32Bits(ref uint x)
         {
-            return *((int*)(void*)x);
+            return *((int*)x);
         }
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe short Int32ToInt16Bits(int * x) //Int15Bits
         {
-            return *((short*)(void*)x);
+            return *((short*)x);
         }
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe short Int32ToInt16Bits(int x) //Int15Bits
         {
-            return *((short*)(void*)&x);
+            return *((short*)&x);
         }
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe short Int32ToInt16Bits(ref int x) //Int15Bits
         {
-            return *((short*)(void*)x);
+            return *((short*)x);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe int SingleToInt32Bits(float f)
+        {
+            return *(int*)(&f);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe int SingleToInt32Bits(float * f)
+        {
+            return *(int*)(f);
+        }
+
+        //[System.CLSCompliant(false)]
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //public static unsafe int SingleToInt32Bits(ref float f)
+        //{
+        //    return *(int*)(f);
+        //}
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe float Int32BitsToSingle(int * i)
+        {
+            return *(float*)(i);
+        }
+
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe float Int32BitsToSingle(int i)
+        {
+            return *(float*)(&i);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe float Int32BitsToSingle(ref int i)
+        {
+            return *(float*)(i);
         }
 
         #endregion

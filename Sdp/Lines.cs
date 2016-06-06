@@ -1307,6 +1307,7 @@ namespace Media.Sdp
 
             /// <summary>
             /// Gets the string assoicated with the port token.
+            /// It represents the transport port to which the media stream is sent.
             /// </summary>
             public string PortToken
             {

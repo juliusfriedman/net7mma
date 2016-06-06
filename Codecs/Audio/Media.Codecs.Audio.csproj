@@ -65,6 +65,7 @@
     <Compile Include="AudioCodec.cs" />
     <Compile Include="AudioFormat.cs" />
     <Compile Include="AudioTransformation.cs" />
+    <Compile Include="WaveForms.cs" />
     <Compile Include="IAudioCodec.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WAVEFORMATEX.cs" />

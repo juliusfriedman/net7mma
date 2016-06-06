@@ -38,415 +38,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Concepts.Hardware
 {
-    #region Classes
-
-    /// <summary>
-    /// Provides a class which can be used to call machine code.
-    /// </summary>
-    public class MachineFunction : Common.SuppressedFinalizerDisposable
-    {
-        /// <summary>
-        /// The location of the code to be called.
-        /// </summary>
-        internal protected System.IntPtr InstructionPointer;
-
-        //Todo, should allow for static machineFunctions.
-
-        //Todo, allow machine code creation, emit style api.                
-
-        /// <summary>
-        /// 
-        /// </summary>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public MachineFunction(bool shouldDispose)
-            : base(shouldDispose)
-        {
-
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="instructionPointer"></param>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public MachineFunction(bool shouldDispose, System.IntPtr instructionPointer)
-            : this(shouldDispose)
-        {
-            InstructionPointer = instructionPointer;
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        protected override void Dispose(bool disposing)
-        {
-            if (this.InstructionPointer == System.IntPtr.Zero || false == ShouldDispose) return;
-
-            this.InstructionPointer = System.IntPtr.Zero;
-
-            base.Dispose(disposing);
-        }
-
-        //Todo, UnsafeCall
-    }
-
-    /// <summary>
-    /// A routine which has no parameters and a single return type.
-    /// </summary>
-    public class UnmanagedAction : MachineFunction
-    {
-        /// <summary>
-        /// The managed delegate
-        /// </summary>
-        public System.Delegate ManagedDelegate;
-
-        /// <summary>
-        /// The name of <see cref="ManagedDelegate"/> as retrieved from <see cref="ManagedDelegate.Method.Name"/>
-        /// </summary>
-        public string Name
-        {
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return ManagedDelegate.Method.Name; }
-        }
-
-        /// <summary>
-        /// The name of <see cref="System.Type"/> as retrieved from the <see cref="ManagedDelegate"/> <see cref="ManagedDelegate.Method.ReturnType"/>
-        /// </summary>
-        public System.Type ReturnType
-        {
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get
-            {
-                return ManagedDelegate.Method.ReturnType;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="managedDelegate"></param>
-        public UnmanagedAction(System.Delegate managedDelegate, bool shouldDispose = true) : base(shouldDispose)
-        {
-            if (managedDelegate == null) throw new System.ArgumentNullException();
-
-            InstructionPointer = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(ManagedDelegate = managedDelegate);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="instructionPointer"></param>
-        /// <param name="returnType"></param>
-        public UnmanagedAction(System.IntPtr instructionPointer, System.Type returnType, bool shouldDispose = true)
-            : base(shouldDispose)
-        {
-            if (instructionPointer == System.IntPtr.Zero) throw new System.InvalidOperationException();
-            else if (returnType == null) throw new System.ArgumentNullException();
-
-            InstructionPointer = instructionPointer;
-
-            ManagedDelegate = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(InstructionPointer, returnType);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="instructionPointer"></param>
-        /// <returns></returns>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static UnmanagedAction Create<T>(System.IntPtr instructionPointer) { return new UnmanagedAction(instructionPointer, typeof(T)); }
-    }
-
-    /// <summary>
-    /// A <see cref="UnmanagedAction"/> which may have parameters.
-    /// </summary>
-    public class UnmanagedFunction : UnmanagedAction
-    {
-        //Todo, Epilogues, Prologs and other Requirements
-
-        /// <summary>
-        /// The name of <see cref="System.Type"/> as retrieved from the <see cref="ManagedDelegate"/> <see cref="ManagedDelegate.Method.ReturnType"/>
-        /// </summary>
-        public System.Reflection.ParameterInfo[] ParameterInformation
-        {
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get
-            {
-                return ManagedDelegate.Method.GetParameters();
-            }
-        }
-
-        public UnmanagedFunction(System.Delegate managedDelegate)
-            : base(managedDelegate)
-        {
-
-        }
-
-        public UnmanagedFunction(System.IntPtr instructionPointer, System.Type returnType)
-            : base(instructionPointer, returnType)
-        {
-
-        }
-    }
-
-    /// <summary>
-    /// Provides the application programing interface associated with the requirements of executing a <see cref="MachineFunction"/> which resides in managed memory
-    /// </summary>
-    public abstract class FunctionPointerAllocation : MachineFunction
-    {
-        #region Constructor
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal FunctionPointerAllocation(bool shouldDispose)
-            : base(shouldDispose)
-        {
-
-        }
-
-        internal FunctionPointerAllocation(bool shouldDispose, byte [] instructions)
-            : this(shouldDispose)
-        {
-            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(instructions)) throw new System.InvalidOperationException("instructions IsNullOrEmpty.");
-
-            Instructions = instructions;
-        }
-
-        #endregion
-
-        #region Fields
-
-        /// <summary>
-        /// The byte code of the instructions the machine should execute
-        /// </summary>
-        internal protected byte[] Instructions;
-
-        #endregion
-
-        #region Abstraction
-
-        /// <summary>
-        /// Allows to allocate the memory required to execute the <see cref="Instructions"/>
-        /// </summary>
-        internal protected abstract void VirtualAllocate();
-
-        /// <summary>
-        /// Allows to free the memory required to execute the <see cref="Instructions"/>
-        /// </summary>
-        internal protected abstract void VirtualFree();
-
-        /// <summary>
-        /// Allows to protect the memory required to execute the <see cref="Instructions"/>
-        /// </summary>
-        internal protected abstract void VirtualProtect();
-
-        #endregion
-
-        #region Methods
-
-        /// <summary>
-        /// Gets the byte array assoicated with the instructions to execute.
-        /// </summary>
-        /// <returns></returns>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public byte[] GetInstruction() { return Instructions; }
-
-        /// <summary>
-        /// Sets <see cref="Instructions"/> to one of the given parameters based on the type of determination required.
-        /// </summary>
-        /// <param name="x86codeBytes"></param>
-        /// <param name="x64codeBytes"></param>
-        /// <param name="machine"></param>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal protected virtual void SetInstructions(byte[] x86codeBytes, byte[] x64codeBytes, bool machine = true)
-        {
-            if (machine ? false == Common.Machine.IsX64() : System.IntPtr.Size == 4)
-            {
-                Instructions = x86codeBytes;
-            }
-            else
-            {
-                Instructions = x64codeBytes;
-            }
-        }
-
-        //Invoke
-        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        //void Invoke()
-        //{
-
-        //}
-
-        //CallIndirect / NativeInvoke
-        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        //void CallIndirect()
-        //{
-        //    Concepts.Classes.CommonIntermediateLanguage.CallIndirect(InstructionPointer);
-        //}
-
-        #endregion
-
-        #region Dispose
-
-        protected override void Dispose(bool disposing)
-        {
-            if (IsDisposed || false == disposing || false == ShouldDispose) return;
-
-            Instructions = null;
-
-            VirtualFree();
-
-            base.Dispose(disposing);
-        }
-
-        #endregion
-
-        #region Try Support
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal bool TryVirtualAllocate()
-        {
-            try
-            {
-                VirtualAllocate();
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal bool TryVirtualFree()
-        {
-            try
-            {
-                VirtualFree();
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal bool TryVirtualProtect()
-        {
-            try
-            {
-                VirtualProtect();
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        #endregion
-    }
-
-    /// <summary>
-    /// Representes a <see cref="FunctionPointerAllocation"/> which must be protected and unprotected
-    /// </summary>
-    public abstract class SecureFunctionPointer : FunctionPointerAllocation
-    {
-        /// <summary>
-        /// Allows to unprotect the memory required to execute the <see cref="Instructions"/>
-        /// </summary>
-        internal protected abstract void VirtualUnprotect();
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="shouldDispose"></param>
-        public SecureFunctionPointer(bool shouldDispose) : base(shouldDispose) { }
-    }
-
-    /// <summary>
-    /// Represents a class which will automatically use the correct platform invocation calls for the implementation to correctly utilize a <see cref="FunctionPointerAllocation"/>
-    /// </summary>
-    public class PlatformMemoryAllocation : FunctionPointerAllocation
-    {
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public PlatformMemoryAllocation(bool shouldDispose = true) : base(shouldDispose) { }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        protected internal override void VirtualAllocate()
-        {
-            Intrinsic.Allocator(this);
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        protected internal override void VirtualProtect()
-        {
-            Intrinsic.Protector(this);
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        protected internal override void VirtualFree()
-        {
-            Intrinsic.ReverseAllocator(this);
-        }
-    }
-
-    /// <summary>
-    /// Represents intrinsic functions which must be protected and unprotected.
-    /// </summary>
-    public abstract class SecureIntrinsicFunctionPointer : SecureFunctionPointer
-    {   
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="shouldDispose"></param>
-        public SecureIntrinsicFunctionPointer(bool shouldDispose) : base(shouldDispose) { }
-
-        protected internal override void SetInstructions(byte[] x86codeBytes, byte[] x64codeBytes, bool machine = true)
-        {
-            throw new System.NotImplementedException();
-        }
-
-        protected internal override void VirtualProtect()
-        {
-            throw new System.NotImplementedException();
-        }
-
-        protected internal override void VirtualFree()
-        {
-            throw new System.NotImplementedException();
-        }
-
-        internal protected override void VirtualAllocate()
-        {
-            throw new System.NotImplementedException();
-        }
-
-        internal protected override void VirtualUnprotect()
-        {
-            throw new System.NotImplementedException();
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal bool TryVirtualUnprotect()
-        {
-            try
-            {
-                TryVirtualUnprotect();
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-    }
-
-    #endregion
-
     #region Intrinsic
 
     /// <summary>
@@ -456,8 +47,21 @@ namespace Media.Concepts.Hardware
     /// The name of the derived class SHOULD represent the intrinsic you intend to call.
     /// If the intrinsic has variants then name the derivation for the most specific, derive for the variants (naming appropriatley) and check support appropriately.
     /// </remarks>
-    public class Intrinsic : Common.SuppressedFinalizerDisposable
+    public abstract class Intrinsic : Common.SuppressedFinalizerDisposable
     {
+        /// <summary>
+        /// Described the state of the intrinsic on the current system after calling Compile
+        /// </summary>
+        public enum IntrinsicState
+        {
+            Unknown,
+            Compiled,
+            NotAvailable,
+            Available
+        }
+
+        #region Statics
+
         /// <summary>
         /// The functions which are responsible for memory allocation, protection and deletion.
         /// </summary>
@@ -559,36 +163,97 @@ namespace Media.Concepts.Hardware
                     }
                 };
             }
-        }        
+        }
+
+        #endregion
+
+        #region Fields
+
+        //Todo, could use either PlatformMethodReplacement combined with Delegate fallback.
 
         /// <summary>
-        /// The <see cref="PlatformMemoryAllocation"/> which represents the logical entry point for the intrinsic
+        /// The <see cref="PlatformMethod"/> which represents the logical entry point for the intrinsic
         /// </summary>
-        internal PlatformMemoryAllocation EntryPoint;
+        internal PlatformMethod EntryPoint;
+
+        /// <summary>
+        /// The state of the intrinsic
+        /// </summary>
+        internal IntrinsicState State;
+
+        /// <summary>
+        /// Cache of the MetadataToken of the type
+        /// </summary>
+        internal int MetadataToken;
+
+        //Todo, feature check, fallback.
+
+        //Fall back prototype can be used for EntryPoint to create method with exact desired parameters.
+
+        //System.Delegate Fallback;
+
+        #endregion
+
+        #region Constructors
 
         /// <summary>
         /// Creates an intrinsic and the subsequent <see cref="EntryPoint"/>.
         /// </summary>
         /// <param name="shouldDipose">true if the instance should be disposed of when <see cref="Dispose"/> is called.</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal Intrinsic(bool shouldDispose)
+        internal Intrinsic(bool shouldDispose) 
             : base(shouldDispose)
         {
-            EntryPoint = new PlatformMemoryAllocation(shouldDispose);
+            MetadataToken = GetType().MetadataToken;
+
+            EntryPoint = new PlatformMethod(shouldDispose);
         }
 
         /// <summary>
-        /// Creates an instance using an existing <see cref="PlatformMemoryAllocation"/>
+        /// Creates an instance using an existing <see cref="PlatformMethod"/>
         /// </summary>
         /// <param name="shouldDispose"></param>
-        /// <param name="entryPoint">An existing <see cref="PlatformMemoryAllocation"/></param>
-        internal Intrinsic(bool shouldDispose, PlatformMemoryAllocation entryPoint)
+        /// <param name="entryPoint">An existing <see cref="PlatformMethod"/></param>
+        internal Intrinsic(bool shouldDispose, PlatformMethod entryPoint)
             : base(shouldDispose)
         {
             if(Common.IDisposedExtensions.IsNullOrDisposed(entryPoint)) throw new System.InvalidOperationException("entryPoint, IsNullOrDisposed.");
 
+            MetadataToken = GetType().MetadataToken;
+
             EntryPoint = entryPoint;
-        }  
+        }
+
+        //Preferred so the delegate can be known and created without having to define it in advance.
+        //public Intrinsic(bool shouldDispose, System.Delegate fallback)
+        //    : base(shouldDispose)
+        //{
+        //    MetadataToken = GetType().MetadataToken;
+
+        //    EntryPoint = new PlatformMethod(shouldDispose);
+        //}
+
+        #endregion
+
+        #region Methods
+
+        /// <summary>
+        /// When implemented in a derived class, allows the caller to compile an intrinsic
+        /// </summary>
+        /// <param name="machine">Indicates if the compilation is for the current machine</param>
+        internal protected abstract void Compile(bool machine = true);
+        //{
+        //    State = IntrinsicState.Compiled;
+        //}
+
+        //Ensure can be called
+        //internal protected abstract bool VerifySupport();
+
+        //internal ulong NativeInvoke();
+
+        #endregion
+
+        #region Overrides
 
         /// <summary>
         /// Disposes the intrinsic and any memory required to call it.
@@ -606,6 +271,7 @@ namespace Media.Concepts.Hardware
             EntryPoint = null;
         }
 
+        #endregion
     }
 
     //Todo, SecureIntrinsic
@@ -613,125 +279,6 @@ namespace Media.Concepts.Hardware
     #endregion
 
     #region Platform Support
-
-    public enum Privileges
-    {
-        Read,
-        Write,
-        Execute,
-        All = Read | Write | Execute
-    }
-
-    /// <summary>
-    /// Provides an interface which allows custom memory management
-    /// </summary>
-    public interface IStorageAllocator
-    {
-        /// <summary>
-        /// Allocates memory
-        /// </summary>
-        /// <param name="size"></param>
-        /// <returns></returns>
-        System.IntPtr Allocate(long size);
-
-        /// <summary>
-        /// Releases memory
-        /// </summary>
-        /// <param name="pointer"></param>
-        void Release(System.IntPtr pointer);
-
-        /// <summary>
-        /// Sets the <see cref="Privileges"/> on the pointer
-        /// </summary>
-        /// <param name="pointer"></param>
-        /// <param name="permissions"></param>
-        Privileges SetPrivileges(System.IntPtr pointer, Privileges privileges);
-    }
-
-    /// <summary>
-    /// Represents an implementation of the <see cref="IStorageAllocator"/> interface.
-    /// </summary>
-    public class MemoryAllocator : IStorageAllocator
-    {
-        Privileges DefaultPrivileges;
-
-        /// <summary>
-        /// The maxmium size of bytes the MemoryAllocator will allocate before throwing a <see cref="System.OutOfMemoryException."/>
-        /// </summary>
-        long MaximumSize;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        byte Alignment, Displacement;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public long AllocatedBytes
-        {
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get
-            {
-                long result = 0;
-
-                foreach (System.IntPtr pointer in Allocations.Keys)
-                {
-                    System.Collections.Generic.IEnumerable<long> sizes;
-
-                    if (Allocations.TryGetValue(pointer, out sizes))
-                    {
-                        foreach (long size in sizes)
-                        {
-                            result += size;
-                        }
-                    }
-                }
-
-                return result;
-            }
-        }
-
-        Media.Common.Collections.Generic.ConcurrentThesaurus<System.IntPtr, long> Allocations = new Common.Collections.Generic.ConcurrentThesaurus<System.IntPtr,long>();
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        System.IntPtr IStorageAllocator.Allocate(long size)
-        {
-            throw new System.NotImplementedException();
-
-            //Allocations.Add(pointer, size);
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        void IStorageAllocator.Release(System.IntPtr pointer)
-        {
-            throw new System.NotImplementedException();
-
-            //System.Collections.Generic.IList<long> sizes;
-
-            //if (Allocations.TryGetValueList(ref pointer, out sizes))
-            //{
-            //    foreach (long size in sizes)
-            //    {
-            //        Release(pointer, size);
-            //    }
-            //}
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        Privileges IStorageAllocator.SetPrivileges(System.IntPtr pointer, Privileges privileges)
-        {
-            throw new System.NotImplementedException();
-        }
-    }
-
-    /// <summary>
-    /// Provides a platform aware memory allocator.
-    /// </summary>
-    public class PlatformMemoryAllocator : MemoryAllocator
-    {
-
-    }
 
     //Todo, should derive from PlatformMemoryAllocator
 
@@ -909,9 +456,9 @@ namespace Media.Concepts.Hardware
     }
 
     /// <summary>
-    /// .
+    /// ., SystemV EntryPoint
     /// </summary>
-    internal sealed class UnixEntryPoint : FunctionPointerAllocation
+    internal class UnixEntryPoint : FunctionPointerAllocation
     {
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal UnixEntryPoint(bool shouldDispose)
@@ -1133,6 +680,52 @@ namespace Media.Concepts.Hardware
 
     public static class Intrinsics
     {
+        #region Statics
+
+        /// <summary>
+        /// When an intrinsic is compiled it will store it's metadata token and state so that if it's not supported it can be known later on in runtime.
+        /// </summary>
+        internal static System.Collections.Generic.Dictionary<int, Intrinsic.IntrinsicState> RuntimeIntrinsicInformation = new System.Collections.Generic.Dictionary<int, Intrinsic.IntrinsicState>();
+
+        /// <summary>
+        /// Gets any state assoicted with the given Metadatatoken
+        /// </summary>
+        /// <param name="metadataToken"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static Intrinsic.IntrinsicState GetRuntimeState(int metadataToken)
+        {
+            Intrinsic.IntrinsicState state;
+
+            Intrinsics.RuntimeIntrinsicInformation.TryGetValue(metadataToken, out state);
+
+            return state;
+        }
+
+        /// <summary>
+        /// Gets a value which indicates if the intrinsic was previously compiled.
+        /// </summary>
+        /// <param name="intrinsic"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static bool GetRuntimeState(Intrinsic intrinsic)
+        {
+            return Intrinsics.RuntimeIntrinsicInformation.TryGetValue(intrinsic.MetadataToken, out intrinsic.State);
+        }
+
+        /// <summary>
+        /// Sets the runtime state for the given intrinsic
+        /// </summary>
+        /// <param name="intrinsic"></param>
+        /// <param name="state"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void SetRuntimeState(Intrinsic intrinsic, Intrinsic.IntrinsicState state)
+        {
+            Intrinsics.RuntimeIntrinsicInformation[intrinsic.MetadataToken] = state;
+        }
+
+        #endregion
+
         #region References
 
         //Actually writes the ASM and the C# Code but then even patches the CLR function to use the ASM..
@@ -1160,6 +753,99 @@ namespace Media.Concepts.Hardware
 
         #endregion
 
+        #region ReadCpuType
+
+        /// <summary>
+        /// This class cannot be used in user mode.
+        /// </summary>
+        public sealed class ReadCpuType : Intrinsic
+        {
+            //http://www.microbe.cz/docs/CPUID.pdf
+
+             #region Constructor
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            public ReadCpuType(bool machine = true)
+                : base(true)
+            {
+                Compile(machine);
+            }
+
+            #endregion
+
+            [System.Security.SuppressUnmanagedCodeSecurity]
+            [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
+            internal delegate uint ReadCpuTypeDelegate();
+
+            //Should return == 0 if cpuid is supported
+            byte[] x86CodeBytes = new byte[]{
+                0x9C, // pushf   ;Save EFLAGS
+                0x9C, // pushf   ;Store EFLAGS
+                0x81, 0xF4, 0x00, 0x00, 0x20, 0x00, //xor esp,0x200000 ;Invert the ID bit in stored EFLAGS
+                0x9D, // popf ;Load stored EFLAGS (with ID bit inverted)
+                0x9C, // pushf ;Store EFLAGS again (ID bit may or may not be inverted)
+                0x58, // pop eax ;eax = modified EFLAGS (ID bit may or may not be inverted)
+                0x09, 0xe0, //or eax,esp    ;eax = whichever bits were changed
+                0x9D, //popf  ;Restore original EFLAGS
+                0x25, 0x00, 0x00, 0x20, 0x00, //and eax, 0x200000  ;eax = zero if ID bit can't be changed, else non-zero
+                0xC3 //ret
+            };
+
+            /*
+             
+            0:  9c                      pushf
+            1:  67 8f 00                pop    QWORD PTR [eax]
+            4:  89 c8                   mov    eax,ecx
+            6:  31 04 25 00 00 20 00    xor    DWORD PTR ds:0x200000,eax
+            b:  67 ff 30                push   QWORD PTR [eax]
+            e:  9d                      popf
+            f:  9c                      pushf
+            10: 67 8f 00                pop    QWORD PTR [eax]
+            13: 31 c1                   xor    ecx,eax
+            15: 75 05                   jne    1c
+            17: b8 00 00 00 00          mov    eax,0x0            
+            1c: c3                      ret
+             
+             */
+            byte[] x64CodeBytes = new byte[] { 0x9C, 0x67, 0x8F, 0x00, 0x89, 0xC8, 0x31, 0x04, 0x25, 0x00, 0x00, 0x20, 0x00, 0x67, 0xFF, 0x30, 0x9D, 0x9C, 0x67, 0x8F, 0x00, 0x31, 0xC1, 0x75, 0x05, 0xB8, 0x00, 0x00, 0x00, 0x00, 0xC3 };
+
+            ReadCpuTypeDelegate FunctionPointer;
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            internal protected override void Compile(bool machine = true)
+            {
+                //If building for the machine
+                if (machine)
+                {
+                    EntryPoint.SetInstructions(x86CodeBytes, x64CodeBytes, machine);
+
+                    EntryPoint.VirtualAllocate();
+
+                    EntryPoint.VirtualProtect();
+
+                    // Create a delegate to the "function"
+                    FunctionPointer = (ReadCpuTypeDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(EntryPoint.InstructionPointer, typeof(ReadCpuTypeDelegate));
+
+                }
+                else throw new System.NotImplementedException();
+            }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            internal ulong NativeInvoke()
+            {
+                return Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer);
+            }
+
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            internal ulong Invoke()
+            {
+                return FunctionPointer();
+            }
+        }
+
+        #endregion
+
         #region CpuId
 
         /// <summary>
@@ -1176,13 +862,19 @@ namespace Media.Concepts.Hardware
 
             //https://en.wikipedia.org/wiki/Control_register
 
+            //http://www.microbe.cz/docs/CPUID.pdf
+
             //http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0432c/Bhccjgga.html
 
             //http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0301h/Babgbeed.html
 
+            //http://thegeekdiary.com/how-to-find-number-of-physicallogical-cpus-cores-and-memory-in-solaris/
+
             #endregion
 
             //MCore / Freescale, Arm, MicroFx.
+
+            //Solaris etc
 
             #region Nested Types
 
@@ -1198,6 +890,100 @@ namespace Media.Concepts.Hardware
                 CPUID,
 
                 //Level 1 = CPUID Feature Bits
+
+                /// <summary>Floating Point Unit On-Chip</summary>
+                [CpuIdFeatures(0x01, EDX, 0)]
+                FPU,
+                /// <summary>Virtual 8086 Mode Enhancements</summary>
+                [CpuIdFeatures(0x01, EDX, 1)]
+                VME,
+                /// <summary>Debugging Extensions</summary>
+                [CpuIdFeatures(0x01, EDX, 2)]
+                DE,
+                /// <summary>Page Size Extension</summary>
+                [CpuIdFeatures(0x01, EDX, 3)]
+                PSE,
+                /// <summary>Time Stamp Counter</summary>
+                [CpuIdFeatures(0x01, EDX, 4)]
+                TSC,
+                /// <summary>Model Specific Registers RDMSR and WRMSR Instructions</summary>
+                [CpuIdFeatures(0x01, EDX, 5)]
+                MSR,
+                /// <summary>Physical Address Extension</summary>
+                [CpuIdFeatures(0x01, EDX, 6)]
+                PAE,
+                /// <summary>Machine Check Exception</summary>
+                [CpuIdFeatures(0x01, EDX, 7)]
+                MCE,
+                /// <summary>CMPXCHG8B Instruction</summary>
+                [CpuIdFeatures(0x01, EDX, 8)]
+                CX8,
+                /// <summary>APIC On-Chip</summary>
+                [CpuIdFeatures(0x01, EDX, 9)]
+                APIC,
+                //10 = Reserved
+                /// <summary>SYSENTER and SYSEXIT Instructions</summary>
+                /// <remarks>SEP Feature bit may be incorrectly set, verify with processor signature</remarks>
+                [CpuIdFeatures(0x01, EDX, 11)]
+                SYSENTER,
+                /// <summary>Memory Type Range Registers</summary>
+                [CpuIdFeatures(0x01, EDX, 12)]
+                MTRR,
+                /// <summary>Page Global Bit</summary>
+                [CpuIdFeatures(0x01, EDX, 13)]
+                PGE,
+                /// <summary>Machine Check Architecture</summary>
+                [CpuIdFeatures(0x01, EDX, 14)]
+                MCA,
+                /// <summary>Conditional Move Instructions</summary>
+                [CpuIdFeatures(0x01, EDX, 15)]
+                CMOV,
+                /// <summary>Page Attribute Table</summary>
+                [CpuIdFeatures(0x01, EDX, 16)]
+                PAT,
+                /// <summary>36-Bit Page Size Extension</summary>
+                [CpuIdFeatures(0x01, EDX, 17)]
+                PSE36,
+                /// <summary>Processor Serial Number</summary>
+                [CpuIdFeatures(0x01, EDX, 18)]
+                PSN,
+                /// <summary>CLFLUSH Instruction</summary>
+                [CpuIdFeatures(0x01, EDX, 19)]
+                CLFLUSH,
+                //20 = Reserved
+                /// <summary>Debug Store</summary>
+                [CpuIdFeatures(0x01, EDX, 21)]
+                DS,
+                /// <summary>Onboard thermal control MSRs for ACPI</summary>
+                [CpuIdFeatures(0x01, EDX, 22)]
+                ACPI,
+                /// <summary>MMX instructions</summary>
+                [CpuIdFeatures(0x01, EDX, 23)]
+                MMX,
+                /// <summary>FXSAVE, FXRESTOR instructions, CR4 bit 9</summary>
+                [CpuIdFeatures(0x01, EDX, 24)]
+                FSXR,
+                /// <summary>SSE instructions (a.k.a. Katmai New Instructions)</summary>
+                [CpuIdFeatures(0x01, EDX, 25)]
+                SSE,
+                /// <summary>SSE2 instructions</summary>
+                [CpuIdFeatures(0x01, EDX, 26)]
+                SSE2,
+                /// <summary>CPU cache supports self-snoop</summary>
+                [CpuIdFeatures(0x01, EDX, 27)]
+                SS,
+                /// <summary>Hyper-threading</summary>
+                [CpuIdFeatures(0x01, EDX, 28)]
+                HTT,
+                /// <summary>Thermal monitor automatically limits temperature</summary>
+                [CpuIdFeatures(0x01, EDX, 29)]
+                TM,
+                /// <summary>IA64 processor emulating x86</summary>
+                [CpuIdFeatures(0x01, EDX, 30)]
+                IA64,
+                /// <summary>Pending Break Enable</summary>
+                [CpuIdFeatures(0x01, EDX, 31)]
+                PBE,
 
                 /// <summary>Streaming SIMD Extensions 3 (SSE3)</summary>
                 [CpuIdFeatures(0x01, ECX, 0)]
@@ -1232,10 +1018,14 @@ namespace Media.Concepts.Hardware
                 /// <summary>L1 Context ID</summary>
                 [CpuIdFeatures(0x01, ECX, 10)]
                 CNXTID,
+                /// <summary>Silicon Debug Interface</summary>
+                /// <remarks>Intel reserved</remarks>
+                [CpuIdFeatures(0x01, ECX, 11)]
+                SDBG,
                 /// <summary>FMA extensions</summary>
+                /// <remarks>Intel reserved</remarks>
                 [CpuIdFeatures(0x01, ECX, 12)]
                 FMA,
-
                 /// <summary>CMPXCHG16B Instruction</summary>
                 [CpuIdFeatures(0x01, ECX, 13)]
                 CX16,
@@ -1247,6 +1037,7 @@ namespace Media.Concepts.Hardware
                 PDCM,
                 //16 = Reserved
                 /// <summary>Process-context identifiers</summary>
+                /// <remarks>Intel reserved</remarks>
                 [CpuIdFeatures(0x01, ECX, 17)]
                 PCID,
                 /// <summary>Direct Cache Access</summary>
@@ -1268,6 +1059,7 @@ namespace Media.Concepts.Hardware
                 [CpuIdFeatures(0x01, ECX, 23)]
                 POPCNT,
                 /// <summary>APIC timer supports TSC Deadline value</summary>
+                /// <remarks>Intel reserved</remarks>
                 [CpuIdFeatures(0x01, ECX, 24)]
                 TSCDeadline,
                 /// <summary>AESNI Instructions</summary>
@@ -1280,108 +1072,21 @@ namespace Media.Concepts.Hardware
                 [CpuIdFeatures(0x01, ECX, 27)]
                 OSXSAVE,
                 /// <summary>AVX</summary>
+                /// <remarks>Intel reserved</remarks>
                 [CpuIdFeatures(0x01, ECX, 28)]
                 AVX,
                 /// <summary>16-bit floating-point conversion</summary>
+                /// <remarks>Intel reserved</remarks>
                 [CpuIdFeatures(0x01, ECX, 29)]
                 F16C,
                 /// <summary>RDRAND Instruction</summary>
+                /// <remarks>Intel reserved</remarks>
                 [CpuIdFeatures(0x01, ECX, 30)]
                 RDRAND,
-                /// <summary>RDSEED Instruction</summary>
+                /// <summary>Running on a hypervisor, always 0 on a real CPU but also with some hypervisors</summary>
+                /// <remarks>Intel reserved</remarks>
                 [CpuIdFeatures(0x01, ECX, 31)]
                 HyperVisor,
-
-
-                /// <summary>Floating Point Unit On-Chip</summary>
-                [CpuIdFeatures(0x01, EDX, 0)]
-                FPU,
-                /// <summary>Virtual 8086 Mode Enhancements</summary>
-                [CpuIdFeatures(0x01, EDX, 1)]
-                VME,
-                /// <summary>Debugging Extensions</summary>
-                [CpuIdFeatures(0x01, EDX, 2)]
-                DE,
-                /// <summary>Page Size Extension</summary>
-                [CpuIdFeatures(0x01, EDX, 3)]
-                PSE,
-                /// <summary>Time Stamp Counter</summary>
-                [CpuIdFeatures(0x01, EDX, 4)]
-                TSC,
-                /// <summary>Model Specific Registers RDMSR and WRMSR Instructions</summary>
-                [CpuIdFeatures(0x01, EDX, 5)]
-                MSR,
-                /// <summary>Physical Address Extension</summary>
-                [CpuIdFeatures(0x01, EDX, 6)]
-                PAE,
-                /// <summary>Machine Check Exception</summary>
-                [CpuIdFeatures(0x01, EDX, 7)]
-                MCE,
-                /// <summary>CMPXCHG8B Instruction</summary>
-                [CpuIdFeatures(0x01, EDX, 8)]
-                CX8,
-                /// <summary>APIC On-Chip</summary>
-                [CpuIdFeatures(0x01, EDX, 9)]
-                APIC,
-                //10 = Reserved
-                /// <summary>SYSENTER and SYSEXIT Instructions</summary>
-                [CpuIdFeatures(0x01, EDX, 11)]
-                SYSENTER,
-                /// <summary>Memory Type Range Registers</summary>
-                [CpuIdFeatures(0x01, EDX, 12)]
-                MTRR,
-                /// <summary>Page Global Bit</summary>
-                [CpuIdFeatures(0x01, EDX, 13)]
-                PGE,
-                /// <summary>Machine Check Architecture</summary>
-                [CpuIdFeatures(0x01, EDX, 14)]
-                MCA,
-                /// <summary>Conditional Move Instructions</summary>
-                [CpuIdFeatures(0x01, EDX, 15)]
-                CMOV,
-                /// <summary>Page Attribute Table</summary>
-                [CpuIdFeatures(0x01, EDX, 16)]
-                PAT,
-                /// <summary>36-Bit Page Size Extension</summary>
-                [CpuIdFeatures(0x01, EDX, 17)]
-                PSE36,
-                /// <summary>Processor Serial Number</summary>
-                [CpuIdFeatures(0x01, EDX, 18)]
-                PSN,
-                /// <summary>CLFLUSH Instruction</summary>
-                [CpuIdFeatures(0x01, EDX, 19)]
-                CLFLUSH,
-                //20 = Reserved
-                /// <summary>Debug Store</summary>
-                [CpuIdFeatures(0x01, EDX, 21)]
-                DS,
-                /// <summary>Thermal Monitor and Software Controlled Clock Facilities</summary>
-                [CpuIdFeatures(0x01, EDX, 22)]
-                ACPI,
-                /// <summary>Intel MMX Technology</summary>
-                [CpuIdFeatures(0x01, EDX, 23)]
-                MMX,
-                /// <summary>FXSAVE and FXRSTOR Instructions</summary>
-                [CpuIdFeatures(0x01, EDX, 24)]
-                FSXR,
-                /// <summary>Streaming SIMD Extensions (SSE)</summary>
-                [CpuIdFeatures(0x01, EDX, 25)]
-                SSE,
-                /// <summary>Streaming SIMD Extensions 2 (SSE2)</summary>
-                [CpuIdFeatures(0x01, EDX, 26)]
-                SSE2,
-                /// <summary>Self Snoop</summary>
-                [CpuIdFeatures(0x01, EDX, 27)]
-                SS,
-                /// <summary>Max APIC IDs reserved field is Valid</summary>
-                [CpuIdFeatures(0x01, EDX, 28)]
-                HTT,
-                /// <summary>Thermal Monitor</summary>
-                [CpuIdFeatures(0x01, EDX, 29)]
-                TM,
-                /// <summary>Pending Break Enable</summary>
-                [CpuIdFeatures(0x01, EDX, 31)]
-                PBE,
 
                 //Level 2 is Cache and TLB Descriptor Information
 
@@ -1497,25 +1202,69 @@ namespace Media.Concepts.Hardware
                 avx512vbmi,
                 //All others reserved
 
+
+                //Extended Processor Info and Feature Bits
+                //Level = 0x80000001
+
                 /// <summary>SYSCALL/SYSENTER in 64 bit mode</summary>
                 [CpuIdFeatures(2147483647, EDX, 11)]
                 SYSCALL64,
-                /// <summary>No Execute But</summary>
+                //12 - 19 Reserved
+                /// <summary>Executation Disable Bit</summary>
                 [CpuIdFeatures(2147483647, EDX, 20)]
                 NX,
-                /// <summary>1GB Pages</summary>
+                //21 - 28 Intel Reserved
+
+                /// <summary>Reserved</summary>
+                [CpuIdFeatures(2147483647, EDX, 21)]
+                Reserved,
+                /// <summary>Extended MMX</summary>
+                /// <remarks>Intel reserved</remarks>
+                [CpuIdFeatures(2147483647, EDX, 22)]
+                mmxext,
+                /// <summary>MMX instructions</summary>
+                /// <remarks>Intel reserved</remarks>
+                [CpuIdFeatures(2147483647, EDX, 23)]
+                mmx,
+                /// <summary>FXSAVE, FXRSTOR instructions, CR4 bit 9</summary>
+                /// <remarks>Intel reserved</remarks>
+                [CpuIdFeatures(2147483647, EDX, 24)]
+                fxsr,
+                /// <summary>FXSAVE/FXRSTOR optimizations</summary>
+                /// <remarks>Intel reserved</remarks>
+                [CpuIdFeatures(2147483647, EDX, 25)]
+                fxsr_opt,
+
+                /// <summary>Gibibyte pages</summary>
+                /// <remarks>Intel reserved</remarks>
                 [CpuIdFeatures(2147483647, EDX, 26)]
                 GBP,
                 /// <summary>RDTSCP and IA32_TSC_AUX</summary>
                 [CpuIdFeatures(2147483647, EDX, 27)]
                 RDTSCP,
                 /// <summary>Intel 64 Architecture available</summary>
+                /// <remarks>Long Mode</remarks>
                 [CpuIdFeatures(2147483647, EDX, 29)]
                 INTEL64,
+                /// <summary>3DNow!</summary>
+                /// <remarks>Intel Reserevd</remarks>
+                [CpuIdFeatures(2147483647, EDX, 30)]
+                _3DNow,
+                /// <summary>Extended 3DNow!</summary>
+                /// <remarks>Intel Reserevd</remarks>
+                [CpuIdFeatures(2147483647, EDX, 31)]
+                _3DNowExt,
+
+                //80000005h: L1 Cache and TLB Identifiers
+                //80000006h: Extended L2 Cache Features
+
+                //Advanced Power Management Information = 80000007
+
                 /// <summary>Invariant TSC Available</summary>
-                [CpuIdFeatures(unchecked((int)0x80000007), EDX, 8)]
+                [CpuIdFeatures(-2147483641, EDX, 8)]
                 InvariantTSC,
 
+                //80000008h: Virtual and Physical address Sizes
             }
 
             /// <summary>
@@ -1554,6 +1303,14 @@ namespace Media.Concepts.Hardware
                 /// </summary>
                 public int Bit { get; private set; }
 
+                //The vendor to which the feature is specfific
+                //Vendor
+
+                /// <summary>
+                /// An optional mask which can be applied in addition to the bit check for the feature.
+                /// </summary>
+                //public int Mask { get; private set; }
+
                 //OpCodes, Array compliance...
             }
 
@@ -1561,7 +1318,7 @@ namespace Media.Concepts.Hardware
 
             #region Constants / Statics
 
-            //Todo, it is possibly to either read the register order from a file or to determine it manually.
+            //Todo, it is possibly to either read the register order from a file or to determine it manually. (lldt) or further from the GDT
 
             //enum Register : int
             //{
@@ -1624,27 +1381,22 @@ namespace Media.Concepts.Hardware
                     //FeatureInformation.Add(0, null);
                 }
 
+                //If CPUID is not support and the OS is Unix, proc/cpuinfo, dmidecode, and others can be used to get the same information
+
                 if (FeatureInformation.Count > 0) return;
 
-                foreach (var member in typeof(CpuIdFeature).GetMembers())
+                System.Type CpuIdFeatureType = typeof(CpuIdFeature), CpuIdFeaturesAtttributeType = typeof(CpuIdFeaturesAttribute);
+
+                //Get the TypeInfo
+                System.Reflection.TypeInfo typeInfo = System.Reflection.IntrospectionExtensions.GetTypeInfo(CpuIdFeatureType);
+
+                foreach (System.Reflection.MemberInfo member in typeInfo.GetMembers())
                 {
-                    foreach (var attribute in member.GetCustomAttributes(typeof(CpuIdFeaturesAttribute), false))
+                    foreach (object attribute in member.GetCustomAttributes(CpuIdFeaturesAtttributeType, false))
                     {
-                        FeatureInformation.Add((CpuIdFeature)System.Enum.Parse(typeof(CpuIdFeature), member.Name), (CpuIdFeaturesAttribute)attribute);
+                        FeatureInformation.Add((CpuIdFeature)System.Enum.Parse(CpuIdFeatureType, member.Name), (CpuIdFeaturesAttribute)attribute);
                     }
                 }
-            }
-
-            /// <summary>
-            /// Creates an intrinsic and checks support via <see cref="Intrinsic.IsSupported"/>.
-            /// Throws a <see cref="new System.NotSupportedException"/> if <paramref name="checkSupport"/> is true and the result of <see cref="Intrinsic.IsSupported"/> is false.
-            /// </summary>
-            /// <param name="checkSupport">true if support for the intrinsic should be checked</param>
-            /// <param name="shouldDipose">true if the instance should be disposed of when <see cref="Dispose"/> is called.</param>
-            public CpuId(bool checkSupport, bool shouldDipose)
-                : base(shouldDipose)
-            {
-                if (checkSupport && false == IsSupported(this)) throw new System.NotSupportedException("CpuId is either not supported or indicates the intrinsic is not supported.");
             }
 
             /// <summary>
@@ -1655,6 +1407,11 @@ namespace Media.Concepts.Hardware
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public static bool Supports(CpuIdFeature feature)
             {
+
+                //GetSupportedFeatures(feature.IsExtendedFeature
+
+                //GetSupportedFeatures();
+
                 return FeatureInformation.ContainsKey(feature);
 
                 //CpuIdFeaturesAttribute informationAttribute;
@@ -1697,178 +1454,47 @@ namespace Media.Concepts.Hardware
 
             static string ProcessorBrandString = null;
 
-            readonly static System.Collections.Generic.Dictionary<int, Common.MemorySegment> CpuIdResults = new System.Collections.Generic.Dictionary<int, Common.MemorySegment>();
+            /// <summary>
+            /// Key => First 32 bits is the level, last 32 bits is the subLeaf
+            /// Value => Results from cpuid
+            /// </summary>
+            readonly static System.Collections.Generic.Dictionary<long, Common.MemorySegment> CpuIdResults = new System.Collections.Generic.Dictionary<long, Common.MemorySegment>();
 
+            /// <summary>
+            /// 
+            /// </summary>
             readonly static System.Collections.Generic.Dictionary<CpuIdFeature, CpuIdFeaturesAttribute> FeatureInformation = new System.Collections.Generic.Dictionary<CpuIdFeature, CpuIdFeaturesAttribute>();
 
-            //static ReadAllFeatures()
-
             /// <summary>
-            /// Gets the processor vendor string
+            /// Checks for previously retrieved results for the given level and subLeaf
             /// </summary>
-            /// <returns></returns>
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public static string GetVendorString()
+            /// <param name="level"></param>
+            /// <param name="subLeaf"></param>
+            /// <returns>The cached result is present otherwise the result of calling cpuid.</returns>
+            internal static Common.MemorySegment RetrieveInformation(int level, int subLeaf = 0)
             {
-                if (false == (0 == MaximumFeatureLevel) | false == string.IsNullOrEmpty(VendorString)) return VendorString;
+                //Key by the level
+                long key = (long)(((ulong)level << 32) | (uint)subLeaf);
 
-                //Also now in CpuIdResults[0] 4 -> 12 along with MaximumFeatureLevel @ 0
+                Common.MemorySegment previous;
 
-                using (CpuId cpuId = new CpuId())
+                //If the dictionary has the key then return the data already retrieved
+                if (CpuIdResults.TryGetValue(key, out previous)) return previous;
+
+                System.Array.Clear(CpuId.CpuIdBuffer, 0, 16);
+
+                //Invoke CPUID
+                using (var cpuId = new CpuId())
                 {
-                    //Invoke with the level 
-                    cpuId.Invoke(MaximumFeatureLevel, ref CpuIdBuffer);
+                    //Invoke with the level and leaf
+                    cpuId.Invoke(level, ref CpuId.CpuIdBuffer, subLeaf);
 
-                    //Store the result
-                    CpuIdResults[MaximumFeatureLevel] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
-
-                    //The maximum feature level
-                    MaximumFeatureLevel = Common.Binary.Read32(CpuIdBuffer, 0, false);
-
-                    System.Text.StringBuilder builder = new System.Text.StringBuilder(32);
-
-                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetChars(CpuIdBuffer, 4, 4));
-                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetChars(CpuIdBuffer, 12, 4));
-                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetChars(CpuIdBuffer, 8, 4));
-
-                    //Get all features
-                    for (int i = 1; i < MaximumFeatureLevel; i++)
-                    {
-                        //Ensure not already contained somehow.
-                        if (CpuIdResults.ContainsKey(i)) continue;
-
-                        //Invoke with the level 
-                        cpuId.Invoke(i, ref CpuIdBuffer);
-
-                        //Store the result
-                        CpuIdResults[i] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
-                    }
-
-                    //concatenate the ebx, edx, ecx register values after extracting the character data
-                    return VendorString = builder.ToString();
-                }
-            }
-
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public static int GetMaximumFeatureLevel()
-            {
-                if (false == string.IsNullOrEmpty(VendorString) | false == (0 == MaximumFeatureLevel)) return MaximumFeatureLevel;
-
-                //Also now in CpuIdResults[0] 4 -> 12 along with MaximumFeatureLevel @ 0
-
-                using (CpuId cpuId = new CpuId())
-                {
-                    //Invoke with the level 
-                    cpuId.Invoke(MaximumFeatureLevel, ref CpuIdBuffer);
-
-                    //Store the result
-                    CpuIdResults[MaximumFeatureLevel] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
-
-                    //Store the new maximum feature level
-                    MaximumFeatureLevel = Common.Binary.Read32(CpuIdBuffer, 0, false);
-
-                    System.Text.StringBuilder builder = new System.Text.StringBuilder(32);
-
-                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetChars(CpuIdBuffer, 4, 4));
-                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetChars(CpuIdBuffer, 12, 4));
-                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetChars(CpuIdBuffer, 8, 4));
-
-                    //concatenate the ebx, edx, ecx register values after extracting the character data
-                    VendorString = builder.ToString();
-
-                    //Get all features
-                    for (int i = 1; i < MaximumFeatureLevel; i++)
-                    {
-                        //Ensure not already contained somehow.
-                        if (CpuIdResults.ContainsKey(i)) continue;
-
-                        //Invoke with the level 
-                        cpuId.Invoke(i, ref CpuIdBuffer);
-
-                        //Store the result
-                        CpuIdResults[i] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
-                    }
-
-                    return MaximumFeatureLevel;
-                }
-            }
-
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public static int GetMaximumExtendedFeatureLevel()
-            {
-                if (false == (-2147483648 == MaximumExtendedFeatureLevel)) return MaximumExtendedFeatureLevel;
-
-                using (CpuId cpuId = new CpuId())
-                {
-                    //Invoke with the level 
-                    cpuId.Invoke(MaximumExtendedFeatureLevel, ref CpuIdBuffer);
-
-                    //Store the result
-                    CpuIdResults[MaximumExtendedFeatureLevel] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
-
-                    //Store the new MaximumExtendedFeatureLevel
-                    MaximumExtendedFeatureLevel = Common.Binary.Read32(CpuIdBuffer, 0, false);
-
-                    //Get Maximum input value for extended cpuid function.
-                    //AMD, 80000001 and 1 are the same so this could probably save 16 bytes and the call by comparsing the value returned to MaximumFeatureLevel 
-                    //AMD & Intel 80000002 -> 80000004 contain any brand string
-
-                    //Get all supported extended features
-                    for (int i = -2147483648; i <= MaximumExtendedFeatureLevel; i++)
-                    {
-                        //Ensure not already contained somehow.
-                        if (CpuIdResults.ContainsKey(i)) continue;
-
-                        //Invoke with the level 
-                        cpuId.Invoke(i, ref CpuIdBuffer);
-
-                        //Avoid the duplication of in the dictionary where possibly by aliasing the key
-                        if (Common.Binary.Read32(CpuIdBuffer, 0, false) == MaximumFeatureLevel)
-                        {
-                            CpuIdResults[i] = CpuIdResults[MaximumFeatureLevel];
-
-                            continue;
-                        }
-
-                        //Store the result
-                        CpuIdResults[i] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
-                    }
-
-                    //Return the maximum extended feature level supported
-                    return MaximumExtendedFeatureLevel;
-                }
-            }
-
-            /// <summary>
-            /// Gets the Processor Brand String
-            /// </summary>
-            /// <returns></returns>
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public static string GetProcessorBrandString()
-            {
-                //If already retried return the the value.
-                if (false == string.IsNullOrEmpty(ProcessorBrandString)) return ProcessorBrandString;
-
-                //If the feature isn't support return the VendorString.
-                if (GetMaximumExtendedFeatureLevel() == 0) return ProcessorBrandString = GetVendorString();
-
-                System.Text.StringBuilder builder = new System.Text.StringBuilder(96);
-
-                //Get the extended features
-                for (int i = -2147483646; i <= -2147483644; ++i)
-                {
-                    //Access the memory of the registers previously retrieved
-                    Common.MemorySegment registers = CpuIdResults[i];
-
-                    //Scope the array
-                    byte[] buffer = registers.Array;
-
-                    //Append the eax, ebx, edx, ecx register values after extracting the character data
-                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetString(buffer, 0, registers.Count));
+                    //Create a copy of the buffer, Store the result in the CpuIdResults using the key.
+                    previous = CpuId.CpuIdResults[key] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
                 }
 
-                //Maybe padded with null octets at the beginning...
-                return ProcessorBrandString = builder.ToString();
+                //Return the data
+                return previous;
             }
 
             /// <summary>
@@ -1890,7 +1516,7 @@ namespace Media.Concepts.Hardware
                     Vortext86_SoC = "Vortex86 SoC",
                     //Virtual Machines
                     KVMKVMKVM = "KVMKVMKVM",
-                    Microsoft_Hv = "Microsoft Hv",  
+                    Microsoft_Hv = "Microsoft Hv",
                     _lrpepyh_vr = " lrpepyh vr",
                     VMwareVMware = "VMwareVMware",
                     XenVMMXenVMM = "XenVMMXenVMM";
@@ -1914,15 +1540,90 @@ namespace Media.Concepts.Hardware
             }
 
             /// <summary>
+            /// Gets the processor vendor string
+            /// </summary>
+            /// <returns></returns>
+            public static string GetVendorString()
+            {
+                if (false == (0 == CpuId.MaximumFeatureLevel) | false == string.IsNullOrEmpty(CpuId.VendorString)) return CpuId.VendorString;
+
+                using (CpuId cpuId = new CpuId())
+                {
+                    return CpuId.VendorString;
+                }
+            }
+
+            public static int GetMaximumFeatureLevel()
+            {
+                if (false == string.IsNullOrEmpty(CpuId.VendorString) | false == (0 == CpuId.MaximumFeatureLevel)) return CpuId.MaximumFeatureLevel;
+
+                using (CpuId cpuId = new CpuId())
+                {
+                    return CpuId.MaximumFeatureLevel;
+                }
+            }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            public static int GetMaximumExtendedFeatureLevel()
+            {
+                if (false == (-2147483648 == CpuId.MaximumExtendedFeatureLevel)) return CpuId.MaximumExtendedFeatureLevel;
+
+                using (CpuId cpuId = new CpuId())
+                {
+                    //Invoke with the level 
+                    cpuId.Invoke(MaximumExtendedFeatureLevel, ref CpuId.CpuIdBuffer);
+
+                    //Store the result
+                    CpuId.CpuIdResults[MaximumExtendedFeatureLevel] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
+
+                    //Store the new MaximumExtendedFeatureLevel
+                    CpuId.MaximumExtendedFeatureLevel = Common.Binary.Read32(CpuIdBuffer, 0, false);
+
+                    //Return the maximum extended feature level supported
+                    return CpuId.MaximumExtendedFeatureLevel;
+                }
+            }
+
+            /// <summary>
+            /// Gets the Processor Brand String
+            /// </summary>
+            /// <returns></returns>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            public static string GetProcessorBrandString()
+            {
+                //If already retried return the the value.
+                if (false == string.IsNullOrEmpty(CpuId.ProcessorBrandString)) return CpuId.ProcessorBrandString;
+
+                //If the feature isn't support return the VendorString.
+                if (CpuId.GetMaximumExtendedFeatureLevel() == 0) return CpuId.ProcessorBrandString = CpuId.GetVendorString();
+
+                System.Text.StringBuilder builder = new System.Text.StringBuilder(128);
+
+                //Get the extended brand string
+                //2147483646 + 4
+                for (int i = -2147483646; i <= -2147483644; ++i)
+                {
+                    //Access the memory of the registers previously retrieved
+                    Common.MemorySegment registers = RetrieveInformation(i);
+
+                    //Append the eax, ebx, edx, ecx register values after extracting the character data
+                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetString(registers.Array, 0, registers.Count));
+                }
+
+                //Maybe padded with null octets at the beginning...
+                return CpuId.ProcessorBrandString = builder.ToString();
+            }
+           
+            /// <summary>
             /// Gets the number of threads per core.
             /// </summary>
             /// <returns></returns>
             public static int GetThreadsPerCore()
             {
-                int maxFunctionLevel = GetMaximumFeatureLevel();
+                int maxFunctionLevel = CpuId.GetMaximumFeatureLevel();
 
                 //if the max function level is less than 4 or the vendor is not Intel then indicate 1.
-                if (maxFunctionLevel < 4 || false == (string.Compare(GetVendorString(), VendorStrings.GenuineIntel) == 0)) return 1;
+                if (maxFunctionLevel < 4 || false == (string.Compare(CpuId.GetVendorString(), VendorStrings.GenuineIntel) == 0)) return 1;
 
                 Common.MemorySegment registers;
 
@@ -1932,7 +1633,7 @@ namespace Media.Concepts.Hardware
                 if (maxFunctionLevel < 11)
                 {
                     //Access the memory of the registers previously retrieved from the core topology
-                    registers = CpuIdResults[1];
+                    registers = CpuId.RetrieveInformation(1);
 
                     //Read the bit which indicates if hyper threading is supported
                     if (false == (Common.Binary.ReadBits(registers.Array, 28, 1, false) == 0))
@@ -1944,7 +1645,7 @@ namespace Media.Concepts.Hardware
                         if (cores > 1)
                         {
                             //Access the memory of the registers previously retrieved
-                            registers = CpuIdResults[4];
+                            registers = CpuId.RetrieveInformation(4);
 
                             //read the number of physical cores
                             int physicalCores = (int)Common.Binary.ReadBits(registers.Array, 0, 7, false) + 1;
@@ -1956,10 +1657,10 @@ namespace Media.Concepts.Hardware
                 }
 
                 //Access the memory of the registers previously retrieved
-                registers = CpuIdResults[11]; // CpuIdResults[-2147483648];
+                registers = CpuId.RetrieveInformation(11);
 
                 //Read the number of cores
-                cores = (int)Common.Binary.ReadBits(registers.Array, 0, 8, false); //Common.Binary.Read32(CpuIdResults[-2147483648].Array, 0, false) & int.MaxValue;
+                cores = (int)Common.Binary.ReadBits(registers.Array, 32, 16, false);
                 
                 //return the amount of cores
                 return cores == 0 ? 1 : cores;
@@ -1974,7 +1675,7 @@ namespace Media.Concepts.Hardware
                 int maximumFeatureLevel = 0;
 
                 //Determine based on the vendor string.
-                switch (GetVendorString())
+                switch (CpuId.GetVendorString())
                 {
                     default: return maximumFeatureLevel;
                     case VendorStrings.AuthenticAMD:
@@ -1984,15 +1685,15 @@ namespace Media.Concepts.Hardware
                             // The value may not be the same as the number of logical processors that are present in the hardware of a physical package.
 
                             //Access the memory of the registers previously retrieved
-                            return (int)Common.Binary.ReadBits(CpuIdResults[1].Array, 16, 8, false);                            
+                            return (int)Common.Binary.ReadBits(CpuId.RetrieveInformation(1).Array, 16, 8, false);                            
                         }
                     case VendorStrings.GenuineIntel:
                         {
                             //Load the maximum feature level
-                            maximumFeatureLevel = GetMaximumFeatureLevel();
+                            maximumFeatureLevel = CpuId.GetMaximumFeatureLevel();
 
                             //If the maximum supported feature level is less than 11 or the vendor is AMD
-                            if (maximumFeatureLevel < 11 || string.Compare(GetVendorString(), VendorStrings.AuthenticAMD) == 0)
+                            if (maximumFeatureLevel < 11)
                             {
                                 //If the maximum support feature level is less than 1 indicate 0
                                 if (maximumFeatureLevel < 1) return 0;
@@ -2001,20 +1702,8 @@ namespace Media.Concepts.Hardware
                                 goto case VendorStrings.AuthenticAMD;
                             } 
 
-                            ////Intel apparently has the data in a leaf..
-
-                            //byte[] buffer = new byte [16];
-
-                            //using (var cpuid = new CpuId())
-                            //{
-                            //    cpuid.Invoke(11, ref buffer, 1);
-                            //}
-
-                            //Access the memory of the registers previously retrieved
-                            Common.MemorySegment registers = CpuIdResults[-2147483648];
-
-                            //return the amount of logical cores. (24 bits)
-                            return (int)Common.Binary.ReadBits(registers.Array, 0, 24, false); //Common.Binary.Read24(registers.Array, 0, false);
+                            //subLeaf => 0 = Core, 1 = Thread, 2 = Package
+                            return (int)Common.Binary.ReadBits(CpuId.RetrieveInformation(11, 1).Array, 32, 16, false);
                         }
                 }
             }
@@ -2028,97 +1717,104 @@ namespace Media.Concepts.Hardware
                 int maximumExtendedFeatureLevel = 0;
 
                 //Determine based on the vendor string.
-                switch (GetVendorString())
+                switch (CpuId.GetVendorString())
                 {
                     default: return maximumExtendedFeatureLevel;
                     case VendorStrings.AuthenticAMD:
                         {
-                            maximumExtendedFeatureLevel = GetMaximumExtendedFeatureLevel();
+                            maximumExtendedFeatureLevel = CpuId.GetMaximumExtendedFeatureLevel();
 
                             if (maximumExtendedFeatureLevel >= -2147483640)
                             {
-                                return (int)Common.Binary.ReadBits(CpuIdResults[-2147483640].Array, 0, 24, false) + 1;
+                                return (int)Common.Binary.ReadBits(CpuId.RetrieveInformation(-2147483640).Array, 0, 24, false) + 1;
                             }
 
                             return 0;
                         }
                     case VendorStrings.GenuineIntel:
                         {
-                            return GetLogicalCores() / GetThreadsPerCore();
+                            return CpuId.GetLogicalCores() / CpuId.GetThreadsPerCore();
                         }
                 }
             }
 
+            //internal static byte[] GetSignature()
+            //{
+            //    if (GetMaximumFeatureLevel() < 1) return null;
+
+            //    return RetrieveInformation(1).Array;
+            //}
+
             internal static int GetStepping()
             {
-                if (GetMaximumFeatureLevel() < 1) return 0;
+                if (CpuId.GetMaximumFeatureLevel() < 1) return 0;
 
-                return (int)Common.Binary.ReadBits(CpuIdResults[1].Array, 0, 4, false);
+                return (int)Common.Binary.ReadBits(RetrieveInformation(1).Array, 0, 4, false);
             }
 
             internal static int GetModelFamily()
             {
-                if (GetMaximumFeatureLevel() < 1) return 0;
+                if (CpuId.GetMaximumFeatureLevel() < 1) return 0;
 
-                return (int)Common.Binary.ReadBits(CpuIdResults[1].Array, 4, 4, false);
+                return (int)Common.Binary.ReadBits(RetrieveInformation(1).Array, 4, 4, false);
             }
 
             public static int GetModel()
             {
                 if (GetMaximumFeatureLevel() < 1) return 0;
 
-                return (int)Common.Binary.ReadBits(CpuIdResults[1].Array, 7, 3, false);
+                return (int)Common.Binary.ReadBits(RetrieveInformation(1).Array, 7, 3, false);
             }
 
             public static int GetFamily()
             {
-                if (GetMaximumFeatureLevel() < 1) return 0;
+                if (CpuId.GetMaximumFeatureLevel() < 1) return 0;
 
-                return (int)Common.Binary.ReadBits(CpuIdResults[1].Array, 8, 4, false);
+                return (int)Common.Binary.ReadBits(CpuId.RetrieveInformation(1).Array, 8, 4, false);
             }
 
             public static int GetProcessorType()
             {
-                if (GetMaximumFeatureLevel() < 1) return 0;
+                if (CpuId.GetMaximumFeatureLevel() < 1) return 0;
 
-                return (int)Common.Binary.ReadBits(CpuIdResults[1].Array, 12, 2, false);
+                return (int)Common.Binary.ReadBits(CpuId.RetrieveInformation(1).Array, 12, 2, false);
             }
 
             public static int GetExtendedModel()
             {
-                if (GetMaximumFeatureLevel() < 1) return 0;
+                if (CpuId.GetMaximumFeatureLevel() < 1) return 0;
 
-                return (int)Common.Binary.ReadBits(CpuIdResults[1].Array, 16, 3, false);
+                return (int)Common.Binary.ReadBits(CpuId.RetrieveInformation(1).Array, 16, 3, false);
             }
 
             public static int GetExtendedFamily()
             {
-                if (GetMaximumFeatureLevel() < 1) return 0;
+                if (CpuId.GetMaximumFeatureLevel() < 1) return 0;
 
-                return (int)Common.Binary.ReadBits(CpuIdResults[1].Array, 20, 7, false);
+                return (int)Common.Binary.ReadBits(CpuId.RetrieveInformation(1).Array, 20, 7, false);
             }
 
             internal static int GetExtendedModelFamily()
             {
-                if (GetMaximumFeatureLevel() < 1) return 0;
+                if (CpuId.GetMaximumFeatureLevel() < 1) return 0;
 
-                return (int)Common.Binary.ReadBits(CpuIdResults[1].Array, 16, 11, false);
+                return (int)Common.Binary.ReadBits(CpuId.RetrieveInformation(1).Array, 16, 11, false);
             }
 
             public static int GetDisplayModel()
             {
-                if (GetMaximumFeatureLevel() < 1) return 0;
+                if (CpuId.GetMaximumFeatureLevel() < 1) return 0;
 
-                int familyModel = Common.Binary.Read32(CpuIdResults[1].Array, 0, false);
+                int familyModel = Common.Binary.Read32(CpuId.RetrieveInformation(1).Array, 0, false);
 
                 return ((familyModel >> 4) & 0xf) + (familyModel >> 12);
             }
 
             public static int GetDisplayFamily()
             {
-                if (GetMaximumFeatureLevel() < 1) return 0;
+                if (CpuId.GetMaximumFeatureLevel() < 1) return 0;
 
-                int familyModel = Common.Binary.Read32(CpuIdResults[1].Array, 0, false);
+                int familyModel = Common.Binary.Read32(CpuId.RetrieveInformation(1).Array, 0, false);
 
                 return ((familyModel >> 8) & 0xf) + (familyModel >> 20);
             }
@@ -2129,15 +1825,9 @@ namespace Media.Concepts.Hardware
             /// <returns></returns>
             public static long ProcessorInformation()
             {
-                if (GetMaximumFeatureLevel() == 0) return -1;
+                if (CpuId.GetMaximumFeatureLevel() == -1) return -1;
 
-                //Access the memory of the registers previously retrieved
-                Common.MemorySegment registers = CpuIdResults[0];
-
-                //Scope the array
-                byte[] buffer = registers.Array;
-
-                return Common.Binary.Read64(buffer, 0, false);
+                return Common.Binary.Read64(CpuId.RetrieveInformation(0).Array, 0, false);
             }
 
             #region Level 1
@@ -2167,7 +1857,7 @@ namespace Media.Concepts.Hardware
                     if (GetMaximumFeatureLevel() == 0) return -1;
 
                     //Access the memory of the registers previously retrieved
-                    Common.MemorySegment registers = CpuIdResults[1];
+                    Common.MemorySegment registers = RetrieveInformation(1);
 
                     //Scope the array
                     byte[] buffer = registers.Array;
@@ -2185,7 +1875,7 @@ namespace Media.Concepts.Hardware
                     if (GetMaximumFeatureLevel() == 0) return -1;
 
                     //Access the memory of the registers previously retrieved
-                    Common.MemorySegment registers = CpuIdResults[1];
+                    Common.MemorySegment registers = RetrieveInformation(1);
 
                     //Scope the array
                     byte[] buffer = registers.Array;
@@ -2203,7 +1893,7 @@ namespace Media.Concepts.Hardware
                     if (GetMaximumFeatureLevel() == 0) return -1;
 
                     //Access the memory of the registers previously retrieved
-                    Common.MemorySegment registers = CpuIdResults[1];
+                    Common.MemorySegment registers = RetrieveInformation(1);
 
                     //Scope the array
                     byte[] buffer = registers.Array;
@@ -2221,7 +1911,7 @@ namespace Media.Concepts.Hardware
                     if (GetMaximumFeatureLevel() == 0) return -1;
 
                     //Access the memory of the registers previously retrieved
-                    Common.MemorySegment registers = CpuIdResults[1];
+                    Common.MemorySegment registers = RetrieveInformation(1);
 
                     //Scope the array
                     byte[] buffer = registers.Array;
@@ -2239,7 +1929,7 @@ namespace Media.Concepts.Hardware
                     if (GetMaximumFeatureLevel() == 0) return -1;
 
                     //Access the memory of the registers previously retrieved
-                    Common.MemorySegment registers = CpuIdResults[1];
+                    Common.MemorySegment registers = RetrieveInformation(1);
 
                     //Scope the array
                     byte[] buffer = registers.Array;
@@ -2257,7 +1947,7 @@ namespace Media.Concepts.Hardware
                     if (GetMaximumFeatureLevel() == 0) return -1;
 
                     //Access the memory of the registers previously retrieved
-                    Common.MemorySegment registers = CpuIdResults[1];
+                    Common.MemorySegment registers = RetrieveInformation(1);
 
                     //Scope the array
                     byte[] buffer = registers.Array;
@@ -2275,7 +1965,7 @@ namespace Media.Concepts.Hardware
                     if (GetMaximumFeatureLevel() == 0) return -1;
 
                     //Access the memory of the registers previously retrieved
-                    Common.MemorySegment registers = CpuIdResults[1];
+                    Common.MemorySegment registers = RetrieveInformation(1);
 
                     //Scope the array
                     byte[] buffer = registers.Array;
@@ -2321,7 +2011,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.HTT);
+                    return CpuId.Supports(CpuIdFeature.HTT);
                 }
             }
 
@@ -2330,7 +2020,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.HyperVisor);
+                    return CpuId.Supports(CpuIdFeature.HyperVisor);
                 }
             }
 
@@ -2339,7 +2029,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.APIC);
+                    return CpuId.Supports(CpuIdFeature.APIC);
                 }
             }
 
@@ -2348,7 +2038,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.X2APIC);
+                    return CpuId.Supports(CpuIdFeature.X2APIC);
                 }
             }
 
@@ -2357,7 +2047,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.MMX);
+                    return CpuId.Supports(CpuIdFeature.MMX);
                 }
             }
 
@@ -2366,7 +2056,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.SSE);
+                    return CpuId.Supports(CpuIdFeature.SSE);
                 }
             }
 
@@ -2375,7 +2065,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.SSE2);
+                    return CpuId.Supports(CpuIdFeature.SSE2);
                 }
             }
 
@@ -2384,7 +2074,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.SSE3);
+                    return CpuId.Supports(CpuIdFeature.SSE3);
                 }
             }
 
@@ -2393,7 +2083,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.SSE41);
+                    return CpuId.Supports(CpuIdFeature.SSE41);
                 }
             }
 
@@ -2402,7 +2092,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.SSE42);
+                    return CpuId.Supports(CpuIdFeature.SSE42);
                 }
             }
 
@@ -2411,7 +2101,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.RDTSCP);
+                    return CpuId.Supports(CpuIdFeature.RDTSCP);
                 }
             }
 
@@ -2420,7 +2110,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.TSC);
+                    return CpuId.Supports(CpuIdFeature.TSC);
                 }
             }
 
@@ -2429,7 +2119,7 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.InvariantTSC);
+                    return CpuId.Supports(CpuIdFeature.InvariantTSC);
                 }
             }
 
@@ -2438,7 +2128,10 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.RDRAND);
+                    return CpuId.Supports(CpuIdFeature.RDRAND);
+
+                    //Could also test here
+
                 }
             }
 
@@ -2447,135 +2140,139 @@ namespace Media.Concepts.Hardware
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get
                 {
-                    return Supports(CpuIdFeature.rdseed);
+                    return CpuId.Supports(CpuIdFeature.rdseed);
                 }
             }
 
             #endregion
 
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public static System.Collections.Generic.IEnumerable<CpuIdFeature> GetSupportedFeatures()
+            /// <summary>
+            /// Calls cpuid from 1 -> <see cref="MaximumFeatureLevel"/> and stored the results.
+            /// </summary>
+            /// <param name="extended">Indicates if the extended features should also be read</param>
+            internal static void ReadFeatures(bool extended)
             {
-                if (0 == GetMaximumFeatureLevel()) return FeatureInformation.Keys;
-
                 using (CpuId cpuId = new CpuId())
                 {
                     //Extract values for supported features: (EAX=<1)
                     //EAX => Extended Family, Extended MOdel, Type, Family, Model and Stepping ID (PSN)
-                    //EBX => Brand Index, CLFUSH line size, Count of logical processors (valid on if Hyper Threading bit is set), Processor local APIC (P4 +)
+                    //EBX => Brand Index, CLFUSH line size, Count of logical processors (valid only if Hyper Threading bit is set), Processor local APIC (P4 +)
                     //ECX =< Reserved
                     //EDX => Feature Flags
 
                     //Get all features
-                    for (int i = 1; i < MaximumFeatureLevel; i++)
-                    {
-                        //Ensure not already contained somehow.
-                        if (CpuIdResults.ContainsKey(i)) continue;
-
-                        //Invoke with the level 
-                        cpuId.Invoke(i, ref CpuIdBuffer);
-
-                        //Store the result
-                        CpuIdResults[i] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
-                    }
+                    for (int i = 1; i < CpuId.MaximumFeatureLevel; i++) CpuId.RetrieveInformation(i);
 
                     //Get all supported extended features
-                    for (int i = -2147483648, e = GetMaximumExtendedFeatureLevel(); i <= e; i++)
+                    if (extended) for (int i = -2147483648, e = CpuId.GetMaximumExtendedFeatureLevel(); i <= e; i++) CpuId.RetrieveInformation(i);
+                }
+            }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            public static System.Collections.Generic.IEnumerable<CpuIdFeature> GetSupportedFeatures(bool extended = true)
+            {
+                //Read the features
+                CpuId.ReadFeatures(extended);
+
+                System.Type CpuIdFeatureType = typeof(CpuIdFeature), CpuIdFeaturesAtttributeType = typeof(CpuIdFeaturesAttribute);
+
+                //Get the TypeInfo
+                System.Reflection.TypeInfo typeInfo = System.Reflection.IntrospectionExtensions.GetTypeInfo(CpuIdFeatureType);
+
+                //Test for the features.
+                foreach (System.Reflection.MemberInfo member in typeInfo.GetMembers())
+                {
+                    foreach (object attrib in member.GetCustomAttributes(CpuIdFeaturesAtttributeType, false))
                     {
-                        //Ensure not already contained somehow.
-                        if (CpuIdResults.ContainsKey(i)) continue;
+                        CpuIdFeaturesAttribute attribute = (CpuIdFeaturesAttribute)attrib;
 
-                        //Invoke with the level 
-                        cpuId.Invoke(i, ref CpuIdBuffer);
+                        //CPUID etc.
+                        if (attribute.Function == 0) continue;
 
-                        //Avoid the duplication of data in the dictionary where possibly by aliasing the key
-                        if (Common.Binary.Read32(CpuIdBuffer, 0, false) == MaximumFeatureLevel)
+                        //If the feature is not supported remove it
+                        if (false == (0 == Common.Binary.ReadBits(CpuId.RetrieveInformation(attribute.Function).Array, Common.Binary.BytesPerInteger * attribute.Register + attribute.Bit, 1, false)))
                         {
-                            CpuIdResults[i] = CpuIdResults[MaximumFeatureLevel];
+                            FeatureInformation.Remove((CpuIdFeature)System.Enum.Parse(CpuIdFeatureType, member.Name));
 
                             continue;
                         }
 
-                        //Store the result
-                        CpuIdResults[i] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
+                        //Add or update the feature
+                        FeatureInformation[(CpuIdFeature)System.Enum.Parse(CpuIdFeatureType, member.Name)] = attribute;
                     }
-
-                    return FeatureInformation.Keys;
                 }
+
+                //Return the keys
+                return FeatureInformation.Keys;
+            }
+
+            /// <summary>
+            /// Contains the buffer which receives the results and contains the level and subLeaf to invoke.
+            /// Register order is are Eax, Ebx, Ecx, Edx
+            /// </summary>
+            /// <param name="buffer"></param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            static void Fallback(byte[] buffer)
+            {
+                //
             }
 
             #endregion
 
-            //Todo, should be unsigned.
-            [System.Security.SuppressUnmanagedCodeSecurity]
-            [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
-            internal delegate void CpuIdDelegate(int level, byte[] buffer);
 
+            /// <summary>
+            ///// Provides the signature which is required to call cpuid or cpuidex.
+            /// </summary>
+            /// <param name="buffer">The input and output buffer</param>
+            /// <remarks>Data is given for level and subLeaf by writing values in the correct offsets.</remarks>
             [System.Security.SuppressUnmanagedCodeSecurity]
             [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
-            internal delegate void CpuIdExDelegate(int level, byte[] buffer, int subLevel = 0);
+            internal delegate void CpuIdExDelegate(byte[] buffer);          
 
             #region Fields
 
-            CpuIdExDelegate FunctionPointer;
+            CpuIdExDelegate FunctionPointer;           
 
-            //Should return == 0 if cpuid is supported
-            byte[] DetectCpuId = new byte[]{
-                0x9C, // pushf   ;Save EFLAGS
-                0x9C, // pushf   ;Store EFLAGS
-                0x81, 0xF4, 0x00, 0x00, 0x20, 0x00, //xor esp,0x200000 ;Invert the ID bit in stored EFLAGS
-                0x9D, // popf ;Load stored EFLAGS (with ID bit inverted)
-                0x9C, // pushf ;Store EFLAGS again (ID bit may or may not be inverted)
-                0x58, // pop eax ;eax = modified EFLAGS (ID bit may or may not be inverted)
-                0x09, 0xe0, //or eax,esp    ;eax = whichever bits were changed
-                0x9D, //popf  ;Restore original EFLAGS
-                0x25, 0x00, 0x00, 0x20, 0x00, //and eax, 0x200000  ;eax = zero if ID bit can't be changed, else non-zero
-                0xC3 //ret
+            //edi = buffer
+            byte[] x86CodeBytes = new byte[] { 
+                                        //Make a new call frame
+                 0x55,                  // push        ebp  
+                 0x8B, 0xEC,            // mov         ebp,esp
+                                        //Setup parameters                 
+                 0x8B, 0x07,            // mov    eax,DWORD PTR [edi] (write buffer 0 to the eax)
+                 0x8B, 0x5F, 0x04,      // mov    ebx,DWORD PTR [edi+4] (write buffer 4 to the ebx)
+                 0x8B, 0x4F, 0x08,      // mov    ecx,DWORD PTR [edi+8] (write buffer 8 to the ecx)
+                 0x8B, 0x57, 0x0C,      // mov    edx,DWORD PTR [edi+12] (write buffer 12 to the edx)
+                 0x0F, 0xA2,            // cpuid
+                 0x8B, 0x7D, 0x0C,      // mov  edi, dword ptr [ebp+12] (move address of buffer into edi)
+                 0x89, 0x07,            // mov  dword ptr [edi], eax  (write eax, ... to buffer)
+                 0x89, 0x5F, 0x04,      // mov  dword ptr [edi+4], ebx 
+                 0x89, 0x4F, 0x08,      // mov  dword ptr [edi+8], ecx 
+                 0x89, 0x57, 0x0C,      // mov  dword ptr [edi+12],edx 
+                                        //Restore frame
+                 0x89, 0xEC,            // mov  esp,ebp  
+                 0x5D,                  // pop  ebp 
+                 0xC3                   // ret
             };
 
-            byte[] x86CodeBytesEx = new byte[] { 
-                //Make a new call frame
-                 0x55, // push        ebp  
-                 0x8B, 0xEC,// mov         ebp,esp
-                 0x53, // push        ebx  
-                 0x57, // push        edi
-                 //Setup parameters
-                 0x8B, 0x4d, 0x10,       // mov    eax, dword ptr [ebp+0x10] (move optional argument into ecx)
-                 0x8B, 0x45, 0x08,       // mov    eax, dword ptr [ebp+8] (move level into eax)
-                 0x0F, 0xA2,             // cpuid
-                 0x8B, 0x7D, 0x0C,       // mov  edi, dword ptr [ebp+12] (move address of buffer into edi)
-                 0x89, 0x07,             // mov  dword ptr [edi+0], eax  (write eax, ... to buffer)
-                 0x89, 0x5F, 0x04,       // mov  dword ptr [edi+4], ebx 
-                 0x89, 0x4F, 0x08,       // mov  dword ptr [edi+8], ecx 
-                 0x89, 0x57, 0x0C,       // mov  dword ptr [edi+12],edx 
-                 0x5F,                   // pop  edi  
-                 0x5B,                   // pop  ebx  
-                 //Restore frame
-                 0x89, 0xEC, // mov  esp,ebp  
-                 0x5D, // pop  ebp 
-                 0xC3 // ret
-            };
 
-            // rcx is level
-            // rdx is buffer.
-            // r8 is optional code
-            // Need to save buffer elsewhere, cpuid overwrites rdx
-            // Put buffer in r8, use r8 to reference buffer later.
-            // rbx is clobbered by cpuid
-            byte[] x64CodeBytesEx = { 
-                0x53, // push   rbx
-                //Save buffer address to r8
-                0x49, 0x89, 0xD0, // mov    r8,rdx
-                //Setup parameters
-                0x89, 0xC8, // mov    eax,ecx
-                0x89, 0xD1, // mov    ecx,edx
-                0x0F, 0xA2, // cpuid
-                0x41, 0x89, 0x00, // mov    DWORD PTR [r8],eax
-                0x41, 0x89, 0x58, 0x04, // mov    DWORD PTR [r8+0x4],ebx
-                0x41, 0x89, 0x48, 0x08, // mov    DWORD PTR [r8+0x8],ecx
-                0x41, 0x89, 0x50, 0x0C, // mov    DWORD PTR [r8+0xc],edx
-                0x5B, //pop rbx
-                0xC3 // ret
+            // rcx is buffer
+            byte[] x64CodeBytes = {                                         
+                0x53,                   // push   rbx (ebx is the lower half of rbx)            
+                                        //Save buffer address to r9
+                0x49, 0x89, 0xC9,       // mov    r9,rcx
+                                        //Setup parameters
+                0x41, 0x8B, 0x01,       // mov    eax,DWORD PTR [r9] (move level to eax from buffer)
+                0x41, 0x8B, 0x59, 0x04, // mov    ebx,DWORD PTR [r9+0x4] (move extra level to ebx from buffer)
+                0x41, 0x8B, 0x49, 0x08, // mov    ecx,DWORD PTR [r9+0x8] (move sub level to ecx from buffer)
+                0x41, 0x8B, 0x51, 0x0c, // mov    edx,DWORD PTR [r9+0xc] (move last level to edx from buffer)
+                0x0F, 0xA2,             // cpuid
+                0x41, 0x89, 0x01,       // mov    DWORD PTR [r9],eax (store result of eax to buffer[0])
+                0x41, 0x89, 0x59, 0x04, // mov    DWORD PTR [r9+0x4],ebx (store result of eax to buffer[4])
+                0x41, 0x89, 0x49, 0x08, // mov    DWORD PTR [r9+0x8],ecx (store result of eax to buffer[8])
+                0x41, 0x89, 0x51, 0x0C, // mov    DWORD PTR [r9+0xc],edx (store result of eax to buffer[12])
+                0x5B,                   //pop rbx (restore rbx)
+                0xC3                    // ret
             };
 
             #endregion
@@ -2583,9 +2280,11 @@ namespace Media.Concepts.Hardware
             #region Constructor
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public CpuId(bool machine = false)
-                : base(true)
+            public CpuId(bool machine = true, bool shouldDispose = true)
+                : base(shouldDispose)
             {
+                if (false == Intrinsics.GetRuntimeState(this) && machine && false == CpuId.Supports(CpuId.CpuIdFeature.CPUID)) throw new System.NotSupportedException();
+
                 Compile(machine);
             }
 
@@ -2594,13 +2293,89 @@ namespace Media.Concepts.Hardware
             #region Methods
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            void Compile(bool machine = false)
+            internal protected override void Compile(bool machine = false)
             {
-                EntryPoint.SetInstructions(x86CodeBytesEx, x64CodeBytesEx, machine);
+                //Determine based on the State
+                switch (State)
+                {
+                    case IntrinsicState.NotAvailable:
+                        {
+                            //Create the delegate to use the fallback
+                            FunctionPointer = Fallback;
 
-                EntryPoint.VirtualAllocate();
+                            //Allocate a new EntryPoint
+                            EntryPoint = new PlatformMethod();
 
-                FunctionPointer = (CpuIdExDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(EntryPoint.InstructionPointer, typeof(CpuIdExDelegate));
+                            //Setup the InstructionPointer
+                            EntryPoint.InstructionPointer = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(FunctionPointer);
+
+                            //Indicate not supported
+                            MaximumFeatureLevel = -1;
+
+                            break;
+                        }
+                    //Successully ran before
+                    case IntrinsicState.Unknown:
+                    case IntrinsicState.Available:
+                        {
+                            //Use the faster code
+                            EntryPoint.SetInstructions(x86CodeBytes, x64CodeBytes, machine);
+
+                            //Allocate the memory and allow execution
+                            EntryPoint.VirtualAllocate();
+
+                            EntryPoint.VirtualProtect();
+
+                            // Create a delegate to the "function"
+                            FunctionPointer = (CpuIdExDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(EntryPoint.InstructionPointer, typeof(CpuIdExDelegate));
+
+                            if (State == IntrinsicState.Unknown)
+                            {
+                                //Set to compiled
+                                State = IntrinsicState.Compiled;
+
+                                try
+                                {
+                                    //Invoke with the level 0 to the static buffer, subleaf 0
+                                    FunctionPointer(CpuIdBuffer);
+
+                                    //Store the result
+                                    CpuIdResults[0] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
+
+                                    //Store the new maximum feature level
+                                    MaximumFeatureLevel = Common.Binary.Read32(CpuIdBuffer, 0, false);
+
+                                    System.Text.StringBuilder builder = new System.Text.StringBuilder(32);
+
+                                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetChars(CpuIdBuffer, 4, 4));
+                                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetChars(CpuIdBuffer, 12, 4));
+                                    builder.Append(System.Text.ASCIIEncoding.ASCII.GetChars(CpuIdBuffer, 8, 4));
+
+                                    //concatenate the ebx, edx, ecx register values after extracting the character data
+                                    VendorString = builder.ToString();
+
+                                    //Indicate available.
+                                    Intrinsics.SetRuntimeState(this, State = IntrinsicState.Available);
+                                }
+                                catch
+                                {
+                                    Intrinsics.SetRuntimeState(this, State = IntrinsicState.NotAvailable);
+
+                                    //SEH, Dispose the function
+                                    EntryPoint.Dispose();
+
+                                    //Set the delegate to null
+                                    FunctionPointer = null;
+                                }
+
+                                //If the function is not available then allocate the fallback
+                                if (State == IntrinsicState.NotAvailable) goto case IntrinsicState.NotAvailable;
+                            }
+
+                            break;
+                        }
+                }
+
             }
 
             //Todo, provide a way to call specifying processor desired.  (set affinity)
@@ -2609,7 +2384,35 @@ namespace Media.Concepts.Hardware
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public void Invoke(int level, ref byte[] buffer, int subLeaf = 0)
             {
-                FunctionPointer(level, buffer, 0);
+                int length;
+
+                if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(buffer, out length)) throw new System.ArgumentNullException("buffer");
+                else if (length < 16) throw new System.InvalidOperationException("buffer must have room to store at least 4 32 bit values.");
+
+                //eax
+                Common.Binary.Write32(buffer, 0, false, level);
+
+                //ebx
+                //Unused
+
+                //ecx
+                if (subLeaf > 0) Common.Binary.Write32(buffer, 8, false, subLeaf);
+
+                //edx
+                //Unused
+
+                FunctionPointer(buffer);
+            }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            public void Invoke(ref byte[] buffer)
+            {
+                int length;
+
+                if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(buffer, out length)) throw new System.ArgumentNullException("buffer");
+                else if (length < 16) throw new System.InvalidOperationException("buffer must have room to store at least 4 32 bit values.");
+
+                FunctionPointer(buffer);
             }
 
             /// <summary>
@@ -2617,27 +2420,41 @@ namespace Media.Concepts.Hardware
             /// </summary>
             /// <param name="level"></param>
             /// <returns></returns>
-            public byte[] Invoke(int level)
+            public byte[] Invoke(int level, int subLeaf = 0)
             {
-                byte[] result = new byte[16];
+                //The input and result buffer
+                byte[] buffer = new byte[16];
 
-                Invoke(level, ref result);
 
-                return result;
+                //eax
+                Common.Binary.Write32(buffer, 0, false, level);
+
+                //ebx
+                //Unused
+
+                //ecx
+                if (subLeaf > 0) Common.Binary.Write32(buffer, 8, false, subLeaf);
+
+                //edx
+                //Unused
+
+                Invoke(level, ref buffer, subLeaf);
+
+                return buffer;
             }
 
-            [System.CLSCompliant(false)]
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public byte[] NativeInvoke()
-            {
-                throw new System.NotImplementedException();
+            //[System.CLSCompliant(false)]
+            //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            //public byte[] NativeInvoke()
+            //{
+            //    throw new System.NotImplementedException();
 
-                //byte[] result = new byte[16];
+            //    //byte[] result = new byte[16];
 
-                //Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer);
+            //    //Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer);
 
-                //return result;
-            }
+            //    //return result;
+            //}
 
             #endregion
         }
@@ -2651,22 +2468,40 @@ namespace Media.Concepts.Hardware
         /// </summary>
         public sealed class Rtdsc : Intrinsic
         {
+            /// <summary>
+            /// Fallback if Rdtsc isn't available
+            /// </summary>
+            /// <returns></returns>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            static ulong Fallback()
+            {
+                return unchecked((ulong)System.Diagnostics.Stopwatch.GetTimestamp());
+            }
+
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <returns></returns>
             [System.CLSCompliant(false)]
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public static ulong GetTimestampUnsigned()
             {
                 using (Rtdsc rtdsc = new Rtdsc())
                 {
-                    return rtdsc.NativeInvoke();
+                    return rtdsc.ReadTimestampCounterUnsigned();
                 }
             }
 
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <returns></returns>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public static long GetTimestamp()
             {
                 using (Rtdsc rtdsc = new Rtdsc())
                 {
-                    return rtdsc.Invoke();
+                    return rtdsc.ReadTimestampCounter();
                 }
             }
 
@@ -2674,7 +2509,7 @@ namespace Media.Concepts.Hardware
             [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.StdCall)]
             internal delegate ulong TimestampDelegate();
 
-            internal TimestampDelegate Timestamp;
+            internal TimestampDelegate ReadTimestampDelegate;
 
             byte[] x86CodeBytes = new byte[] 
             {
@@ -2686,65 +2521,78 @@ namespace Media.Concepts.Hardware
             /// Pipeline aware
             /// </summary>
             byte[] x86Rdtscp = new byte[] 
-        { 
-            0x0F, 0x01, 0xF9, //rdtscp
-            0xC3 //ret
-        };
+            { 
+                0x0F, 0x01, 0xF9, //rdtscp
+                0xC3 //ret
+            };
 
             /// <summary>
             /// Serialized with Cpuid
             /// </summary>
             byte[] x86RdtscCpuid = new byte[] 
-        { 
-           0x53, //push ebx
-           0x31, 0xC0, //xor eax,eax
-           0x0F, 0xA2, //cpuid
-           0x0F, 0x31, // rdtsc
-           0x5B, //pop ebx
-           0xC3 // ret
-        };
+            { 
+               0x53, //push ebx
+               0x31, 0xC0, //xor eax,eax
+               0x0F, 0xA2, //cpuid
+               0x0F, 0x31, // rdtsc
+               0x5B, //pop ebx
+               0xC3 // ret
+            };
+
+            //http://stackoverflow.com/questions/17401914/why-should-i-use-rdtsc-diferently-on-x86-and-x86-x64
+            //In x86-64 mode, RDTSC also clears the higher 32 bits of RAX. To compensate those bits we have to shift hi left by 32 bits.
+
+            //These functions return 64 bit values given the definition of the delegate so the return value is already 64 bits.
 
             /// <summary>
             /// Raw call
             /// </summary>
             byte[] x64CodeBytes = 
-        {
-            0x0F, 0x31, // rdtsc
-            //0x48, 0xC1, 0xE2, 0x20, // shl rdx,20h 
-            //0x48, 0x0B, 0xC2, // or rax,rdx 
-            0xC3, // ret
-        };
+            {
+                0x0F, 0x31, // rdtsc
+                //0x48, 0xC1, 0xE2, 0x20, // shl rdx,20h 
+                //0x48, 0x0B, 0xC2, // or rax,rdx 
+                0xC3, // ret
+            };
 
             /// <summary>
             /// Pipeline aware
             /// </summary>
-            byte[] x64Rdtscp = new byte[] { 
-            0x0F, 0x01, 0xF9, //rdtscp
-            //0x48, 0xC1, 0xE2, 0x20, // shl rdx, 20h
-            //0x48, 0x09, 0xD0, //or rax,rdx
-            0xC3 //ret
-        };
+            byte[] x64Rdtscp = new byte[] 
+            { 
+                0x0F, 0x01, 0xF9, //rdtscp
+                //0x48, 0xC1, 0xE2, 0x20, // shl rdx, 20h
+                //0x48, 0x09, 0xD0, //or rax,rdx
+                0xC3 //ret
+            };
 
             /// <summary>
             /// Serialized with Cpuid
             /// </summary>
             byte[] x64RdtscCpuid = new byte[] 
-        { 
-            0x53, //push rbx
-            0x31, 0xC0, //xor eax,eax
-            0x0F, 0xA2, //cpuid
-            0x0F, 0x31, //rdtsc
-            0x48, 0xC1, 0xE2, 0x20, //shl rdx,0x20
-            0x48, 0x09, 0xD0, //or rax,rdx
-            0x5B, //pop rbx
-            0xC3  //ret
-        };
+            { 
+                0x53, //push rbx
+                0x31, 0xC0, //xor eax,eax
+                0x0F, 0xA2, //cpuid
+                0x0F, 0x31, //rdtsc
+                //0x48, 0xC1, 0xE2, 0x20, //shl rdx,0x20
+                //0x48, 0x09, 0xD0, //or rax,rdx
+                0x5B, //pop rbx
+                0xC3  //ret
+            };
 
             //Todo
             //Arm, => Setup access call (needs Epilog, Prolog and possibly auth)
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            void Compile(bool machine = true)
+            public Rtdsc(bool machine = true)
+                : base(true)
+            {
+                Compile(machine);
+            }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            internal protected override void Compile(bool machine = true)
             {
                 //If building for the machine
                 if (machine)
@@ -2762,52 +2610,26 @@ namespace Media.Concepts.Hardware
                     EntryPoint.VirtualProtect();
 
                     // Create a delegate to the "function"
-                    Timestamp = (TimestampDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(EntryPoint.InstructionPointer, typeof(TimestampDelegate));
-
+                    ReadTimestampDelegate = (TimestampDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(EntryPoint.InstructionPointer, typeof(TimestampDelegate));
                 }
                 else
                 {
                     //Use the fallback
-                    Timestamp = StopwatchGetTimestamp;
+                    ReadTimestampDelegate = Fallback;
 
                     //Create the pointer for the delegate
-                    EntryPoint.InstructionPointer = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(Timestamp);
+                    EntryPoint.InstructionPointer = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(ReadTimestampDelegate);
                 }
-            }
+            }            
 
-            /// <summary>
-            /// Fallback if Rdtsc isn't available
-            /// </summary>
-            /// <returns></returns>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            static ulong StopwatchGetTimestamp()
+            public long ReadTimestampCounter()
             {
-                return unchecked((ulong)System.Diagnostics.Stopwatch.GetTimestamp());
+                return (long)ReadTimestampDelegate();
             }
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public Rtdsc(bool machine = true)
-                : base(true)
-            {
-                Compile(machine);
-            }
-
-            [System.CLSCompliant(false)]
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public ulong InvokeUnsigned()
-            {
-                return Timestamp();
-            }
-
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public long Invoke()
-            {
-                return (long)Timestamp();
-            }
-
-            [System.CLSCompliant(false)]
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public ulong NativeInvoke()
+            internal ulong ReadTimestampCounterUnsigned()
             {
                 return Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer);
             }
@@ -2822,6 +2644,18 @@ namespace Media.Concepts.Hardware
         /// </summary>
         public sealed class Rdrand : Intrinsic
         {
+            #region References
+
+            //https://software.intel.com/sites/default/files/m/d/4/1/d/8/441_Intel_R__DRNG_Software_Implementation_Guide_final_Aug7.pdf
+
+            //https://github.com/viathefalcon/rdrand_msvc_2010/blob/master/RdRandStatic/ia_rdrand.cpp
+
+            //https://en.wikipedia.org/wiki/RdRand
+
+            #endregion
+
+            internal const float MaxValue = 4294967295f;
+
             /// <summary>
             /// The delegate used to invoke the intrinsic
             /// </summary>
@@ -2830,18 +2664,6 @@ namespace Media.Concepts.Hardware
             [System.Security.SuppressUnmanagedCodeSecurity]
             [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.StdCall)]
             internal delegate ulong RandNative([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.U1)] ref byte status); //ref instead of out because of fallback
-
-            //Possibly should be on Intrinsic, along with Compile...
-
-            /// <summary>
-            /// Described the state of the intrinsic on the current system after calling Compile
-            /// </summary>
-            internal enum RdRandState
-            {
-                Unknown,
-                NotAvailable,
-                Available
-            }
 
             #region Statics
 
@@ -2975,11 +2797,6 @@ namespace Media.Concepts.Hardware
                 return Hardware.Intrinsics.Rtdsc.GetTimestampUnsigned();
             }
 
-            /// <summary>
-            /// The state of the intrinsic
-            /// </summary>
-            static RdRandState State = RdRandState.Unknown;
-
             #endregion
 
             #region Fields
@@ -2987,14 +2804,14 @@ namespace Media.Concepts.Hardware
             /// <summary>
             /// The instance delegate
             /// </summary>
-            internal RandNative Random;
+            internal RandNative RandomDelegate;
 
             /// <summary>
             /// Calls rdrand on the rax
             /// </summary>
             byte[] x64CodeBytes = new byte[]{
                 0x48, 0x0F, 0xC7, 0xF0, // rexw rdrand rax 
-                0x67, 0x0F, 0x92, 0x01, // setb BYTE PTR [rcx]
+                0x67, 0x0F, 0x92, 0x01, // setb BYTE PTR [rcx] (set rcx = 1 when carry was set)
                 0xC3  // ret
             };
 
@@ -3003,7 +2820,7 @@ namespace Media.Concepts.Hardware
             /// </summary>
             byte[] x86CodeBytes = new byte[]{
                 0x0F, 0xC7, 0xF0, // rdrand eax 
-                0x0F, 0x92, 0x01, // setb BYTE PTR [ecx]
+                0x0F, 0x92, 0x01, // setb BYTE PTR [ecx] (set ecx = 1 when carry was set)
                 0xC3  // ret
             };
 
@@ -3012,10 +2829,17 @@ namespace Media.Concepts.Hardware
             #region Constructor
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public Rdrand(bool machine = true)
-                : base(true)
+            public Rdrand(bool machine = true, bool shouldDispose = true)
+                : base(shouldDispose)
             {
-                if (machine && false == CpuId.Supports(CpuId.CpuIdFeature.RDRAND)) throw new System.NotSupportedException();
+                //if (machine && false == CpuId.Supports(CpuId.CpuIdFeature.RDRAND)) throw new System.NotSupportedException();
+
+                //Intrinsics.CompiledIntrinsics.TryGetValue(GetType().MetadataToken, out State);
+
+                if (false == Intrinsics.GetRuntimeState(this) && machine && false == CpuId.Supports(CpuId.CpuIdFeature.RDRAND)) throw new System.NotSupportedException();
+
+                //Determine based on the CpuInfo Feature Bit
+                State = (Common.Binary.Read32(Intrinsics.CpuId.RetrieveInformation(1).Array, 12, false) & 0x40000000) == 0x40000000 ? IntrinsicState.Available : IntrinsicState.NotAvailable;
 
                 Compile(machine);
             }
@@ -3030,27 +2854,27 @@ namespace Media.Concepts.Hardware
             /// <param name="machine"></param>
             [System.Runtime.ExceptionServices.HandleProcessCorruptedStateExceptions]
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            void Compile(bool machine = true)
+            internal protected override void Compile(bool machine = true)
             {
                 //Determine based on the State
                 switch (State)
                 {
-                    case RdRandState.NotAvailable:
+                    case IntrinsicState.NotAvailable:
                         {
                             //Create the delegate to use the fallback RDTSC
-                            Random = Fallback;
+                            RandomDelegate = Fallback;
 
                             //Allocate a new EntryPoint
-                            EntryPoint = new PlatformMemoryAllocation();
+                            EntryPoint = new PlatformMethod(ShouldDispose);
 
                             //Setup the InstructionPointer
-                            EntryPoint.InstructionPointer = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(Random);
+                            EntryPoint.InstructionPointer = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(RandomDelegate);
 
                             break;
                         }
                     //Successully ran before
-                    case RdRandState.Unknown:
-                    case RdRandState.Available:
+                    case IntrinsicState.Unknown:
+                    case IntrinsicState.Available:
                         {
                             //Use the faster code
                             EntryPoint.SetInstructions(x86CodeBytes, x64CodeBytes, machine);
@@ -3058,10 +2882,13 @@ namespace Media.Concepts.Hardware
                             //Allocate the memory and allow execution
                             EntryPoint.VirtualAllocate();
 
-                            EntryPoint.VirtualProtect();
+                            EntryPoint.VirtualProtect();                            
 
-                            if (State == RdRandState.Unknown)
+                            if (State == IntrinsicState.Unknown)
                             {
+                                //Set to compiled
+                                State = IntrinsicState.Compiled;
+
                                 try
                                 {
                                     //Check for failure even if the function succeeds because we may be using the safe asm which ensures 0 as the result on failure
@@ -3071,28 +2898,35 @@ namespace Media.Concepts.Hardware
 
                                         EntryPoint = null;
 
-                                        Random = null;
+                                        RandomDelegate = null;
 
-                                        State = RdRandState.NotAvailable;
+                                        State = IntrinsicState.NotAvailable;
                                     }
                                     else
                                     {
-                                        State = RdRandState.Available;
+                                        //Indicate available.
+                                        Intrinsics.SetRuntimeState(this, State = IntrinsicState.Available);
+
+                                        //Indicate available.
+                                        //Intrinsics.CompiledIntrinsics.Add(MetadataToken, State = IntrinsicState.Available);
                                     }
                                 }
                                 catch
                                 {
-                                    State = RdRandState.NotAvailable;
+                                    //Indicate not available.
+                                    //Intrinsics.CompiledIntrinsics.Add(MetadataToken, State = IntrinsicState.NotAvailable);
+
+                                    Intrinsics.SetRuntimeState(this, State = IntrinsicState.NotAvailable);
 
                                     //SEH, Dispose the function
                                     EntryPoint.Dispose();
 
                                     //Set the delegate to null
-                                    Random = null;
+                                    RandomDelegate = null;
                                 }
 
                                 //If the function is not available then allocate the fallback
-                                if (State == RdRandState.NotAvailable) goto case RdRandState.NotAvailable;
+                                if (State == IntrinsicState.NotAvailable) goto case IntrinsicState.NotAvailable;
                             }
 
                             break;
@@ -3188,6 +3022,15 @@ namespace Media.Concepts.Hardware
         /// </summary>
         public class Rdseed : Intrinsic
         {
+
+            #region References
+
+            //https://en.wikipedia.org/wiki/RdRand
+
+            //https://software.intel.com/sites/default/files/managed/4d/91/DRNG_Software_Implementation_Guide_2.0.pdf
+
+            #endregion
+
             /// <summary>
             /// The delegate used to invoke the intrinsic
             /// </summary>
@@ -3196,18 +3039,6 @@ namespace Media.Concepts.Hardware
             [System.Security.SuppressUnmanagedCodeSecurity]
             [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.StdCall)]
             internal delegate ulong SeedNative([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.U1)] ref byte status); //ref instead of out because of fallback
-
-            //Possibly should be on Intrinsic, along with Compile...
-
-            /// <summary>
-            /// Described the state of the intrinsic on the current system after calling Compile
-            /// </summary>
-            internal enum RdSeedState
-            {
-                Unknown,
-                NotAvailable,
-                Available
-            }
 
             #region Statics
 
@@ -3341,16 +3172,9 @@ namespace Media.Concepts.Hardware
                 return Hardware.Intrinsics.Rtdsc.GetTimestampUnsigned();
             }
 
-            /// <summary>
-            /// The state of the intrinsic
-            /// </summary>
-            static RdSeedState State = RdSeedState.Unknown;
-
             #endregion
 
             #region Fields
-
-            internal SeedNative Seed;
 
             byte[] x86CodeBytes = 
             {
@@ -3366,15 +3190,23 @@ namespace Media.Concepts.Hardware
                 0xC3 // ret
             };
 
+            internal SeedNative SeedDelegate;
+
             #endregion
 
             #region Constructor
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public Rdseed(bool machine = false)
-                : base(true)
+            public Rdseed(bool machine = false, bool shouldDispose = true)
+                : base(shouldDispose)
             {
-                if (machine && false == CpuId.Supports(CpuId.CpuIdFeature.rdseed)) throw new System.NotSupportedException();
+                //if (machine && false == CpuId.Supports(CpuId.CpuIdFeature.rdseed)) throw new System.NotSupportedException();
+
+                //Intrinsics.CompiledIntrinsics.TryGetValue(GetType().MetadataToken, out State);
+
+                if (false == Intrinsics.GetRuntimeState(this) && machine && false == CpuId.Supports(CpuId.CpuIdFeature.rdseed)) throw new System.NotSupportedException();
+
+                State = (Common.Binary.Read32(Intrinsics.CpuId.RetrieveInformation(7).Array, 8, false) & 0x40000) == 0x40000 ? IntrinsicState.Available : IntrinsicState.NotAvailable;
 
                 Compile(machine);
             }
@@ -3389,38 +3221,39 @@ namespace Media.Concepts.Hardware
             /// <param name="machine"></param>
             [System.Runtime.ExceptionServices.HandleProcessCorruptedStateExceptions]
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            void Compile(bool machine = true)
+            internal protected override void Compile(bool machine = true)
             {
                 //Determine based on the State
                 switch (State)
                 {
-                    case RdSeedState.NotAvailable:
+                    case IntrinsicState.NotAvailable:
                         {
                             //Create the delegate to use the fallback RDTSC
-                            Seed = Fallback;
+                            SeedDelegate = Fallback;
 
                             //Allocate a new EntryPoint
-                            EntryPoint = new PlatformMemoryAllocation();
+                            EntryPoint = new PlatformMethod(ShouldDispose);
 
                             //Setup the InstructionPointer
-                            EntryPoint.InstructionPointer = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(Seed);
+                            EntryPoint.InstructionPointer = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(SeedDelegate);
 
                             break;
                         }
                     //Successully ran before
-                    case RdSeedState.Unknown:
-                    case RdSeedState.Available:
+                    case IntrinsicState.Unknown:
+                    case IntrinsicState.Available:
                         {
-                            //Use the faster code
                             EntryPoint.SetInstructions(x86CodeBytes, x64CodeBytes, machine);
 
-                            //Allocate the memory and allow execution
                             EntryPoint.VirtualAllocate();
 
                             EntryPoint.VirtualProtect();
 
-                            if (State == RdSeedState.Unknown)
+                            if (State == IntrinsicState.Unknown)
                             {
+                                //Set to compiled
+                                State = IntrinsicState.Compiled;
+
                                 try
                                 {
                                     //Check for failure even if the function succeeds because we may be using the safe asm which ensures 0 as the result on failure
@@ -3430,28 +3263,32 @@ namespace Media.Concepts.Hardware
 
                                         EntryPoint = null;
 
-                                        Seed = null;
+                                        SeedDelegate = null;
 
-                                        State = RdSeedState.NotAvailable;
+                                        State = IntrinsicState.NotAvailable;
                                     }
                                     else
                                     {
-                                        State = RdSeedState.Available;
+                                        //Indicate available.
+                                        //Intrinsics.CompiledIntrinsics.Add(GetType().MetadataToken, State = IntrinsicState.Available);
+                                        Intrinsics.SetRuntimeState(this, State = IntrinsicState.Available);
                                     }
                                 }
                                 catch
                                 {
-                                    State = RdSeedState.NotAvailable;
+                                    //Indicate not available.
+                                    //Intrinsics.CompiledIntrinsics.Add(GetType().MetadataToken, State = IntrinsicState.NotAvailable);
+                                    Intrinsics.SetRuntimeState(this, State = IntrinsicState.NotAvailable);
 
                                     //SEH, Dispose the function
                                     EntryPoint.Dispose();
 
                                     //Set the delegate to null
-                                    Seed = null;
+                                    SeedDelegate = null;
                                 }
 
                                 //If the function is not available then allocate the fallback
-                                if (State == RdSeedState.NotAvailable) goto case RdSeedState.NotAvailable;
+                                if (State == IntrinsicState.NotAvailable) goto case IntrinsicState.NotAvailable;
                             }
 
                             break;

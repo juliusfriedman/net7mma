@@ -101,14 +101,19 @@ namespace Media.Common.Collections.Generic
             //System.TypedReference tr = __makeref(obj, T);
             //fields[0].SetValueDirect(tr, obj);
 
+
+            System.Type TypeOfLinkedListNodeT = typeof(LinkedListNode<T>);
+
+            
+
             //or the ctor
-            var ctors = typeof(LinkedListNode<T>).GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+            System.Reflection.ConstructorInfo[] ctors = System.Reflection.IntrospectionExtensions.GetTypeInfo(TypeOfLinkedListNodeT).GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
             
             Constructor = ctors.LastOrDefault();
             //ctors[0].Invoke(new object[] { list, value });
 
             //Could also use properties but it's a tad slower...
-            var props = typeof(LinkedListNode<T>).GetProperties();
+            System.Reflection.PropertyInfo[] props = System.Reflection.IntrospectionExtensions.GetTypeInfo(TypeOfLinkedListNodeT).GetProperties();
 
             ListProperty = props.Where(p => p.Name == "List").FirstOrDefault();
 
@@ -213,7 +218,6 @@ namespace Media.Common.Collections.Generic
         }
 
         #endregion
-
 
         #region Constrcutor
 
