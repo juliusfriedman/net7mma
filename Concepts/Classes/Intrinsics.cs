@@ -82,9 +82,20 @@ namespace Media.Concepts.Hardware
 
         #region Methods
 
+        ///// <summary>
+        ///// Classes could override this function with their byte code.
+        ///// </summary>
+        ///// <returns></returns>
+        //virtual byte[] GetCode()
+        //{
+        //    return new byte[1];
+
+        //    //it would be called to retrieve the byte code and then could be used to store the old implementation codew.
+        //}
+
         /// <summary>
-        /// Executes the <see cref="EntryPoint.ManagedDelegate"/> and returns the result.
-        ///If an exception occurs <see cref="NotSupported"/> is called to set the state.
+        /// Executes the <see cref="EntryPoint.ManagedDelegate"/> using <see cref="Delegate.DynamicInvoke"/>and returns the result.
+        ///If an exception occurs <see cref="NotSupported"/> is called to set the state and the <see cref="PlatformFallback"/> is executed.
         /// </summary>
         /// <returns></returns>
         protected object DynamicInvoke()
@@ -101,8 +112,10 @@ namespace Media.Concepts.Hardware
             }
         }
 
+        //Should be called TryExecute and should return bool? or void
+
         /// <summary>
-        /// Attempts to execute the <see cref="EntryPoint.InstructionPointer"/> using 
+        /// Attempts to execute the <see cref="EntryPoint.InstructionPointer"/> using <see cref="Concepts.Classes.CommonIntermediateLanguage.CallIndirect"/>
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
@@ -117,7 +130,13 @@ namespace Media.Concepts.Hardware
 
                 //return Concepts.Classes.Unsafe.Read<T>((System.IntPtr)Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer));
 
-                return Concepts.Classes.Unsafe.ReinterpretCast<ulong, T>(ref result);
+                //Needs a way to be able to return IntPtr always which can then be read.
+                //using ref overload here doens't work on non ref types..
+
+                //if (typeof(T).IsValueType) return Concepts.Classes.Unsafe.ReinterpretCast<ulong, T>(result);
+                //else return Concepts.Classes.Unsafe.ReinterpretCast<ulong, T>(ref result);
+
+                return Concepts.Classes.Unsafe.ReinterpretCast<ulong, T>(result);
             }
             catch
             {
@@ -129,7 +148,7 @@ namespace Media.Concepts.Hardware
 
                 //return Concepts.Classes.Unsafe.Read<T>((System.IntPtr)Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer));
 
-                return Concepts.Classes.Unsafe.ReinterpretCast<ulong, T>(ref result);
+                return Concepts.Classes.Unsafe.ReinterpretCast<ulong, T>(result);
             }
 
         }
@@ -137,7 +156,6 @@ namespace Media.Concepts.Hardware
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void NotSupported()
         {
-
             //Todo, Make EntryPoint a PlatformMethod or store the PlatformMethod for fallback instead of the PlatformFallbackDelegate.
             //EntryPoint.VirtualFree();
 
@@ -152,8 +170,9 @@ namespace Media.Concepts.Hardware
             //Replace the ManagedDelegate method with the Fallback method.
             //new PlatformMethodReplacement(EntryPoint.ManagedDelegate.Method, PlatformFallback.Method.GetMethodBody().GetILAsByteArray(), false, ShouldDispose);
 
-            //Concepts.Classes.InjectionHelper.Install(GetType(), "", GetType(), "");
+            System.Type thisType = GetType();
 
+            Concepts.Classes.MethodHelper.Redirect(thisType, EntryPoint.ManagedDelegate.Method.Name, thisType, PlatformFallback.Method.Name);
         }
 
         #endregion
@@ -220,7 +239,7 @@ namespace Media.Concepts.Hardware
             //If no fallback function was specified
             if (fallback == null)
             {
-                //Determine if an existing Fallback method exists
+                //Determine if an existing Fallback method exists on this type
                 string name = "Fallback_" + entryPoint.ReturnType;
 
                 //Get the method
@@ -236,6 +255,14 @@ namespace Media.Concepts.Hardware
             EntryPoint = entryPoint;
 
             PlatformFallback = fallback;
+
+            //Exception Extensions...
+
+            //Make sure the Intrinsic can run by executing it one time now
+            //if the call fails then Fallback will take over and IsFallback will be true.
+            Execute<bool>();
+
+            //Execute<System.Action>();
         }
 
         /// <summary>
@@ -259,7 +286,7 @@ namespace Media.Concepts.Hardware
         public ManagedIntrinsic(bool shouldDispose, PlatformMethodReplacement entryPoint, System.Delegate fallback)
             : this(shouldDispose, new UnmanagedAction(fallback, shouldDispose), fallback, DefaultBindingFlags)
         {
-
+            
         }
 
         #endregion
@@ -273,7 +300,7 @@ namespace Media.Concepts.Hardware
     public sealed class PlatformRtdsc : ManagedIntrinsic
     {
         /// <summary>
-        /// Fallback if Rdtsc isn't available
+        /// Fallback if intrinsic is not available
         /// </summary>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -283,7 +310,7 @@ namespace Media.Concepts.Hardware
         }
 
         /// <summary>
-        /// Stud method used to 
+        /// Stud method to be replaced with the intrinsic code.
         /// </summary>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
@@ -318,12 +345,6 @@ namespace Media.Concepts.Hardware
                 return rtdsc.ReadTimestampCounter();
             }
         }
-
-        [System.Security.SuppressUnmanagedCodeSecurity]
-        [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.StdCall)]
-        internal delegate ulong TimestampDelegate();
-
-        internal TimestampDelegate ReadTimestampDelegate;
 
         static byte[] x86CodeBytes = new byte[] 
             {
@@ -399,6 +420,8 @@ namespace Media.Concepts.Hardware
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public PlatformRtdsc(bool machine = true, bool shouldDispose = true)
             : base(shouldDispose,
+            //Patch Replacement to the code given, Todo, should have a way to mark that this is already done.
+            //Done previously by having State kept on Intrinsic in a Dictionary using the Metadatoken.
             new PlatformMethodReplacement(Common.Extensions.ExpressionExtensions.SymbolExtensions.GetMethodInfo(() => Replacement()), 
                 //Use either the x64 of x86 code
                 machine ? Common.Machine.IsX64() ? x64Rdtscp : x86Rdtscp : System.IntPtr.Size == Common.Binary.BytesPerLong ? x64RdtscCpuid : x86Rdtscp,
@@ -406,19 +429,19 @@ namespace Media.Concepts.Hardware
                 shouldDispose),
             (System.Func<ulong>)Fallback) 
         {
-            
+           
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public long ReadTimestampCounter()
         {
-            return (long)ReadTimestampDelegate();
+            return (long)Replacement();
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal ulong ReadTimestampCounterUnsigned()
         {
-            return Concepts.Classes.CommonIntermediateLanguage.CallIndirect(EntryPoint.InstructionPointer);
+            return Replacement();
         }
     }
 

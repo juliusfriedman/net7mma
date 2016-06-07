@@ -80,12 +80,8 @@ namespace Media.Concepts.Classes
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static System.IntPtr AddressOf<T>(T t)
-            //refember ReferenceTypes are references to the CLRHeader
-            //where TOriginal : struct
         {
             System.TypedReference reference = __makeref(t);
-
-            //t = __refvalue(reference, T);
 
             return *(System.IntPtr*)(&reference);
         }
@@ -93,35 +89,11 @@ namespace Media.Concepts.Classes
         //Basically As / Reinterpret function which is unsafe.
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static System.IntPtr AddressOf<T>(ref T t)
-        //refember ReferenceTypes are references to the CLRHeader
-        //where TOriginal : struct
         {
             System.TypedReference reference = __makeref(t);
 
-            //System.IntPtr ptr = **(System.IntPtr**)(&reference); //http://stackoverflow.com/questions/4994277/memory-address-of-an-object-in-c-sharp
-
             return **(System.IntPtr**)(&reference);
-
-            //Don't want the address of the TypedReferece
-
-            //System.TypedReference* pRef = &reference;
-
-            //return (System.IntPtr)pRef; //(&pRef)
         }
-
-        ///// <summary>
-        ///// Returns the unmanaged address of the given array.
-        ///// </summary>
-        ///// <param name="array"></param>
-        ///// <returns><see cref="IntPtr.Zero"/> if null, otherwise the address of the array</returns>
-        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        //public static System.IntPtr AddressOfByteArray(byte[] array)
-        //{
-        //    if (array == null) return System.IntPtr.Zero;
-
-        //    fixed (byte* ptr = array)
-        //        return (System.IntPtr)(ptr - 2 * sizeof(void*)); //Todo staticaly determine size of void?
-        //}
 
         #endregion
 
@@ -186,7 +158,7 @@ namespace Media.Concepts.Classes
         /// <param name="address"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static T Read<T>(System.IntPtr address) //ref T t, maybe better than copying values
+        internal static T Read<T>(System.IntPtr address)
         {
             T obj = default(T);
 
@@ -198,7 +170,7 @@ namespace Media.Concepts.Classes
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal static bool TryRead<T>(System.IntPtr address, ref T t) //ref T t, maybe better than copying values
+        internal static bool TryRead<T>(System.IntPtr address, ref T t)
         {
             System.TypedReference tr = __makeref(t);
 
@@ -586,10 +558,7 @@ namespace Media.Concepts.Classes
         #region Conversions
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public /*unsafe?*/ static TResult ReinterpretCast<TOriginal, TResult>(/*this*/ TOriginal orig)
-            //refember ReferenceTypes are references to the CLRHeader
-            //where TOriginal : struct
-            //where TResult : struct
+        public static TResult ReinterpretCast<TOriginal, TResult>(/*this*/ TOriginal orig)
         {
             return Read<TResult>(AddressOf(orig));
         }
@@ -599,9 +568,6 @@ namespace Media.Concepts.Classes
         {
             return Read<TResult>(AddressOf<TOriginal>(ref orig));
         }
-
-        //Not really needed when you have ReinterpretCast
-        //The only methods which would be useful then are pointer (*) methods which unfortunately can't be Generic type arguments
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -754,6 +720,22 @@ namespace Media.Concepts.Classes
         }
 
         #endregion
+
+        #region Pinnable
+
+        /// <summary>
+        /// Helper
+        /// </summary>
+        public sealed class Pinnable
+        {
+            /// <summary>
+            /// As an address, relative to the fields in this object.
+            /// </summary>
+            internal byte Pin;
+        }    
+
+        #endregion
+
     }  
 }
 

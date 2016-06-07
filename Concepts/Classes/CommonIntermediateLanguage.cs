@@ -263,6 +263,106 @@ namespace Media.Concepts.Classes
         [System.CLSCompliant(false)]
         [System.Security.SuppressUnmanagedCodeSecurity]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static void CallIndirect(System.IntPtr ptr, out System.IntPtr result)
+        {
+            if (ptr == System.IntPtr.Zero)
+            {
+                result = System.IntPtr.Zero;
+
+                return;
+            }
+
+            result = CallIndirectPointerIntPtr(ptr);
+
+            return;
+        }
+
+        /// <summary>
+        /// Given a type and a pointer, the pointer is indirectly called and result of the invocation is copied to the result.
+        /// </summary>
+        /// <typeparam name="T">The type which control the size of memory copied to result</typeparam>
+        /// <param name="ptr">The pointer of the code to invoke</param>
+        /// <param name="result">The variable which receives the result</param>
+        [System.Security.SuppressUnmanagedCodeSecurity]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal unsafe static void CallIndirect<T>(System.IntPtr ptr, ref T result)
+        {
+            result = default(T);
+
+            if (ptr == System.IntPtr.Zero)
+            {
+                return;
+            }
+
+            //The result in most cases is actually the value not a pointer to it...
+            System.IntPtr resultPointer;
+
+            //Get the address of the result or the result itself.
+            CallIndirect(ptr, out resultPointer);
+
+            //Determine the size of T (Unsafe.SizeOf<T>)
+            int size = Unsafe.ArrayOfTwoElements<T>.AddressingDifference();
+
+            //Make a local reference to the result
+            System.TypedReference resultReference = __makeref(result);
+
+            //Make a pointer to the local reference
+            System.IntPtr localPointer = *(System.IntPtr*)(&resultReference);
+
+            //Make a pointer to the pointer, which when dereferenced can access the result.
+            int* sourcePointer = (int*)&resultPointer;
+
+            //Copy from the source pointer to the handle
+            System.Buffer.MemoryCopy((void*)sourcePointer, (void*)localPointer, size, size);
+
+            //Also works but allocates a new instance
+            //result = As<System.IntPtr, T>(resultPointer);
+        }
+
+        /// <summary>
+        /// Given a type and another type will copy the memory between the variables
+        /// </summary>
+        /// <typeparam name="TSource">Source Type</typeparam>
+        /// <typeparam name="TResult">Destination Type</typeparam>
+        /// <param name="t">The element to convert</param>
+        /// <returns>An instance of U with the memory of T</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe static TResult As<TSource, TResult>(TSource t)
+        {
+            //Determine the size of T
+            int sizeOfT = Unsafe.ArrayOfTwoElements<TSource>.AddressingDifference();
+
+            //Make a local reference to the source input
+            System.TypedReference trSource = __makeref(t);
+
+            //Make a default value for the result, if TResult needs new a constraint should be added and overloads.
+            TResult result = default(TResult);
+
+            //Make a local reference to the result
+            System.TypedReference trResult = __makeref(result);
+
+            //Make a pointer to the local reference
+            System.IntPtr localReferenceSource = *(System.IntPtr*)(&trSource);
+
+            //Make a pointer to the local reference
+            System.IntPtr localReferenceResult = *(System.IntPtr*)(&trResult);
+
+            //Make a pointer to the pointer, which when dereferenced can access the result.
+            int* sourcePointer = (int*)&trSource;
+
+            //Make a pointer to the pointer, which when dereferenced can access the result.
+            int* destPointer = (int*)&trResult;
+
+            //Copy from the source pointer to the handle
+            System.Buffer.MemoryCopy((void*)sourcePointer, (void*)destPointer, sizeOfT, sizeOfT);
+
+            //Return the reference value of the result
+            return __refvalue(trResult, TResult);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Security.SuppressUnmanagedCodeSecurity]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static ulong CallIndirect(System.IntPtr ptr) // ref
         {
             ulong result;
@@ -288,10 +388,12 @@ namespace Media.Concepts.Classes
         {
             if (InitblkDelegate != null | CpyblkDelegate != null) return;
 
+            System.Type CommonIntermediaLanguageType = typeof(CommonIntermediateLanguage);
+
             #region Initblk
             System.Reflection.Emit.DynamicMethod initBlkMethod = new System.Reflection.Emit.DynamicMethod("Initblk",
                 System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                TypeOfVoid, new[] { TypeOfIntPtr, typeof(byte), typeof(int) }, typeof(CommonIntermediateLanguage), true);
+                TypeOfVoid, new[] { TypeOfIntPtr, typeof(byte), typeof(int) }, CommonIntermediaLanguageType, true);
 
             System.Reflection.Emit.ILGenerator generator = initBlkMethod.GetILGenerator();
             generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);//src
@@ -308,7 +410,7 @@ namespace Media.Concepts.Classes
 
             System.Reflection.Emit.DynamicMethod cpyBlkMethod = new System.Reflection.Emit.DynamicMethod("Cpyblk",
                 System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                TypeOfVoid, new[] { TypeOfIntPtr, TypeOfIntPtr, typeof(int) }, typeof(CommonIntermediateLanguage), true);
+                TypeOfVoid, new[] { TypeOfIntPtr, TypeOfIntPtr, typeof(int) }, CommonIntermediaLanguageType, true);
 
              generator = cpyBlkMethod.GetILGenerator();
 
@@ -326,7 +428,7 @@ namespace Media.Concepts.Classes
 
              System.Reflection.Emit.DynamicMethod calliMethod;/* = new System.Reflection.Emit.DynamicMethod("Calli_1",
                  System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                 typeof(int), new[] { TypeOfIntPtr, typeof(int), typeof(byte[]) }, typeof(CommonIntermediateLanguage), true);
+                 typeof(int), new[] { TypeOfIntPtr, typeof(int), typeof(byte[]) }, CommonIntermediaLanguageType, true);
 
              generator = calliMethod.GetILGenerator();
              generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_2);//byte[], should be IntPtr...
@@ -343,7 +445,7 @@ namespace Media.Concepts.Classes
 
              calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_IntPtr",
                   System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                  TypeOfIntPtr, new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+                  TypeOfIntPtr, new[] { TypeOfIntPtr }, CommonIntermediaLanguageType, true);
 
              generator = calliMethod.GetILGenerator();
              generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr             
@@ -356,7 +458,7 @@ namespace Media.Concepts.Classes
 
              calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_Void",
                   System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                  TypeOfVoid, new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+                  TypeOfVoid, new[] { TypeOfIntPtr }, CommonIntermediaLanguageType, true);
 
              generator = calliMethod.GetILGenerator();
              generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr
@@ -369,7 +471,7 @@ namespace Media.Concepts.Classes
 
              calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_uint",
                    System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                   typeof(uint), new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+                   typeof(uint), new[] { TypeOfIntPtr }, CommonIntermediaLanguageType, true);
 
              generator = calliMethod.GetILGenerator();
              generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr
@@ -384,7 +486,7 @@ namespace Media.Concepts.Classes
 
              calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_ThisCall_ulong",
                   System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                  typeof(ulong), new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+                  typeof(ulong), new[] { TypeOfIntPtr }, CommonIntermediaLanguageType, true);
 
              generator = calliMethod.GetILGenerator();
              generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr
@@ -395,7 +497,7 @@ namespace Media.Concepts.Classes
 
              calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_Cdecl_ulong",
                    System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                   typeof(ulong), new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+                   typeof(ulong), new[] { TypeOfIntPtr }, CommonIntermediaLanguageType, true);
 
              generator = calliMethod.GetILGenerator();
              generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr
@@ -406,7 +508,7 @@ namespace Media.Concepts.Classes
 
              calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_FastCall_ulong",
                     System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                    typeof(ulong), new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+                    typeof(ulong), new[] { TypeOfIntPtr }, CommonIntermediaLanguageType, true);
 
              generator = calliMethod.GetILGenerator();
              generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr
@@ -417,7 +519,7 @@ namespace Media.Concepts.Classes
 
              calliMethod = new System.Reflection.Emit.DynamicMethod("Calli_StdCall_ulong",
                   System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-                  typeof(ulong), new[] { TypeOfIntPtr }, typeof(CommonIntermediateLanguage), true);
+                  typeof(ulong), new[] { TypeOfIntPtr }, CommonIntermediaLanguageType, true);
 
              generator = calliMethod.GetILGenerator();
              generator.Emit(System.Reflection.Emit.OpCodes.Ldarg_0); //ptr
@@ -440,7 +542,7 @@ namespace Media.Concepts.Classes
 
             //// System.Reflection.Emit.DynamicMethod sizeOfMethod = new System.Reflection.Emit.DynamicMethod("__SizeOf",
             ////     System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-            ////     typeof(int), new System.Type[] { typeof(System.Type) }, typeof(CommonIntermediateLanguage), true);
+            ////     typeof(int), new System.Type[] { typeof(System.Type) }, CommonIntermediaLanguageType, true);
 
             //// generator = sizeOfMethod.GetILGenerator();
 
@@ -450,7 +552,7 @@ namespace Media.Concepts.Classes
             //////could try to either pass the handle or call for it..
             //////typeof(System.Type).GetProperty("TypeHandle").GetValue()
 
-            //// //typeof(CommonIntermediateLanguage).GetMethod("SizeOf").GetGenericArguments()[0].MakeGenericType().MetadataToken
+            //// //CommonIntermediaLanguageType.GetMethod("SizeOf").GetGenericArguments()[0].MakeGenericType().MetadataToken
 
             //// generator.Emit(System.Reflection.Emit.OpCodes.Call, typeof(System.Type).GetMethod("GetTypeFromHandle"));
 
@@ -465,7 +567,7 @@ namespace Media.Concepts.Classes
             //// goto next;
 
             //// //T is not bound yet.
-            //// //generator.Emit(System.Reflection.Emit.OpCodes.Sizeof, typeof(CommonIntermediateLanguage).GetMethod("SizeOf").GetGenericArguments()[0].GetElementType());
+            //// //generator.Emit(System.Reflection.Emit.OpCodes.Sizeof, CommonIntermediaLanguageType.GetMethod("SizeOf").GetGenericArguments()[0].GetElementType());
 
             //// //Putting it into the local is only useful for WriteLine
             //// //Define a local which has the type of Type
@@ -491,6 +593,9 @@ namespace Media.Concepts.Classes
 
             //// //Missing type, not read from stack
             //// //generator.Emit(System.Reflection.Emit.OpCodes.Sizeof);
+
+            //stobj gets the value of type typeTo at an address
+            //The stobj instruction copies the value type object into the address specified by the address (a pointer of type native int, *, or &). The number of bytes copied depends on the size of the class represented by class, a metadata token representing a value type.
 
             //// //not a token, a type
             //// //generator.Emit(System.Reflection.Emit.OpCodes.Ldtoken, localBuilder);
@@ -535,7 +640,7 @@ namespace Media.Concepts.Classes
 
             //// System.Reflection.Emit.DynamicMethod sizeOfMethod2 = new System.Reflection.Emit.DynamicMethod("__SizeOf2",
             ////     System.Reflection.MethodAttributes.Public | System.Reflection.MethodAttributes.Static, System.Reflection.CallingConventions.Standard,
-            ////     typeof(int), new System.Type[] { typeof(int) }, typeof(CommonIntermediateLanguage), true);
+            ////     typeof(int), new System.Type[] { typeof(int) }, CommonIntermediaLanguageType, true);
 
             //// generator = sizeOfMethod2.GetILGenerator();
 
