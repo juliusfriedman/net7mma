@@ -7,6 +7,8 @@ using System.Runtime.CompilerServices;
 
 namespace Media.Concepts.Classes
 {
+    #region Example
+
     /// <summary>
     /// A simple program to test Injection
     /// </summary>
@@ -24,19 +26,19 @@ namespace Media.Concepts.Classes
 
             //Injection.install(1);
 
-            InjectionHelper.Install(targetType, "targetMethod1", targetType, "injectionMethod1");
+            MethodHelper.Redirect(targetType, "targetMethod1", targetType, "injectionMethod1");
 
             //Injection.install(2);
 
-            InjectionHelper.Install(targetType, "targetMethod2", targetType, "injectionMethod2");
+            MethodHelper.Redirect(targetType, "targetMethod2", targetType, "injectionMethod2");
 
             //Injection.install(3);
 
-            InjectionHelper.Install(targetType, "targetMethod3", targetType, "injectionMethod3");
+            MethodHelper.Redirect(targetType, "targetMethod3", targetType, "injectionMethod3");
 
             //Injection.install(4);
 
-            InjectionHelper.Install(targetType, "targetMethod4", targetType, "injectionMethod4");
+            MethodHelper.Redirect(targetType, "targetMethod4", targetType, "injectionMethod4");
 
             targetInstance.test();
 
@@ -98,18 +100,20 @@ namespace Media.Concepts.Classes
         }
     }
 
+    #endregion
+
     /// <summary>
     /// Provides a way to patch code on a method
     /// </summary>
-    public sealed class InjectionHelper
+    public sealed class MethodHelper
     {
         /// <summary>
-        /// Default flags used for <see cref="Install"/>
+        /// Default flags used for <see cref="Redirect"/>
         /// </summary>
         static BindingFlags DefaultBindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
 
         /// <summary>
-        /// Installs a method as another method
+        /// Redirects a method to another method
         /// </summary>
         /// <param name="sourceType"></param>
         /// <param name="sourceTypeMethodName"></param>
@@ -117,8 +121,11 @@ namespace Media.Concepts.Classes
         /// <param name="destinationType"></param>
         /// <param name="destinationTypeMethodName"></param>
         /// <param name="destinationBindingFlags"></param>
-        public static void Install(System.Type sourceType, string sourceTypeMethodName, BindingFlags sourceBindingFlags, System.Type destinationType, string destinationTypeMethodName, BindingFlags destinationBindingFlags)
+        public static void Redirect(System.Type sourceType, string sourceTypeMethodName, BindingFlags sourceBindingFlags, System.Type destinationType, string destinationTypeMethodName, BindingFlags destinationBindingFlags)
         {
+            if (sourceType == null) throw new ArgumentNullException("sourceType");
+            else if (destinationType == null) throw new ArgumentNullException("destinationType");
+
             MethodInfo methodToReplace = sourceType.GetMethod(sourceTypeMethodName, sourceBindingFlags);
 
             if (methodToReplace == null) throw new InvalidOperationException("Cannot find sourceTypeMethodName on sourceType");
@@ -180,16 +187,15 @@ namespace Media.Concepts.Classes
         }
 
         /// <summary>
-        /// Uses <see cref="Install"/> with the <see cref="DefaultBindingFlags"/>
+        /// Uses <see cref="Redirect"/> with the <see cref="DefaultBindingFlags"/>
         /// </summary>
         /// <param name="sourceType"></param>
         /// <param name="sourceTypeMethodName"></param>
         /// <param name="destinationType"></param>
         /// <param name="destinationTypeMethodName"></param>
-        public static void Install(System.Type sourceType, string sourceTypeMethodName, System.Type destinationType, string destinationTypeMethodName)
+        public static void Redirect(System.Type sourceType, string sourceTypeMethodName, System.Type destinationType, string destinationTypeMethodName)
         {
-            Install(sourceType, sourceTypeMethodName, DefaultBindingFlags, destinationType, destinationTypeMethodName, DefaultBindingFlags);
-
+            Redirect(sourceType, sourceTypeMethodName, DefaultBindingFlags, destinationType, destinationTypeMethodName, DefaultBindingFlags);
         }       
     }
 }

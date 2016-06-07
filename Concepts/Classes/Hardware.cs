@@ -489,7 +489,7 @@ namespace Media.Concepts.Hardware
                 //System.Reflection.Emit.MethodRental.SwapMethodBody(MethodInfo.DeclaringType, MethodInfo.MetadataToken, Concepts.Classes.Unsafe.AddressOf(ref PreviousMethodInstructions), PreviousMethodInstructions.Length, System.Reflection.Emit.MethodRental.JitImmediate);
 
                 //Swap this.PreiviousMethod and the actual method.
-                Media.Concepts.Classes.InjectionHelper.Install(GetType(), PreviousMethodSymbol, MethodInfo.DeclaringType, MethodInfo.Name);
+                Media.Concepts.Classes.MethodHelper.Redirect(GetType(), PreviousMethodSymbol, MethodInfo.DeclaringType, MethodInfo.Name);
 
                 Restore = false;
             }
@@ -545,20 +545,22 @@ namespace Media.Concepts.Hardware
                 //PreviousMethodInstructions = MethodInfo.GetMethodBody().GetILAsByteArray();
 
                 //Swap this.PreiviousMethod and the actual method.
-                Media.Concepts.Classes.InjectionHelper.Install(MethodInfo.DeclaringType, MethodInfo.Name, GetType(), PreviousMethodSymbol);
+                Media.Concepts.Classes.MethodHelper.Redirect(MethodInfo.DeclaringType, MethodInfo.Name, GetType(), PreviousMethodSymbol);
             }
+            else
+            {
+                //Get the handle of the method.
+                System.RuntimeMethodHandle methodHandle = MethodInfo.MethodHandle;
 
-            //Get the handle of the method.
-            System.RuntimeMethodHandle methodHandle = MethodInfo.MethodHandle;
+                //Ensure the method was JIT to machine code
+                System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(methodHandle);
 
-            //Ensure the method was JIT to machine code
-            System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(methodHandle);
+                //Get the pointer to the method
+                InstructionPointer = methodHandle.GetFunctionPointer();
 
-            //Get the pointer to the method
-            InstructionPointer = methodHandle.GetFunctionPointer();
-
-            //Replace the instructions
-            System.Runtime.InteropServices.Marshal.Copy(Instructions, 0, InstructionPointer, Instructions.Length);
+                //Replace the instructions
+                System.Runtime.InteropServices.Marshal.Copy(Instructions, 0, InstructionPointer, Instructions.Length);
+            }
         }
 
         #endregion
