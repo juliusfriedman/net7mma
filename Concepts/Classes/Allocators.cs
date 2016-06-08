@@ -105,6 +105,9 @@ namespace Media.Concepts.Classes
     /// <summary>
     /// 
     /// </summary>
+    /// <remarks>
+    /// <see href="http://www.codeproject.com/Articles/32125/Unmanaged-Arrays-in-C-No-Problem">CodeProject</see>
+    /// </remarks>
     public class UnmanagedAllocator : IStorageAllocator
     {
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -118,6 +121,93 @@ namespace Media.Concepts.Classes
         public void Release(System.IntPtr pointer, long size)
         {
             System.Runtime.InteropServices.Marshal.FreeHGlobal(pointer);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Privileges SetPrivileges(System.IntPtr pointer, Privileges privileges)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe static void Resize<T>(System.IntPtr pointer, int newElementCount)
+        {
+            System.Runtime.InteropServices.Marshal.ReAllocHGlobal(pointer, new System.IntPtr(Unsafe.ArrayOfTwoElements<T>.AddressingDifference() * newElementCount));
+        }
+    }
+
+    /// <summary>
+    /// Allocates aligned memory for any type
+    /// </summary>
+    /// <see href="http://stackoverflow.com/questions/1951290/memory-alignment-of-classes-in-c">StackOverflow</see>
+    /// <typeparam name="T"></typeparam>
+    public class AlignedAllocator<T> : IStorageAllocator where T : new()
+    {
+        public System.IntPtr Allocate(long size)
+        {
+            System.Collections.Generic.LinkedList<T> candidates = new System.Collections.Generic.LinkedList<T>();
+
+            System.IntPtr pointer = System.IntPtr.Zero;
+
+            bool continue_ = true;
+
+            size += System.Runtime.InteropServices.Marshal.SizeOf(typeof(T)) % System.IntPtr.Size;
+
+            int wide = System.IntPtr.Size * 8; // 32 or 64
+
+            while (continue_)
+            {
+                //If there is no size make a new object which allocated 12 or more bytes to make a gap, next allocation should be aligned.
+                if (size == 0)
+                {
+                    object gap = new object();
+                }
+
+                candidates.AddLast(new T());
+
+                #region Unused
+
+                //Crashed compiler... Base method is not marked unsafe?
+
+                //unsafe{
+
+                ////Make a local reference to the result
+                //System.TypedReference trResult = __makeref(candidates.Last.Value);
+
+                ////Make a pointer to the local reference
+                //System.IntPtr localReferenceResult = *(System.IntPtr*)(&trResult);
+
+                //}
+
+                #endregion
+
+                pointer = Concepts.Classes.CommonIntermediateLanguage.As<T, System.IntPtr>(candidates.Last.Value);
+
+                #region Unused
+
+                //Fix the handle
+                //System.Runtime.InteropServices.GCHandle handle = System.Runtime.InteropServices.GCHandle.Alloc(candidates.Last.Value, System.Runtime.InteropServices.GCHandleType.Pinned);
+
+                //To determine if its sized correctly.
+                //pointer = handle.AddrOfPinnedObject();
+
+                #endregion
+
+                continue_ = (pointer.ToInt64() & System.IntPtr.Size - 1) != 0 || (pointer.ToInt64() % wide) == 24;
+
+                #region Unused
+
+                //handle.Free();
+
+                #endregion
+            }
+
+            return pointer;
+        }
+
+        public void Release(System.IntPtr pointer, long size)
+        {
+            //GC Managed
         }
 
         public Privileges SetPrivileges(System.IntPtr pointer, Privileges privileges)
@@ -206,7 +296,7 @@ namespace Media.Concepts.Classes
     /// <summary>
     /// Provides a platform aware memory allocator.
     /// </summary>
-    public class PlatformMemoryAllocator : MemoryAllocator
+    abstract public class PlatformMemoryAllocator : MemoryAllocator
     {
 
     }

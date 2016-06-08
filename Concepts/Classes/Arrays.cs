@@ -374,8 +374,8 @@ namespace Media.Concepts.Classes
         //------------
 
         //not really needed
-        [System.Runtime.InteropServices.FieldOffset(0)]
-        public System.Runtime.InteropServices.GCHandle m_GCHandle;
+        //[System.Runtime.InteropServices.FieldOffset(0)]
+        //public System.Runtime.InteropServices.GCHandle m_GCHandle;
 
         //4 or 8 bytes
         [System.Runtime.InteropServices.FieldOffset(0)]
@@ -573,6 +573,29 @@ namespace Media.Concepts.Classes
             //Use reserved in the header to indicate source is null
 
             //store sizes of original elements, could use 0 to indicate source was null.
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="offset"></param>
+        /// <param name="length"></param>
+        [System.CLSCompliant(false)]
+        public unsafe Array(void* data, int offset, int length)
+        {
+            m_Header.m_IntPtr = (System.IntPtr)data;
+
+            //make a new array to store the data we read
+            m_Header.m_Array = m_Header.m_Array = m_Source = new T[length];
+
+            //Copy all data from the source
+            System.Buffer.MemoryCopy(data, (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(m_Source, 0), length, length);
+
+            //Setup the offsets
+            //m_Header.m_Offset = offset;
+
+            m_Header.m_Length = length;
         }
 
         #region Generic
@@ -1577,6 +1600,12 @@ namespace Media.UnitTests
                     fixed (char* q = unsafeclrChars)
                     {
                         System.Console.WriteLine("q@" + (int)q);
+
+                        Concepts.Classes.Array<byte> unsafeBytes = new Concepts.Classes.Array<byte>((void*)q, 0, 2);
+
+                        System.Console.WriteLine("unsafeBytes@0: " + unsafeBytes[0]);
+
+                        System.Console.WriteLine("unsafeBytes@1: " + unsafeBytes[1]);
                     }
 
                     //could also make a special UnicodeByteArray / use Span which reads the string at aligned offsets to allow conversion to a byte[]

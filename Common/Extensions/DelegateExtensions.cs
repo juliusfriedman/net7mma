@@ -69,6 +69,18 @@ namespace Media.Common.Extensions.Delegate
                     self = System.Delegate.Combine(self, System.Delegate.CreateDelegate(type ?? inv.Method.ReturnType, inv.Target, inv.Method));
         }
 
+        /// <summary>
+        /// Creates a delegate from a MethodInfo using <see cref="System.Linq.Expressions.Expression.GetDelegateType"/>
+        /// </summary>
+        /// <param name="method"></param>
+        /// <returns></returns>
+        public static System.Delegate CreateDelegate(System.Reflection.MethodInfo method)
+        {
+            if (method == null) throw new System.ArgumentNullException("method");
+
+            return method.CreateDelegate(System.Linq.Expressions.Expression.GetDelegateType(method.GetParameters().Select(p => p.ParameterType).Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(method.ReturnType)).ToArray()));
+        }
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static T ConvertTo<T>(this System.Delegate self)
         {

@@ -113,6 +113,9 @@ namespace Media.Rtsp
             //}
 
             if (socket.AddressFamily == AddressFamily.InterNetwork) socket.DontFragment = true;
+
+            //Better performance for 1 core...
+            if (System.Environment.ProcessorCount <= 1) socket.UseOnlyOverlappedIO = true;
         }
 
         #region Fields

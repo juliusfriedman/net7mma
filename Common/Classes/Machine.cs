@@ -148,11 +148,11 @@ namespace Media.Common
             {
                 int length = value.Length, bits, rem;
 
-                bits = System.Math.DivRem(bitcount, 8, out rem);
+                bits = System.Math.DivRem(bitcount, Common.Binary.BitsPerByte, out rem);
 
                 byte[] temp = new byte[length];
 
-                if (bitcount >= 8)
+                if (bitcount >= Common.Binary.BitsPerByte)
                 {
                     System.Array.Copy(value, bits, temp, 0, length - bits);
                 }
@@ -166,7 +166,7 @@ namespace Media.Common
                     for (int i = 0, e = length - 1; i < e; ++i)
                     {
                         temp[i] <<= rem;
-                        temp[i] |= (byte)(temp[i + 1] >> 8 - rem);
+                        temp[i] |= (byte)(temp[i + 1] >> Common.Binary.BitsPerByte - rem);
                     }
                 }
 
@@ -183,11 +183,11 @@ namespace Media.Common
             {
                 int length = value.Length, bits, rem;
 
-                bits = System.Math.DivRem(bitcount, 8, out rem);
+                bits = System.Math.DivRem(bitcount, Common.Binary.BitsPerByte, out rem);
 
                 byte[] temp = new byte[length];
 
-                if (bitcount >= 8)
+                if (bitcount >= Common.Binary.BitsPerByte)
                 {
                     System.Array.Copy(value, 0, temp, bits, length - bits);
                 }
@@ -201,7 +201,7 @@ namespace Media.Common
                     for (int i = length - 1; i >= 1; i--)
                     {
                         temp[i] >>= rem;
-                        temp[i] |= (byte)(temp[i - 1] << 8 - rem);
+                        temp[i] |= (byte)(temp[i - 1] << Common.Binary.BitsPerByte - rem);
                     }
                 }
 
@@ -242,23 +242,23 @@ namespace Media.Common
         {
             public byte Left(byte value, int amount)
             {
-                return (byte)(value << amount | value >> (8 - amount));
+                return (byte)(value << amount | value >> (Common.Binary.BitsPerByte - amount));
             }
 
             public byte Right(byte value, int amount)
             {
-                return (byte)(value >> amount | value << (8 - amount));
+                return (byte)(value >> amount | value << (Common.Binary.BitsPerByte - amount));
             }
 
 
             public override int Left(int value, int amount)
             {
-                return (byte)(value << amount | value >> (32 - amount));
+                return (byte)(value << amount | value >> (Common.Binary.BitsPerInteger - amount));
             }
 
             public override int Right(int value, int amount)
             {
-                return (byte)(value >> amount | value << (32 - amount));
+                return (byte)(value >> amount | value << (Common.Binary.BitsPerInteger - amount));
             }
 
             //Array methods?
@@ -737,7 +737,7 @@ namespace Media.Common
                             throw new System.InvalidOperationException("Please create an issue for your architecture to be supported.");
                         }
                     case System.Reflection.ProcessorArchitecture.MSIL://Neutral with respect to processor and bits-per-word.
-                        //Should follow the X86 style
+                         //Should follow the X86 style
                     case System.Reflection.ProcessorArchitecture.X86://A 32-bit Intel processor, either native or in the Windows on Windows environment on a 64-bit platform (WOW64).
                         {
                             if (false == Machine.IsX86()) throw new System.InvalidOperationException("Did not detect an x86 Machine");

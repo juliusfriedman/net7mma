@@ -36,6 +36,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
+//ldc.i4.7
+
 //Some interesting methods can be found here
 //https://github.com/IllidanS4/SharpUtils/blob/a3b4da490537e361e6a5debc873c303023d83bf1/Unsafe/UnsafeTools.cs
 
@@ -729,7 +731,7 @@ namespace Media.Concepts.Classes
         public sealed class Pinnable
         {
             /// <summary>
-            /// As an address, relative to the fields in this object.
+            /// As an address, relative to the fields in this object, if this field is pinned then the object and it's derivation can't be moved.
             /// </summary>
             internal byte Pin;
         }    

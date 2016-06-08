@@ -88,46 +88,46 @@ namespace Media.Common.Collections.Generic
 
         //Could make methods to call Set on LinkedListNode<T> using reflection.
 
-        internal static System.Reflection.ConstructorInfo Constructor;
+        //internal static System.Reflection.ConstructorInfo Constructor;
 
-        internal static System.Reflection.PropertyInfo ListProperty, NextProperty, PreviousProperty, ValueProperty;
+        //internal static System.Reflection.PropertyInfo ListProperty, NextProperty, PreviousProperty, ValueProperty;
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        static ConcurrentLinkedQueue()
-        {
-            //implementations may change the name
-            //var fields = typeof(LinkedListNode<T>).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //static ConcurrentLinkedQueue()
+        //{
+        //    //implementations may change the name
+        //    //var fields = typeof(LinkedListNode<T>).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
 
-            //System.TypedReference tr = __makeref(obj, T);
-            //fields[0].SetValueDirect(tr, obj);
+        //    //System.TypedReference tr = __makeref(obj, T);
+        //    //fields[0].SetValueDirect(tr, obj);
 
 
-            System.Type TypeOfLinkedListNodeT = typeof(LinkedListNode<T>);
+        //    System.Type TypeOfLinkedListNodeT = typeof(LinkedListNode<T>);
 
             
 
-            //or the ctor
-            System.Collections.Generic.IEnumerable<System.Reflection.ConstructorInfo> ctors = System.Reflection.IntrospectionExtensions.GetTypeInfo(TypeOfLinkedListNodeT).DeclaredConstructors;
+        //    //or the ctor
+        //    System.Collections.Generic.IEnumerable<System.Reflection.ConstructorInfo> ctors = System.Reflection.IntrospectionExtensions.GetTypeInfo(TypeOfLinkedListNodeT).DeclaredConstructors;
             
-            Constructor = ctors.LastOrDefault();
-            //ctors[0].Invoke(new object[] { list, value });
+        //    Constructor = ctors.LastOrDefault();
+        //    //ctors[0].Invoke(new object[] { list, value });
 
-            //Could also use properties but it's a tad slower...
-            System.Collections.Generic.IEnumerable<System.Reflection.PropertyInfo> props = System.Reflection.IntrospectionExtensions.GetTypeInfo(TypeOfLinkedListNodeT).DeclaredProperties;
+        //    //Could also use properties but it's a tad slower...
+        //    System.Collections.Generic.IEnumerable<System.Reflection.PropertyInfo> props = System.Reflection.IntrospectionExtensions.GetTypeInfo(TypeOfLinkedListNodeT).DeclaredProperties;
 
-            ListProperty = props.Where(p => p.Name == "List").FirstOrDefault();
+        //    ListProperty = props.Where(p => p.Name == "List").FirstOrDefault();
 
-            NextProperty = props.Where(p => p.Name == "Next").FirstOrDefault();
+        //    NextProperty = props.Where(p => p.Name == "Next").FirstOrDefault();
 
-            PreviousProperty = props.Where(p => p.Name == "Previous").FirstOrDefault();
+        //    PreviousProperty = props.Where(p => p.Name == "Previous").FirstOrDefault();
 
-            ValueProperty = props.Where(p => p.Name == "Value").FirstOrDefault();
+        //    ValueProperty = props.Where(p => p.Name == "Value").FirstOrDefault();
 
-            //props[0].SetMethod.Invoke(obj, new object[] { list });
-            //props[1].SetMethod.Invoke(obj, new object[] { next });
-            //props[2].SetMethod.Invoke(obj, new object[] { prev });
-            //props[3].SetMethod.Invoke(obj, new object[] { value });
-        }
+        //    //props[0].SetMethod.Invoke(obj, new object[] { list });
+        //    //props[1].SetMethod.Invoke(obj, new object[] { next });
+        //    //props[2].SetMethod.Invoke(obj, new object[] { prev });
+        //    //props[3].SetMethod.Invoke(obj, new object[] { value });
+        //}
 
         /// <summary>
         /// Given a <see cref="ConcurrentLinkedQueue"/>, sets the <see cref="Next"/> of the <see cref="Last"/> to the <see cref="First"/>
@@ -248,7 +248,7 @@ namespace Media.Common.Collections.Generic
             Node onStack;
 
             //VolatileRead, Compare
-            if (Count <= 0)
+            if (true.Equals(Count <= 0))
             {
                 //Store
                 t = default(T);
@@ -318,7 +318,7 @@ namespace Media.Common.Collections.Generic
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void Clear(bool all, out Node head, out Node tail)
         {
-            if (false == all)
+            if (false.Equals(all))
             {
                 head = First;
 
@@ -353,7 +353,7 @@ namespace Media.Common.Collections.Generic
         {
             Node Current = First ?? Last;
 
-            while (false == Object.ReferenceEquals(Current, Node.Null))
+            while (false.Equals(Object.ReferenceEquals(Current, Node.Null)))
             {
                 yield return Current.Value;
 

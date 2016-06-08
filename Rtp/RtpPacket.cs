@@ -96,7 +96,7 @@ namespace Media.Rtp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { if (IsDisposed || Payload.Count == 0) return 0; return Binary.Clamp(Header.ContributingSourceCount * 4, 0, 60)/* Math.Min(60, Math.Max(0, Header.ContributingSourceCount * 4))*/; }
+            get { if (IsDisposed || Payload.Count.Equals(0)) return 0; return Binary.Clamp(Header.ContributingSourceCount * 4, 0, 60)/* Math.Min(60, Math.Max(0, Header.ContributingSourceCount * 4))*/; }
         }
 
         /// <summary>
@@ -108,7 +108,7 @@ namespace Media.Rtp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { if (IsDisposed || false == Header.Extension || Payload.Count == 0) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; }
+            get { if (IsDisposed || Payload.Count.Equals(0) || false.Equals(Header.Extension)) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; }
         }
 
         /// <summary>
@@ -119,7 +119,7 @@ namespace Media.Rtp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { if (IsDisposed || Payload.Count == 0) return 0; return ContributingSourceListOctets + ExtensionOctets; }
+            get { if (IsDisposed || Payload.Count.Equals(0)) return 0; return ContributingSourceListOctets + ExtensionOctets; }
         }
 
         /// <summary>
@@ -131,7 +131,7 @@ namespace Media.Rtp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { if (IsDisposed || false == Header.Padding) return 0; return Media.RFC3550.ReadPadding(Payload.Array, Payload.Offset + Payload.Count - 1, 1); }
+            get { if (IsDisposed || false.Equals(Header.Padding)) return 0; return Media.RFC3550.ReadPadding(Payload.Array, Payload.Offset + Payload.Count - 1, 1); }
         }
 
         /// <summary>
@@ -162,14 +162,14 @@ namespace Media.Rtp
                 //Check the Extension bit in the header, if set the RtpExtension must be complete
                 if (Header.Extension) using (RtpExtension extension = GetExtension())
                     {
-                        if (extension == null || false == extension.IsComplete) return false;
+                        if (extension == null || false.Equals(extension.IsComplete)) return false;
 
                         //Reduce the number of octets in the payload by the number of octets which make up the extension
                         octetsContained -= extension.Size;
                     }
 
                 //If there is no padding there must be at least 0 octetsContained.
-                if (false == Header.Padding) return octetsContained >= 0;
+                if (false.Equals(Header.Padding)) return octetsContained >= 0;
 
                 //Otherwise calulcate the amount of padding in the Payload
                 int paddingOctets = PaddingOctets;
@@ -197,7 +197,7 @@ namespace Media.Rtp
             get
             {
                 //Proably don't have to check...
-                if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.Empty;
+                if (IsDisposed || Payload.Count.Equals(0)) return Media.Common.MemorySegment.Empty;
 
                 int nonPayloadOctets = HeaderOctets, padding = PaddingOctets;
 
@@ -231,7 +231,7 @@ namespace Media.Rtp
 
                 int padding = PaddingOctets;
 
-                if (padding == 0) return Common.MemorySegment.Empty;
+                if (padding.Equals(0)) return Common.MemorySegment.Empty;
 
                 return new Common.MemorySegment(Payload.Array, (Payload.Offset + Payload.Count) - padding, padding);
 
