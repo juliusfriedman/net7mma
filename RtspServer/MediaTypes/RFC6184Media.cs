@@ -410,7 +410,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //From the beginning of the data in the actual payload
                 int offset = packet.Payload.Offset,
-                   headerOctets = +packet.HeaderOctets,
+                   headerOctets = packet.HeaderOctets,
                    padding = packet.PaddingOctets,
                    count = packet.Payload.Count - (padding + headerOctets);
 
@@ -423,9 +423,9 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Obtain the data of the packet with respect to extensions and csrcs present.
                 byte[] packetData = packet.Payload.Array;
 
-                if (packet.PayloadType != PayloadType)
+                if (false.Equals(packet.PayloadType.Equals(PayloadType)))
                 {
-                    if (false == AllowsMultiplePayloadTypes) return;
+                    if (false.Equals(AllowsMultiplePayloadTypes)) return;
 
                     //This is probably a new sps pps set
 
@@ -444,7 +444,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 byte firstByte = packetData[offset];
 
                 //Should never be set... (unless decoding errors are present)
-                if (false == ignoreForbiddenZeroBit && ((firstByte & 0x80) >> 7) != 0)
+                if (false.Equals(ignoreForbiddenZeroBit) && false.Equals(0.Equals(((firstByte & 0x80) >> 7))))
                 {
                     //would need additional state to ensure all packets now have this bit.
 
@@ -623,6 +623,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //Determine the fragment size
                                 int fragment_size = count - offset;
 
+                                //Should be optional
                                 //Don't emit empty fragments
                                 //if (fragment_size == 0) return;
 

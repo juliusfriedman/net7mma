@@ -411,7 +411,7 @@ namespace Media.Rtcp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { return IsDisposed || Header.Padding == false ? 0 : Media.RFC3550.ReadPadding(Payload.Array, Payload.Offset + Payload.Count - 1, 1); }
+            get { return IsDisposed || false.Equals(Header.Padding) ? 0 : Media.RFC3550.ReadPadding(Payload.Array, Payload.Offset + Payload.Count - 1, 1); }
         }
 
         //Todo Segment properties.
@@ -687,7 +687,7 @@ namespace Media.Rtcp
          {
              get
              {
-                 if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.Empty;
+                 if (IsDisposed || Payload.Count.Equals(0)) return Media.Common.MemorySegment.Empty;
 
                  //return Payload.Take(Payload.Count - PaddingOctets);
 
@@ -702,7 +702,7 @@ namespace Media.Rtcp
         {
             get
             {
-                if (IsDisposed || false == Padding || false == IsComplete || Payload.Count == 0) return Media.Common.MemorySegment.Empty;
+                if (IsDisposed || false.Equals(Padding) || false.Equals(IsComplete) || Payload.Count.Equals(0)) return Media.Common.MemorySegment.Empty;
 
                 //return Payload.Skip(Payload.Count - PaddingOctets);
 

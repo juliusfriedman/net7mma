@@ -45,10 +45,16 @@ namespace Media.Concepts.Hardware
     /// </summary>
     public abstract class MachineFunction : Common.SuppressedFinalizerDisposable
     {
+        #region Fields
+
         /// <summary>
         /// The location of the code to be called.
         /// </summary>
         internal protected System.IntPtr InstructionPointer;
+
+        #endregion
+
+        #region Unused
 
         //Execution
 
@@ -81,6 +87,10 @@ namespace Media.Concepts.Hardware
         //    result = (System.IntPtr)Concepts.Classes.CommonIntermediateLanguage.CallIndirect(InstructionPointer);
         //}
 
+        #endregion
+
+        #region Constructor
+
         /// <summary>
         /// 
         /// </summary>
@@ -102,6 +112,10 @@ namespace Media.Concepts.Hardware
             InstructionPointer = instructionPointer;
         }
 
+        #endregion
+
+        #region Overrides
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected override void Dispose(bool disposing)
         {
@@ -111,6 +125,8 @@ namespace Media.Concepts.Hardware
 
             base.Dispose(disposing);
         }
+
+        #endregion
     }
 
     /// <summary>
@@ -436,6 +452,7 @@ namespace Media.Concepts.Hardware
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected internal override void VirtualAllocate()
         {
+            //The Instructions could be marked executable but they move with the wind / GC
             PlatformIntrinsic.Allocator(this);
         }
 
@@ -464,7 +481,21 @@ namespace Media.Concepts.Hardware
         /// </summary>
         const string PreviousMethodSymbol = "PreviousMethod";
 
+        static System.Type PlatformMethodReplacementType = typeof(PlatformMethodReplacement);
+
+        static System.Reflection.MethodInfo PreviousMethodInfo = PlatformMethodReplacementType.GetMethod(PreviousMethodSymbol, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            //Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetMethodInfo(() => ((PlatformMethodReplacement)null).PreviousMethod());
+        
         #endregion
+
+        internal System.Reflection.MethodInfo PreviouslyDefinedMethod
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return PreviousMethodInfo;
+            }
+        }
 
         #region Methods
 
@@ -489,7 +520,10 @@ namespace Media.Concepts.Hardware
                 //System.Reflection.Emit.MethodRental.SwapMethodBody(MethodInfo.DeclaringType, MethodInfo.MetadataToken, Concepts.Classes.Unsafe.AddressOf(ref PreviousMethodInstructions), PreviousMethodInstructions.Length, System.Reflection.Emit.MethodRental.JitImmediate);
 
                 //Swap this.PreiviousMethod and the actual method.
-                Media.Concepts.Classes.MethodHelper.Redirect(GetType(), PreviousMethodSymbol, MethodInfo.DeclaringType, MethodInfo.Name);
+
+                //Media.Concepts.Classes.MethodHelper.Redirect(GetType(), PreviousMethodSymbol, MethodInfo.DeclaringType, MethodInfo.Name);
+
+                Media.Concepts.Classes.MethodHelper.Redirect(Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetMethodInfo(() => PreviousMethod()), MethodInfo);
 
                 Restore = false;
             }
@@ -529,6 +563,7 @@ namespace Media.Concepts.Hardware
         /// <param name="newCode">The new machine code</param>
         /// <param name="restore">Indicates if the code should be restored to whatever it was previously</param>
         /// <param name="shouldDispose">Indicates if resources will be disposed</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public PlatformMethodReplacement(System.Reflection.MethodInfo method, byte[] newCode, bool restore = true, bool shouldDispose = true)
             : base(newCode, shouldDispose) //Set the Instructions member
         {
@@ -545,22 +580,25 @@ namespace Media.Concepts.Hardware
                 //PreviousMethodInstructions = MethodInfo.GetMethodBody().GetILAsByteArray();
 
                 //Swap this.PreiviousMethod and the actual method.
-                Media.Concepts.Classes.MethodHelper.Redirect(MethodInfo.DeclaringType, MethodInfo.Name, GetType(), PreviousMethodSymbol);
+                //Media.Concepts.Classes.MethodHelper.Redirect(MethodInfo.DeclaringType, MethodInfo.Name, GetType(), PreviousMethodSymbol);
+
+                Media.Concepts.Classes.MethodHelper.Redirect(MethodInfo, Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetMethodInfo(() => PreviousMethod()));
             }
-            else
-            {
-                //Get the handle of the method.
-                System.RuntimeMethodHandle methodHandle = MethodInfo.MethodHandle;
 
-                //Ensure the method was JIT to machine code
-                System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(methodHandle);
+            //Replace the code within the MethodInfo to execute the Instructions, this works but the GC can move Instructions which is not desirable...
+            //Media.Concepts.Classes.MethodHelper.Patch(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(Instructions, 0), MethodInfo, Instructions.Length);
 
-                //Get the pointer to the method
-                InstructionPointer = methodHandle.GetFunctionPointer();
+            ////Get the handle of the method.
+            System.RuntimeMethodHandle methodHandle = MethodInfo.MethodHandle;
 
-                //Replace the instructions
-                System.Runtime.InteropServices.Marshal.Copy(Instructions, 0, InstructionPointer, Instructions.Length);
-            }
+            ////Ensure the method was JIT to machine code
+            System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(methodHandle);
+
+            ////Get the pointer to the method
+            InstructionPointer = methodHandle.GetFunctionPointer();
+
+            ////Replace the instructions
+            System.Runtime.InteropServices.Marshal.Copy(Instructions, 0, InstructionPointer, Instructions.Length);
         }
 
         #endregion

@@ -450,6 +450,14 @@ namespace Media.Common
 
     //ReadOnlyMemorySegment, IReadOnly
 
+#if UNSAFE
+    interanl class UnsafeMemorySegment : MemorySegment, : System.Collection.Generic.IList<byte>
+    {
+        //Don't need the byte[] but do need a way to get the bytes from an IntPtr.
+        //See Array<T> in concepts for a better overall structure
+    }
+#endif
+
     //Should propably be the base class of MemorySegment because it's a lower order concept
     /// <summary>
     /// Extends MemorySegment with the ability to store certain bit offsets

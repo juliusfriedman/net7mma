@@ -79,7 +79,6 @@
     <Compile Include="Classes\Stopwatch.cs" />
     <Compile Include="Classes\Threading\Threading.cs" />
     <Compile Include="Classes\Timer.cs" />
-    <Compile Include="Classes\Unmanaged.cs" />
     <Compile Include="Classes\UpdateableBase.cs" />
     <Compile Include="Classes\VirtualScreen.cs" />
     <Compile Include="Collections\SocketCollection.cs" />
@@ -88,8 +87,11 @@
     <Compile Include="Interfaces\ITextData.cs" />
     <Compile Include="Interfaces\IUpdateable.cs" />
     <Compile Include="Interfaces\IUsable.cs" />
+    <Compile Include="Classes\Number.cs" />
+    <Compile Include="Classes\Physics.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Classes\Unsafe.cs" />
+    <Compile Include="Classes\Units.cs" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
@@ -100,6 +102,8 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

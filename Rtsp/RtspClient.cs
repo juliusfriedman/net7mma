@@ -80,6 +80,9 @@ namespace Media.Rtsp
             //Don't buffer receive.
             Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.ReceiveBufferSize = 0);
 
+            //Better performance for 1 core...
+            if (System.Environment.ProcessorCount <= 1) socket.UseOnlyOverlappedIO = true;
+
             //Dont fragment
             if (socket.AddressFamily == AddressFamily.InterNetwork) Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.DontFragment = true);
 
@@ -2598,7 +2601,7 @@ namespace Media.Rtsp
         }
 
         /// <summary>
-        /// Calls Connect on the underlying socket.
+        /// Calls Connect on the usynderlying socket.
         /// 
         /// Marks the time when the connection was established.
         /// 
@@ -2638,7 +2641,7 @@ namespace Media.Rtsp
                 }
 
                 //Determine the poll time now.
-                m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket));
+                m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket)) / 10;
 
                 //Don't block (possibly another way to work around the issue)
                 //m_RtspSocket.Blocking = false;

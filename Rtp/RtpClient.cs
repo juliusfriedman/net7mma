@@ -248,7 +248,20 @@ namespace Media.Rtp
 
             Sdp.Lines.SessionConnectionLine connectionLine = new Sdp.Lines.SessionConnectionLine(sessionDescription.ConnectionLine);
 
-            IPAddress remoteIp = IPAddress.Parse(connectionLine.Host), localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
+            IPAddress remoteIp = IPAddress.Parse(connectionLine.Host), localIp;
+
+            System.Net.NetworkInformation.NetworkInterface localInterface;
+
+            if (false.Equals(existingSocket.Equals(null)) && existingSocket.IsBound)
+            {
+                //This interface should be the interface you plan on using for the Rtp communication
+                localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily, out  localInterface);
+            }
+            else
+            {
+                //Use the localIp of the exsisting socket.
+                localIp = ((System.Net.IPEndPoint)existingSocket.LocalEndPoint).Address;
+            }
 
             RtpClient client = new RtpClient(sharedMemory, incomingEvents);
 

@@ -6,6 +6,8 @@
     /// <typeparam name="T"></typeparam>
     public static class GenericExtensions
     {
+        public static readonly System.Type UnboundedNullableGenericType = typeof(System.Nullable<>);
+
         /// <summary>
         /// <see cref="typeof(T).MetadataToken"/>
         /// </summary>

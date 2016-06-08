@@ -82,15 +82,27 @@ namespace Media.Concepts.Hardware
 
         #region Methods
 
-        ///// <summary>
-        ///// Classes could override this function with their byte code.
-        ///// </summary>
-        ///// <returns></returns>
+        /// <summary>
+        /// Classes could override this function with their byte code.
+        /// </summary>
+        /// <returns></returns>
         //virtual byte[] GetCode()
         //{
-        //    return new byte[1];
+        //    //it would be called to retrieve the byte code and then could be used to do other `things` also.
+        //    //e.g. this would possibly be able to cycle state and provide different code based on a state machine or other logic.
 
-        //    //it would be called to retrieve the byte code and then could be used to store the old implementation codew.
+        //    if (Media.Common.Machine.IsX86())
+        //    {
+        //        return new byte[4];
+        //    }
+        //    else if (Media.Common.Machine.IsX64())
+        //    {
+        //        return new byte[8];
+        //    }
+        //    else
+        //    {
+        //        return new byte[2];
+        //    }
         //}
 
         /// <summary>
@@ -172,7 +184,7 @@ namespace Media.Concepts.Hardware
 
             System.Type thisType = GetType();
 
-            Concepts.Classes.MethodHelper.Redirect(thisType, EntryPoint.ManagedDelegate.Method.Name, thisType, PlatformFallback.Method.Name);
+            Concepts.Classes.MethodHelper.Redirect(EntryPoint.ManagedDelegate.Method, PlatformFallback.Method);
         }
 
         #endregion
@@ -221,9 +233,35 @@ namespace Media.Concepts.Hardware
             }
         }
 
+        /// <summary>
+        /// Gets a value which indicates if the instance uses hardware acceleration
+        /// </summary>
+        public bool IsHardwareAccelerated
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return false.Equals(IsFallback);
+            }
+        }
+
         #endregion        
 
-         #region Constructors
+        #region Abstraction
+
+        ///The code which is used for the Intrinsic is generated from this method
+        //protected abstract byte[] GenerateCode();
+
+        /// <summary>
+        /// The method which is replaced with the Intrinsic logic.
+        /// Forces all derived classess to have a method which will end up getting replaced with the Intrinsic
+        /// </summary>
+        //protected abstract void Transient();
+
+
+        #endregion
+
+        #region Constructors
 
 
         /// <summary>
@@ -259,7 +297,7 @@ namespace Media.Concepts.Hardware
             //Exception Extensions...
 
             //Make sure the Intrinsic can run by executing it one time now
-            //if the call fails then Fallback will take over and IsFallback will be true.
+            //if the call fails then PlatformFallback will take over and IsFallback will be true.
             Execute<bool>();
 
             //Execute<System.Action>();
@@ -284,7 +322,11 @@ namespace Media.Concepts.Hardware
         /// <param name="entryPoint"></param>
         /// <param name="fallback"></param>
         public ManagedIntrinsic(bool shouldDispose, PlatformMethodReplacement entryPoint, System.Delegate fallback)
-            : this(shouldDispose, new UnmanagedAction(fallback, shouldDispose), fallback, DefaultBindingFlags)
+            : this(shouldDispose, 
+            new UnmanagedAction(fallback, shouldDispose), //For now just give the fallback, until this changes IsHardwareAccelerated will be false
+                //new UnmanagedAction(System.Delegate.CreateDelegate(typeof(System.Action), entryPoint.PreviouslyDefinedMethod), shouldDispose),
+            fallback, 
+            DefaultBindingFlags)
         {
             
         }
@@ -304,7 +346,7 @@ namespace Media.Concepts.Hardware
         /// </summary>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        static ulong Fallback()
+        static ulong DiagnosticStopWatchGetTimestamp()
         {
             return unchecked((ulong)System.Diagnostics.Stopwatch.GetTimestamp());
         }
@@ -425,9 +467,9 @@ namespace Media.Concepts.Hardware
             new PlatformMethodReplacement(Common.Extensions.ExpressionExtensions.SymbolExtensions.GetMethodInfo(() => Replacement()), 
                 //Use either the x64 of x86 code
                 machine ? Common.Machine.IsX64() ? x64Rdtscp : x86Rdtscp : System.IntPtr.Size == Common.Binary.BytesPerLong ? x64RdtscCpuid : x86Rdtscp,
-                false, //Restore
+                true, //Restore should be determined based on state and otherwise
                 shouldDispose),
-            (System.Func<ulong>)Fallback) 
+            (System.Func<ulong>)DiagnosticStopWatchGetTimestamp) 
         {
            
         }
@@ -1093,6 +1135,9 @@ namespace Media.Concepts.Hardware
 
     #region Intrinsics
 
+    /// <summary>
+    /// Represents the class in which common intrinsic implementations will reside by default.
+    /// </summary>
     public static class Intrinsics
     {
         #region Statics
@@ -1165,6 +1210,12 @@ namespace Media.Concepts.Hardware
 
         //AMD Manual
         //https://support.amd.com/TechDocs/25481.pdf
+
+        #endregion
+
+        #region Empty MMX Technology State
+
+        //emms, 0x0f77, all one
 
         #endregion
 
@@ -1873,7 +1924,7 @@ namespace Media.Concepts.Hardware
             /// Key => First 32 bits is the level, last 32 bits is the subLeaf
             /// Value => Results from cpuid
             /// </summary>
-            readonly static System.Collections.Generic.Dictionary<long, Common.MemorySegment> CpuIdResults = new System.Collections.Generic.Dictionary<long, Common.MemorySegment>();
+            readonly static System.Collections.Generic.Dictionary<ulong, Common.MemorySegment> CpuIdResults = new System.Collections.Generic.Dictionary<ulong, Common.MemorySegment>();
 
             /// <summary>
             /// 
@@ -1889,7 +1940,7 @@ namespace Media.Concepts.Hardware
             internal static Common.MemorySegment RetrieveInformation(int level, int subLeaf = 0)
             {
                 //Key by the level
-                long key = (long)(((ulong)level << 32) | (uint)subLeaf);
+                ulong key = (((ulong)level << Common.Binary.BitsPerInteger) | (uint)subLeaf);
 
                 Common.MemorySegment previous;
 
@@ -1988,8 +2039,8 @@ namespace Media.Concepts.Hardware
                     //Invoke with the level 
                     cpuId.Invoke(MaximumExtendedFeatureLevel, ref CpuId.CpuIdBuffer);
 
-                    //Store the result
-                    CpuId.CpuIdResults[MaximumExtendedFeatureLevel] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
+                    //Store the result, widen because the dictionary stores unsigned keys
+                    CpuId.CpuIdResults[(ulong)MaximumExtendedFeatureLevel] = Common.MemorySegment.CreateCopy(CpuIdBuffer, 0, 16);
 
                     //Store the new MaximumExtendedFeatureLevel
                     CpuId.MaximumExtendedFeatureLevel = Common.Binary.Read32(CpuIdBuffer, 0, false);

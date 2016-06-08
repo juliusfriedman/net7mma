@@ -229,7 +229,10 @@ namespace Media.Rtsp//.Server
             //Todo, calulcate using least value possible...
 
             //Caulcate the poll timeout. use one tick causes higher cpu for now but reduces poll collisions.
-            m_SocketPollMicroseconds = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);  //(int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket));
+            //10 ticks / 1μs  is missing data in high bandwidth environments with receive buffer = 0
+            m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket)) / 10;
+            //(int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);  
+            //(int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond);  
 
             //Use the same socket configuration as per the server.
             m_Server.ConfigureSocket(m_RtspSocket);
