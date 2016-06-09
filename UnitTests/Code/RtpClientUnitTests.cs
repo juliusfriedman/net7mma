@@ -712,6 +712,56 @@ namespace Media.UnitTests
                 }
             }
         }
+
+        public void TestBroadcast()
+        {
+            string testVector = @"v=0 
+o=sip 1247 1247 IN IP4 255.255.255.255 
+s=Talk 
+c=IN IP4 255.255.255.255 
+t=0 0 
+m=video 5550 RTP/AVP 99 
+a=rtpmap:99 H264/90000 
+a=sendonly";
+
+            //Parse the sdp
+            using (var sdp = new Media.Sdp.SessionDescription(testVector))
+            {
+                //Verify the parsing
+                if(false.Equals(sdp.Lines.Count().Equals(8))) throw new System.Exception("Did not parse all lines");
+
+                //Verify that a RtpClient can be created, since no ports are specified the default for rtp and rtcp are used.
+                //Initialize fails on the attempt to hole punch and ports are set to 0.
+                using (Rtp.RtpClient test = Rtp.RtpClient.FromSessionDescription(sdp))
+                {
+                    //Verify that there are the expected amount of context's
+                    if (false.Equals(test.GetTransportContexts().Count().Equals(1))) throw new System.Exception("Unexpected amount of TransportContext's");
+
+                    Rtp.RtpClient.TransportContext firstContext = test.GetTransportContexts().First();
+
+                    System.Net.IPEndPoint localEndPoint = firstContext.RtpSocket.Connected ? firstContext.RtpSocket.LocalEndPoint as System.Net.IPEndPoint : firstContext.LocalRtp as System.Net.IPEndPoint;
+
+                    //Verify our address addresses
+                    if (true.Equals(localEndPoint == null)) throw new System.Exception("Unexpected LocalRtp or RtpSocket.LocalEndPoint");
+
+                    if (false.Equals(Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(localEndPoint.Address))) throw new System.Exception("Unexpected IPAddress type for LocalEndPoint");
+
+                    //Get the first MulticastIPAddress on the system and ensure that it is equal to the IPAddress which would be used locally by the RtpClient
+                    //This may be different depending on the network which is being connected to in a real application.
+
+                    if (false.Equals(Common.Extensions.Socket.SocketExtensions.GetFirstMulticastIPAddress(localEndPoint.AddressFamily).Equals(localEndPoint.Address))) throw new System.Exception("Unexpected RtpSocket.LocalEndPoint.IPAddress");
+
+                    //Verify their address
+                    System.Net.IPEndPoint remoteEndPoint = firstContext.RtpSocket.Connected ? firstContext.RtpSocket.RemoteEndPoint as System.Net.IPEndPoint as System.Net.IPEndPoint : firstContext.RemoteRtp as System.Net.IPEndPoint; 
+
+                    if (true.Equals(remoteEndPoint == null)) throw new System.Exception("Unexpected RemoteRtp or RtpSocket.RemoteEndPoint");
+
+                    if (false.Equals(System.Net.IPAddress.Broadcast.Equals(remoteEndPoint.Address)) && false.Equals(Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(remoteEndPoint.Address))) throw new System.Exception("Unexpected IPAddress for RemoteEndPoint");
+                }
+
+            }
+
+        }
     }
 
 }

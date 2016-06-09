@@ -95,6 +95,11 @@ namespace Media.Rtp
     {
         #region Constants / Statics
 
+        /// <summary>
+        /// The default amount which is used a multiplier to set the ReceiveBufferSize
+        /// </summary>
+        const int DefaultRecieveBufferSizeMultiplier = 100;
+
         internal static void ConfigureRtpThread(Thread thread)//,Common.ILogging = null
         {
             thread.TrySetApartmentState(ApartmentState.MTA);
@@ -117,9 +122,7 @@ namespace Media.Rtp
         //LittleEndianFrameControl = 9;                   //                                        001001(00)
 
         //The point at which rollover occurs on the SequenceNumber
-
-        //ConfigureUdpSocket static and delegate
-
+        
         /// <summary>
         /// Describes the size (in bytes) of the 
         /// [MAGIC , CHANNEL, {LENGTH}] octets which preceed any TCP RTP / RTCP data When multiplexing data on a single TCP port over RTSP.
@@ -252,15 +255,33 @@ namespace Media.Rtp
 
             System.Net.NetworkInformation.NetworkInterface localInterface;
 
-            if (false.Equals(existingSocket.Equals(null)) && existingSocket.IsBound)
+            //If the socket is NOT null and IS BOUND use the localIp of the same address family
+            if (false.Equals(existingSocket == null) && existingSocket.IsBound)
             {
-                //This interface should be the interface you plan on using for the Rtp communication
-                localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily, out  localInterface);
+                //If the socket is IP based
+                if(existingSocket.LocalEndPoint is IPEndPoint)
+                {
+                    //Take the localIp from the LocalEndPoint
+                    localIp = (existingSocket.LocalEndPoint as IPEndPoint).Address;
+                }
+                else
+                {
+                    throw new NotSupportedException("Please create an issue for your use case.");
+                }
             }
-            else
+            else // There is no socket existing.
             {
-                //Use the localIp of the exsisting socket.
-                localIp = ((System.Net.IPEndPoint)existingSocket.LocalEndPoint).Address;
+                //If the remote address is the broadcast address or the remote address is multicast
+                if (System.Net.IPAddress.Broadcast.Equals(remoteIp) || Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(remoteIp))
+                {
+                    //This interface should be the interface you plan on using for the Rtp communication
+                    localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstMulticastIPAddress(remoteIp.AddressFamily, out  localInterface);
+                }
+                else
+                {
+                    //This interface should be the interface you plan on using for the Rtp communication
+                    localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily, out  localInterface);
+                }
             }
 
             RtpClient client = new RtpClient(sharedMemory, incomingEvents);
@@ -398,7 +419,7 @@ namespace Media.Rtp
                 }                
 
                 //For AnySourceMulticast the remoteIp would be a multicast address.
-                bool multiCast = Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(remoteIp);
+                bool multiCast = System.Net.IPAddress.Broadcast.Equals(remoteIp) || Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(remoteIp);
 
                 //If no localIp was given determine based on the remoteIp
                 //--When there is no remoteIp this should be done first to determine if the sender is multicasting.
@@ -594,15 +615,25 @@ namespace Media.Rtp
                     {
                         //remoteIp should be groupAdd from media c= line.
 
-                        Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(tc.RtpSocket, remoteIp);
-                        
-                        Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(tc.RtpSocket, ttl);
-
-                        if (rtcpEnabled && tc.RtcpSocket.Handle != tc.RtpSocket.Handle)
+                        //If the address cannot be joined then an exception will occur here.
+                        try
                         {
-                            Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(tc.RtcpSocket, remoteIp);
 
-                            Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(tc.RtcpSocket, ttl);
+                            Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(tc.RtpSocket, remoteIp);
+
+                            Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(tc.RtpSocket, ttl);
+
+                            if (rtcpEnabled && tc.RtcpSocket.Handle != tc.RtpSocket.Handle)
+                            {
+                                Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(tc.RtcpSocket, remoteIp);
+
+                                Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(tc.RtcpSocket, ttl);
+                            }
+                        }
+
+                        catch
+                        {
+                            //Handle in application.
                         }
                     }
                 }
@@ -809,6 +840,11 @@ namespace Media.Rtp
             #endregion
 
             #region Properties
+
+            /// <summary>
+            /// A value which is used when during <see cref="Initialize"/> to set the <see cref="RecieveBufferSize"/> relative to the size of <see cref="ContextMemory"/>
+            /// </summary>
+            public int RecieveBufferSizeMultiplier { get; set; }
 
             public Action<Socket> ConfigureSocket { get; set; }
 
@@ -1496,6 +1532,9 @@ namespace Media.Rtp
 
                 //Assign the function responsible for configuring the socket
                 ConfigureSocket = configure ?? ConfigureRtpRtcpSocket;
+
+                //Use the default unless assigned after creation
+                RecieveBufferSizeMultiplier = DefaultRecieveBufferSizeMultiplier;
             }
 
             public TransportContext(byte dataChannel, byte controlChannel, int ssrc, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int senderSsrc = 0, int minimumSequentialRtpPackets = 2, bool shouldDispose = true)
@@ -1764,13 +1803,24 @@ namespace Media.Rtp
                     ConfigureSocket(RtpSocket);
 
                     //Apply the send and receive timeout based on the ReceiveInterval
-                    RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;  
-                    
-                    //Assign the LocalRtp EndPoint and Bind the socket to that EndPoint
-                    RtpSocket.Bind(LocalRtp = localRtp);
-                    
-                    //Assign the RemoteRtp EndPoint and Bind the socket to that EndPoint
-                    RtpSocket.Connect(RemoteRtp = remoteRtp);
+                    RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;
+
+                    LocalRtp = localRtp;
+
+                    RemoteRtp = remoteRtp;
+
+                    try
+                    {
+                        //Assign the LocalRtp EndPoint and Bind the socket to that EndPoint
+                        RtpSocket.Bind(LocalRtp);
+
+                        //Assign the RemoteRtp EndPoint and Bind the socket to that EndPoint
+                        RtpSocket.Connect(RemoteRtp);
+                    }
+                    catch
+                    {
+                        //Can't bind or connect
+                    }
 
                     ////Handle Multicast joining (Might need to track interface)
                     //if (Common.Extensions.IPEndPoint.IPEndPointExtensions.IsMulticast(remoteRtp))
@@ -1808,11 +1858,22 @@ namespace Media.Rtp
                         //Apply the send and receive timeout based on the ReceiveInterval
                         RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;
 
-                        //Assign the LocalRtcp EndPoint and Bind the socket to that EndPoint
-                        RtcpSocket.Bind(LocalRtcp = localRtcp);
+                        LocalRtcp = localRtcp;
 
-                        //Assign the RemoteRtcp EndPoint and Bind the socket to that EndPoint
-                        RtcpSocket.Connect(RemoteRtcp = remoteRtcp);
+                        RemoteRtcp = remoteRtcp;
+
+                        try
+                        {
+                            //Assign the LocalRtcp EndPoint and Bind the socket to that EndPoint
+                            RtcpSocket.Bind(LocalRtcp);
+                            
+                            //Assign the RemoteRtcp EndPoint and Bind the socket to that EndPoint
+                            RtcpSocket.Connect(RemoteRtcp);
+                        }
+                        catch
+                        {
+                            //Can't bind or connect
+                        }
 
                         ////Handle Multicast joining (Might need to track interface)
                         //if (Common.Extensions.IPEndPoint.IPEndPointExtensions.IsMulticast(remoteRtcp))
@@ -1833,10 +1894,10 @@ namespace Media.Rtp
                     }
 
                     //Setup the receive buffer size for all sockets of this context to use memory defined in excess of the context memory to ensure a high receive rate in udp
-                    if (this.ContextMemory != null)
+                    if (RecieveBufferSizeMultiplier >= 0 && false.Equals(ContextMemory == null) && ContextMemory.Count > 0)
                     {
                         //Ensure the receive buffer size is updated for that context.
-                        Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)this), 100 * this.ContextMemory.Count);
+                        Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)this), RecieveBufferSizeMultiplier * ContextMemory.Count);
                     }
 
                 }
@@ -1933,13 +1994,13 @@ namespace Media.Rtp
 
                 bool punchHole = RtpSocket.ProtocolType != ProtocolType.Tcp && false == Media.Common.Extensions.IPAddress.IPAddressExtensions.IsOnIntranet(((IPEndPoint)RtpSocket.RemoteEndPoint).Address); //Only punch a hole if the remoteIp is not on the LAN by default.
 
-                if (LocalRtp == null) LocalRtp = RtpSocket.LocalEndPoint;
+                if (true.Equals(LocalRtp == null)) LocalRtp = RtpSocket.LocalEndPoint;
 
-                if (RemoteRtp == null) RemoteRtp = RtpSocket.RemoteEndPoint;
+                if (true.Equals(RemoteRtp == null)) RemoteRtp = RtpSocket.RemoteEndPoint;
 
-                if (LocalRtp != null && false == RtpSocket.IsBound) RtpSocket.Bind(LocalRtp);
+                if (false.Equals(LocalRtp == null) && false.Equals(RtpSocket.IsBound)) RtpSocket.Bind(LocalRtp);
 
-                if (RemoteRtp != null && false == RtpSocket.Connected) try { RtpSocket.Connect(RemoteRtp); }
+                if (false.Equals(RemoteRtp == null) && false.Equals(RtpSocket.Connected)) try { RtpSocket.Connect(RemoteRtp); }
                     catch { }
 
                 //If a different socket is used for rtcp configure it also
@@ -1954,18 +2015,18 @@ namespace Media.Rtp
 
                         RemoteRtcp = RtcpSocket.RemoteEndPoint;
 
-                        if (LocalRtcp != null && false == RtcpSocket.IsBound) RtcpSocket.Bind(LocalRtcp);
+                        if (false.Equals(LocalRtcp == null) && false.Equals(RtcpSocket.IsBound)) RtcpSocket.Bind(LocalRtcp);
 
-                        if (RemoteRtcp != null && false == RtcpSocket.Connected) try { RtcpSocket.Connect(RemoteRtcp); }
+                        if (false.Equals(RemoteRtcp == null) && false.Equals(RtcpSocket.Connected)) try { RtcpSocket.Connect(RemoteRtcp); }
                             catch { }
                     }
                     else
                     {
                         //Just assign the same end points from the rtp socket.
 
-                        if (LocalRtcp == null) LocalRtcp = LocalRtp;
+                        if (true.Equals(LocalRtcp == null)) LocalRtcp = LocalRtp;
 
-                        if (RemoteRtcp == null) RemoteRtcp = RemoteRtp;
+                        if (true.Equals(RemoteRtcp == null)) RemoteRtcp = RemoteRtp;
                     }
                 }
                 else RtcpSocket = RtpSocket;
@@ -2026,10 +2087,10 @@ namespace Media.Rtp
                     //Maybe should drop multicast groups...
 
                     //For Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
-                    if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle) RtcpSocket.Close();
+                    if (false.Equals(RtcpSocket == null) && RtpSocket.Handle != RtcpSocket.Handle) RtcpSocket.Close();
 
                     //Close the RtpSocket
-                    if (RtpSocket != null) RtpSocket.Close();
+                    if (false.Equals(RtpSocket == null)) RtpSocket.Close();
 
                     RtpSocket = RtcpSocket = null;
                 }
@@ -3313,13 +3374,12 @@ namespace Media.Rtp
         #region Properties
 
         //Todo, determine if packets should just not be enqueued anymore
-        //Should also apply for Rtcp.
+        //Should also apply for Rtcp.       
 
         /// <summary>
         /// Used in applications to determine send thresholds.
         /// </summary>
         public int MaximumOutgoingPackets { get; internal protected set; }
-
 
         /// <summary>
         /// Gets the number of RtpPacket instances queued to be sent.

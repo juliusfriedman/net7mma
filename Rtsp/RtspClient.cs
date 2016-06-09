@@ -431,6 +431,9 @@ namespace Media.Rtsp
             get { return m_RtspSocket; }
             set
             {
+
+                bool wasDisconnected = false.Equals(IsConnected);
+
                 m_RtspSocket = value;
 
                 //Ensure not connected if the socket is removed
@@ -447,6 +450,11 @@ namespace Media.Rtsp
                 if (m_RtspSocket.Connected)
                 {
                     m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket));
+
+                    //Divide by 10 fast
+                    m_SocketPollMicroseconds *= 205;
+
+                    m_SocketPollMicroseconds >>= 11;
 
                     //SO_CONNECT_TIME only exists on Windows...
                     //There are options if the stack supports it elsewhere.
@@ -467,6 +475,18 @@ namespace Media.Rtsp
 
                         m_RemoteIP = remote.Address;
                     }
+
+                    //If wasDisconnected and now conneted raise an vent 
+                    if (true.Equals(wasDisconnected))
+                    {
+                        OnConnected();
+                    }
+
+                }
+                else if(false.Equals(wasDisconnected)) //The new socket is not connected, if was previously CONNECTED
+                {
+                    //Raise the Disconnected event.
+                    OnDisconnected();
                 }
             }
         }
@@ -2641,7 +2661,12 @@ namespace Media.Rtsp
                 }
 
                 //Determine the poll time now.
-                m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket)) / 10;
+                m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket));
+
+                //Divide by 10 fast
+                m_SocketPollMicroseconds *= 205;
+
+                m_SocketPollMicroseconds >>= 11;
 
                 //Don't block (possibly another way to work around the issue)
                 //m_RtspSocket.Blocking = false;

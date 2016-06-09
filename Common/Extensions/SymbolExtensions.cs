@@ -64,14 +64,44 @@ namespace Media.Common.Extensions.ExpressionExtensions
         #endregion
 
         //Dependency ....
-        static readonly Type TypedConstantExpressionType = Type.GetType("System.Linq.Expressions.TypedConstantExpression, System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089");
+        static readonly Type TypedConstantExpressionType;// = Type.GetType("System.Linq.Expressions.TypedConstantExpression, System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089");
+
+        static readonly Type InstanceMethodCallExpressionNType;
 
         static readonly PropertyInfo TypedConstantExpressionValueProperty;
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized | System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static SymbolExtensions()
         {
+            //Ensure not already ran.
+            if (false.Equals(TypedConstantExpressionType == null)
+                | false.Equals(InstanceMethodCallExpressionNType == null)
+                | false.Equals(TypedConstantExpressionValueProperty == null)) return;
+
+            //For example
+            //Expression<Action> ConstantExpression = () => Common.Binary.Nihil.Equals(null);
+
+            //Rather than take a reference to the assembly achieve the same thing by using reflection a single time on what should be equal to a TypedConstantExpression.
+
+            Expression<Action> TypedConstantExpression = () => typeof(Nullable<>).GetType();
+
+            MethodCallExpression methodCallExpression = TypedConstantExpression.Body as MethodCallExpression;
+
+            //InstanceMethodCallExpressionN
+            InstanceMethodCallExpressionNType = methodCallExpression.GetType();
+
+            //The body as a MethodCall reveals the Object which is really a TypedConstantExpression
+            methodCallExpression = TypedConstantExpression.Body as MethodCallExpression;
+
+            //Store the Type of that object.
+            TypedConstantExpressionType = methodCallExpression.Object.GetType();
+
+            //Store the type
             TypedConstantExpressionValueProperty = IntrospectionExtensions.GetTypeInfo(TypedConstantExpressionType).GetProperty("Value");
+
+            TypedConstantExpression = null;
+
+            methodCallExpression = null;
         }
 
         /// <summary>
@@ -123,6 +153,10 @@ namespace Media.Common.Extensions.ExpressionExtensions
                 if (methodCallExpression.Object is MemberExpression)
                 {
                     return IntrospectionExtensions.GetTypeInfo((methodCallExpression.Object as MemberExpression).Member.DeclaringType);
+                }
+                else if (methodCallExpression.Object is ConstantExpression)
+                {
+                    return IntrospectionExtensions.GetTypeInfo((Type)(methodCallExpression.Object as ConstantExpression).Value);
                 }
 
                 //Actually a RuntimeType from a TypedConstantExpression...
@@ -233,6 +267,149 @@ namespace Media.Common.Extensions.ExpressionExtensions
             if (outermostExpression == null) throw new ArgumentException("Invalid Expression. Expression should consist of a Method call only.");
 
             return outermostExpression.Method;
+        }
+    }
+}
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the GoodbyeReport class is correct
+    /// </summary>
+    internal class SymbolExtensionsUnitTests
+    {
+
+        #region Nested Types (For testing)
+
+        public class MyTestClass
+        {
+            string m_Test;
+
+            public string Test
+            {
+                get { return m_Test; }
+                set { m_Test = value; }
+            }
+        }
+
+        public class MyTestClass<T> : MyTestClass
+        {
+            T Backing;
+
+            public T Property
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return Backing; }
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                set { Backing = value; }
+            }
+
+            public T AnotherProperty
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                set;
+            }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
+            public T Method() { return default(T); }
+        }
+
+        #endregion
+
+        public void TestExpressionExtensions()
+        {
+            MyTestClass testClass = new MyTestClass();
+
+            //Todo ... show how to allow to TypedReference use inside the body
+            System.TypedReference member = __makeref(testClass.Test);
+
+            System.Type type = typeof(System.Reflection.PropertyInfo);
+
+            System.Reflection.MethodInfo setter = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.LoadSetter(() => testClass.Test.Equals(null));
+
+            System.Console.WriteLine("setter Name: " + setter.Name);
+
+            System.Console.WriteLine(".Test => " + testClass.Test);
+
+            setter.Invoke(testClass, new[] { "Test" });
+
+            if (false == (string.Compare(testClass.Test, "Test") == 0)) throw new System.Exception("Did not invoke setter");
+
+            System.Console.WriteLine(".Test => " + testClass.Test);
+
+            testClass = new MyTestClass<int>();
+
+            MyTestClass<int> casted = testClass as MyTestClass<int>;
+
+            System.Console.WriteLine("<int>.Test => " + testClass.Test);
+
+            setter.Invoke(testClass, new[] { "Test" });
+
+            if (false == (string.Compare(testClass.Test, "Test") == 0)) throw new System.Exception("Did not invoke setter");
+
+            System.Console.WriteLine(".Test => " + testClass.Test);
+
+            System.Console.WriteLine("<int>.Test => " + ((MyTestClass<int>)testClass).Test);
+
+            System.Console.WriteLine("<int>.Property => " + ((MyTestClass<int>)testClass).Property);
+
+            setter = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.LoadSetter(() => ((MyTestClass<int>)testClass).Property.Equals(null));
+
+            System.Console.WriteLine("setter Name: " + setter.Name);
+
+            setter.Invoke(testClass, new object[] { 1 });
+
+            if (false == (casted.Property == 1)) throw new System.Exception("Did not invoke setter");
+
+            System.Console.WriteLine("<int>.Property => " + ((MyTestClass<int>)testClass).Property);
+
+            System.Console.WriteLine("<int>.Property => " + casted.Property);
+
+            setter = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.LoadSetter(() => casted.AnotherProperty.Equals(null));
+
+            System.Console.WriteLine("<int>.AnotherProperty => " + ((MyTestClass<int>)testClass).AnotherProperty);
+
+            System.Console.WriteLine("<int>.AnotherProperty => " + casted.AnotherProperty);
+
+            setter.Invoke(testClass, new object[] { 2 });
+
+            if (false == (casted.AnotherProperty == 2)) throw new System.Exception("Did not invoke setter");
+
+            System.Console.WriteLine("<int>.AnotherProperty => " + ((MyTestClass<int>)testClass).AnotherProperty);
+
+            System.Console.WriteLine("<int>.AnotherProperty => " + casted.AnotherProperty);
+
+            System.Reflection.TypeInfo typeInfo = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetTypeInfo(() => new MyTestClass<int>());
+
+            if (typeInfo.GetGenericArguments()[0] != typeof(int)) throw new System.Exception("Not correct type");
+
+            System.Console.WriteLine("TypeInfo.Name " + typeInfo.Name);
+
+            System.Console.WriteLine("TypeInfo.MetadataToken " + typeInfo.MetadataToken);
+
+            if (typeInfo.GetGenericArguments()[0] != typeof(int)) throw new System.Exception("Not correct type");
+
+            typeInfo = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetTypeInfo(() => (typeof(MyTestClass<int>)).GetType());
+
+            if (typeInfo.GetGenericArguments()[0] != typeof(int)) throw new System.Exception("Not correct type");
+
+            System.Type unboundedType = typeof(MyTestClass<>);
+
+            typeInfo = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetTypeInfo(() => (unboundedType).GetType());
+
+            System.Console.WriteLine("TypeInfo.Name " + typeInfo.Name);
+
+            System.Console.WriteLine("TypeInfo.MetadataToken " + typeInfo.MetadataToken);
+
+            System.Reflection.MethodInfo methodInfo = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetMethodInfo(() => ((MyTestClass<int>)null).Method());
+
+            if (false.Equals(methodInfo.DeclaringType.Equals(typeof(MyTestClass<int>)))) throw new System.Exception("Not correct type");
+
+            System.Console.WriteLine("GetMethodInfo.Name " + methodInfo.Name);
+
+            System.Console.WriteLine("GetMethodInfo.MetadataToken " + methodInfo.MetadataToken);
         }
     }
 }

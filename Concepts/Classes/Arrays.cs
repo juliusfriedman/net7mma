@@ -405,14 +405,17 @@ namespace Media.Concepts.Classes
 
         //------------ (Should be stored at offsets higher than the object, because pointers may be 4 or 8 bytes, especially for when an Array is used.)
 
+        //For native pointers....
         //4 or 8 bytes
         ////[System.Runtime.InteropServices.FieldOffset(16)]
         //internal System.IntPtr m_IntPtr2;
 
+        //For the size of the type of the size of the native pointer
         //4 bytes
         //[System.Runtime.InteropServices.FieldOffset(16)]
         //int m_SourceSize;
 
+        //The last arbitary assigned number to the version property is useful in multithreading scenarios inter alia.
         //4 bytes, always the low bytes of m_IntPtr2 when assigned.
         //[System.Runtime.InteropServices.FieldOffset(20)]
         //int m_Version; // used for various things, maybe m_Reserved is a better name.
@@ -584,17 +587,21 @@ namespace Media.Concepts.Classes
         [System.CLSCompliant(false)]
         public unsafe Array(void* data, int offset, int length)
         {
+            //Store the native pointer... a lot of good this does because we don't manage it and we don't know if it's really a pointer or a value.
+            //To attainst true branchless operation a second field in the structure would need to be allocated which is designated for pointer values and only pointer values
+            //As the m_Offset member is shared with the m_Length memeber this will also set Offset and Length which is not desireable when your dealing with native pointers.
             m_Header.m_IntPtr = (System.IntPtr)data;
 
             //make a new array to store the data we read
-            m_Header.m_Array = m_Header.m_Array = m_Source = new T[length];
+            m_Header.m_Array = m_Source = new T[length];
 
             //Copy all data from the source
             System.Buffer.MemoryCopy(data, (void*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement(m_Source, 0), length, length);
 
-            //Setup the offsets
-            //m_Header.m_Offset = offset;
+            //Setup the offsets after assigning the array and IntPtr
+            m_Header.m_Offset = 0;
 
+            //And legnth
             m_Header.m_Length = length;
         }
 
@@ -1297,7 +1304,7 @@ namespace Media.Concepts.Classes
 
 namespace Media.UnitTests
 {
-    internal class ExperimentalTests
+    internal class GenericArrayTests
     {
         public void TestArrayLike()
         {
@@ -1602,6 +1609,10 @@ namespace Media.UnitTests
                         System.Console.WriteLine("q@" + (int)q);
 
                         Concepts.Classes.Array<byte> unsafeBytes = new Concepts.Classes.Array<byte>((void*)q, 0, 2);
+
+                        //Dereference the pointer of q, cast to byte and compare against first the element in the generic array
+                        //if not equal throw an exception
+                        if(false.Equals(((byte)*q).Equals(unsafeBytes[0]))) throw new System.Exception();
 
                         System.Console.WriteLine("unsafeBytes@0: " + unsafeBytes[0]);
 
