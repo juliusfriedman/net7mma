@@ -150,6 +150,8 @@ namespace Media.Rtcp
             protected set { Binary.Write32(Memory.Array, Memory.Offset + 8, Common.Binary.IsLittleEndian, (uint)value); }
         }
 
+        //Todo, From RFC 3393: PacetDelayVariation
+
         /// <summary>
         /// An estimate of the statistical variance of the <see cref="Rtp.RtpPacket.Created">RtpPacket</see> interarrival time.
         /// </summary>

@@ -64,8 +64,11 @@ namespace Media.UnitTests
             TestStopWatch,
             TestClock,
             TestTimer,
+            TestUnsafe,
+            TestHardware,
+            TestGenericArray,
+            //Common Library
             TestExpressionExtensions,
-            TestExperimental,
             //
             TestMachine,
             //Cryptography
@@ -3071,182 +3074,13 @@ a=appversion:1.0");
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MachineUnitTests), TypeOfVoid);
         }
 
-        public class MyTestClass
-        {
-            string m_Test;
-
-            public string Test
-            {
-                get { return m_Test; }
-                set { m_Test = value; }
-            }
-        }
-
-        public class MyTestClass<T> : MyTestClass
-        {
-            T Backing;
-
-            public T Property
-            {
-                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                get { return Backing; }
-                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                set { Backing = value; }
-            }
-
-            public T AnotherProperty
-            {
-                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                get;
-                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                set;
-            }
-
-            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
-            public T Method() { return default(T); }
-        }
-
         static void TestExpressionExtensions()
         {
-            MyTestClass testClass = new MyTestClass();
-
-            //Todo ... show how to allow to TypedReference use inside the body
-            System.TypedReference member = __makeref(testClass.Test);
-
-            System.Type type = typeof(System.Reflection.PropertyInfo);
-
-            System.Reflection.MethodInfo setter = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.LoadSetter(() => testClass.Test.Equals(null));
-
-            System.Console.WriteLine("setter Name: " + setter.Name);
-
-            System.Console.WriteLine(".Test => " + testClass.Test);
-
-            setter.Invoke(testClass, new[] { "Test" });
-
-            if (false == (string.Compare(testClass.Test, "Test") == 0)) throw new System.Exception("Did not invoke setter");
-
-            System.Console.WriteLine(".Test => " + testClass.Test);
-
-            testClass = new MyTestClass<int>();
-
-            MyTestClass<int> casted = testClass as MyTestClass<int>;
-
-            System.Console.WriteLine("<int>.Test => " + testClass.Test);
-
-            setter.Invoke(testClass, new[] { "Test" });
-
-            if (false == (string.Compare(testClass.Test, "Test") == 0)) throw new System.Exception("Did not invoke setter");
-
-            System.Console.WriteLine(".Test => " + testClass.Test);
-
-            System.Console.WriteLine("<int>.Test => " + ((MyTestClass<int>)testClass).Test);
-
-            System.Console.WriteLine("<int>.Property => " + ((MyTestClass<int>)testClass).Property);
-
-            setter = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.LoadSetter(() => ((MyTestClass<int>)testClass).Property.Equals(null));
-
-            System.Console.WriteLine("setter Name: " + setter.Name);
-
-            setter.Invoke(testClass, new object [] { 1 });
-
-            if (false == (casted.Property == 1)) throw new System.Exception("Did not invoke setter");
-
-            System.Console.WriteLine("<int>.Property => " + ((MyTestClass<int>)testClass).Property);
-
-            System.Console.WriteLine("<int>.Property => " + casted.Property);
-
-            setter = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.LoadSetter(() => casted.AnotherProperty.Equals(null));
-
-            System.Console.WriteLine("<int>.AnotherProperty => " + ((MyTestClass<int>)testClass).AnotherProperty);
-
-            System.Console.WriteLine("<int>.AnotherProperty => " + casted.AnotherProperty);
-
-            setter.Invoke(testClass, new object[] { 2 });
-
-            if (false == (casted.AnotherProperty == 2)) throw new System.Exception("Did not invoke setter");
-
-            System.Console.WriteLine("<int>.AnotherProperty => " + ((MyTestClass<int>)testClass).AnotherProperty);
-
-            System.Console.WriteLine("<int>.AnotherProperty => " + casted.AnotherProperty);
-
-            System.Reflection.TypeInfo typeInfo = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetTypeInfo(() => new MyTestClass<int>());
-
-            if (typeInfo.GetGenericArguments()[0] != typeof(int)) throw new System.Exception("Not correct type");
-
-            System.Console.WriteLine("TypeInfo.Name " + typeInfo.Name);
-
-            System.Console.WriteLine("TypeInfo.MetadataToken " + typeInfo.MetadataToken);
-
-            if (typeInfo.GetGenericArguments()[0] != typeof(int)) throw new System.Exception("Not correct type");
-
-            typeInfo = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetTypeInfo(() => (typeof(MyTestClass<int>)).GetType());
-
-            if (typeInfo.GetGenericArguments()[0] != typeof(int)) throw new System.Exception("Not correct type");
-
-            System.Type unboundedType = typeof(MyTestClass<>);
-
-            typeInfo = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetTypeInfo(() => (unboundedType).GetType());
-
-            System.Console.WriteLine("TypeInfo.Name " + typeInfo.Name);
-
-            System.Console.WriteLine("TypeInfo.MetadataToken " + typeInfo.MetadataToken);
-
-            System.Reflection.MethodInfo methodInfo = Media.Common.Extensions.ExpressionExtensions.SymbolExtensions.GetMethodInfo(() => ((MyTestClass<int>)null).Method());
-
-            if (false.Equals(methodInfo.DeclaringType.Equals(typeof(MyTestClass<int>)))) throw new System.Exception("Not correct type");
-
-            System.Console.WriteLine("GetMethodInfo.Name " + methodInfo.Name);
-
-            System.Console.WriteLine("GetMethodInfo.MetadataToken " + methodInfo.MetadataToken);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SymbolExtensionsUnitTests), TypeOfVoid);
         }
 
-        static void TestExperimental()
+        static void TestHardware()
         {
-
-            //--- CommonIntermediateLanguage / Unsafe
-
-            //Should be in Generic / CommonIntermediateLanguage tests
-            Concepts.Classes.CommonIntermediateLanguage.UsageTest();
-
-            System.Console.WriteLine("SizeOf long: " + Concepts.Classes.Generic<long>.SizeOf());
-
-            System.Console.WriteLine("SizeOf byte: " + Concepts.Classes.Generic<byte>.SizeOf());
-
-            System.Console.WriteLine("SizeOf int: " + Concepts.Classes.Generic<int>.SizeOf());
-
-            ///
-
-            System.Console.WriteLine("SizeOf int: " + Concepts.Classes.CommonIntermediateLanguage.SizeOf<int>());
-
-            System.Console.WriteLine("SizeOf long: " + Concepts.Classes.CommonIntermediateLanguage.SizeOf<long>());
-
-            System.Console.WriteLine("SizeOf Guid: " + Concepts.Classes.CommonIntermediateLanguage.SizeOf<System.Guid>());
-
-            int test = 1;
-
-            System.Console.WriteLine("ReinterpretCast bool: " + Concepts.Classes.Generic<int>.Read(ref test));
-
-            bool dunno = Concepts.Classes.Unsafe.ReinterpretCast<int, bool>(test);
-
-            System.Console.WriteLine("ReinterpretCast bool: " + dunno);
-
-            test = 0;
-            
-            //Don't work as expected..
-            dunno = Concepts.Classes.Unsafe.ReinterpretCast<int, bool>(test);
-
-            System.Console.WriteLine("ReinterpretCast bool: " + dunno);
-
-
-            //Could destabalize the runtime...
-            //System.Console.WriteLine(Concepts.Classes.Generic<bool>._As(test)); 
-
-            //System.Console.WriteLine(Concepts.Classes.Generic<int>.UnalignedRead(ref test));
-
-            //Concepts.Classes.Generic<int>.Write(ref test);
-
-            //---
-
             //--- Hardware.Intrinsics
 
             //using (var readCpuType = new Concepts.Hardware.Intrinsics.ReadCpuType())
@@ -3257,7 +3091,7 @@ a=appversion:1.0");
             System.Console.WriteLine(Concepts.Hardware.PlatformRtdsc.GetTimestampUnsigned());
 
             if (false == Concepts.Hardware.Intrinsics.CpuId.IsSupported()) System.Console.WriteLine("Hardware.Intrinsics Not Supported!");
-            else 
+            else
             {
                 System.Console.WriteLine("CpuId VendorString: " + Concepts.Hardware.Intrinsics.CpuId.GetVendorString());
 
@@ -3281,7 +3115,7 @@ a=appversion:1.0");
 
                 System.Console.WriteLine("CpuId GetFamilyModel: " + Concepts.Hardware.Intrinsics.CpuId.GetModelFamily());
 
-                System.Console.WriteLine("CpuId GetFamily: " + Concepts.Hardware.Intrinsics.CpuId.GetFamily());                
+                System.Console.WriteLine("CpuId GetFamily: " + Concepts.Hardware.Intrinsics.CpuId.GetFamily());
 
                 System.Console.WriteLine("CpuId GetModel: " + Concepts.Hardware.Intrinsics.CpuId.GetModel());
 
@@ -3374,8 +3208,56 @@ a=appversion:1.0");
                 System.Console.WriteLine("Rdseed GetSeed7: " + Concepts.Hardware.Intrinsics.Rdseed.GetSeed7());
 
             }
+        }
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ExperimentalTests), TypeOfVoid);
+        static void TestUnsafe()
+        {
+            //--- CommonIntermediateLanguage / Unsafe
+
+            //Should be in Generic / CommonIntermediateLanguage tests
+            Concepts.Classes.CommonIntermediateLanguage.UsageTest();
+
+            System.Console.WriteLine("SizeOf long: " + Concepts.Classes.Generic<long>.SizeOf());
+
+            System.Console.WriteLine("SizeOf byte: " + Concepts.Classes.Generic<byte>.SizeOf());
+
+            System.Console.WriteLine("SizeOf int: " + Concepts.Classes.Generic<int>.SizeOf());
+
+            ///
+
+            System.Console.WriteLine("SizeOf int: " + Concepts.Classes.CommonIntermediateLanguage.SizeOf<int>());
+
+            System.Console.WriteLine("SizeOf long: " + Concepts.Classes.CommonIntermediateLanguage.SizeOf<long>());
+
+            System.Console.WriteLine("SizeOf Guid: " + Concepts.Classes.CommonIntermediateLanguage.SizeOf<System.Guid>());
+
+            int test = 1;
+
+            System.Console.WriteLine("ReinterpretCast bool: " + Concepts.Classes.Generic<int>.Read(ref test));
+
+            bool dunno = Concepts.Classes.Unsafe.ReinterpretCast<int, bool>(test);
+
+            System.Console.WriteLine("ReinterpretCast bool: " + dunno);
+
+            test = 0;
+
+            //Don't work as expected..
+            dunno = Concepts.Classes.Unsafe.ReinterpretCast<int, bool>(test);
+
+            System.Console.WriteLine("ReinterpretCast bool: " + dunno);
+
+
+            //Could destabalize the runtime...
+            //System.Console.WriteLine(Concepts.Classes.Generic<bool>._As(test)); 
+
+            //System.Console.WriteLine(Concepts.Classes.Generic<int>.UnalignedRead(ref test));
+
+            //Concepts.Classes.Generic<int>.Write(ref test);
+        }
+
+        static void TestGenericArray()
+        {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.GenericArrayTests), TypeOfVoid);
         }
 
         /// <summary>

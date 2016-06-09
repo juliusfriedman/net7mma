@@ -1,4 +1,10 @@
-﻿namespace Media.Common.Extensions.Generic
+﻿#region References
+//http://stackoverflow.com/questions/6607033/c-sharp-language-generics-open-closed-bound-unbound-constructed
+//http://stackoverflow.com/questions/1735035/generics-open-and-closed-constructed-types
+//http://stackoverflow.com/questions/2173107/what-exactly-is-an-open-generic-type-in-net
+#endregion
+
+namespace Media.Common.Extensions.Generic
 {
     /// <summary>
     /// Provides extensions method for generic types.
@@ -6,7 +12,10 @@
     /// <typeparam name="T"></typeparam>
     public static class GenericExtensions
     {
-        public static readonly System.Type UnboundedNullableGenericType = typeof(System.Nullable<>);
+        /// <summary>
+        /// The type of <see cref="System.Nullable"/> without any type specified.
+        /// </summary>
+        public static readonly System.Type OpenNullableGenericType = typeof(System.Nullable<>);
 
         /// <summary>
         /// <see cref="typeof(T).MetadataToken"/>
