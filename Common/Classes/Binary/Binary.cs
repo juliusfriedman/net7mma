@@ -1731,8 +1731,11 @@ namespace Media.Common
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
 #if UNSAFE
-            if(value)*(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) |= (byte)(Binary.Ūnus << index);
-            else *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) &= (byte)(Binary.Ūnus << index);
+            unsafe
+            {
+                if (value) *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) |= (byte)(Binary.Ūnus << index);
+                else *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) &= (byte)(Binary.Ūnus << index);
+            }
 #elif NATIVE
             if (value) System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) | (byte)(Binary.Ūnus << index)));
             else System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) & (byte)(Binary.Ūnus << index)));
@@ -1755,7 +1758,10 @@ namespace Media.Common
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
 #if UNSAFE
-            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) ^= (byte)(~(Binary.Ūnus << index));
+            unsafe
+            {
+                *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) ^= (byte)(~(Binary.Ūnus << index));
+            }
 #elif NATIVE
             System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) ^ (byte)(~(Binary.Ūnus << index))));
 #else
@@ -1777,9 +1783,9 @@ namespace Media.Common
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
 #if UNSAFE
-            return *(byte*)System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) & (Binary.Ūnus << index)) != Binary.Nihil;
+            unsafe { return false.Equals((*(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) & (Binary.Ūnus << index)).Equals(Binary.Nihil)); }
 #elif NATIVE
-            return (System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) & (Binary.Ūnus << index)) != Binary.Nihil;
+            return false.Equals((System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) & (Binary.Ūnus << index)).Equals(Binary.Nihil));
 #else
             return GetBit(ref self[byteIndex], bitIndex);
 #endif
@@ -1797,7 +1803,7 @@ namespace Media.Common
             int bitIndex = Binary.Septem - (index & Binary.Septem);
 
 #if UNSAFE
-            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) &= (byte)(~(Binary.Ūnus << index));
+            unsafe { *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex) &= (byte)(~(Binary.Ūnus << index)); }
 #elif NATIVE
             System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex), (byte)(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(self, byteIndex)) & (byte)(~(Binary.Ūnus << index))));
 #else
@@ -2742,7 +2748,7 @@ namespace Media.Common
         public static void WriteU8(byte[] buffer, int index, bool reverse, byte value)
         {
 #if UNSAFE
-            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index) = reverse ? ReverseU8(value) : value;
+            unsafe { *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index) = reverse ? ReverseU8(value) : value; }
 #elif NATIVE
             System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index), reverse ? ReverseU8(value) : value);
 #else
@@ -2755,7 +2761,7 @@ namespace Media.Common
         public static void Write8(byte[] buffer, int index, bool reverse, sbyte value)
         {
 #if UNSAFE
-            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index) = reverse ? ReverseU8((byte)value) : (byte)value;
+            unsafe { *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index) = reverse ? ReverseU8((byte)value) : (byte)value; }
 #elif NATIVE
             System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, index), reverse ? ReverseU8((byte)value) : (byte)value);
 #else

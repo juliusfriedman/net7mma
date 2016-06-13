@@ -594,6 +594,27 @@ namespace Media.Concepts.Classes
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe ulong UInt64ToInt64Bits(long* x)
+        {
+            return *((ulong*)x);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe ulong UInt64ToInt64Bits(ref long x)
+        {
+            return *((ulong*)x);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static unsafe ulong UInt64ToInt64Bits(long x)
+        {
+            return *((ulong*)&x);
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe int UInt32ToInt32Bits(uint * x)
         {
             return *((int*)x);

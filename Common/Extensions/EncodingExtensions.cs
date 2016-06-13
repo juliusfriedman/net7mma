@@ -36,6 +36,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
+//http://stackoverflow.com/questions/1804433/issue-with-binaryreader-readchars
+
 using System;
 using System.Linq;
 
@@ -78,6 +80,134 @@ namespace Media.Common.Extensions.Encoding
         #endregion
 
         #region Read Delimited Data
+
+        public static bool ReadDelimitedDataFrom(this System.Text.Encoding encoding, byte[] buffer, char[] delimits, long offset, long count, out string result, out long read, bool includeDelimits = true)
+        {
+            int intCount = (int)count, intOffset = (int)offset, intRead = 0;
+
+            System.Exception any;
+
+            bool readResult = ReadDelimitedDataFrom(encoding, buffer, delimits, intOffset, intCount, out result, out intRead, out any, includeDelimits);
+
+            read = intRead;
+
+            return readResult;
+
+        }
+
+        public static bool ReadDelimitedDataFrom(this System.Text.Encoding encoding, byte[] buffer, char[] delimits, int offset, int count, out string result, out int read, out System.Exception any, bool includeDelimits = true)
+        {
+            read = 0;
+
+            any = null;
+
+            result = string.Empty;
+
+            //Todo, check for large delemits and use a hash or always use a hash.
+            //System.Collections.Generic.HashSet<char> delimitsC = new System.Collections.Generic.HashSet<char>(delimits);
+
+            if (delimits == null) delimits = EmptyChar;
+
+            int max;
+
+            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(buffer, out max))
+            {
+                result = null;
+
+                return false;
+            }
+
+            //Account for the position
+            max -= offset;
+
+            //The smaller of the two, max and count
+            if ((count = Common.Binary.Min(ref max, ref count)).Equals(0)) return false;
+
+            bool sawDelimit = false;
+
+            //Make the builder
+            System.Text.StringBuilder builder = new System.Text.StringBuilder();
+
+            //Use default..
+            if (encoding == null) encoding = System.Text.Encoding.Default;
+
+            System.Text.Decoder decoder = encoding.GetDecoder();
+
+            //int charCount = decoder.GetCharCount(buffer, offset, count);
+
+            //if(charCount == 0) return true;
+
+            int toRead, delemitsLength = delimits.Length;
+
+            toRead = delemitsLength <= 0 ? count : Common.Binary.Max(1, delemitsLength);
+
+            bool complete;
+
+            int charsUsed;
+
+            int justRead;
+
+            //Could use Pool to save allocatios until StringBuilder can handle char*
+            char[] results = new char[toRead];
+
+            do
+            {
+                //Convert to utf16 from the encoding
+#if UNSAFE
+                unsafe { decoder.Convert((byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(buffer, offset), count, (char*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<char>(results, 0), toRead, count <= 0, out justRead, out charsUsed, out complete); }
+#else
+                decoder.Convert(buffer, offset, count, results, 0, toRead, count <= 0, out justRead, out charsUsed, out complete);
+#endif
+
+                //If there are not enough bytes to decode the char
+                if (justRead.Equals(0))
+                {
+                    break;
+                }
+
+                //Move the offsets and count for what was converted from the decoder
+                offset += justRead;
+
+                count -= justRead;
+
+                //Iterate the decoded characters looking for a delemit
+                if (delemitsLength > 0) for (int c = 0, e = charsUsed; c < e; ++c)
+                    {
+                        //Compare the char decoded to the delimits, if encountered set sawDelimit and either include the delemit or not.
+#if NATIVE || UNSAFE
+                        if (System.Array.IndexOf<char>(delimits, (char)System.Runtime.InteropServices.Marshal.ReadInt16(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<char>(results, c))) >= 0)
+#else
+                        if (System.Array.IndexOf<char>(delimits, results[c]) >= 0)
+#endif
+                        {
+                            sawDelimit = true;
+
+                            if (false.Equals(includeDelimits)) charsUsed = c;
+                            else charsUsed = ++c;
+
+                            break;
+                        }
+                    }
+
+                if (charsUsed > 0) builder.Append(results, 0, charsUsed);
+            } while (count > 0 && false.Equals(sawDelimit));
+
+            if (builder == null)
+            {
+                result = null;
+
+                return sawDelimit;
+            }
+
+            result = builder.Length == 0 ? string.Empty : builder.ToString();
+
+            //Take the amount of bytes in the string as what was read.
+            read = encoding.GetByteCount(result);
+
+            builder = null;
+
+            return sawDelimit;
+        }
 
         /// <summary>
         /// Reads the data in the stream using the given encoding until the first occurance of any of the given delimits are found, count is reached or the end of stream occurs.
@@ -281,6 +411,45 @@ namespace Media.Common.Extensions.Encoding
             if (encoding == null) encoding = System.Text.Encoding.Default;
 
             return encoding.GetChars(toEncode, offset, count);
+        }
+
+        /// <summary>
+        /// Encodes the given bytes as <see cref="char"/>'s using the specified options.
+        /// </summary>
+        /// <param name="encoding">The optional encoding to use, if none is specified the Default will be used.</param>
+        /// <param name="toEncode">The data to encode, if null an <see cref="ArgumentNullException"/> will be thrown.</param>
+        /// <returns>The encoded data.</returns>
+        public static char[] GetChars(this System.Text.Decoder decoder, params byte[] toEncode)
+        {
+            if (toEncode == null) throw new ArgumentNullException("toEncode");
+
+            //int firstDimension = toEncode.Rank -1;
+
+            //get the length
+            int toEncodeLength = toEncode.GetUpperBound(0);
+
+            //If 0 then return the empty char array
+            if (toEncodeLength == 0) return EmptyChar;
+
+            //GetChars using the first element and the length
+            return GetChars(decoder, toEncode, toEncode.GetLowerBound(0), toEncodeLength);
+
+        }
+
+        /// <summary>
+        /// Encodes the given bytes as <see cref="char"/>'s using the specified options using <see cref="System.Text.Encoding.GetChars"/>.
+        /// </summary>
+        /// <param name="encoding">The optional encoding to use, if none is specified the Default will be used.</param>
+        /// <param name="toEncode">The data to encode, if null an <see cref="ArgumentNullException"/> will be thrown.</param>
+        /// <param name="offset">The offset to start at</param>
+        /// <param name="count">The amount of bytes to use in the encoding</param>
+        /// <returns>The encoded data</returns>
+        public static char[] GetChars(this System.Text.Decoder decoder, byte[] toEncode, int offset, int count)
+        {
+            //Use default..
+            if (decoder == null) decoder = System.Text.Encoding.Default.GetDecoder();
+
+            return decoder.GetChars(toEncode, offset, count);
         }
 
         #endregion

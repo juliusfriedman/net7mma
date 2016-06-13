@@ -302,4 +302,10 @@ namespace Media.Concepts.Classes
     }
 
     #endregion
+
+    //https://github.com/IllidanS4/SharpUtils/blob/a3b4da490537e361e6a5debc873c303023d83bf1/Unsafe/UnmanagedInstance.cs
+
+    //https://github.com/IllidanS4/SharpUtils/blob/a3b4da490537e361e6a5debc873c303023d83bf1/Unsafe/Pointer.cs
+
+    //https://github.com/IllidanS4/SharpUtils/blob/a3b4da490537e361e6a5debc873c303023d83bf1/Unsafe/ObjectHandle.cs
 }

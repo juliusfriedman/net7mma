@@ -603,7 +603,7 @@ namespace Media.Http
         /// <summary>
         /// Gets or Sets the encoding of the headers of this HttpMessage. (Defaults to UTF-8).
         /// When a non-ASCII character set is used the MIME encoded word syntax <see href="https://tools.ietf.org/html/rfc2231">rfc2231</see> shall be used.
-        /// </summary
+        /// </summary>
         public Encoding HeaderEncoding
         {
             get { return m_HeaderEncoding; }
@@ -901,7 +901,8 @@ namespace Media.Http
             bool sawDelemit;
 
             //If it was not present then do not parse further
-            if (false == (sawDelemit = Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(HeaderEncoding, m_Buffer, m_EncodedLineEnds, m_Buffer.Length, out StatusLine, out read, true)) && read < MinimumStatusLineSize)
+            //if (false == (sawDelemit = Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(HeaderEncoding, m_Buffer, m_EncodedLineEnds, m_Buffer.Length, out StatusLine, out read, true)) && read < MinimumStatusLineSize)
+            if (false == (sawDelemit = Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(HeaderEncoding, m_Buffer.GetBuffer(), m_EncodedLineEnds, m_Buffer.Position, m_Buffer.Length, out StatusLine, out read, true)) && read < MinimumStatusLineSize)
             {
                 MessageType = HttpMessageType.Invalid;
 
@@ -913,7 +914,7 @@ namespace Media.Http
             //m_HeaderOffset is still set when parsing fails but that shouldn't be an issue because it's reset when called again.
 
             //Take the ByteCount of what was read
-            m_HeaderOffset = m_HeaderEncoding.GetByteCount(StatusLine);//(int)--read;
+            m_HeaderOffset = (int)read;//m_HeaderEncoding.GetByteCount(StatusLine);//(int)--read;
 
             //Trim any whitespace
             StatusLine = StatusLine.TrimStart();
@@ -1015,7 +1016,8 @@ namespace Media.Http
                 m_Buffer.Seek(m_HeaderOffset, System.IO.SeekOrigin.Begin);
 
                 //Keep track of the position
-                long position = m_Buffer.Position, max = m_Buffer.Length;
+                long position = m_HeaderOffset,//m_Buffer.Position, 
+                    max = m_Buffer.Length;
 
                 //Reparsing should clear headers?
                 if (force) m_Headers.Clear();
@@ -1032,23 +1034,29 @@ namespace Media.Http
 
                 bool sawDelemit = false;
 
-                Exception encountered;
+                //Exception encountered;
 
                 string rawLine;
 
                 string[] parts;
 
+                byte[] buffer = m_Buffer.GetBuffer();
+
                 //While we didn't find the end of the header section in the local call (buffer may be in use)
-                while (false == IsDisposed && m_Buffer.CanRead && emptyLine <= 2 && (remains = max - position) > 0)
+                while (false.Equals(IsDisposed) && m_Buffer.CanRead && emptyLine <= 2 && (remains = max - position) > 0)
                 {
                     //Determine if any of the delimits were found
-                    sawDelemit = Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(HeaderEncoding, m_Buffer, m_EncodedLineEnds, remains, out rawLine, out justRead, out encountered, true);
+                    //sawDelemit = Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(HeaderEncoding, m_Buffer, m_EncodedLineEnds, remains, out rawLine, out justRead, out encountered, true);
+                    sawDelemit = Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(HeaderEncoding, buffer, m_EncodedLineEnds, position, remains, out rawLine, out justRead, true);
+
+                    //There is not enough data in the buffer
+                    if(justRead == 0) break;
 
                     //Check for the empty line
                     if (string.IsNullOrWhiteSpace(rawLine))
                     {
                         ////LWS means a new line in the value which can be safely ignored.
-                        if (false == readingValue)
+                        if (false.Equals(readingValue))
                         {
                             //Count the empty lines
                             ++emptyLine;
@@ -1058,10 +1066,12 @@ namespace Media.Http
                         headerValue.Append(rawLine);
 
                         //Stop parsing when an exception occurs (even if more data remains)
-                        if (encountered != null) break;
+                        //if (encountered != null) break;
 
                         //Do update the position to the position of the buffer
-                        position = m_Buffer.Position; //don't use justRead, BinaryReader and ReadChars is another great function (Fallback encoder may backtrack, may also decide output buffer is too small based on the same back track)
+                        //position = m_Buffer.Position; //don't use justRead, BinaryReader and ReadChars is another great function (Fallback encoder may backtrack, may also decide output buffer is too small based on the same back track)
+
+                        position += justRead;
 
                         //Do another iteration
                         continue;
@@ -1075,7 +1085,6 @@ namespace Media.Http
                     //not a valid header
                     if (parts.Length <= 1 || string.IsNullOrWhiteSpace(parts[0]))
                     {
-
                         readingValue = true;
 
                         headerValue.Append(rawLine);
@@ -1087,14 +1096,15 @@ namespace Media.Http
                         //Or `$` 'End Delemiter' (Reletive End Support (No RFC Draft [yet]) it indicates an end of section.
 
                         //back track
-                        m_Buffer.Seek(justRead, System.IO.SeekOrigin.End);
+                        position -= justRead;
+                        //m_Buffer.Seek(justRead, System.IO.SeekOrigin.End);
 
                         break;
                     }
                     else
                     {
                         //If there was a previous header and value being prepared
-                        if (false == string.IsNullOrWhiteSpace(headerName))
+                        if (false.Equals(string.IsNullOrWhiteSpace(headerName)))
                         {
                             //Set the value
                             SetHeader(headerName, headerValue.ToString().Trim());
@@ -1116,22 +1126,28 @@ namespace Media.Http
                         readingValue = string.IsNullOrWhiteSpace(headerValue.ToString());
                     }
 
-
                 UpdatePosition:
 
                     //Move the position
-                    position = m_Buffer.Position; //Just ignore justRead for now
+                    //position = m_Buffer.Position; //Just ignore justRead for now
+                    position += justRead;
 
                     //Could peek at the buffer of the memory stream to determine if the next char is related to the header...
                 }
 
                 //If there is a non null value for headerName the headerValue has not been written
-                if (false == string.IsNullOrWhiteSpace(headerName))
+                if (false.Equals(string.IsNullOrWhiteSpace(headerName)))
                 {
                     SetHeader(headerName, headerValue.ToString().Trim());
                 }
 
+                //if (false.Equals(sawDelemit) || emptyLine >= 2)
+                //{
+                //    position -= justRead;
+                //}
+
                 //There may be control characters from the last header still in the buffer, (ParseBody handles this)            
+                if(m_Buffer.CanSeek) m_Buffer.Seek(position, System.IO.SeekOrigin.Begin);
 
                 //Check that an end header section was seen or that the delemit was encountered
                 return m_HeadersParsed = emptyLine >= 2 || sawDelemit;
@@ -1270,20 +1286,20 @@ namespace Media.Http
 
         internal protected virtual bool ParseContentLength(bool force = false)
         {
-            if (IsDisposed && false == IsPersistent) return false;
+            if (IsDisposed && false.Equals(IsPersistent)) return false;
 
-            if (false == force && m_ContentLength >= 0) return false;
+            if (false.Equals(force) && m_ContentLength >= 0) return false;
 
             //See if there is a Content-Length header
             string contentLength = GetHeader(HttpHeaders.ContentLength);
 
             //If the value was null or empty then do nothing
             //If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter must be ignored.
-            if (string.IsNullOrWhiteSpace(contentLength) || false == string.IsNullOrWhiteSpace(GetHeader(HttpHeaders.TransferEncoding))) return false;
+            if (string.IsNullOrWhiteSpace(contentLength) || false.Equals(string.IsNullOrWhiteSpace(GetHeader(HttpHeaders.TransferEncoding)))) return false;
 
             //If there is a header parse it's value.
             //Should use EncodingExtensions
-            if (false == int.TryParse(Media.Common.ASCII.ExtractNumber(contentLength), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_ContentLength))
+            if (false.Equals(int.TryParse(Media.Common.ASCII.ExtractNumber(contentLength), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_ContentLength)))
             {
                 //There was not a content-length in the format '1234'
 
@@ -1314,20 +1330,20 @@ namespace Media.Http
             System.Text.Encoding contentDecoder = m_ContentDecoder ?? m_HeaderEncoding;
 
             //If there was a content-Encoding header then set it now;
-            if (false == string.IsNullOrWhiteSpace(contentEncoding))
+            if (false.Equals(string.IsNullOrWhiteSpace(contentEncoding)))
             {
                 //Check for the requested encoding
                 contentEncoding = contentEncoding.Trim();
 
                 System.Text.EncodingInfo requested = System.Text.Encoding.GetEncodings().FirstOrDefault(e => string.Compare(e.Name, contentEncoding, false, System.Globalization.CultureInfo.InvariantCulture) == 0);
 
-                if (requested != null) contentDecoder = requested.GetEncoding();
-                else if (true == raiseWhenNotFound) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(contentEncoding, "The given message was encoded in a Encoding which is not present on this system and no fallback encoding was acceptible to decode the message. The tag has been set the value of the requested encoding");
+                if (false.Equals(requested == null)) contentDecoder = requested.GetEncoding();
+                else if (true.Equals(raiseWhenNotFound)) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(contentEncoding, "The given message was encoded in a Encoding which is not present on this system and no fallback encoding was acceptible to decode the message. The tag has been set the value of the requested encoding");
                 else contentDecoder = System.Text.Encoding.Default;
             }
 
             //Use the default encoding if given utf8
-            if (contentDecoder.WebName == m_HeaderEncoding.WebName) contentDecoder = m_HeaderEncoding;
+            if (contentDecoder.WebName.Equals(m_HeaderEncoding.WebName)) contentDecoder = m_HeaderEncoding;
 
             return m_ContentDecoder = contentDecoder;
         }
@@ -1337,27 +1353,27 @@ namespace Media.Http
             remaining = 0;
 
             //If the message is disposed then the body is parsed.
-            if (IsDisposed && false == IsPersistent) return false;
+            if (IsDisposed && false.Equals(IsPersistent)) return false;
 
             //If the message is invalid or
-            if (false == force && MessageType == HttpMessageType.Invalid) return true; //or the message is complete then return true
+            if (false.Equals(force) && MessageType.Equals(HttpMessageType.Invalid)) return true; //or the message is complete then return true
 
             //If no headers could be parsed then don't parse the body
-            if (false == ParseHeaders()) return false;
+            if (false.Equals(ParseHeaders())) return false;
 
             //Transfer-Encoding chunked will be present if headers are parsed and the message is chunked.
 
             //If the message cannot have a body it is parsed.
-            if (false == CanHaveBody) return true;
+            if (false.Equals(CanHaveBody)) return true;
 
             //If there was no buffer or an unreadable buffer then no parsing can occur
-            if (m_Buffer == null || false == m_Buffer.CanRead) return false;
+            if (m_Buffer == null || false.Equals(m_Buffer.CanRead)) return false;
 
             //Quite possibly should be long
             int max = (int)m_Buffer.Length;
 
             //Empty body or no ContentLength
-            if (m_ContentLength == 0)
+            if (m_ContentLength.Equals(0))
             {
                 //m_Body = string.Empty;
 
@@ -1370,7 +1386,7 @@ namespace Media.Http
             //Calculate how much data remains based on the ContentLength
             //remaining = m_ContentLength - m_Body.Length;
 
-            if (available == 0) return false;
+            if (available.Equals(0)) return false;
 
             //Get the decoder to use for the body
             Encoding decoder = ParseContentEncoding(false, FallbackToDefaultEncoding);
@@ -1384,14 +1400,13 @@ namespace Media.Http
 
             remaining = ParseContentLength() ? m_ContentLength - existingBodySize : available;
 
-            if (remaining == 0) return true;
+            if (remaining.Equals(0)) return true;
 
             //Get the array of the memory stream
             byte[] buffer = m_Buffer.GetBuffer();
 
             //Ensure no control characters were left from parsing of the header values if more data is available then remains
-            //only do this one time and only if the Body was not already started parsing.
-            if (existingBodySize == 0 && Array.IndexOf<char>(m_EncodedLineEnds, decoder.GetChars(buffer, position, 1)[0]) >= 0)
+            while (existingBodySize == 0 && available > 0 && Array.IndexOf<char>(m_EncodedLineEnds, decoder.GetChars(buffer, position, 1)[0]) >= 0)
             {
                 ++position;
 
@@ -1465,7 +1480,7 @@ namespace Media.Http
                         m_Buffer.Seek(m_HeaderOffset = (int)lastPos, System.IO.SeekOrigin.Begin);
                         return true;
                     }
-                    else if (chunkSize == 0)
+                    else if (chunkSize.Equals(0))
                     {
                         //Trailer
 
@@ -1516,9 +1531,9 @@ namespace Media.Http
                 else //Content-Length style message
                 {
                     if (existingBodySize == 0)
-                        m_Body = decoder.GetString(buffer, position, Media.Common.Binary.Min(available, remaining));
+                        m_Body = decoder.GetString(buffer, position, Media.Common.Binary.Min(ref available, ref remaining));
                     else                     //Append to the existing body
-                        m_Body += decoder.GetString(buffer, position, Media.Common.Binary.Min(available, remaining));
+                        m_Body += decoder.GetString(buffer, position, Media.Common.Binary.Min(ref available, ref remaining));
                 }
 
                 //No longer needed, and would interfere with CompleteFrom logic.

@@ -109,7 +109,8 @@ namespace Media.Common.Extensions.ExpressionExtensions
         /// </summary>
         /// <param name="method"></param>
         /// <returns></returns>
-        public static MethodCallExpression CreateMethod(MethodInfo method)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static MethodCallExpression CreateMethodCallExpression(MethodInfo method)
         {
             if (method == null)
             {
@@ -130,6 +131,7 @@ namespace Media.Common.Extensions.ExpressionExtensions
         /// </summary>
         /// <param name="expression"></param>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static TypeInfo GetTypeInfo(Expression<Action> expression) //Expression<Action> allows the syntax () => where Expression would require a Delgate.
         {
             Expression body = expression.Body;

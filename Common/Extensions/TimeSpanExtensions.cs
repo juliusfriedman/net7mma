@@ -76,6 +76,11 @@ namespace Media.Common.Extensions.TimeSpan
         public static readonly System.TimeSpan OneTick = System.TimeSpan.FromTicks(1);
 
         /// <summary>
+        /// A <see cref="System.TimeSpan"/> with the value of 2 Tick's (200 ns)
+        /// </summary>
+        public static readonly System.TimeSpan TwoHundedNanoseconds = System.TimeSpan.FromTicks(2);
+
+        /// <summary>
         /// A <see cref="System.TimeSpan"/> with the value of 1 Second
         /// </summary>
         public static readonly System.TimeSpan OneSecond = System.TimeSpan.FromSeconds(1);

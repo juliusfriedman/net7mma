@@ -50,7 +50,7 @@ namespace Media.Sdp
     /// </summary>
     /// 
     ///https://msdn.microsoft.com/en-us/library/bb758954(v=office.13).aspx
-    public class SessionDescription : Common.BaseDisposable, IEnumerable<SessionDescriptionLine>
+    public class SessionDescription : Common.SuppressedFinalizerDisposable, IEnumerable<SessionDescriptionLine>
     {
         #region Statics
 
@@ -137,9 +137,9 @@ namespace Media.Sdp
             string startTimeString = string.Empty, endTimeString = string.Empty;
 
             //Start time only
-            if (hypenOffset == -1 || hypenOffset >= length - 1)
+            if (hypenOffset.Equals(-1) || hypenOffset >= length - 1)
             {
-                startTimeString = (hypenOffset == -1 ? value.Substring(offset) : value.Substring(offset, length - (offset + 1))).Trim();
+                startTimeString = (hypenOffset.Equals(-1) ? value.Substring(offset) : value.Substring(offset, length - (offset + 1))).Trim();
             }
             else
             {
@@ -161,11 +161,11 @@ namespace Media.Sdp
                         try
                         {
                             //maybe now
-                            if (false == string.IsNullOrWhiteSpace(startTimeString) && string.Compare(startTimeString, "now", StringComparison.OrdinalIgnoreCase) != 0) start = startTimeString.IndexOf(Colon) >= 0 ? TimeSpan.Parse(startTimeString, System.Globalization.CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(double.Parse(startTimeString, System.Globalization.CultureInfo.InvariantCulture));
+                            if (false.Equals(string.IsNullOrWhiteSpace(startTimeString)) && string.Compare(startTimeString, "now", StringComparison.OrdinalIgnoreCase) != 0) start = startTimeString.IndexOf(Colon) >= 0 ? TimeSpan.Parse(startTimeString, System.Globalization.CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(double.Parse(startTimeString, System.Globalization.CultureInfo.InvariantCulture));
 
                             //If both strings were the same don't parse again.
                             if (string.Compare(startTimeString, endTimeString) == 0) end = start;
-                            else if (false == string.IsNullOrWhiteSpace(endTimeString)) end = startTimeString.IndexOf(Colon) >= 0 ? TimeSpan.Parse(endTimeString, System.Globalization.CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(double.Parse(endTimeString, System.Globalization.CultureInfo.InvariantCulture));
+                            else if (false.Equals(string.IsNullOrWhiteSpace(endTimeString))) end = startTimeString.IndexOf(Colon) >= 0 ? TimeSpan.Parse(endTimeString, System.Globalization.CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(double.Parse(endTimeString, System.Globalization.CultureInfo.InvariantCulture));
 
                             return true;
                         }
@@ -189,7 +189,7 @@ namespace Media.Sdp
                             DateTime now = DateTime.UtcNow, date;
 
                             //Parse and determine the start time
-                            if (false == string.IsNullOrWhiteSpace(startTimeString) && DateTime.TryParseExact(startTimeString, clockFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date))
+                            if (false.Equals(string.IsNullOrWhiteSpace(startTimeString)) && DateTime.TryParseExact(startTimeString, clockFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date))
                             {
                                 //Time in the past
                                 if (now > date) start = now - date;
@@ -202,7 +202,7 @@ namespace Media.Sdp
 
                             //Parse and determine the end time
                             if (string.Compare(startTimeString, endTimeString) == 0) end = start;
-                            else if (false == string.IsNullOrWhiteSpace(endTimeString) && DateTime.TryParseExact(startTimeString, clockFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date))
+                            else if (false.Equals( string.IsNullOrWhiteSpace(endTimeString)) && DateTime.TryParseExact(startTimeString, clockFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date))
                             {
                                 //Time in the past
                                 if (now > date) end = now - date;

@@ -605,7 +605,7 @@ namespace Media.Concepts.Experimental
         public int IndexOf(T item, int index = -1)
         {
             //Check the current segment if the index allows
-            if (index < SegmentCapacity) index = m_CurrentSegment.IndexOf(item, Math.Max(0, index));
+            if (index < SegmentCapacity) index = m_CurrentSegment.IndexOf(item, System.Math.Max(0, index));
             if (index != -1) return index;
             else index = 0;
             foreach (List<T> segment in m_Segments)
@@ -644,7 +644,7 @@ namespace Media.Concepts.Experimental
             get
             {
                 List<T> found = FindSegmentForIndex(ref index);
-                if (found != null) return found[Math.Min(found.Count - 1, index)];
+                if (found != null) return found[System.Math.Min(found.Count - 1, index)];
                 else return default(T);
             }
             set
@@ -1513,7 +1513,7 @@ namespace Media.Concepts.Experimental
 
             foreach (byte b in carindals)
             {
-                result |= Math.Min(max, b);
+                result |= System.Math.Min(max, b);
                 if (result < min) result += max;
                 if (result > max) result -= min;
                 if (result > min && result < max) break;
@@ -1526,7 +1526,7 @@ namespace Media.Concepts.Experimental
                 //The result must be in result.
                 foreach (byte b in BitConverter.GetBytes(result))
                 {
-                    result &= Math.Max(b, min);
+                    result &= System.Math.Max(b, min);
                     if (result < min) result += max;
                     if (result > max) result -= min;
                     if (result > min && result < max) break;

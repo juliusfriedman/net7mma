@@ -41,7 +41,7 @@ namespace Media.Concepts.Classes
     /// <summary>
     /// Provides a completely managed implementation of <see cref="System.Diagnostics.Stopwatch"/> which expresses time in the same units as <see cref="System.TimeSpan"/>.
     /// </summary>
-    public class Stopwatch : Common.CommonDisposable
+    public class Stopwatch : Common.SuppressedFinalizerDisposable
     {
         internal Timer Timer;
 
@@ -153,7 +153,10 @@ namespace Media.Concepts.Classes
             Units = 0;
 
             //Create a Timer that will elapse every OneTick //`OneMicrosecond`
-            Timer = new Timer(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
+            Timer = new Timer(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TwoHundedNanoseconds);
+
+            //Create a Timer which is always elapsed in time.
+            //Timer = new Timer(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
 
             //Handle the event by incrementing count
             Timer.Tick += Count;
@@ -164,15 +167,30 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Stop()
         {
-            if (false == Enabled) return;
+            if (false.Equals(Enabled)) return;
 
             Timer.Stop();
 
-            Timer.Dispose();           
+            Timer.Dispose();
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void Count(ref long count) { unchecked { ++Units; } }
+
+        /// <summary>
+        /// Constructs an instance
+        /// </summary>
+        /// <param name="shouldDispose"></param>
+        public Stopwatch(bool shouldDispose = true) : base(shouldDispose) { }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (IsDisposed || false == disposing || false == ShouldDispose) return;
+
+            Stop();
+
+            base.Dispose(disposing);
+        }
     }
 }
 

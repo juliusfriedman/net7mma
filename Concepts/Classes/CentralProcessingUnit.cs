@@ -36,7 +36,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Concepts.Classes
 {
-    public static class CentralProcessingUnit
+
+    public static class CentralProcessingUnit //IProcessor
     {
         #region References
 
@@ -48,6 +49,8 @@ namespace Media.Concepts.Classes
 
         //Todo, provide a was to associate from VendorString to this enum with parse.
 
+        //InstructionSet, EPIC, CISC, RISC, LEGACY, FPU, MMX, etc
+
         /// <summary>
         /// 
         /// </summary>
@@ -55,7 +58,7 @@ namespace Media.Concepts.Classes
         {
             Unknown,
             Centaur,
-            Advanced,
+            Advanced,            
             Intel,
             MicroDevices,
             Motorola,    
@@ -116,7 +119,7 @@ namespace Media.Concepts.Classes
 
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static long GetTimestampCounter()
+        public static long GetTimestampCounter(int processor, int core)
         {
             //Determine the best method and return the result
             throw new System.NotImplementedException();

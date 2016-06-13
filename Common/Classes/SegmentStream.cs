@@ -513,12 +513,14 @@ namespace Media.Common
                 m_Cursor = 0;
             }
 
+            byte result;
+
 #if UNSAFE
-            byte result = *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++));
+            unsafe { result = *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++)); }
 #elif NATIVE
-            byte result = System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++)));
+            result = System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++)));
 #else
-            byte result = WorkingSegment.m_Array[WorkingSegment.m_Offset + m_Cursor++];
+            result = WorkingSegment.m_Array[WorkingSegment.m_Offset + m_Cursor++];
 #endif
             ++m_Position;
 
@@ -566,7 +568,7 @@ namespace Media.Common
                 m_Cursor = 0;
             }
 #if UNSAFE
-            *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++)) = value;
+            unsafe { *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++)) = value; }
 #elif NATIVE
             System.Runtime.InteropServices.Marshal.WriteByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(WorkingSegment.m_Array, (int)(WorkingSegment.m_Offset + m_Cursor++)), value);
 #else

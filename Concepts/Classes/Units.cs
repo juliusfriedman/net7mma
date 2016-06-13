@@ -159,9 +159,9 @@ namespace Media.Concepts.Classes
         public class Distance : UnitBase, IDistance
         {
 
-            public static readonly double PlankLengthsPerMeter = 6.1873559 * Math.Pow(10, 34);
+            public static readonly double PlankLengthsPerMeter = 6.1873559 * System.Math.Pow(10, 34);
 
-            public static readonly double MilsPerMeter = 2.54 * Math.Pow(10, -5);
+            public static readonly double MilsPerMeter = 2.54 * System.Math.Pow(10, -5);
 
             public const double InchesPerMeter = 0.0254;
 
@@ -171,16 +171,16 @@ namespace Media.Concepts.Classes
 
             public const double MilesPerMeter = 1609.344;
 
-            public static readonly double AttometersPerMeter = Math.Pow(10, 18);
+            public static readonly double AttometersPerMeter = System.Math.Pow(10, 18);
 
             //1 yoctometer = 0,001 zeptometer
             //1 attometer = 1000 zeptometer
             //1 000 yoctometer
             //0,001 attometer
             //10−21 meter
-            public static readonly double ZeptometersPerMeter = Math.Pow(10, -21);
+            public static readonly double ZeptometersPerMeter = System.Math.Pow(10, -21);
 
-            public static readonly double YoctometersPerMeter = Math.Pow(10, -24);
+            public static readonly double YoctometersPerMeter = System.Math.Pow(10, -24);
 
             public const double NanometersPerMeter = 1000000000;
 
@@ -950,7 +950,7 @@ namespace Media.Concepts.Classes
             }
 
             public Energy(Masses.IMass m) :
-                this(Math.Pow(m.TotalKilograms.ToDouble() * Velocities.Velocity.MaxValue.TotalMetersPerSecond.ToDouble(), 2))
+                this(System.Math.Pow(m.TotalKilograms.ToDouble() * Velocities.Velocity.MaxValue.TotalMetersPerSecond.ToDouble(), 2))
             {
 
             }

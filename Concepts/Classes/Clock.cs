@@ -42,7 +42,7 @@ namespace Media.Concepts.Classes
     /// <summary>
     /// Provides a clock with a given offset and calendar.
     /// </summary>
-    public class Clock : Media.Common.BaseDisposable
+    public class Clock : Media.Common.SuppressedFinalizerDisposable
     {
         static bool GC = false;
 
@@ -175,14 +175,16 @@ namespace Media.Concepts.Classes
 
         #region Overrides
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-
-            if (false == ShouldDispose) return;
-
-            base.Dispose();
+            if (IsDisposed || false == disposing || false == ShouldDispose) return;
 
             try
+            {
+                base.Dispose(disposing);
+            }
+            catch { }
+            finally
             {
                 if (System.Runtime.GCSettings.LatencyMode == System.Runtime.GCLatencyMode.NoGCRegion)
                 {
@@ -191,7 +193,6 @@ namespace Media.Concepts.Classes
                     GC = false;
                 }
             }
-            catch { }
         }
 
         #endregion

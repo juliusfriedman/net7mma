@@ -34,6 +34,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
  * v//
+ * 1768557944168860 / 562949953421312 ﻿= 3.14159﻿
  */
 
 namespace Media.Concepts.Classes
@@ -78,10 +79,12 @@ namespace Media.Concepts.Classes
     /// </summary>
     public interface IHardware
     {
-
+        
     }
 
     #region IProcessor
+
+    ///https://github.com/CosmosOS/Cosmos/blob/653b7a8321ffae5a6097a99846b95d3e70341a4a/Users/Gero%20Landmann/Cosmos.Assembler.X86.Gero/Registers.cs
 
     public interface IProcessor
     {
@@ -113,8 +116,17 @@ namespace Media.Concepts.Classes
     /// <summary>
     /// Represents the Processor itself.. 
     /// </summary>
-    public abstract class Processor : IProcessor
+    public /*abstract*/ class Processor : IProcessor
     {
+        internal int Id = System.Threading.Thread.CurrentThread.ManagedThreadId;
+
+        public Processor()
+        {
+
+        }
+
+        public static readonly Processor DefaultProcessor = new Processor();
+
         const ulong Reverse1 = 0x0202020202UL, Reverse2 = 0x010884422010UL;
         const int K = 1024,
             J = K - 1,
@@ -157,13 +169,21 @@ namespace Media.Concepts.Classes
             }
         }
 
+        //Machine
         public static void ReverseByte(ref byte b) { b = (byte)((b * Reverse1 & Reverse2) % J); }
 
-        public static bool IsNull(Bitable a) { return IsNull(ref a); }
+        //On interface
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsNull(Bitable a)
+        {
+            return Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(a) || a.Count.Equals(Z); //implicit to byte[]
+        }
 
-        public static bool IsNull(ref Bitable a) { return a.Memory == null || a.Count == Z; }
-
-        public static bool IsNullOrZero(ref Bitable a) { return IsNull(ref a) || a.Memory.AsParallel().Sum(b => b) > Z; }
+        //On interface
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsNullOrZero(Bitable a) { return IsNull(a) || a.Memory.AsParallel().Sum(b => b).Equals(Z); }
 
         //public static Bitable Manipulate(Bitable a, Bitable b, Manipulation manipulation)
         //{
@@ -175,18 +195,18 @@ namespace Media.Concepts.Classes
         //    referenceManipulation(ref a, ref b);
         //}
 
-        //Todo flags, efalgs.
+        //Todo flags, eflags.
 
         public static void Addition(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] += b[i];
         }
 
         public static Bitable Add(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -197,14 +217,14 @@ namespace Media.Concepts.Classes
 
         public static void Subtraction(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] -= b[i];
         }
 
         public static Bitable Subtract(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -215,14 +235,14 @@ namespace Media.Concepts.Classes
 
         public static void Multiplication(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] *= b[i];
         }
 
         public static Bitable Multiply(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -233,14 +253,14 @@ namespace Media.Concepts.Classes
 
         public static void Division(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] /= b[i];
         }
 
         public static Bitable Divide(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -251,14 +271,14 @@ namespace Media.Concepts.Classes
 
         public static void Modulo(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] %= b[i];
         }
 
         public static Bitable Modulus(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -269,9 +289,11 @@ namespace Media.Concepts.Classes
 
         public static bool GreaterThan(ref Bitable a, ref Bitable b)
         {
-            return (a != b) && a.Memory.Sum(i => i) > b.Memory.Sum(i => i);
+            // (a != b) && 
+            return a.Memory.Sum(i => i) > b.Memory.Sum(i => i);
         }
 
+        [System.CLSCompliant(false)]
         public static bool GreaterThan(Bitable a, Bitable b)
         {
             return GreaterThan(ref a, ref b);
@@ -279,9 +301,10 @@ namespace Media.Concepts.Classes
 
         public static bool LessThan(ref Bitable a, ref Bitable b)
         {
-            return a < b;
+            return GreaterThan(ref b, ref a);
         }
 
+        [System.CLSCompliant(false)]
         public static bool LessThan(Bitable a, Bitable b)
         {
             return LessThan(ref a, ref b);
@@ -289,14 +312,15 @@ namespace Media.Concepts.Classes
 
         public static void OR(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] |= b[i];
         }
 
+        [System.CLSCompliant(false)]
         public static Bitable OR(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -307,14 +331,15 @@ namespace Media.Concepts.Classes
 
         public static void XOR(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] ^= b[i];
         }
 
+        [System.CLSCompliant(false)]
         public static Bitable XOR(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -325,14 +350,15 @@ namespace Media.Concepts.Classes
 
         public static void AND(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] &= b[i];
         }
 
+        [System.CLSCompliant(false)]
         public static Bitable AND(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -343,14 +369,15 @@ namespace Media.Concepts.Classes
 
         public static void NOT(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] = (byte)~b[i];
         }
 
+        [System.CLSCompliant(false)]
         public static Bitable NOT(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -361,14 +388,15 @@ namespace Media.Concepts.Classes
 
         public static void NAND(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] &= (byte)(~b[i]);
         }
 
+        [System.CLSCompliant(false)]
         public static Bitable NAND(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -379,14 +407,15 @@ namespace Media.Concepts.Classes
 
         public static void NOR(ref Bitable a, ref Bitable b)
         {
-            for (int i = 0, e = Math.Min(a.Count, b.Count); i < e; ++i)
+            for (int i = 0, e = System.Math.Min(a.Count, b.Count); i < e; ++i)
                 a[i] |= (byte)(~b[i]);
         }
 
+        [System.CLSCompliant(false)]
         public static Bitable NOR(Bitable a, Bitable b)
         {
-            if (IsNullOrZero(ref a)) return b;
-            else if (IsNullOrZero(ref b)) return a;
+            if (IsNullOrZero(a)) return b;
+            else if (IsNullOrZero(b)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -403,9 +432,10 @@ namespace Media.Concepts.Classes
                 a[i] <<= amount;
         }
 
+        [System.CLSCompliant(false)]
         public static Bitable ShiftLeft(Bitable a, int amount, int index = 0)
         {
-            if (IsNullOrZero(ref a)) return a;
+            if (IsNullOrZero(a)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -419,10 +449,11 @@ namespace Media.Concepts.Classes
             for (int i = index, e = a.Count; i < e; ++i)
                 a[i] >>= amount;
         }
+        [System.CLSCompliant(false)]
 
         public static Bitable ShiftRight(Bitable a, int amount, int index = 0)
         {
-            if (IsNullOrZero(ref a)) return a;
+            if (IsNullOrZero(a)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -440,9 +471,10 @@ namespace Media.Concepts.Classes
 
         //Todo, make a RotateShift if I didn't already.
 
+        [System.CLSCompliant(false)]
         public static Bitable RotateRight(Bitable a, int amount, int index = 0)
         {
-            if (IsNullOrZero(ref a)) return a;
+            if (IsNullOrZero(a)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -458,9 +490,10 @@ namespace Media.Concepts.Classes
             a = ofA;
         }
 
+        [System.CLSCompliant(false)]
         public static Bitable RotateLeft(Bitable a, int amount, int index = 0)
         {
-            if (IsNullOrZero(ref a)) return a;
+            if (IsNullOrZero(a)) return a;
             else
             {
                 Bitable result = new Bitable(a);
@@ -471,12 +504,12 @@ namespace Media.Concepts.Classes
 
         bool IProcessor.IsNull(ref Bitable a)
         {
-            return IsNull(ref a);
+            return IsNull(a);
         }
 
         bool IProcessor.IsNullOrZero(ref Bitable a)
         {
-            return IsNullOrZero(ref a);
+            return IsNullOrZero(a);
         }
 
         void IProcessor.Swap(ref Bitable a, ref Bitable b)
@@ -613,25 +646,35 @@ namespace Media.Concepts.Classes
     /// </summary>
     public class CLRMathProvider : MathProvider
     {
-        //Numbers are stored in Twos Complement or Base 2 (0 and 1)
+        //Numbers are stored in Twos Complement or Base 2 [0 := 1]
         const int Base = 2;
 
         public readonly static Radix DecimalBase = new Radix(Base);
 
+        IProcessor m_Processor;
+
         public override IProcessor Processor
         {
-            get { return Processor; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Processor; }
         }
 
         public override Radix Radix
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return DecimalBase; }
+        }
+
+        public CLRMathProvider(IProcessor processor = null)
+        {
+            m_Processor = processor ?? Classes.Processor.DefaultProcessor;
         }
 
         #region Statics
 
         public bool IsNull(Bitable a) { return Processor.IsNull(ref a); }
-
+        
+        [System.CLSCompliant(false)]
         public bool IsNull(ref Bitable a) { return Processor.IsNull(ref a); }
 
         public bool IsZero(Bitable a) { return System.Linq.Enumerable.All(a.Memory, (b => b == 0)); }
@@ -640,6 +683,7 @@ namespace Media.Concepts.Classes
 
         #endregion
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override Number Addition(ref Number a, ref Number b)
         {
             switch (a.TypeCode)
@@ -658,6 +702,7 @@ namespace Media.Concepts.Classes
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override Number Subtraction(ref Number a, ref Number b)
         {
             switch (a.TypeCode)
@@ -676,6 +721,7 @@ namespace Media.Concepts.Classes
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override Number Multiplication(ref Number a, ref Number b)
         {
             switch (a.TypeCode)
@@ -694,6 +740,7 @@ namespace Media.Concepts.Classes
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override Number Division(ref Number a, ref Number b)
         {
             switch (a.TypeCode)
@@ -712,6 +759,7 @@ namespace Media.Concepts.Classes
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override Number Modulus(ref Number a, ref Number b)
         {
             switch (a.TypeCode)
@@ -730,28 +778,33 @@ namespace Media.Concepts.Classes
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool GreaterThan(ref Number a, ref Number b)
         {
             Bitable x = a, y = b;
             return Processor.GreaterThan(ref x, ref y);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool LessThan(ref Number a, ref Number b)
         {
             Bitable x = a, y = b;
             return Processor.LessThan(ref x, ref y);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override Number Min(ref Number a, ref Number b)
         {
             return a > b ? a : b;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override Number Max(ref Number a, ref Number b)
         {
             return a > b ? b : a;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(ref Number a, ref Number b)
         {
             return a.Memory.Equals(b.Memory);
@@ -769,6 +822,7 @@ namespace Media.Concepts.Classes
     /// </summary>
     public class Radix
     {
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Radix(Number b)
         {
             Base = b;
@@ -779,6 +833,14 @@ namespace Media.Concepts.Classes
 
     #endregion
 
+    //RomanNumeral (for fun) (https://github.com/IllidanS4/SharpUtils/blob/fd0e8fbab9fa45a23c9b380121952ef959df85bd/Numerics/RomanNumerals.cs)
+
+    //Todo, Vector
+
+    //Probably don't need Bits and Bitable for these purposes.
+    //If for some reason they make it then don't use Bool as the CoreUnit
+    //, Use Int and emulate X bits within
+
     #region Bits
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit,
@@ -788,7 +850,7 @@ namespace Media.Concepts.Classes
     public struct Bits : 
         System.Collections.IEnumerable, 
         System.Collections.Generic.IEnumerable<bool>, 
-        System.Collections.Generic.IEnumerable<Byte>
+        System.Collections.Generic.IEnumerable<Byte> //IList
     {
         /// <summary>
         /// The size of the structure in bytes
@@ -802,6 +864,7 @@ namespace Media.Concepts.Classes
 
         unsafe byte* UnsafeBits
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 fixed (byte* memory = &m_Bits)
@@ -811,9 +874,16 @@ namespace Media.Concepts.Classes
             }
         }
 
-        public byte ManagedBits { get { return m_Bits; } }
+        public byte ManagedBits
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_Bits; }
+        }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Bits(byte b) { m_Bits = b; }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
         unsafe internal Bits(byte* b) : this(*b) { }
 
@@ -828,6 +898,7 @@ namespace Media.Concepts.Classes
             else return base.Equals(obj);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode()
         {
             return m_Bits.GetHashCode();
@@ -835,86 +906,106 @@ namespace Media.Concepts.Classes
 
         public bool this[int index]
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return GetBit(this, index); }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set { SetBit(this, index); }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool GetBit(Bits b, int index)
         {
             return (b.m_Bits & (Size << index)) > 0;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void SetBit(Bits b, int index)
         {
             b |= (Size << index);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void ClearBit(Bits b, int index)
         {
             b &= ~(Size << index);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void ToggleBit(Bits b, int index)
         {
             b ^= (byte)(Size << index);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator byte(Bits b) { return b.m_Bits; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator int(Bits b) { return b.m_Bits; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Bits(byte b) { return new Bits(b); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator ^(Bits b, int amount)
         {
             return new Bits((byte)(b.m_Bits ^ amount));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator |(Bits b, int amount)
         {
             return new Bits((byte)(b.m_Bits | amount));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator &(Bits b, int amount)
         {
             return new Bits((byte)(b.m_Bits & amount));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator >(Bits b, int amount)
         {
             return b.m_Bits > amount;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator <(Bits b, int amount)
         {
             return b.m_Bits > amount;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator >>(Bits b, int amount)
         {
             return new Bits((byte)(b.m_Bits >> amount));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator <<(Bits b, int amount)
         {
             return new Bits((byte)(b.m_Bits << amount));
         }
-
+        
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator +(Bits b, int amount)
         {
             return new Bits((byte)(b.m_Bits + amount));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator -(Bits b, int amount)
         {
             return new Bits((byte)(b.m_Bits - amount));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator *(Bits b, int amount)
         {
             return new Bits((byte)(b.m_Bits * amount));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator /(Bits b, int amount)
         {
             return new Bits((byte)(b.m_Bits / amount));
@@ -922,87 +1013,107 @@ namespace Media.Concepts.Classes
 
         //
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator ^(Bits b, Bits other)
         {
             return new Bits((byte)(b.m_Bits ^ other.m_Bits));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator |(Bits b, Bits other)
         {
             return new Bits((byte)(b.m_Bits | other.m_Bits));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator &(Bits b, Bits other)
         {
             return new Bits((byte)(b.m_Bits & other.m_Bits));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator >(Bits b, Bits other)
         {
             return b.m_Bits > other.m_Bits;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator <(Bits b, Bits other)
         {
             return b.m_Bits > other.m_Bits;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator +(Bits b, Bits other)
         {
             return new Bits((byte)(b.m_Bits + other.m_Bits));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator -(Bits b, Bits other)
         {
             return new Bits((byte)(b.m_Bits - other.m_Bits));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator *(Bits b, Bits other)
         {
             return new Bits((byte)(b.m_Bits * other.m_Bits));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Bits operator /(Bits b, Bits other)
         {
             return new Bits((byte)(b.m_Bits / other.m_Bits));
         }
 
-        //
+        //>=, <=
 
+        //%
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(Bits b, int a) { return a.Equals(b.m_Bits); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(Bits b, int a) { return false.Equals((a.Equals(b.m_Bits))); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(Bits b, byte a) { return a.Equals(b.m_Bits); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(Bits b, byte a) { return false.Equals((a.Equals(b.m_Bits))); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(Bits b, Bits a)
         {
             return a.m_Bits.Equals(b.m_Bits);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(Bits b, Bits a)
         {
             return false.Equals((a.m_Bits.Equals(b.m_Bits)));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public System.Collections.IEnumerator GetEnumerator()
         {
             return new Bitable.BitsEnumerator(this);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         System.Collections.Generic.IEnumerator<bool> System.Collections.Generic.IEnumerable<bool>.GetEnumerator()
         {
             return new Bitable.BitsEnumerator(this);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void Reset()
         {
             m_Bits = default(byte);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         System.Collections.Generic.IEnumerator<byte> System.Collections.Generic.IEnumerable<byte>.GetEnumerator()
         {
             yield return m_Bits;
@@ -1021,7 +1132,7 @@ namespace Media.Concepts.Classes
     public class Bitable :
         System.Collections.Generic.IEnumerable<Bits>, 
         System.Collections.Generic.IEnumerable<byte>, 
-        System.Collections.Generic.IEnumerable<bool>
+        System.Collections.Generic.IEnumerable<bool> //IList ?
     {
         #region Statics
 
@@ -1049,6 +1160,7 @@ namespace Media.Concepts.Classes
 
         unsafe byte* UnmanagedBytes
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 fixed (byte* memory = Memory)
@@ -1060,16 +1172,26 @@ namespace Media.Concepts.Classes
 
         public Common.Binary.ByteOrder Endian { get; protected set; }
 
-        public int Count { get { return Memory.Length; } }
+        public int Count
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return Memory.Length; }
+        }
 
-        public int BitCount { get { return Count << 3; } } //* 8
+        public int BitCount
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return Count << 3; }
+        }//* 8
 
         public byte this[int index]
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return Memory[index];
             }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
                 Memory[index] = value;
@@ -1106,42 +1228,46 @@ namespace Media.Concepts.Classes
 
         }
 
-        internal Bitable(ref byte[] memory, Common.Binary.ByteOrder? endian = Common.Binary.ByteOrder.Unknown)
+        internal Bitable(ref byte[] memory, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
         {
-            Endian = endian.Value;
+            Endian = endian;
+
             Memory = memory;
         }
 
-        internal Bitable(byte[] memory, Common.Binary.ByteOrder? endian = Common.Binary.ByteOrder.Unknown)
-            : this(ref memory, endian) { }
-
         public Bitable(Bitable other)
         {
+            //Todo, align size with Machine
+
             if (other.Memory != null)
             {
                 Memory = new byte[other.Count];
+
                 other.Memory.CopyTo(Memory, 0);
             }
+
             Endian = other.Endian;
         }
 
-        public Bitable(Bits bits, Common.Binary.ByteOrder? endian = Common.Binary.ByteOrder.Unknown)
+        public Bitable(Bits bits, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
         {
             Memory = new byte[1];
             Memory[0] = bits.m_Bits;
-            Endian = endian.Value;
+            Endian = endian;
         }
 
-        public Bitable(ref Bits bits, Common.Binary.ByteOrder? endian = Common.Binary.ByteOrder.Unknown)
+        [System.CLSCompliant(false)]
+        public Bitable(ref Bits bits, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
         {
-            Memory = new byte[1];
-            Memory[0] = bits.m_Bits;
-            Endian = endian.Value;
+            Memory = new byte[1] { bits.m_Bits };
+
+            Endian = endian;
         }
 
         internal Bitable(Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
         {
-            Endian = endian == Media.Common.Binary.ByteOrder.Unknown ? (Common.Binary.IsLittleEndian ? Common.Binary.ByteOrder.Little : Common.Binary.ByteOrder.Big) : endian;
+            //Enum Equals Boxes
+            Endian = endian.Equals(Media.Common.Binary.ByteOrder.Unknown) ? (Common.Binary.IsLittleEndian ? Common.Binary.ByteOrder.Little : Common.Binary.ByteOrder.Big) : endian;
         }
 
         public Bitable(bool Boolean)
@@ -1153,6 +1279,7 @@ namespace Media.Concepts.Classes
             Memory = new byte[] { Byte };
         }
 
+        [System.CLSCompliant(false)]
         public Bitable(sbyte SByte, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
             : this(endian)
         {
@@ -1165,6 +1292,7 @@ namespace Media.Concepts.Classes
             Memory = BitConverter.GetBytes(Int);
         }
 
+        [System.CLSCompliant(false)]
         public Bitable(UInt16 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
             : this(endian)
         {
@@ -1177,22 +1305,24 @@ namespace Media.Concepts.Classes
             Memory = BitConverter.GetBytes(Int);
         }
 
-        public Bitable(UInt32 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
+        [System.CLSCompliant(false)]
+        public Bitable(UInt32 UInt, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
             : this(endian)
         {
-            Memory = BitConverter.GetBytes(Int);
+            Memory = BitConverter.GetBytes(UInt);
         }
 
-        public Bitable(Int64 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
+        public Bitable(Int64 Long, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
             : this(endian)
         {
-            Memory = BitConverter.GetBytes(Int);
+            Memory = BitConverter.GetBytes(Long);
         }
 
-        public Bitable(UInt64 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
+        [System.CLSCompliant(false)]
+        public Bitable(UInt64 ULong, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
             : this(endian)
         {
-            Memory = BitConverter.GetBytes(Int);
+            Memory = BitConverter.GetBytes(ULong);
         }
 
         public Bitable(float Single, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown)
@@ -1219,18 +1349,22 @@ namespace Media.Concepts.Classes
 
         #region Overrides
 
+        //Todo, non boxing
+
         public override bool Equals(object obj)
         {
             if (obj is Bitable)
             {
                 Bitable b = obj as Bitable;
-                if (b.Memory == Memory) return true;
-                for (int i = 0, e = Math.Min(Count, b.Count); i < e; ++i)
-                    if (Memory[i] != b.Memory[i]) return false;
+
+                if (b.Memory.Equals(Memory)) return true;
+
+                for (int i = 0, e = System.Math.Min(Count, b.Count); i < e; ++i)
+                    if (false.Equals(Memory[i].Equals(b.Memory[i]))) return false;
+
                 return true;
             }
-            else if (obj is Bits)
-                return this.Contains((Bits)obj);//Search for Bits in self...
+            else if (obj is Bits) return this.Contains((Bits)obj);//Search for Bits in self...
             else return base.Equals(obj);
         }
 
@@ -1251,10 +1385,10 @@ namespace Media.Concepts.Classes
         public int IndexOfAny(Bits[] b, bool ignoreEndian = true)
         {
             int index = -1;
-            foreach (Bits x in b)
-                if ((index = IndexOf(x, ignoreEndian)) != -1) break;
+            
+            foreach (Bits x in b) if (false.Equals((index = IndexOf(x, ignoreEndian)).Equals(-1))) break;
+                
             return index;
-
         }
 
         public int IndexOf(Bits b, bool ignoreEndian = true)
@@ -1264,6 +1398,7 @@ namespace Media.Concepts.Classes
             if (ignoreEndian)
             {
                 reverse = theirBits;
+
                 Processor.ReverseByte(ref reverse);
             }
 
@@ -1273,58 +1408,80 @@ namespace Media.Concepts.Classes
             foreach (Bits bits in this)
             {
                 byte bitz = bits.m_Bits;
-                if (bitz == theirBits) return x;
-                else if (!ignoreEndian && reverse == bitz) return x;
+
+                if (bitz.Equals(theirBits)) return x;
+                else if (true.Equals(ignoreEndian) && reverse.Equals(bitz)) return x;
+
                 ++x;
             }
-            return -1;
-        }
 
-        internal virtual bool ToBool(int index = 0)
+            return -1;
+        }        
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal /* virtual */ bool ToBool(int index = 0)
         {
             return BitConverter.ToBoolean(Memory, index);
         }
 
-        public virtual byte ToByte(int index = 0) { return Memory[index]; }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /* virtual */ byte ToByte(int index = 0) { return Memory[index]; }
 
-        public virtual sbyte ToSByte(int index = 0) { return (sbyte)ToByte(index); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [System.CLSCompliant(false)]
+        public /* virtual */ sbyte ToSByte(int index = 0) { return (sbyte)ToByte(index); }
 
-        public virtual Int16 ToInt16(int index = 0) { return BitConverter.ToInt16(Memory, index); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /* virtual */ Int16 ToInt16(int index = 0) { return Common.Binary.Read16(Memory, index, false); }
 
-        public virtual UInt16 ToUInt16(int index = 0) { return BitConverter.ToUInt16(Memory, index); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [System.CLSCompliant(false)]
+        public /* virtual */ UInt16 ToUInt16(int index = 0) { return Common.Binary.ReadU16(Memory, index, false); }
 
-        public virtual Int32 ToInt32(int index = 0) { return BitConverter.ToInt32(Memory, index); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /* virtual */ Int32 ToInt32(int index = 0) { return Common.Binary.Read32(Memory, index, false); }
 
-        public virtual UInt32 ToUInt32(int index = 0) { return BitConverter.ToUInt32(Memory, index); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [System.CLSCompliant(false)]
+        public /* virtual */ UInt32 ToUInt32(int index = 0) { return Common.Binary.ReadU32(Memory, index, false); }
 
-        public virtual Int64 ToInt64(int index = 0) { return BitConverter.ToInt64(Memory, index); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /* virtual */ Int64 ToInt64(int index = 0) { return Common.Binary.Read64(Memory, index, false); }
 
-        public virtual UInt64 ToUInt64(int index = 0) { return BitConverter.ToUInt64(Memory, index); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [System.CLSCompliant(false)]
+        public /* virtual */ UInt64 ToUInt64(int index = 0) { return Common.Binary.ReadU64(Memory, index, false); }
 
-        public virtual Single ToSingle(int index = 0)
+        //Todo, no BitConverter
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /* virtual */ Single ToSingle(int index = 0)
         {
             return BitConverter.ToSingle(Memory, index);
         }
 
-        public virtual Double ToDouble(int index = 0)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /* virtual */ Double ToDouble(int index = 0)
         {
             int size = Count - index;
             if (size < SizeOfDouble)
             {
                 switch (size)
                 {
-                    case 1: return (Double)ToByte();
-                    case 2: return (Double)ToInt16(index);
-                    case 3: //Reserved for 24Bit
-                    case 4: return (Double)ToInt32(index);
+                    case Common.Binary.BytesPerByte: return (Double)ToByte();
+                    case Common.Binary.BytesPerChar: return (Double)ToInt16(index);
+                    case Common.Binary.Three: //Reserved for 24Bit
+                    case Common.Binary.BytesPerInteger: return (Double)ToInt32(index);
                     default: break;
                 }
             }
             else return BitConverter.ToDouble(Memory, index);
+
             return DoubleZero.ToDouble();
         }
 
-        public virtual Decimal ToDecimal(int index = 0, int count = 4)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /* virtual */ Decimal ToDecimal(int index = 0, int count = Common.Binary.BytesPerInteger)
         {
             //Setup the index
             int offset = index;
@@ -1333,41 +1490,51 @@ namespace Media.Concepts.Classes
             System.Collections.Generic.IEnumerable<int> parts = Enumerable.Empty<int>();
 
             //For all parts concatenate the required memory
-            for (int i = offset; i < count; i += 4)
+            for (int i = offset; i < count; i += Common.Binary.BytesPerInteger)
                 parts = parts.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(BitConverter.ToInt32(Memory, i)));
 
             //While we do not have four parts of the decimal add the IntZero value
-            while (parts.Count() < 4)
+            while (parts.Count() < Common.Binary.BytesPerInteger)
                 parts = parts.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(IntZero.ToInt32()));
 
             return new System.Decimal(parts.ToArray());
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Bitable Reversed()
         {
-            Bitable result = new Bitable(this, Common.Binary.ByteOrder.Big);
+            //Must switch anyway, the reverse may not always be big or little.
+
+            //Enum Equals Boxes
+            Bitable result = new Bitable(this, Endian.Equals(Common.Binary.ByteOrder.Big) ? Common.Binary.ByteOrder.Little : Common.Binary.ByteOrder.Big);
+
             Array.Reverse(result.Memory);
+
             return result;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Bitable ToBigEndian()
         {
-            if (Endian == Common.Binary.ByteOrder.Unknown || Endian == Common.Binary.ByteOrder.Little)
-                return Reversed();
+            //Enum Equals Boxes
+            if (Endian.Equals(Common.Binary.ByteOrder.Unknown) || Endian.Equals(Common.Binary.ByteOrder.Little)) return Reversed();
             return new Bitable(this);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Bitable ToLittleEndian()
         {
-            if (Endian == Common.Binary.ByteOrder.Unknown || Endian == Common.Binary.ByteOrder.Big)
-                return Reversed();
+            //Enum Equals Boxes
+            if (Endian.Equals(Common.Binary.ByteOrder.Unknown) || Endian.Equals(Common.Binary.ByteOrder.Big)) return Reversed();
             return new Bitable(this);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Bitable ToSystemEndian()
         {
-            if (Endian != Processor.SystemEndian)
-                return Reversed();
+            //Enum Equals Boxes
+            if (false.Equals(Endian.Equals(Processor.SystemEndian))) return Reversed();
+
             return new Bitable(this);
         }
 
@@ -1377,18 +1544,22 @@ namespace Media.Concepts.Classes
 
         public static implicit operator long(Bitable b) { return b.ToInt64(); }
 
+        [System.CLSCompliant(false)]
         public static implicit operator ulong(Bitable b) { return b.ToUInt64(); }
 
         public static implicit operator int(Bitable b) { return b.ToInt32(); }
 
+        [System.CLSCompliant(false)]
         public static implicit operator uint(Bitable b) { return b.ToUInt32(); }
 
         public static implicit operator short(Bitable b) { return b.ToInt16(); }
 
+        [System.CLSCompliant(false)]
         public static implicit operator ushort(Bitable b) { return b.ToUInt16(); }
 
         public static implicit operator byte(Bitable b) { return b.ToByte(); }
 
+        [System.CLSCompliant(false)]
         public static implicit operator sbyte(Bitable b) { return b.ToSByte(); }
 
         public static implicit operator decimal(Bitable b) { return b.ToDecimal(); }
@@ -1401,18 +1572,22 @@ namespace Media.Concepts.Classes
 
         public static implicit operator Bitable(long b) { return new Bitable(b); }
 
+        [System.CLSCompliant(false)]
         public static implicit operator Bitable(ulong b) { return new Bitable(b); }
 
         public static implicit operator Bitable(int b) { return new Bitable(b); }
 
+        [System.CLSCompliant(false)]
         public static implicit operator Bitable(uint b) { return new Bitable(b); }
 
         public static implicit operator Bitable(short b) { return new Bitable(b); }
 
+        [System.CLSCompliant(false)]
         public static implicit operator Bitable(ushort b) { return new Bitable(b); }
 
         public static implicit operator Bitable(byte b) { return new Bitable(b); }
 
+        [System.CLSCompliant(false)]
         public static implicit operator Bitable(sbyte b) { return new Bitable(b); }
 
         public static implicit operator Bitable(decimal b) { return new Bitable(b); }
@@ -1446,6 +1621,11 @@ namespace Media.Concepts.Classes
             return Processor.Divide(a, b);
         }
 
+        public static Bitable operator %(Bitable a, Bitable b)
+        {
+            return Processor.Modulus(a, b);
+        }
+
         public static Bitable operator *(Bitable a, Bitable b)
         {
             return Processor.Multiply(a, b);
@@ -1459,6 +1639,16 @@ namespace Media.Concepts.Classes
         public static bool operator <(Bitable a, Bitable b)
         {
             return Processor.LessThan(a, b);
+        }
+
+        public static bool operator <=(Bitable a, Bitable b)
+        {
+            return a.Equals(b) || Processor.LessThan(a, b);
+        }
+
+        public static bool operator >=(Bitable a, Bitable b)
+        {
+            return a.Equals(b) || Processor.GreaterThan(a, b);
         }
 
         public static Bitable operator ^(Bitable a, Bitable b)
@@ -1642,156 +1832,31 @@ namespace Media.Concepts.Classes
     /// <summary>
     /// Handles the conversion from a Bitable to a Mathematical Number
     /// </summary>
-    public class Number : Bitable
+    public class Number : Bitable //Todo,
+                                  //IFormattable, IComparable, IConvertible, IComparable<Number>, IEquatable<Number>, etc.
     {
-
-        public static MathProvider DefaultMathProvider = new CLRMathProvider();
-
-        //Adds BigInteger and Complex to TypeCode
-        public enum NumberTypeCodes
-        {
-            BigInteger = 20,
-            Complex = 21
-        }
-
-        #region Overrides
-
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
-
-        public override bool Equals(object obj)
-        {
-            return base.Equals(obj);
-        }
-
-        public override string ToString()
-        {
-            return BitConverter.ToString(Memory);
-        }
-
-        #endregion
-
-        #region Constructors
-
-        public Number(MathProvider mathProvider = null) : base() { MathProvider = mathProvider ?? DefaultMathProvider; }
-
-        public Number(Number other, MathProvider mathProvider = null) : base(other) { MathProvider = mathProvider ?? DefaultMathProvider; }
-
-        public Number(Bitable other, MathProvider mathProvider = null) : base(other) { MathProvider = mathProvider ?? DefaultMathProvider; }
-
-        public Number(Bits other, MathProvider mathProvider = null) : base(other) { MathProvider = mathProvider ?? DefaultMathProvider; }
-
-        public Number(bool Boolean, MathProvider mathProvider = null)
-            : this((byte)(Boolean ? 1 : 0))
-        {
-            TypeCode = System.TypeCode.Boolean;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(byte Byte, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(Byte, endian)
-        {
-            TypeCode = System.TypeCode.Byte;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(sbyte SByte, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(SByte, endian)
-        {
-            TypeCode = System.TypeCode.SByte;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(Int16 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(Int, endian)
-        {
-            TypeCode = System.TypeCode.Int16;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(UInt16 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(Int, endian)
-        {
-            TypeCode = System.TypeCode.UInt16;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(Int32 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(Int, endian)
-        {
-            TypeCode = System.TypeCode.Int32;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(UInt32 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(Int, endian)
-        {
-            TypeCode = System.TypeCode.UInt32;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(Int64 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(Int, endian)
-        {
-            TypeCode = System.TypeCode.Int64;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(UInt64 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(Int, endian)
-        {
-            TypeCode = System.TypeCode.UInt64;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(float Single, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(Single, endian)
-        {
-            TypeCode = System.TypeCode.Single;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(Double Double, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(Double, endian)
-        {
-            TypeCode = System.TypeCode.Double;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public Number(Decimal Decimal, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(Decimal, endian)
-        {
-            TypeCode = System.TypeCode.Decimal;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-        }
-
-        public unsafe Number(System.Numerics.Complex Complex, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(endian)
-        {
-            TypeCode = (TypeCode)NumberTypeCodes.Complex;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-            Memory = new byte[SizeOfComplex];
-            BitConverter.GetBytes(Complex.Imaginary).CopyTo(Memory, 0);
-            BitConverter.GetBytes(Complex.Real).CopyTo(Memory, sizeof(double));
-        }
-
-        public Number(byte[] bigInteger, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, MathProvider mathProvider = null)
-            : base(endian)
-        {
-            TypeCode = (TypeCode)NumberTypeCodes.BigInteger;
-            MathProvider = mathProvider ?? DefaultMathProvider;
-            Memory = bigInteger;
-        }
-
-        #endregion
-
         #region Statics
 
-        public static Number Clamp(Number n, Number min, Number max) { return Math.Max(min, Math.Min(max, n)); }
+        public static IMathProvider DefaultMathProvider = new CLRMathProvider();
 
-        public static int SizeOfComplex = sizeof(double) * 2;
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static Number Clamp(Number n, Number min, Number max)
+        {
+            //Iterate the memory of n, min and max in reverse
+            for (int e = n.Count - 1,
+                k = Common.Binary.Min(min.Count, max.Count) - 1,
+                i = 0;
+                i >= e && i >= k;
+                --i, --k)
+            {
+                //Set the memory in k to whatever is integral relative to the memory of min or max
+                n.Memory[k] = Common.Binary.Clamp(ref n.Memory[i], ref min.Memory[i], ref max.Memory[i]);
+            }
+
+            return n;
+        }
+
+        public static int SizeOfComplex = sizeof(double) << 1;
 
         public readonly static Number ComplexZero = new Number(System.Numerics.Complex.Zero);
 
@@ -1805,31 +1870,50 @@ namespace Media.Concepts.Classes
 
         public static Number NaN = new Number(double.NaN);
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsInfinity(Number N) { return double.IsInfinity(N.ToDouble()); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsNan(Number N) { return double.IsNaN(N.ToDouble()); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsNanOrInfinity(Number n) { return IsNan(n) || IsInfinity(n); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static Number Sqrt(Number n, int? realIndex = null, int? imaginaryIndex = null)
+        {
+            if (n >= DoubleZero)
+            {
+                return new Number(System.Math.Sqrt(n.ToDouble()));
+            }
+            else
+            {
+                return new Number(System.Numerics.Complex.Sqrt(n.ToComplex(realIndex, imaginaryIndex)));
+            }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Type NumberBestRepresentedType(Number n)
         {
             return BestRepresentsType(n.Count);
         }
 
-        public unsafe static Type BestRepresentsType(int sizeInBytes)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static Type BestRepresentsType(int sizeInBytes)
         {
             switch (sizeInBytes)
             {
                 case 0: return null;
-                case 1: return Types.Byte; //Need to have 1Bit, 2Bit, 3Bit, 4Bit sturctures that can be implicitly casted to Bits
-                case 2: return Types.Short;
-                case 3: //Reserved for 24Bit Type
-                case 4: return Types.Int;
+                case Common.Binary.BytesPerByte: return Types.Byte; //Need to have 1Bit, 2Bit, 3Bit, 4Bit sturctures that can be implicitly casted to Bits
+                case Common.Binary.BytesPerShort: return Types.Short;
+                case Common.Binary.Three: //Reserved for 24Bit Type
+                case Common.Binary.BytesPerInteger: return Types.Int;
                 case 5: //Reserved for 40Bit Type
                 case 6: //Reserved for 48Bit Type
                 case 7: //Reserved for 56Bit Type
-                case 8: return Types.Long;
-                case 16: return Types.Double;
+                //8 could be double also...
+                case Common.Binary.BytesPerLong: return Types.Long;
+                case Common.Binary.BytesPerDecimal: return Types.Decimal;
                 default:
                     {
                         if (sizeInBytes == SizeOfComplex) return Types.Complex;
@@ -1838,20 +1922,24 @@ namespace Media.Concepts.Classes
             }
         }
 
-        public static bool IsNull(Number a) { return IsNull(ref a); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsNull(Number a) { return Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(a); } //implicit to byte[]
 
-        public static bool IsNull(ref Number a) { return a.Memory == null || a.Count == 0; }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsNullOrZero(Number a) { return IsNull(a) && a.Memory.All(b => b == 0); }
 
-        public static bool IsNullOrZero(ref Number a) { return IsNull(ref a) && a.Memory.All(b => b == 0); }
+        //Todo, Distributive , Associative, Commutative, rules
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Prepare(ref Number a, ref Number b)
         {
             Bitable x = a, y = b;
-            if (IsNullOrZero(ref a))
-                if (IsNullOrZero(ref b)) return;
+            if (IsNullOrZero(a))
+                if (IsNullOrZero(b)) return;
                 else b.MathProvider.Processor.Swap(ref x, ref y);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Addition(ref Number a, ref Number b)
         {
             //Ensure compatible storage
@@ -1860,6 +1948,7 @@ namespace Media.Concepts.Classes
             else a.MathProvider.Addition(ref a, ref b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Subtraction(ref Number a, ref Number b)
         {
             if (a.MathProvider != b.MathProvider)
@@ -1867,6 +1956,7 @@ namespace Media.Concepts.Classes
             else a.MathProvider.Subtraction(ref a, ref b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Multiplication(ref Number a, ref Number b)
         {
             if (a.MathProvider != b.MathProvider)
@@ -1874,6 +1964,7 @@ namespace Media.Concepts.Classes
             else a.MathProvider.Multiplication(ref a, ref b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Division(ref Number a, ref Number b)
         {
             if (a.MathProvider != b.MathProvider)
@@ -1881,6 +1972,7 @@ namespace Media.Concepts.Classes
             else a.MathProvider.Division(ref a, ref b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Modulus(ref Number a, ref Number b)
         {
             if (a.MathProvider != b.MathProvider)
@@ -1890,25 +1982,408 @@ namespace Media.Concepts.Classes
 
         #endregion
 
-        #region Properties
+        #region Parse
 
-        public readonly MathProvider MathProvider;
+        //http://referencesource.microsoft.com/#mscorlib/system/number.cs
 
+        const UInt32 MaxStep = (UInt32)0xFFFFFFFF / 16; //268435455.938	
+
+        //Todo, respect numberStyle and FormatInfo
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <param name="encoding"></param>
+        /// <param name="numberStyle"></param>
+        /// <param name="numberFormatInfo"></param>
+        /// <returns></returns>
+        public static Number Parse(byte[] buffer, int offset, int count, System.Text.Encoding encoding, System.Globalization.NumberStyles numberStyle, System.Globalization.NumberFormatInfo numberFormatInfo)
+        {
+            int chars = encoding.GetCharCount(buffer, offset, count);
+
+            if (chars <= 0) return ulong.MinValue;
+
+            Number n = ulong.MinValue;
+
+            foreach (char c in encoding.GetChars(buffer, offset, count))
+            {
+                n *= 16;
+
+                //Check if char has value
+
+                if (false.Equals(c.Equals('\0')))
+                {
+                    Number newN = new Number(n);
+
+                    //Check if char is digit
+                    if (c >= '0' && c <= '9')
+                    {
+                        newN += c - '0';
+                    }
+                    else //Check if char is hex
+                    {
+                        if (c >= 'A' && c <= 'F')
+                        {
+                            newN += (c - 'A') + 10;
+                        }
+                        else if (c >= 'a' && c <= 'f')
+                        {
+                            newN += (c - 'a') + 10;
+                        }
+                    }
+
+                    // Detect an overflow here...
+                    if (newN < n)
+                    {
+                        break;
+                    }
+
+                    //Store and continue
+                    n = newN;
+                }
+            }
+
+            return n;
+        }
+
+        #endregion
+
+        #region NestedTypes
+
+        //Adds BigInteger and Complex to TypeCode
+        public enum NumberTypeCodes
+        {
+            //From Syste.TypeCode
+            Empty = 0,
+            Object = 1,
+            DBNull = 2,
+            Boolean = 3,
+            Char = 4,
+            SByte = 5,
+            Byte = 6,
+            Int16 = 7,
+            UInt16 = 8,
+            Int32 = 9,
+            UInt32 = 10,
+            Int64 = 11,
+            UInt64 = 12,
+            Single = 13,
+            Double = 14,
+            Decimal = 15,
+            DateTime = 16,
+            String = 18,
+            //
+            BigInteger = 20,
+            Complex = 21
+        }
+
+        #endregion
+
+        #region Overrides
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
+
+        //Todo, non boxing
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override bool Equals(object obj)
+        {
+            return base.Equals(obj);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public override string ToString()
+        {
+            return BitConverter.ToString(Memory);
+        }
+
+        #endregion
+
+        #region Constructors
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(IMathProvider mathProvider = null)
+            : base()
+        {
+            MathProvider = mathProvider ?? DefaultMathProvider;
+            TypeCode = BestRepresentedTypeCode;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(Number other, IMathProvider mathProvider = null)
+            : base(other)
+        {
+            MathProvider = mathProvider ?? DefaultMathProvider;
+            TypeCode = BestRepresentedTypeCode;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(Bitable other, IMathProvider mathProvider = null)
+            : base(other)
+        {
+            MathProvider = mathProvider ?? DefaultMathProvider;
+            TypeCode = BestRepresentedTypeCode;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(Bits other, IMathProvider mathProvider = null)
+            : base(other)
+        {
+            MathProvider = mathProvider ?? DefaultMathProvider;
+            TypeCode = BestRepresentedTypeCode;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(bool Boolean, IMathProvider mathProvider = null)
+            : this((byte)(Boolean ? 1 : 0))
+        {
+            TypeCode = System.TypeCode.Boolean;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(byte Byte, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(Byte, endian)
+        {
+            TypeCode = System.TypeCode.Byte;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(sbyte SByte, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(SByte, endian)
+        {
+            TypeCode = System.TypeCode.SByte;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(Int16 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(Int, endian)
+        {
+            TypeCode = System.TypeCode.Int16;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(UInt16 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(Int, endian)
+        {
+            TypeCode = System.TypeCode.UInt16;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(Int32 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(Int, endian)
+        {
+            TypeCode = System.TypeCode.Int32;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(UInt32 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(Int, endian)
+        {
+            TypeCode = System.TypeCode.UInt32;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(Int64 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(Int, endian)
+        {
+            TypeCode = System.TypeCode.Int64;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(UInt64 Int, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(Int, endian)
+        {
+            TypeCode = System.TypeCode.UInt64;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(float Single, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(Single, endian)
+        {
+            TypeCode = System.TypeCode.Single;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(Double Double, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(Double, endian)
+        {
+            TypeCode = System.TypeCode.Double;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(Decimal Decimal, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(Decimal, endian)
+        {
+            TypeCode = System.TypeCode.Decimal;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public unsafe Number(System.Numerics.Complex Complex, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(endian)
+        {
+            TypeCode = (TypeCode)NumberTypeCodes.Complex;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+            Memory = new byte[SizeOfComplex];
+            BitConverter.GetBytes(Complex.Imaginary).CopyTo(Memory, 0);
+            BitConverter.GetBytes(Complex.Real).CopyTo(Memory, sizeof(double));
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Number(byte[] bigInteger, Common.Binary.ByteOrder endian = Common.Binary.ByteOrder.Unknown, IMathProvider mathProvider = null)
+            : base(endian)
+        {
+            TypeCode = (TypeCode)NumberTypeCodes.BigInteger;
+            MathProvider = mathProvider ?? DefaultMathProvider;
+            Memory = bigInteger;
+        }
+
+        #endregion
+
+        #region Fields
+
+        /// <summary>
+        /// The <see cref="IMathProvider"/> responsible for evalutation of logic
+        /// </summary>
+        public readonly IMathProvider MathProvider;
+
+        //Todo, readonly ValueType
+        /// <summary>
+        /// The <see cref="System.TypeCode"/> assigned to this instance when created.
+        /// </summary>
         public readonly TypeCode TypeCode;
 
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// 
+        /// </summary>
         public Type BestRepresentedType
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return NumberBestRepresentedType(this);
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         public TypeCode BestRepresentedTypeCode
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return Type.GetTypeCode(BestRepresentedType);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public bool IsComplex
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return TypeCode.Equals((TypeCode)NumberTypeCodes.Complex);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public bool IsWhole
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return IsZero || Number.IsNullOrZero(this % 1);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public bool IsDecimal
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return false.Equals(IsWhole);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public bool IsZero
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Number.IsNullOrZero(this);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public NumberTypeCodes NumberTypeCode
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return (NumberTypeCodes)TypeCode;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public Number Real
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return ToComplex().Real;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public Number Imaginary
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return ToComplex().Imaginary;
             }
         }
 
@@ -1916,6 +2391,7 @@ namespace Media.Concepts.Classes
 
         #region Methods
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public System.Numerics.BigInteger ToBigInteger(int? index = null, int? count = null)
         {
             if (index.HasValue)
@@ -1924,11 +2400,12 @@ namespace Media.Concepts.Classes
 
             if (count.HasValue)
                 if (count.Value <= 0) return System.Numerics.BigInteger.Zero;
-                else count = Math.Min(count.Value, Count);
+                else count = System.Math.Min(count.Value, Count);
 
             return new System.Numerics.BigInteger(Memory.Skip(index ?? 0).Take(count ?? Count).ToArray());
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public System.Numerics.Complex ToComplex(int? realIndex = null, int? imaginaryIndex = null)
         {
             return new System.Numerics.Complex(ToDouble(realIndex ?? 0), ToDouble(imaginaryIndex ?? Bitable.SizeOfDouble));
@@ -1938,138 +2415,207 @@ namespace Media.Concepts.Classes
 
         #region Operators
 
+        //MathProvider should give back flags and clear for next calls, callers should look at flags and determine what to do on certain flags.
+
         //Todo ensure b .Count is best compabile before calling... otherwise call to best type... then cast back
         //E.g. PAD
-        //Number should not result in Argument out of range when being called
+        //Number should not result in Argument out of range when being called unless set in instance
+        //Number should not result in DiviveByZeroException unless less set in instance
 
+        //Todo, bool..
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator long(Number b) { return b.ToInt64(); }
 
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator ulong(Number b) { return b.ToUInt64(); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator int(Number b) { return b.ToInt32(); }
 
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator uint(Number b) { return b.ToUInt32(); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator short(Number b) { return b.ToInt16(); }
 
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator ushort(Number b) { return b.ToUInt16(); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator byte(Number b) { return b.ToByte(); }
 
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator sbyte(Number b) { return b.ToSByte(); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator decimal(Number b) { return b.ToDecimal(); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator float(Number b) { return b.ToSingle(); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator double(Number b) { return b.ToDouble(); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator byte[](Number b) { return b.Memory; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator System.Numerics.Complex(Number b) { return b.ToComplex(); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator System.Numerics.BigInteger(Number b) { return b.ToBigInteger(); }
 
         //
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(long b) { return new Number(b); }
 
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(ulong b) { return new Number(b); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(int b) { return new Number(b); }
 
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(uint b) { return new Number(b); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(short b) { return new Number(b); }
 
+        [System.CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(ushort b) { return new Number(b); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(byte b) { return new Number(b); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(sbyte b) { return new Number(b); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(decimal b) { return new Number(b); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(double b) { return new Number(b); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(float b) { return new Number(b); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(System.Numerics.Complex c) { return new Number(c); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(System.Numerics.BigInteger c) { return new Number(c); }
 
         //Needs Complimenter => Add, Subtract, Multiply, Divide
 
-        //
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number operator +(Number a, Number b)
         {
             if (IsNull(a))
-                if (!IsNull(b)) return b;
+                if (false.Equals(IsNull(b))) return b;
                 else return (Number)Bitable.SingleZero;
             else return a.MathProvider.Addition(ref a, ref b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number operator -(Number a, Number b)
         {
             if (IsNull(a))
-                if (!IsNull(b)) return b;
+                if (false.Equals(IsNull(b))) return b;
                 else return (Number)Bitable.SingleZero;
             else return a.MathProvider.Subtraction(ref a, ref b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number operator /(Number a, Number b)
         {
             if (IsNull(a))
-                if (!IsNull(b)) return b;
+                if (false.Equals(IsNull(b))) return b;
                 else return (Number)Bitable.SingleZero;
             else return a.MathProvider.Division(ref a, ref b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static Number operator %(Number a, Number b)
+        {
+            if (IsNull(a))
+                if (false.Equals(IsNull(b))) return b;
+                else return (Number)Bitable.SingleZero;
+            else return a.MathProvider.Modulus(ref a, ref b);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number operator *(Number a, Number b)
         {
             if (IsNull(a))
-                if (!IsNull(b)) return b;
+                if (false.Equals(IsNull(b))) return b;
                 else return (Number)Bitable.SingleZero;
             else return a.MathProvider.Multiplication(ref a, ref b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator >(Number a, Number b)
         {
             return (Bitable)a > (Bitable)b;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator <(Number a, Number b)
         {
-            return !((Bitable)a > (Bitable)b);
+            return ((Bitable)a < (Bitable)b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool operator <=(Number a, Number b)
+        {
+            return a.Equals(b) || a < b;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool operator >=(Number a, Number b)
+        {
+            return a.Equals(b) || a > b;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number operator ^(Number a, Number b)
         {
             return new Number((Bitable)a ^ (Bitable)b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number operator |(Number a, Number b)
         {
             return new Number((Bitable)a | (Bitable)b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number operator &(Number a, Number b)
         {
             return new Number((Bitable)a & (Bitable)b);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number operator <<(Number a, int amount)
         {
             return new Number((Bitable)a << amount);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number operator >>(Number a, int amount)
         {
             return new Number((Bitable)a >> amount);
         }
 
         #endregion
-
     }
 
     #endregion

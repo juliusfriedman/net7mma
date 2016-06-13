@@ -329,7 +329,7 @@ namespace Media.Rtsp//.Server
                 }
 
                 //If session is disposed then return
-                if (IsDisposed || false == HasRuningServer) return;
+                if (IsDisposed || false.Equals(HasRuningServer)) return;
 
                 //Assign the buffer
                 m_SendBuffer = data;
@@ -1040,7 +1040,7 @@ namespace Media.Rtsp//.Server
                 //localSsrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
 
                 //Use the same id to keep the packet headers the same.
-                localSsrc = sourceContext.RemoteSynchronizationSourceIdentifier.Value;
+                localSsrc = sourceContext.RemoteSynchronizationSourceIdentifier;
             }
 
             //Could also randomize the setupContext sequenceNumber here.
@@ -1604,7 +1604,7 @@ namespace Media.Rtsp//.Server
             //Remove rtp theads
             if (Playing.Count == 0)
             {
-                if (m_RtpClient != null && m_RtpClient.IsActive)
+                if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) && m_RtpClient.IsActive)
                 {
                     m_RtpClient.Dispose();
 
