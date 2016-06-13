@@ -279,10 +279,7 @@ namespace Media.Common
         {
             for (int i = 0; i < m_Length; ++i)
             {
-
-#if UNSAFE
-                unsafe { *(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, m_Offset + i) = value; }
-#elif NATIVE
+#if UNSAFE || NATIVE
                 yield return System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Array, (int)m_Offset + i));
 #else
                 yield return m_Array[m_Offset + i]; //this[i]
@@ -451,11 +448,11 @@ namespace Media.Common
     //ReadOnlyMemorySegment, IReadOnly
 
 #if UNSAFE
-    interanl class UnsafeMemorySegment : MemorySegment, : System.Collection.Generic.IList<byte>
-    {
-        //Don't need the byte[] but do need a way to get the bytes from an IntPtr.
-        //See Array<T> in concepts for a better overall structure
-    }
+    //internal class UnsafeMemorySegment : MemorySegment, System.Collections.Generic.IList<byte>
+    //{
+    //    //Don't need the byte[] but do need a way to get the bytes from an IntPtr.
+    //    //See Array<T> in concepts for a better overall structure
+    //}
 #endif
 
     //Should propably be the base class of MemorySegment because it's a lower order concept
@@ -680,7 +677,8 @@ namespace Media.Common
         {
             fixed (byte* b = ByteArray)
             {
-                return (encoding ?? System.Text.Encoding.Default).GetString(b, Common.Binary.BytesPerInteger);
+                return System.Runtime.InteropServices.Marshal.PtrToStringAuto((System.IntPtr)b, Common.Binary.BytesPerInteger);
+                //return (encoding ?? System.Text.Encoding.Default).GetString(b, Common.Binary.BytesPerInteger);
             }
         }
 
@@ -726,7 +724,8 @@ namespace Media.Common
         {
             fixed (byte* b = ByteArray)
             {
-                return (encoding ?? System.Text.Encoding.Default).GetString(b, Common.Binary.BytesPerLong);
+                return System.Runtime.InteropServices.Marshal.PtrToStringAuto((System.IntPtr)b, Common.Binary.BytesPerLong);
+                //return (encoding ?? System.Text.Encoding.Default).GetString(b, Common.Binary.BytesPerLong);
             }
         }
     }

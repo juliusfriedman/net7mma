@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Media.Concepts.Classes
 {
-    public abstract class Bus : Common.CommonDisposable
+    public abstract class Bus : Common.SuppressedFinalizerDisposable
     {
         public readonly Timer Clock = new Timer(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick);
 
@@ -75,8 +75,6 @@ namespace Media.Concepts.Classes
 
             base.Dispose();
         }
-
-        ~ClockedBus() { Dispose(); }
 
         long sample = 0, steps = 0, count = 0, avg = 0, elapsed = 0, cache = 1;
 

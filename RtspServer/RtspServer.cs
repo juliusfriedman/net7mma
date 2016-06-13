@@ -102,7 +102,6 @@ namespace Media.Rtsp
 
                 //Allow more than one byte of urgent data
                 Media.Common.Extensions.Socket.SocketExtensions.EnableTcpExpedited(socket);
-                //socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
 
                 //Receive any urgent data in the normal data stream
                 Media.Common.Extensions.Socket.SocketExtensions.EnableTcpOutOfBandDataInLine(socket);
@@ -1378,10 +1377,14 @@ namespace Media.Rtsp
                             using (var tempMsg = new Rtsp.RtspMessage(RtspMessageType.Response, this.Version)
                             {
                                 StatusCode = 429, //https://tools.ietf.org/html/rfc6585
-                                ReasonPhrase = "Shutting Down / Too Many Clients",
+                                ReasonPhrase = "Shutting Down / Too Many Clients", //Check count again to give specific reason
                                 //Body = "We only alllow " + m_MaximumConnections + " to this server..."
                             })
                             {
+
+                                //Check count again to give specific time..
+                                //https://www.ietf.org/mail-archive/web/mmusic/current/msg08350.html
+
                                 //Tell the clients when they should attempt to retry again.
                                 tempMsg.AppendOrSetHeader(RtspHeaders.RetryAfter, ((int)(RtspClientInactivityTimeout.TotalSeconds)).ToString());
 
@@ -1430,13 +1433,13 @@ namespace Media.Rtsp
         /// <param name="ar">The asynch result</param>
         internal void ProcessReceive(IAsyncResult ar)
         {
-            if (false == IsRunning || ar == null || false == ar.IsCompleted) return;
+            if (false == IsRunning || ar == null || false.Equals(ar.IsCompleted)) return;
 
             //Get the client information from the result
             ClientSession session = (ClientSession)ar.AsyncState;
 
             //Check if the recieve can proceed.
-            if (Common.IDisposedExtensions.IsNullOrDisposed(session) || session.IsDisconnected || false == session.HasRuningServer) return;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(session) || session.IsDisconnected || false.Equals(session.HasRuningServer)) return;
 
             try
             {
@@ -1479,17 +1482,20 @@ namespace Media.Rtsp
 
                     //Should ensure client is still active and stop receiving if they are.
 
-                    //If there is a rtp client but it was disposed or disconnected
-                    if (IDisposedExtensions.IsNullOrDisposed(session.m_RtpClient) || false == session.m_RtpClient.IsActive)
-                    {
-                        //Mark the session as Disconnected
-                        session.IsDisconnected = true;
+                    //Just return for now to reduce CPU usage.
+                    return;
 
-                        //Should only be done if the time elapsed has required..
+                    ////If there is a rtp client but it was disposed or disconnected
+                    //if (IDisposedExtensions.IsNullOrDisposed(session.m_RtpClient) || false.Equals(session.m_RtpClient.IsActive))
+                    //{
+                    //    //Mark the session as Disconnected
+                    //    session.IsDisconnected = true;
 
-                        //Try a send to ensure that there is no connection error, also begin another recieve.
-                        ProcessSendRtspMessage(null, session);
-                    }
+                    //    //Should only be done if the time elapsed has required..
+
+                    //    //Try a send to ensure that there is no connection error, also begin another recieve.
+                    //    ProcessSendRtspMessage(null, session);
+                    //}
                 }
             }
             catch (Exception ex)
@@ -1538,7 +1544,7 @@ namespace Media.Rtsp
                         }
                      
                     } //Otherwise if LastRequest is not disposed then attempt completion with the invalid data
-                    else if (session.LastRequest != null && false == session.LastRequest.IsDisposed)
+                    else if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(session.LastRequest)))
                     {
                         //Indicate a CompleteFrom is occuring
                         Media.Common.ILoggingExtensions.Log(Logger, "Session:" + session.Id + " Attempting to complete previous mesage with buffer of " + data.Count + " bytes.");
@@ -2120,7 +2126,7 @@ namespace Media.Rtsp
             //Check Require Header
             //       And
             /* Add Unsupported Header if needed
-            Require: play.basic, con.persistent
+            Require: play.basic, con.persistent, setup.playing
                        (basic play, TCP is supported)
             setup.playing means that setup and teardown can be used in the play state.
             method. is method support, method.announce, method.record

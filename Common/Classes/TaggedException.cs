@@ -68,7 +68,7 @@ namespace Media.Common
 
         #region Fields
 
-        readonly Common.CommonDisposable @base = new Common.CommonDisposable(true);
+        readonly Common.SuppressedFinalizerDisposable @base = new Common.SuppressedFinalizerDisposable(true);
 
         #endregion
 
@@ -151,34 +151,27 @@ namespace Media.Common
             if (data != null) foreach (object key in data) Data.Add(key.GetHashCode(), key);
         }
 
-        /// <summary>
-        /// Finalizes the instace by calling Dispose.
-        /// </summary>
-        ~TaggedException() { Dispose(); }
-
         #endregion
 
         #region Methods
-
-        /// <summary>
-        /// Disposes the exception
-        /// </summary>
-        public virtual void Dispose()
-        {
-            if (@base.IsDisposed) return;
-
-            System.GC.SuppressFinalize(this);
-
-            @base.Dispose();
-
-            //ClearData();
-        }
 
         internal protected void ClearData() { Data.Clear(); }
 
         internal protected void AddData(object key, object value) { Data.Add(key, value); }
 
         #endregion
+
+        /// <summary>
+        /// Disposes the exception
+        /// </summary>
+        void System.IDisposable.Dispose()
+        {
+            if (false.Equals(ShouldDispose) || @base.IsDisposed) return;
+
+            @base.Dispose(ShouldDispose);
+
+            //ClearData();
+        }
     }
 
     /// <summary>

@@ -44,7 +44,11 @@
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <!-- Just for a while, disable the warning that says Types and Namespaces should not be the same -->
+    <CodeAnalysisRuleSet>
+      MinimumRecommendedRules.ruleset;
+      +!Microsoft.Naming#CA1724;
+    </CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Common\Properties\MediaAssemblyInfo.cs">
@@ -69,6 +73,7 @@
     <Compile Include="Classes\CentralProcessingUnit.cs" />
     <Compile Include="Classes\Clock.cs" />
     <Compile Include="Classes\Hardware.cs" />
+    <Compile Include="Classes\I\IStructure.cs" />
     <Compile Include="Classes\MethodHelper.cs" />
     <Compile Include="Classes\Intrinsics.cs" />
     <Compile Include="Collections\LinkedCollections.cs" />
@@ -89,6 +94,8 @@
     <Compile Include="Interfaces\IUsable.cs" />
     <Compile Include="Classes\Number.cs" />
     <Compile Include="Classes\Physics.cs" />
+    <Compile Include="Math.cs" />
+    <Compile Include="Classes\Threading\Pool.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Classes\Unsafe.cs" />
     <Compile Include="Classes\Units.cs" />

@@ -111,4 +111,62 @@ namespace Media.Common.Extensions.Delegate
             } while (System.Threading.Interlocked.CompareExchange(ref baseDel, newBaseDel, oldBaseDel) != oldBaseDel);
         }
     }
+
+    //http://www.codeproject.com/Articles/1104555/The-Function-Decorator-Pattern-Reanimation-of-Func @ ActionExtensions
+    public static class FuncExtensions
+    {
+        public static System.Func<TArg, TResult> GetOrCache<TArg, TResult, TCache>(this System.Func<TArg, TResult> func, TCache cache) 
+            where TCache : class, System.Collections.Generic.IDictionary<TArg, TResult>
+        {
+            return (arg) =>
+            {
+                TResult value;
+
+                if (cache.TryGetValue(arg, out value))
+                {
+                    return value;
+                }
+
+                value = func(arg);
+
+                cache.Add(arg, value);
+
+                return value;
+            };
+        }
+  
+        public static System.Func<TArg, TResult> WaitExecute<TArg, TResult>(this System.Func<TArg, TResult> func, System.TimeSpan amount)
+        {
+            return (arg) =>
+            {
+                // added functionality
+                System.Threading.Thread.Sleep(amount);
+
+                // original functionality
+                return func(arg);
+            };
+        }
+
+        public static System.Func<TArg, TResult> RetryIfFailed<TArg, TResult>(this System.Func<TArg, TResult> func, int maxRetry)
+        {
+            return (arg) =>
+            {
+                int t = 0;
+                do
+                {
+                    try
+                    {
+                        return func(arg);
+                    }
+                    catch (System.Exception)
+                    {
+                        if (++t > maxRetry)
+                        {
+                            throw;
+                        }
+                    }
+                } while (true);
+            };
+        }
+    }
 }

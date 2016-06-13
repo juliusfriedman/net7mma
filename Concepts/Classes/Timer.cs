@@ -53,7 +53,7 @@ namespace Media.Concepts.Classes
 
         internal ulong m_Ops = 0, m_Ticks = 0;
 
-        bool m_Enabled;
+        long m_Enabled;
 
         internal System.DateTimeOffset m_Started;
 
@@ -64,10 +64,10 @@ namespace Media.Concepts.Classes
         public bool Enabled
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return m_Enabled; }
+            get { return System.Threading.Interlocked.Read(ref m_Enabled) > uint.MinValue; }
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            set { m_Enabled = value; }
+            set { m_Enabled = (value ? uint.MaxValue : uint.MinValue); }
         }
 
         public System.TimeSpan Frequency
@@ -93,8 +93,12 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void Count()
         {
+            //Todo, make JumpExpression ... along with TypedReferenceExpression
+            //System.Action ShouldStop = () => if (false.Equals(m_Enabled.Equals(uint.MinValue))) goto Approximate; System.Threading.Thread.ResetAbort();
 
-            System.Threading.Thread Event = new System.Threading.Thread(new System.Threading.ThreadStart(() =>
+            System.Threading.Thread Event = null;
+
+            Event = new System.Threading.Thread(new System.Threading.ThreadStart(() =>
             {
                 System.Threading.Thread.BeginCriticalRegion();
 
@@ -107,17 +111,38 @@ namespace Media.Concepts.Classes
                 Top:
                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
 
-                    /*do */if (Producer.TryDequeue(out sample)) Tick(ref sample);
+                    /*do */
+                    if (Producer.TryDequeue(out sample)) Tick(ref sample);
                     //while (m_Enabled && Producer.Count >= 0);
 
                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
 
-                    if (false == m_Enabled) return;
-                    else if (Producer.Count == 0) m_Counter.Join(0);  //++m_Ops;
+                    if (m_Enabled.Equals(uint.MinValue)) return;
+                    else if (Producer.Count.Equals(uint.MinValue))
+                    {
+                        if (System.Threading.Thread.CurrentThread.Equals(m_Counter))
+                        {
+                            //Wait for other threads and if no other thread wanted time join the event thread indefinitely.
+                            if (false.Equals(System.Threading.Thread.Yield()))
+                            {
+                                //If not already waiting or sleeping or joining
+                                if (false.Equals(Event.ThreadState.HasFlag(System.Threading.ThreadState.WaitSleepJoin)))
+                                {
+                                    Event.Join(System.Threading.Timeout.InfiniteTimeSpan);  //++m_Ops;
+                                }
+                            }
+                        }
+                        else //Not the counter so return
+                        {
+                            return;
+
+                            //m_Counter.Join(m_Frequency);  //++m_Ops;
+                        }
+                    }
 
                     goto Top;
                 }
-                catch { if (false == m_Enabled) return; goto AfterSample; }
+                catch { if (m_Enabled.Equals(uint.MinValue)) return; goto AfterSample; }
                 finally { System.Threading.Thread.EndCriticalRegion(); }
             }))
             {
@@ -129,7 +154,7 @@ namespace Media.Concepts.Classes
             Event.Start();
 
             //to ensure the slice offset is different, e.g. more bias
-            //m_Clock.NanoSleep(0);
+        //m_Clock.NanoSleep(0);
 
         Approximate:
 
@@ -151,7 +176,7 @@ namespace Media.Concepts.Classes
                     {
                         default:
                             {
-                                if (m_Enabled && m_Bias + ++m_Ops >= approximate)
+                                if (false.Equals(m_Enabled.Equals(uint.MinValue)) && m_Bias + ++m_Ops >= approximate)
                                 {
                                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
 
@@ -159,23 +184,62 @@ namespace Media.Concepts.Classes
 
                                     x = (ulong)Common.Binary.Clamp((m_Bias = m_Ops / approximate), 0, m_Bias);
 
-                                    while (m_Enabled && 1 > --x /*&& Producer.Count <= m_Frequency.Ticks*/) Producer.Enqueue((long)++m_Ticks);
+                                    while (false.Equals(m_Enabled.Equals(uint.MinValue)) && 1 > --x /*&& Producer.Count <= m_Frequency.Ticks*/) Producer.Enqueue((long)++m_Ticks);
 
                                     m_Ops += m_Bias;
 
                                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
                                 }
 
-                                if (Event != null && Event.IsAlive) Event.Join(m_Frequency);
+                                if (false.Equals(Event == null) && Event.IsAlive)
+                                {
+                                    //If this is the counter thread
+                                    if (System.Threading.Thread.CurrentThread.Equals(m_Counter))
+                                    {
+                                        //If not event is not sleeping or joined then
+                                        if (false.Equals(Event.ThreadState.HasFlag(System.Threading.ThreadState.WaitSleepJoin)))
+                                        {
+                                            //Join the event thread for the frequency
+                                            Event.Join(m_Frequency);
+                                        }
+
+                                        //Time and Stack..
+                                        //Event.Interrupt();
+                                    }
+
+                                }
+                                else //Not the counter so return
+                                {
+                                    //Option for delay 
+
+                                    //Time and Stack..
+                                    //m_Counter.Interrupt();
+
+                                    //if (false.Equals(System.Threading.Thread.Yield())) ; //m_Counter.Interrupt();
+
+                                    return;
+                                }
 
                                 goto Start;
                             }
                     }
                 }
             }
-            catch (System.Threading.ThreadAbortException) { if (m_Enabled) goto Approximate; System.Threading.Thread.ResetAbort(); }
-            catch (System.OutOfMemoryException) { if ((ulong)Producer.Count > approximate) Producer.Clear(); if (m_Enabled) goto Approximate; }
-            catch { if (m_Enabled) goto Approximate; }
+            catch (System.SystemException se)
+            {
+                if (se is System.Threading.ThreadAbortException) System.Threading.Thread.ResetAbort();
+                else if (se is System.Threading.ThreadInterruptedException | false.Equals(m_Enabled.Equals(uint.MinValue))) goto Approximate;
+                else if (se is System.OutOfMemoryException)
+                {
+                    if ((ulong)Producer.Count > approximate) Producer.Clear();
+
+                    if (false.Equals(m_Enabled.Equals(uint.MinValue))) goto Approximate;
+                }
+            }
+            catch
+            {
+                if (false.Equals(m_Enabled.Equals(uint.MinValue))) goto Approximate;
+            }
             finally
             {
                 Event = null;
@@ -205,7 +269,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Start()
         {
-            if (m_Enabled) return;
+            if (false.Equals(m_Enabled.Equals(uint.MinValue))) return;
 
             if (IsDisposed) throw new System.ObjectDisposedException("The Timer has already been disposed.");
 
@@ -217,7 +281,17 @@ namespace Media.Concepts.Classes
 
             System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
 
-            while (m_Enabled && m_Ops == 0) m_Counter.Join(0); //m_Clock.NanoSleep(0);
+            while (false.Equals(m_Enabled.Equals(uint.MinValue)) && m_Ops == 0)
+            {
+                if (System.Threading.Thread.CurrentThread.Equals(m_Counter))
+                {
+                    m_Counter.Join(System.TimeSpan.Zero);  //++m_Ops;
+                }
+                else
+                {
+                    m_Counter.Join(System.Threading.Timeout.InfiniteTimeSpan);  //++m_Ops;
+                }
+            }
             
             System.Threading.Thread.CurrentThread.Priority = previous;
         }
@@ -225,17 +299,17 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Stop()
         {
-            m_Enabled = false;            
+            System.Threading.Interlocked.Exchange(ref m_Enabled, uint.MinValue);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void Change(System.TimeSpan interval, System.TimeSpan dueTime)
         {
-            m_Enabled = false;
+            System.Threading.Interlocked.Exchange(ref m_Enabled, uint.MinValue);
 
             m_Frequency = interval;
 
-            m_Enabled = true;
+            System.Threading.Interlocked.Exchange(ref m_Enabled, uint.MaxValue);
         }
 
         delegate void ElapsedEvent(object sender, object args);
@@ -245,8 +319,8 @@ namespace Media.Concepts.Classes
             if (IsDisposed || false == disposing || false == ShouldDispose) return;
 
             base.Dispose(disposing);
-
-            Stop();
+            
+            Stop(); 
 
             try { m_Counter.Abort(m_Frequency); }
             catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
@@ -256,7 +330,7 @@ namespace Media.Concepts.Classes
                 Tick = null;
             }
 
-            //Producer.Clear();
+            
         }
 
     }

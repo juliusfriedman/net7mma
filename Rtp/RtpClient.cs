@@ -966,7 +966,7 @@ namespace Media.Rtp
             internal bool InDiscovery
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                get { return RemoteSynchronizationSourceIdentifier == 0 /*&& ValidRtpPacketsReceived < MinimumSequentialValidRtpPackets*/; }
+                get { return RemoteSynchronizationSourceIdentifier == 0; }
             }
 
             /// <summary>
@@ -1263,7 +1263,7 @@ namespace Media.Rtp
             /// Corresponds to the ID used to identify remote parties.            
             /// Use a <see cref="Conference"/> if the size of the group or its members should be limited in some capacity.
             /// </summary>
-            public int? RemoteSynchronizationSourceIdentifier { get; internal protected set; }
+            public int RemoteSynchronizationSourceIdentifier { get; internal protected set; }
 
             /// <summary>
             /// MediaDescription which contains information about the type of Media on the Interleave
@@ -2111,7 +2111,9 @@ namespace Media.Rtp
             /// </summary>
             internal void ResetState()
             {
-                if (RemoteSynchronizationSourceIdentifier.HasValue) RemoteSynchronizationSourceIdentifier = null;// default(int);
+                //if (RemoteSynchronizationSourceIdentifier.HasValue) RemoteSynchronizationSourceIdentifier = null;// default(int);
+
+                RemoteSynchronizationSourceIdentifier = 0;
 
                 //Set all to 0
                 RfcRtpBytesSent = RtpPacketsSent = RtpBytesSent = RtcpPacketsSent = 
@@ -5792,22 +5794,34 @@ namespace Media.Rtp
 
                         #region Recieve Incoming Data
 
-                        //See Todo
+                        //See Todo, this only increases usage in most environments, however if you have > 1 GBPS and you really want to try...
+
+                        ////System.Collections.ArrayList readSockets = new System.Collections.ArrayList();
+
+                        ////System.Collections.ArrayList writeSockets = new System.Collections.ArrayList();
+
+                        ////System.Collections.ArrayList errorSockets = new System.Collections.ArrayList();
 
                         //Loop each context, newly added contexts will be seen on each iteration
                         for (int i = 0; false == (shouldStop || IsDisposed || m_StopRequested) && i < TransportContexts.Count; ++i)
                         {
+                            ////readSockets.Clear();
+
+                            ////writeSockets.Clear();
+
+                            ////errorSockets.Clear();
+
                             //Obtain a context
                             TransportContext tc = TransportContexts[i];
 
                             //Check for a context which is able to receive data
                             if (Common.IDisposedExtensions.IsNullOrDisposed(tc) 
                                 //Active must be true
-                                || false == tc.IsActive
+                                || false.Equals(tc.IsActive)
                                 //If the context does not have continious media it must only receive data for the duration of the media.
-                                ||false == tc.IsContinious && tc.TimeRemaining < TimeSpan.Zero
+                                || false.Equals(tc.IsContinious) && tc.TimeRemaining < TimeSpan.Zero
                                 //There can't be a Goodbye sent or received
-                                || tc.Goodbye != null) continue;                                
+                                || false.Equals(tc.Goodbye == null)) continue;                                
                             
                             //Receive Data on the RtpSocket and RtcpSocket, summize the amount of bytes received from each socket.
 
@@ -5824,10 +5838,26 @@ namespace Media.Rtp
 
                             bool duplexing = tc.IsDuplexing, rtpEnabled = tc.IsRtpEnabled, rtcpEnabled = tc.IsRtcpEnabled;
 
+                            ////readSockets.Add(tc.RtpSocket);
+
+                            ////readSockets.Add(tc.RtcpSocket);
+
+                            ////writeSockets.Add(tc.RtpSocket);
+
+                            ////writeSockets.Add(tc.RtcpSocket);
+
+                            ////errorSockets.Add(tc.RtpSocket);
+
+                            ////errorSockets.Add(tc.RtcpSocket);
+
+                            //-1 may not poll forever, may return immediately. error [could] mean out of band inline
+                            ////System.Net.Sockets.Socket.Select(readSockets, writeSockets, errorSockets, -1);
+
                             //If receiving Rtp and the socket is able to read
                             if (rtpEnabled && false == (shouldStop || IsDisposed || m_StopRequested)
-                            //Check if the socket can read data
-                            && tc.RtpSocket.Poll((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) >> 2, SelectMode.SelectRead))
+                                //&& (readSockets.Contains(tc.RtpSocket) || errorSockets.Contains(tc.RtpSocket))
+                                //Check if the socket can read data
+                                && tc.RtpSocket.Poll((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) >> 2, SelectMode.SelectRead))
                             {
                                 //Receive RtpData
                                 receivedRtp += ReceiveData(tc.RtpSocket, ref tc.RemoteRtp, out lastError, rtpEnabled, duplexing, tc.ContextMemory);
@@ -5860,8 +5890,9 @@ namespace Media.Rtp
 
                                 if (//The last report was never received or recieved longer ago then required
                                     needsToReceiveReports
-                                &&//And the socket can read
-                                    tc.RtcpSocket.Poll((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) >> 2, SelectMode.SelectRead))
+                                    //&& (readSockets.Contains(tc.RtcpSocket) || errorSockets.Contains(tc.RtcpSocket))
+                                    &&//And the socket can read
+                                    tc.RtcpSocket.Poll((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) >> 2, SelectMode.SelectRead))                                    
                                 {
                                     //ReceiveRtcp Data
                                     receivedRtcp += ReceiveData(tc.RtcpSocket, ref tc.RemoteRtcp, out lastError, duplexing, rtcpEnabled, tc.ContextMemory);
@@ -6056,13 +6087,9 @@ namespace Media.Rtp
         /// </summary>
         public override void Dispose()
         {
-            if (IsDisposed) return;
+            if (IsDisposed || false.Equals(ShouldDispose)) return;
 
-            Deactivate();
-
-            base.Dispose();
-
-            if (false == ShouldDispose) return;
+            Dispose();
 
             DisposeAndClearTransportContexts();
 

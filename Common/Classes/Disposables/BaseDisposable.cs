@@ -49,11 +49,14 @@ namespace Media.Common
 {
     #region BaseDisposable
 
+    //Destructable
+
     /// <summary>
     /// Provides an implementation which contains the members required to adhere to the IDisposable implementation.
     /// </summary>
     /// <remarks>
     /// Influenced by <see href="https://blogs.msdn.microsoft.com/blambert/2009/07/24/a-simple-and-totally-thread-safe-implementation-of-idisposable/">blambert's blog</see>. I might eventually change Dispose(bool) to ReleaseResources / etc.
+    /// I also took some patterns from <see cref="https://blogs.msdn.microsoft.com/bclteam/2007/10/30/dispose-pattern-and-object-lifetime-brian-grunkemeyer/">BLC Team blog</see>
     /// </remarks>
     [CLSCompliant(true)]
     [System.Runtime.InteropServices.ComVisible(true)]
@@ -102,7 +105,7 @@ namespace Media.Common
         /// <summary>
         /// Holds a value which indicates the state.
         /// </summary>
-        int State; // = Undisposed;
+        long State; // = Undisposed;
 
         #endregion
 
@@ -118,7 +121,7 @@ namespace Media.Common
             //Todo, should add flag for suppression?
 
             //If should not dispose then suppress the finalizer
-            if (false == (ShouldDispose = shouldDispose || Environment.HasShutdownStarted)) GC.SuppressFinalize(this);
+            if (false.Equals((ShouldDispose = shouldDispose | Environment.HasShutdownStarted))) GC.SuppressFinalize(this);
         }
 
         /// <summary>
@@ -129,10 +132,10 @@ namespace Media.Common
         ~BaseDisposable()
         {
             //Write state in Finalizer
-            System.Threading.Thread.VolatileWrite(ref State, Finalized);
+            System.Threading.Interlocked.Exchange(ref State, Finalized);
 
-            //Call the virtual Dispose method.
-            Dispose(ShouldDispose);
+            //Call the non virtual Destruct method.
+            Destruct();
 
 #if DEBUG
             System.Diagnostics.Debug.WriteLine(DateTime.UtcNow.ToFileTimeUtc() + "@" + GetType().Name + "\r\n" + ToString() + "\r\n@Finalize Completed");
@@ -151,7 +154,8 @@ namespace Media.Common
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return System.Threading.Thread.VolatileRead(ref State) == Undisposed;
+                //return System.Threading.Thread.VolatileRead(ref State) == Undisposed;
+                return System.Threading.Interlocked.Read(ref State).Equals(Undisposed);
             }
         }
 
@@ -163,11 +167,12 @@ namespace Media.Common
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return System.Threading.Thread.VolatileRead(ref State) == Finalized;
+                //return System.Threading.Thread.VolatileRead(ref State) == Finalized;
+                return System.Threading.Interlocked.Read(ref State).Equals(Finalized);
             }
         }
 
-        //Todo, Virtual overhead
+        //Todo, Virtual overhead, Node is the only place this is really used.
 
         /// <summary>
         /// Indicates if Dispose has been called previously.
@@ -183,12 +188,15 @@ namespace Media.Common
 
         #region Methods
 
+        //This could instead be virtual and accept an optional bool to throw.
         /// <summary>
         /// Throws a System.ObjectDisposedException if <see cref="IsDisposed"/> is true and the Finalizer has yet not been called
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal protected void CheckDisposed() { if (IsDisposed && false == IsFinalized) throw new ObjectDisposedException(GetType().Name); }
+        internal protected void CheckDisposed() { if (false.Equals(IsUndisposed) || IsDisposed) throw new ObjectDisposedException(GetType().Name); }
+        //IsDisposed && false == IsFinalized
 
+        //ReleaseResources
         /// <summary>
         /// Allows derived implemenations a chance to destory manged or unmanged resources.
         /// </summary>
@@ -197,7 +205,7 @@ namespace Media.Common
         internal protected virtual void Dispose(bool disposing)
         {
             //Do not dispose when ShouldDispose is false.
-            if (false == ShouldDispose || false == disposing) return;
+            if (false.Equals(IsUndisposed) || false.Equals(disposing) || false.Equals(ShouldDispose)) return;
 
             //Mark the instance disposed if disposing
             //If the resources are to be removed then the finalizer has been called.
@@ -219,6 +227,21 @@ namespace Media.Common
         }
 
         /// <summary>
+        /// if <see cref="IsDisposed"/> returns, otherwise calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/> and <see cref="GC.SuppressFinalize"/>
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        protected void Destruct()
+        {
+            //I think it's better to supress before the Dispose call and not after but if an exception happens in the virtual dispose then we shouldn't finalize.
+            //GC.SuppressFinalize(this);//Do not call the finalizer
+
+            Dispose(ShouldDispose);
+
+            GC.SuppressFinalize(this);//Do not call the finalizer
+            
+        }
+
+        /// <summary>
         /// Allows derived implemenations a chance to destory manged or unmanged resources.
         /// Calls <see cref="GC.SuppressFinalize"/>
         /// Calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/>.
@@ -226,10 +249,9 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public virtual void Dispose()
         {
-            //Do not call the finalizer
-            GC.SuppressFinalize(this);
-
-            Dispose(ShouldDispose);
+            if (false.Equals(ShouldDispose) | false.Equals(IsDisposed)) return;
+            
+            Destruct();
         }
 
         #endregion
@@ -241,7 +263,7 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void IDisposable.Dispose()
         {
-            Dispose();
+            Destruct();
         }
 
         /// <summary>
@@ -250,7 +272,7 @@ namespace Media.Common
         bool IDisposed.IsDisposed
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return IsUndisposed == false && false == IsDisposed; }
+            get { return false.Equals(IsUndisposed) && false.Equals(IsDisposed); }
         }
 
         //Ugly, double check already not Disposed but only through interface...

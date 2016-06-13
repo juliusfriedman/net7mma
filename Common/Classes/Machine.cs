@@ -456,7 +456,17 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int CalulcateAlignedSize(ref long size, ref int ptrSize)
         {
-            return (int)(size == ptrSize ? 0 : ptrSize + (size - (size & ptrSize - 1)));
+            //Equal
+            if (size.Equals(ptrSize)) return 0;
+
+            //Negitive numbers...
+            if (size < 0) return (int)(-size + ptrSize);
+
+            //Even numbers avoid division
+            if (Common.Binary.IsPowerOfTwo(ref size)) return (int)(((size + ptrSize - 1) & ~(ptrSize - 1)) - size);
+
+            return (int)((ptrSize * ((size + ptrSize - 1) / ptrSize)) - size);
+
         }
 
         //Detection

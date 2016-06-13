@@ -67,12 +67,7 @@ namespace Media.UnitTests
             TestUnsafe,
             TestHardware,
             TestGenericArray,
-            //Common Library
-            TestExpressionExtensions,
-            //
-            TestMachine,
-            //Cryptography
-            TestCryptography,
+            TestPool,
             //Common
             TestRuntimeExtensions,
             TestOperatingSystemExtensions,
@@ -80,6 +75,10 @@ namespace Media.UnitTests
             TestUtility, 
             TestBinary, 
             TestCommonClasses,
+            TestExpressionExtensions,            
+            TestMachine,
+            //Cryptography
+            TestCryptography,
             //Ntp
             TestNtp,
             //Rtp / Rtcp
@@ -115,6 +114,14 @@ namespace Media.UnitTests
             TestCodec,
             TestAudioBuffer,
             TestImageBuffer
+            //Todo, serperate the tests that should be called either by attribute and use reflection or by using options in the project file.
+            //E.g. Sources could be defined in appSettings and reused for the RtspServer or otherwise as desired or specified specifically
+            //Could define the first logic as key press program to enable or disable certin appSettings e.g. tests to run or otherwise.
+            //Feedback is always welcome just as well as proposals.
+#if PLAYTIME
+            OtherTests,
+            BusTests,
+#endif
         };
 
         /// <summary>
@@ -236,7 +243,7 @@ namespace Media.UnitTests
         }
 
         static void TestBeginInvoke()
-        {
+        {            
             //Callback is written after Tested and NotDone.
             System.Action<int> call = new System.Action<int>(_TestLogicForBeginInvoke);
 
@@ -401,6 +408,18 @@ namespace Media.UnitTests
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
+                new
+                {
+                    Uri = "rtsp://rtsp-v3-spbtv.msk.spbtv.com/spbtv_v3_1/85_110.sdp", // (h264 aac)
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = "rtsp://rtsp-v3-spbtv.msk.spbtv.com/spbtv_v3_1/37_110.sdp", // (h264 aac)
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },//rtsp://rtsp-v3-spbtv.msk.spbtv.com/spbtv_v3_1/37_110.sdp
                 //RtspServer
                 new
                 {
@@ -3255,9 +3274,39 @@ a=appversion:1.0");
             //Concepts.Classes.Generic<int>.Write(ref test);
         }
 
+        static void TestMath()
+        {
+            uint expect = uint.MinValue;
+
+            Concepts.Math.Math.Mul10Fast(ref expect);
+
+            if (false.Equals(expect.Equals(uint.MinValue))) throw new System.Exception();
+
+            Concepts.Math.Math.DivideBy10(ref expect);
+
+            if (false.Equals(expect.Equals(uint.MinValue))) throw new System.Exception();
+
+            ++expect;
+
+            uint product = 10, quotient = 1;
+
+            Concepts.Math.Math.Mul10Fast(ref expect);
+
+            if (false.Equals(expect.Equals(product))) throw new System.Exception();
+
+            Concepts.Math.Math.DivideBy10(ref expect);
+
+            if (false.Equals(expect.Equals(quotient))) throw new System.Exception();
+        }
+
         static void TestGenericArray()
         {
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.GenericArrayTests), TypeOfVoid);
+        }
+
+        static void TestPool()
+        {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.PoolTests), TypeOfVoid);
         }
 
         /// <summary>
