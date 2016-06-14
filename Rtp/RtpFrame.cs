@@ -657,7 +657,7 @@ namespace Media.Rtp
                 Depacketized = new SortedList<int, Common.MemorySegment>();
                 
                 //Can't create a new one because of the implications
-                m_Buffer = f.m_Buffer; 
+                //m_Buffer = f.m_Buffer; 
             }           
 
             /// See notes and determine if this is appropraite behavior
@@ -1386,14 +1386,14 @@ namespace Media.Rtp
 
             base.Dispose(ShouldDispose);
 
-            //Remove packets and any memory
-            //Clear();
-
             //Dispose the buffer.
             DisposeBuffer();
 
             //Free the depacketized memory incase packets were removed and we own the memory.
             FreeDepacketizedMemory(true);
+
+            //Remove packets and any memory
+            Clear();
         }
 
         //Registration ....

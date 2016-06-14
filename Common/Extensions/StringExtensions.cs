@@ -67,7 +67,7 @@ namespace Media.Common.Extensions.String
         /// <returns></returns>
         public static byte[] HexStringToBytes(string str, int start = 0, int length = -1)
         {
-            if (length == 0) return null;
+            if (length.Equals(Common.Binary.Zero)) return null;
             
             if (length <= -1) length = str.Length;
 
@@ -143,7 +143,7 @@ namespace Media.Common.Extensions.String
             int patternLength = pattern.Length;
 
             //Use the source length when count is negitive
-            if (count < 0) count = sourceLength;
+            if (count < Common.Binary.Zero) count = sourceLength;
 
             //Only match up to the length of the source.
             count = Binary.Max(ref count, ref sourceLength);
@@ -155,17 +155,17 @@ namespace Media.Common.Extensions.String
             startIndex = source.IndexOf(pattern, startIndex, count, comparison);
 
             //The substring must be within the source after the length of the pattern.
-            return startIndex >= 0 && startIndex <= sourceLength ? source.Substring(startIndex + patternLength) : string.Empty;
+            return startIndex >= Common.Binary.Zero && startIndex <= sourceLength ? source.Substring(startIndex + patternLength) : string.Empty;
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static string[] SplitTrim(this string ex, string[] seperator, int count, System.StringSplitOptions options)
         {
-            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+            if (count.Equals(Common.Binary.Zero) || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[Common.Binary.Zero];
 
             string[] results = ex.Split(seperator, count, options);
 
-            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].Trim();
+            for (int i = results.Length - 1; i >= Common.Binary.Zero; --i) results[i] = results[i].Trim();
 
             return results;
         }
@@ -173,11 +173,11 @@ namespace Media.Common.Extensions.String
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static string[] SplitTrim(this string ex, char[] seperator, int count, System.StringSplitOptions options)
         {
-            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+            if (count.Equals(Common.Binary.Zero) || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
 
             string[] results = ex.Split(seperator, count, options);
 
-            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].Trim();
+            for (int i = results.Length - 1; i >= Common.Binary.Zero; --i) results[i] = results[i].Trim();
 
             return results;
         }
@@ -185,11 +185,11 @@ namespace Media.Common.Extensions.String
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static string[] SplitTrimEnd(this string ex, string[] seperator, int count, System.StringSplitOptions options)
         {
-            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+            if (count.Equals(Common.Binary.Zero) || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[Common.Binary.Zero];
 
             string[] results = ex.Split(seperator, count, options);
 
-            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].TrimEnd();
+            for (int i = results.Length - 1; i >= Common.Binary.Zero; --i) results[i] = results[i].TrimEnd();
 
             return results;
         }
@@ -197,11 +197,11 @@ namespace Media.Common.Extensions.String
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static string[] SplitTrimEnd(this string ex, char[] seperator, int count, System.StringSplitOptions options)
         {
-            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+            if (count.Equals(Common.Binary.Zero) || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[Common.Binary.Zero];
 
             string[] results = ex.Split(seperator, count, options);
 
-            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].TrimEnd();
+            for (int i = results.Length - 1; i >= Common.Binary.Zero; --i) results[i] = results[i].TrimEnd();
 
             return results;
         }
@@ -209,11 +209,11 @@ namespace Media.Common.Extensions.String
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static string[] SplitTrimStart(this string ex, string[] seperator, int count, System.StringSplitOptions options)
         {
-            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+            if (count.Equals(Common.Binary.Zero) || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[Common.Binary.Zero];
 
             string[] results = ex.Split(seperator, count, options);
 
-            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].TrimStart();
+            for (int i = results.Length - 1; i >= Common.Binary.Zero; --i) results[i] = results[i].TrimStart();
 
             return results;
         }
@@ -221,11 +221,11 @@ namespace Media.Common.Extensions.String
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static string[] SplitTrimStart(this string ex, char[] seperator, int count, System.StringSplitOptions options)
         {
-            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[0];
+            if (count.Equals(Common.Binary.Zero) || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(seperator)) return new string[Common.Binary.Zero];
 
             string[] results = ex.Split(seperator, count, options);
 
-            for (int i = results.Length - 1; i >= 0; --i) results[i] = results[i].TrimStart();
+            for (int i = results.Length - 1; i >= Common.Binary.Zero; --i) results[i] = results[i].TrimStart();
 
             return results;
         }

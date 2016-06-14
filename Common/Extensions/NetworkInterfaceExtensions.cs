@@ -134,7 +134,7 @@ namespace Media.Common.Extensions.NetworkInterface
         {
             if (socket == null) throw new System.ArgumentNullException("socket");
 
-            if (false == socket.IsBound) throw new System.InvalidOperationException("socket.IsBound must be true.");
+            if (false.Equals(socket.IsBound)) throw new System.InvalidOperationException("socket.IsBound must be true.");
 
             return GetNetworkInterface((System.Net.IPEndPoint)socket.LocalEndPoint);
         }

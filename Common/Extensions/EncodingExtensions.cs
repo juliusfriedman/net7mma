@@ -97,7 +97,7 @@ namespace Media.Common.Extensions.Encoding
 
         public static bool ReadDelimitedDataFrom(this System.Text.Encoding encoding, byte[] buffer, char[] delimits, int offset, int count, out string result, out int read, out System.Exception any, bool includeDelimits = true)
         {
-            read = 0;
+            read = Common.Binary.Zero;
 
             any = null;
 
@@ -110,7 +110,7 @@ namespace Media.Common.Extensions.Encoding
 
             int max;
 
-            if (count == 0 || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(buffer, out max))
+            if (count.Equals(Common.Binary.Zero) || Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(buffer, out max))
             {
                 result = null;
 
@@ -139,7 +139,7 @@ namespace Media.Common.Extensions.Encoding
 
             int toRead, delemitsLength = delimits.Length;
 
-            toRead = delemitsLength <= 0 ? count : Common.Binary.Max(1, delemitsLength);
+            toRead = delemitsLength <= Common.Binary.Zero ? count : Common.Binary.Max(1, delemitsLength);
 
             bool complete;
 
@@ -160,7 +160,7 @@ namespace Media.Common.Extensions.Encoding
 #endif
 
                 //If there are not enough bytes to decode the char
-                if (justRead.Equals(0))
+                if (justRead.Equals(Common.Binary.Zero))
                 {
                     break;
                 }
@@ -171,7 +171,7 @@ namespace Media.Common.Extensions.Encoding
                 count -= justRead;
 
                 //Iterate the decoded characters looking for a delemit
-                if (delemitsLength > 0) for (int c = 0, e = charsUsed; c < e; ++c)
+                if (delemitsLength > Common.Binary.Zero) for (int c = 0, e = charsUsed; c < e; ++c)
                     {
                         //Compare the char decoded to the delimits, if encountered set sawDelimit and either include the delemit or not.
 #if NATIVE || UNSAFE
@@ -199,7 +199,7 @@ namespace Media.Common.Extensions.Encoding
                 return sawDelimit;
             }
 
-            result = builder.Length == 0 ? string.Empty : builder.ToString();
+            result = builder.Length.Equals(Common.Binary.Zero) ? string.Empty : builder.ToString();
 
             //Take the amount of bytes in the string as what was read.
             read = encoding.GetByteCount(result);
@@ -224,7 +224,7 @@ namespace Media.Common.Extensions.Encoding
         [CLSCompliant(false)]
         public static bool ReadDelimitedDataFrom(this System.Text.Encoding encoding, System.IO.Stream stream, char[] delimits, ulong count, out string result, out ulong read, out System.Exception any, bool includeDelimits = true)
         {
-            read = 0;
+            read = Common.Binary.Zero;
 
             any = null;
 
@@ -235,7 +235,7 @@ namespace Media.Common.Extensions.Encoding
 
             if (delimits == null) delimits = EmptyChar;
 
-            if (stream == null || false == stream.CanRead || count == 0)
+            if (stream == null || false.Equals(stream.CanRead) || count.Equals(Common.Binary.Zero))
             {
                 result = null;
 

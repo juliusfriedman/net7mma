@@ -1645,6 +1645,10 @@ namespace Media.UnitTests
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Zeta", "rtsp://rtsp-v3-spbtv.msk.spbtv.com:554/spbtv_v3_1/332_110.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Zeta2Udp", "rtsp://rtsp-v3-spbtv.msk.spbtv.com/spbtv_v3_1/85_110.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Udp));
+
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Zeta3Udp", "rtsp://rtsp-v3-spbtv.msk.spbtv.com/spbtv_v3_1/37_110.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Udp));
+
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Testing", "rtsp://127.0.0.1:8554/stream"));
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("EverFocus1", "rtsp://user1:11111111@76.79.115.83:559/cgi-bin/rtspStreamOvf/1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));

@@ -77,6 +77,35 @@ namespace Media.Concepts.Classes
             get { return CurrentRegion.IsMetric; }
         }
 
+        //Weird, but would allow the ability to add units of differing types without having to access the Units.. would also be doable via Extenions
+        //public static class UnitBaseExtensions
+        //{
+        //    //public static UnitBase Add(UnitBase a, UnitBase b)
+        //    //{
+
+        //    //}
+
+        //    //public static UnitBase Subtract(UnitBase a, UnitBase b)
+        //    //{
+
+        //    //}
+
+        //    //public static UnitBase Multiply(UnitBase a, UnitBase b)
+        //    //{
+
+        //    //}
+
+        //    //public static UnitBase Divide(UnitBase a, UnitBase b)
+        //    //{
+
+        //    //}
+
+        //    //public static UnitBase Modulus(UnitBase a, UnitBase b)
+        //    //{
+
+        //    //}
+        //}
+
         abstract protected List<string> m_Symbols { get; }
 
         /// <summary>
@@ -147,6 +176,10 @@ namespace Media.Concepts.Classes
         {
             return string.Format(formatProvider, format, ToString());
         }
+
+        //Implementing operators is not really feasible at this level however it could be done in CoreUnits if that provides any meaning.
+        //Could also interoperate on Units whatever that would mean to who uses it.
+        //virtuals might actually help here but since there interfaces it makes little sense.
     }
 
     public static class Distances
@@ -158,6 +191,8 @@ namespace Media.Concepts.Classes
 
         public class Distance : UnitBase, IDistance
         {
+
+            //Should be Number to avoid readonly ValueType
 
             public static readonly double PlankLengthsPerMeter = 6.1873559 * System.Math.Pow(10, 34);
 
@@ -205,9 +240,9 @@ namespace Media.Concepts.Classes
 
             public static readonly Distance NegitiveInfinity = new Distance(Number.NegitiveInfinity);
 
-            public static readonly Distance Zero = new Distance(Number.ComplexZero);
+            public static readonly Distance Zero = new Distance(Number.Zero);
 
-            static List<string> DistanceSymbols = new List<string>()
+            static readonly List<string> DistanceSymbols = new List<string>()
             {
                 "ℓP",
                 "mil",
@@ -388,9 +423,11 @@ namespace Media.Concepts.Classes
 
             public static implicit operator Frequency(double t) { return new Frequency(t); }
 
-            public static readonly Frequency Zero = new Frequency(Number.ComplexZero);
+            public static readonly Frequency Zero = new Frequency(Number.Zero);
 
             public static readonly Frequency One = new Frequency(new Number(Hz)); //Hz
+
+            //Should be Number to avoid readonly ValueType
 
             public const double Hz = 1;
 
@@ -410,14 +447,14 @@ namespace Media.Concepts.Classes
                 return F >= min && F <= max;
             }
 
-            static List<string> FrequencySymbols = new List<string>()
-        {
-            "Hz",
-            "KHz",
-            "MHz",
-            "GHz",
-            "THz"
-        };
+            static readonly List<string> FrequencySymbols = new List<string>()
+            {
+                "Hz",
+                "KHz",
+                "MHz",
+                "GHz",
+                "THz"
+            };
 
             public Frequency()
                 : base(Hz)
@@ -596,12 +633,12 @@ namespace Media.Concepts.Classes
 
             public const char Degrees = '°';
 
-            static List<string> TempratureSymbols = new List<string>()
-        {
-            "C",
-            "F",
-            "K",
-        };
+            static readonly List<string> TempratureSymbols = new List<string>()
+            {
+                "C",
+                "F",
+                "K",
+            };
 
             public Temperature()
                 : base(One.Units)
@@ -731,6 +768,8 @@ namespace Media.Concepts.Classes
         public class Mass : UnitBase, IMass
         {
 
+            //Should be Number to avoid readonly ValueType
+
             public const double AtomicMassesPerKilogram = 6.022136652e+26;
 
             public const double OuncesPerKilogram = 35.274;
@@ -741,14 +780,14 @@ namespace Media.Concepts.Classes
 
             public const double GramsPerKilogram = 1000;
 
-            static List<string> MassSymbols = new List<string>()
-        {
-            "u",
-            "o",
-            "lb",
-            "kg",
-            "g",
-        };
+            static readonly List<string> MassSymbols = new List<string>()
+            {
+                "u",
+                "o",
+                "lb",
+                "kg",
+                "g",
+            };
 
             public Mass()
                 : base(Kg)
@@ -856,6 +895,8 @@ namespace Media.Concepts.Classes
                 return !(a > b);
             }
 
+            //<=, >=
+
             public static bool operator ==(Mass a, IMass b)
             {
                 if (a.Constant != b.Constant)
@@ -865,7 +906,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator !=(Mass a, IMass b)
             {
-                return !(a == b);
+                return false.Equals(a == b);
             }
 
             public override bool Equals(object obj)
@@ -902,6 +943,8 @@ namespace Media.Concepts.Classes
 
             public static readonly Energy Zero = 0D;
 
+            //Should be Number to avoid readonly ValueType
+
             public const double ITUCaloriesPerJoule = 0.23884589663;
 
             public const double BtusPerJoule = 0.00094781707775;
@@ -926,11 +969,11 @@ namespace Media.Concepts.Classes
 
             public const double AuttojoulePerJoule = 1000000000000000000;
 
-            static List<string> EnergySymbols = new List<string>()
-        {
-            "J",
-            //"Btu",
-        };
+            static readonly List<string> EnergySymbols = new List<string>()
+            {
+                "J",
+                //"Btu",
+            };
 
 
             public Energy(double joules)
@@ -1066,6 +1109,8 @@ namespace Media.Concepts.Classes
 
         public class Velocity : UnitBase, IVelocity
         {
+            //Should be Number to avoid readonly ValueType
+
             public const double FeetPerSecond = 3.28084;
 
             public const double MilesPerHour = 2.23694;
@@ -1078,7 +1123,7 @@ namespace Media.Concepts.Classes
 
             public static readonly Velocity MaxValue = new Velocity(Physics.c);//the speed of light = 299 792 458 meters per second
 
-            static List<string> VelocitySymbols = new List<string>()
+            static readonly List<string> VelocitySymbols = new List<string>()
             {
                 "mph",
                 "fps",
@@ -1106,6 +1151,8 @@ namespace Media.Concepts.Classes
                     return VelocitySymbols;
                 }
             }
+
+            //Todo, virtual not needed with interface.
 
             public virtual Number TotalMetersPerSecond
             {
@@ -1222,10 +1269,10 @@ namespace Media.Concepts.Classes
 
             public const double Newton = 1D;
 
-            static List<string> ForceSymbols = new List<string>()
-        {
-            "N"
-        };
+            static readonly List<string> ForceSymbols = new List<string>()
+            {
+                "N"
+            };
 
             public Force()
                 : base(Newton)
@@ -1344,7 +1391,7 @@ namespace Media.Concepts.Classes
 
             public static implicit operator Wavelength(double t) { return new Wavelength(t); }
 
-            static List<string> WavelengthSymbols = new List<string>()
+            static readonly List<string> WavelengthSymbols = new List<string>()
             {
                 "nm",
                 "μm",

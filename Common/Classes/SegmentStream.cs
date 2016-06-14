@@ -317,7 +317,7 @@ namespace Media.Common
         }
 
         /// <summary>
-        /// Reads the bytes from the current stream at <see cref="Position"/> and writes them to another stream.
+        /// Reads the bytes from the current stream at <see cref="Position"/> and writes them to another stream. <see cref="Position"/> is during as the copy occurs.
         /// Note, this implementation does not use an intermediate buffer allocation.
         /// </summary>
         /// <param name="destination">The stream to which the contents of the current stream will be copied.</param>

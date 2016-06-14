@@ -40,9 +40,9 @@ namespace Media.Common.Extensions.IPEndPoint
 {
     public static class IPEndPointExtensions
     {
-        const char PortSeperator = ':';
+        public const char PortSeperator = ':';
 
-        const string SchemeSeperator = "://";
+        public const string SchemeSeperator = "://";
 
         public static readonly System.Net.IPEndPoint Any = new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0);
 

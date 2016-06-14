@@ -43,11 +43,14 @@ namespace Media.Concepts.Classes
         public sealed class Uncertainties
         {
 
+            //Todo, should be Number to avoid readonly ValueType
+
             public const double Exact = 0D;
 
             public static readonly double StandardUncertainty = 0.000097 * System.Math.Pow(10, -35);
 
             public const double NewtonUncertainty = 0.0010e-11;
+
             //Newtonian constant of gravitation over h-bar c
             public const double NewtonUncertaintyOverHbarC = 0.0010e-39;
 
@@ -60,11 +63,18 @@ namespace Media.Concepts.Classes
 
         }
 
+        //To define useful classed with names which can encapsulte the endless list of possibilities for values to ensure intellisense overload does not happen to us.
+
+        //Todo, should be Number to avoid readonly ValueType
+
         /// <summary>
         /// The speed of light in mps
         /// </summary>
         public static double c = 299792458D; //Need ToMilesPerSecond on Velocities? 
         //Maybe a ToUnitPerPeriod(Distance d, TimeSpan t)?
+        //Could also do a static Distance.FromMilesPerSeconds as once the instance is in the form of Units it can be changed to other formats using the propeties.
+
+        //Todo should be Current Or Electric Charge
 
         //Planck constant in J·m
         public static double hc = 1.98644568 * System.Math.Pow(10, -25);

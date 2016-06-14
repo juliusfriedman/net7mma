@@ -3212,10 +3212,9 @@ namespace Media.Rtsp
                         &&
                         m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectWrite))
                     {
+
                         //Send all the data now
                         sent += Common.Extensions.Socket.SocketExtensions.SendTo(buffer, 0, length, m_RtspSocket, m_RemoteRtsp, SocketFlags.None, out error);
-                        
-                        //sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
                     }
 
                     #region Auto Reconnect
@@ -3292,6 +3291,12 @@ namespace Media.Rtsp
                         &&                                                              //or this is the last attempt at recieving a messge
                         m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectRead) /*|| message != null && attempts == m_ResponseTimeoutInterval*/)
                     {
+                        //Todo, Media.Sockets.TcpClient
+
+                        //Todo, if OutOfBand data is not received in this data stream then process seperately.
+                        //if(false.Equals(Media.Common.Extensions.Socket.SocketExtensions.GetTcpOutOfBandInLine(m_RtspSocket)))
+                        //received += m_RtspSocket.Receive(m_Buffer.Array, offset, m_Buffer.Count, SocketFlags.OutOfBand, out error);
+                        //else
                         //Receive
                         received += m_RtspSocket.Receive(m_Buffer.Array, offset, m_Buffer.Count, SocketFlags.None, out error);
                     }
@@ -3324,8 +3329,13 @@ namespace Media.Rtsp
                         //TODO
                         //RtspClient.TransportContext must handle the reception because it must strip away the RTSP and process only the interleaved data in a frame.
                         //Right now just pass it to the RtpClient.
-                        if (m_RtpClient != null && m_Buffer.Array[offset] == Media.Rtp.RtpClient.BigEndianFrameControl)
+#if UNSAFE
+                        if (((*(byte*)System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(m_Buffer.Array, offset)).Equals(Media.Rtp.RtpClient.BigEndianFrameControl)))
+#else
+                        if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) && m_Buffer.Array[offset].Equals(Media.Rtp.RtpClient.BigEndianFrameControl))
+#endif
                         {
+
                             //Some people just start sending packets hoping that the context will be created dynamically.
                             //I guess you could technically skip describe and just receive everything raising events as required...
                             //White / Black Hole Feature(s)? *cough*QuickTime*cough*
@@ -3646,9 +3656,9 @@ namespace Media.Rtsp
                                     string value = sessionHeaderParts.LastOrDefault(p => false == string.IsNullOrWhiteSpace(p));
 
                                     //If we dont have an exiting id then this is valid if the header was completely recieved only.
-                                    if (false == string.IsNullOrWhiteSpace(value) &&
-                                        true == string.IsNullOrWhiteSpace(m_SessionId) ||
-                                        value[0] != m_SessionId[0])
+                                    if (false.Equals(string.IsNullOrWhiteSpace(value)) &&
+                                        string.IsNullOrWhiteSpace(m_SessionId) ||
+                                        false.Equals(string.Compare(value, m_SessionId).Equals(Common.Binary.Zero)))
                                     {
                                         //Get the SessionId if present
                                         m_SessionId = sessionHeaderParts[0].Trim();
@@ -3657,12 +3667,12 @@ namespace Media.Rtsp
                                         if (sessionHeaderParts.Length > 1)
                                         {
                                             int timeoutStart = 1 + sessionHeaderParts[1].IndexOf(Media.Sdp.SessionDescription.EqualsSign);
-                                            if (timeoutStart >= 0 && int.TryParse(sessionHeaderParts[1].Substring(timeoutStart), out timeoutStart))
+                                            if (timeoutStart >= Common.Binary.Zero && int.TryParse(sessionHeaderParts[1].Substring(timeoutStart), out timeoutStart))
                                             {
                                                 //Should already be set...
-                                                if (timeoutStart <= 0)
+                                                if (timeoutStart <= Common.Binary.Zero)
                                                 {
-                                                    m_RtspSessionTimeout = TimeSpan.FromSeconds(60);//Default
+                                                    m_RtspSessionTimeout = DefaultSessionTimeout;
                                                 }
                                                 else
                                                 {

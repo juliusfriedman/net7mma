@@ -256,6 +256,15 @@ namespace Media.Common
 
         #endregion
 
+        //Could be moved to Zeros
+        [System.CLSCompliant(false)]
+        public const uint UIntZero = 0;
+
+        public const long LongZero = 0;
+
+        [System.CLSCompliant(false)]
+        public const ulong ULongZero = 0;
+
         #region Maximum Values
 
         /// <summary>
