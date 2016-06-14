@@ -74,6 +74,8 @@ namespace Media.Concepts.Classes
         static Types() { }
     }
 
+    //ICoreUnit
+
     /// <summary>
     /// Interface which allows Hardware access
     /// </summary>
@@ -636,35 +638,67 @@ namespace Media.Concepts.Classes
 
     #region CLRMathProvider
 
-    //Todo, Enhance speed.
-    //Loyc has quite a good start on this
-    //https://github.com/qwertie/ecsharp/blob/master/Core/Loyc.Essentials/Math/Math128.cs
-    //https://github.com/qwertie/ecsharp/blob/master/Core/Loyc.Essentials/Math/MathEx.cs
-
     /// <summary>
     /// A basic two's complementor
     /// </summary>
     public class CLRMathProvider : MathProvider
     {
         //Numbers are stored in Twos Complement or Base 2 [0 := 1]
+        //This should be DecimalBase and should be present on IMathProvider interface
+        //BinaryRepresentation is a better use than int.
+        //const Common.Machine.BinaryRepresentation BinaryRepresentation = Common.Machine.BinaryRepresentation.Base;
+        //If decidedly so then possibly also include a information class such as below..
+        //public class MathProviderInformation
+        //{
+        //    //etc
+
+        //    Common.Machine.BinaryRepresentation BinaryRepresentation;
+
+        //    int DecimalBase;
+        //}
+
         const int Base = 2;
 
+       
+
+        //DefaultRadix is probably a better name.
         public readonly static Radix DecimalBase = new Radix(Base);
 
+        /// <summary>
+        /// The implementation of <see cref="IProcessor"/> which is utilized by this instance.
+        /// </summary>
         IProcessor m_Processor;
 
+        //Todo, if enabled then do not throw on overflow
+        public bool DisableOverflowExceptions;
+
+        //Todo, if enabled then do not throw on divide by zero
+        public bool DisableDivideByZeroExceptions;
+
+        //Number InfiniteQuotient = Number.NegitiveZero;
+
+        /// <summary>
+        /// 
+        /// </summary>
         public override IProcessor Processor
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_Processor; }
         }
 
+        /// <summary>
+        /// The <see cref="Radix"/> of this instance.
+        /// </summary>
         public override Radix Radix
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return DecimalBase; }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="processor"></param>
         public CLRMathProvider(IProcessor processor = null)
         {
             m_Processor = processor ?? Classes.Processor.DefaultProcessor;
@@ -682,6 +716,9 @@ namespace Media.Concepts.Classes
         public bool IsNullOrZero(ref Number a) { return IsNull(a) || IsZero(a); }
 
         #endregion
+
+        //Todo, See options for the ability to disable Overflow and Divide by zero.
+        //~ The quotient of N = 0 = X, how many times can you put 0 into 0? Infinity, 0, 1... -0?
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override Number Addition(ref Number a, ref Number b)
@@ -811,27 +848,7 @@ namespace Media.Concepts.Classes
         }
     }
 
-    #endregion
-
-    #region Radix
-
-    /// <summary>
-    /// http://en.wikipedia.org/wiki/Radix
-    /// In mathematical numeral systems, the radix or base is the number of unique digits, including zero, that a positional numeral system uses to represent numbers. 
-    /// For example, for the decimal system (the most common system in use today) the radix is ten, because it uses the ten digits from 0 through 9.
-    /// </summary>
-    public class Radix
-    {
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public Radix(Number b)
-        {
-            Base = b;
-        }
-
-        public readonly Number Base;
-    }
-
-    #endregion
+    #endregion    
 
     //RomanNumeral (for fun) (https://github.com/IllidanS4/SharpUtils/blob/fd0e8fbab9fa45a23c9b380121952ef959df85bd/Numerics/RomanNumerals.cs)
 
@@ -849,6 +866,7 @@ namespace Media.Concepts.Classes
         CharSet = System.Runtime.InteropServices.CharSet.Auto)]
     public struct Bits : 
         System.Collections.IEnumerable, 
+        //ICoreUnit
         System.Collections.Generic.IEnumerable<bool>, 
         System.Collections.Generic.IEnumerable<Byte> //IList
     {
@@ -1830,7 +1848,7 @@ namespace Media.Concepts.Classes
     #region Number
 
     /// <summary>
-    /// Handles the conversion from a Bitable to a Mathematical Number
+    /// Handles the conversion from a Bitable to a Mathematical Number.
     /// </summary>
     public class Number : Bitable //Todo,
                                   //IFormattable, IComparable, IConvertible, IComparable<Number>, IEquatable<Number>, etc.
@@ -1858,9 +1876,13 @@ namespace Media.Concepts.Classes
 
         public static int SizeOfComplex = sizeof(double) << 1;
 
-        public readonly static Number ComplexZero = new Number(System.Numerics.Complex.Zero);
+        public readonly static Number Zero = new Number(System.Numerics.Complex.Zero);
+
+        public static Number NegitiveZero = Common.Binary.NegativeZeroBits;
 
         public static Number One = new Number(System.Numerics.Complex.One);
+
+        public static Number NegitiveOne = -One;
 
         public static Number ImaginaryOne = new Number(System.Numerics.Complex.ImaginaryOne);
 
@@ -2347,7 +2369,34 @@ namespace Media.Concepts.Classes
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return Number.IsNullOrZero(this);
+                return Number.IsNullOrZero(this);              
+            }
+        }
+
+        //Would really need a special Sign property which is why there are seperate types for signed and unsigned thus there should be seperate type of Numbers..
+        //SignedNumber, UnsignedNumber
+        //https://msdn.microsoft.com/en-us/library/swz6z5ks(v=vs.110).aspx
+        public bool IsNegative
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return this <= NegitiveZero;
+
+                //-0...
+
+                //return Common.Binary.IsNegative(Real.ToDouble());
+                
+                //return Real < System.Numerics.Complex.Zero;
+            }
+        }
+
+        public Number Sign
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return (Number)(this.IsZero ? Zero : this.IsNegative ? NegitiveOne : One);
             }
         }
 
@@ -2616,6 +2665,26 @@ namespace Media.Concepts.Classes
         }
 
         #endregion
+    }
+
+    #endregion
+
+    #region Radix
+
+    /// <summary>
+    /// http://en.wikipedia.org/wiki/Radix
+    /// In mathematical numeral systems, the radix or base is the number of unique digits, including zero, that a positional numeral system uses to represent numbers. 
+    /// For example, for the decimal system (the most common system in use today) the radix is ten, because it uses the ten digits from 0 through 9.
+    /// </summary>
+    public class Radix
+    {
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public Radix(Number b)
+        {
+            Base = b;
+        }
+
+        public readonly Number Base;
     }
 
     #endregion

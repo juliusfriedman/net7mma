@@ -1520,15 +1520,17 @@ namespace Media.Rtsp
                 using (Common.MemorySegment data = new Common.MemorySegment(session.m_Buffer.Array, session.m_Buffer.Offset, received))
                 {
 
-                    if (data[0] == RtpClient.BigEndianFrameControl)
+                    if (data[0].Equals(RtpClient.BigEndianFrameControl))
                     {
-                        if (session.m_RtpClient == null) return;
+                        if (Common.IDisposedExtensions.IsNullOrDisposed(session.m_RtpClient)) return;
 
                         received -= session.m_RtpClient.ProcessFrameData(session.m_Buffer.Array, session.m_Buffer.Offset, received, session.m_RtspSocket);
                     }
 
                     if (received <= 0) return;
 
+                    //using (Common.MemorySegment unprocessedData = new Common.MemorySegment(session.m_Buffer.Array, data.Offset + received, received))
+                    //{
                     //Ensure the message is really Rtsp
                     RtspMessage request = new RtspMessage(data);
 
@@ -1542,7 +1544,7 @@ namespace Media.Rtsp
 
                             return;
                         }
-                     
+
                     } //Otherwise if LastRequest is not disposed then attempt completion with the invalid data
                     else if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(session.LastRequest)))
                     {
@@ -1587,7 +1589,7 @@ namespace Media.Rtsp
 
                                         return;
                                     }
-                                    
+
                                     goto case RtspMessageType.Invalid;
                                 }
                         }
@@ -1603,6 +1605,7 @@ namespace Media.Rtsp
 
                     //Ensure the session is still connected.
                     session.SendRtspData(Media.Common.MemorySegment.EmptyBytes);
+                    //}
                 }
             }
             catch(Exception ex)
@@ -1673,7 +1676,7 @@ namespace Media.Rtsp
         /// <param name="ar">The asynch result</param>
         internal void ProcessSendComplete(IAsyncResult ar)
         {
-            if (ar == null || false == ar.IsCompleted) return;
+            if (ar == null || false.Equals(ar.IsCompleted)) return;
 
             ClientSession session = (ClientSession)ar.AsyncState;
 

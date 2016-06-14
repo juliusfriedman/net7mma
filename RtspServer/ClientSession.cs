@@ -263,11 +263,11 @@ namespace Media.Rtsp//.Server
         public void StartReceive()
         {
             //while the socket cannot read in 1msec or less 
-            while (false == IsDisposed && false == IsDisconnected && HasRuningServer && false == m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectRead))
+            while (false.Equals(IsDisposed) && false.Equals(IsDisconnected) && HasRuningServer && false.Equals(m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectRead)))
             {
                 //Wait for the last recieve to complete
                 //Might not need this when not using Async.
-                if (LastRecieve != null)
+                if (false.Equals(LastRecieve == null))
                 {
                     if (false == LastRecieve.IsCompleted)
                     {
@@ -286,7 +286,7 @@ namespace Media.Rtsp//.Server
 
             if(SharesSocket) goto NotDisconnected;
 
-            if (m_RtspSocket != null && HasRuningServer) LastRecieve = m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
+            if (false.Equals(m_RtspSocket == null) && HasRuningServer) LastRecieve = m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
 
         NotDisconnected:
             //Mark as not disconnected.
@@ -301,15 +301,15 @@ namespace Media.Rtsp//.Server
         public void SendRtspData(byte[] data, int offset, int length, SocketFlags flags = SocketFlags.None, EndPoint other = null)
         {
             //Check for no data or 0 length when sharing socket.
-            if (data == null || length == 0 && SharesSocket) return;
+            if (data == null || length.Equals(Common.Binary.Zero) && SharesSocket) return;
 
             try
             {
                 //while the socket cannot write in bit time
-                while (false == IsDisposed && false == IsDisconnected && HasRuningServer && false == m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectWrite)) 
+                while (false.Equals(IsDisposed) && false.Equals(IsDisconnected) && HasRuningServer && false.Equals(m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectWrite))) 
                 {
                     ////Wait for the last send to complete
-                    if (LastSend != null)
+                    if (false.Equals(LastSend == null))
                     {
                         if (false == LastSend.IsCompleted)
                         {
@@ -317,9 +317,9 @@ namespace Media.Rtsp//.Server
 
                             Media.Common.Extensions.WaitHandle.WaitHandleExtensions.TryWaitOnHandleAndDispose(ref wait);
                         }
-                        else if (false == IsDisconnected && m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectRead))
+                        else if (false.Equals(IsDisconnected) && m_RtspSocket.Poll(m_SocketPollMicroseconds, SelectMode.SelectRead))
                         {
-                            if(m_Server != null) StartReceive();
+                            if(HasRuningServer) StartReceive();
 
                             WaitHandle wait = LastRecieve.AsyncWaitHandle;
 
@@ -345,7 +345,7 @@ namespace Media.Rtsp//.Server
             }
             catch (Exception ex)
             {
-                if (m_Server != null)
+                if (HasRuningServer)
                 {
                     //Log the excetpion
                     Media.Common.ILoggingExtensions.LogException(m_Server.Logger, ex);
@@ -355,7 +355,7 @@ namespace Media.Rtsp//.Server
                     else if (ex is ObjectDisposedException)
                     {
                         //if not disposed mark disconnected
-                        if (false == IsDisposed) IsDisconnected = m_RtspSocket == null || false == HasRuningServer;
+                        if (false.Equals(IsDisposed)) IsDisconnected = m_RtspSocket == null || false.Equals(HasRuningServer);
                     }
                 }
             }
@@ -581,7 +581,7 @@ namespace Media.Rtsp//.Server
             IsDisconnected = true;
 
             //Deactivate the RtpClient so it's not hanging around wasting resources for nothing
-            if (m_RtpClient != null)
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)))
             {
 
                 m_RtpClient.RtpPacketReceieved -= m_RtpClient_RecievedRtp;
@@ -606,7 +606,7 @@ namespace Media.Rtsp//.Server
                 catch { }
             }
 
-            if (m_Buffer != null)
+            if (false.Equals(m_Buffer == null))
             {
                 try
                 {
@@ -617,7 +617,7 @@ namespace Media.Rtsp//.Server
                 catch { }
             }
 
-            if (m_RtspSocket != null)
+            if (false.Equals(m_RtspSocket == null))
             {
                 try
                 {
@@ -628,7 +628,7 @@ namespace Media.Rtsp//.Server
                 catch { }
             }
           
-            if (LastRequest != null)
+            if (false.Equals(LastRequest == null))
             {
                 try
                 {
@@ -639,7 +639,7 @@ namespace Media.Rtsp//.Server
                 catch { }
             }
 
-            if (LastResponse != null)
+            if (false.Equals(LastResponse == null))
             {
                 try
                 {
@@ -1290,16 +1290,11 @@ namespace Media.Rtsp//.Server
 
         void m_RtpClient_InterleavedData(object sender, byte[] data, int offset, int length)
         {
-            if (length <= 0) return;
-
-            //The session is not disconnected 
-            IsDisconnected = false;
-
             //Process the data received
-            m_Server.ProcessClientBuffer(this, length);
+            if(false.Equals(IsDisconnected)) m_Server.ProcessClientBuffer(this, length);
 
             //Handle high usage when client disconnects.
-            if (length == 0 && m_RtpClient.IsActive)
+            if (length.Equals(0) && m_RtpClient.IsActive)
             {
                 //should also check activity on each context to properly determine :)
 

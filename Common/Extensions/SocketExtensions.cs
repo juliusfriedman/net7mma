@@ -38,8 +38,28 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Common.Extensions.Socket
 {
+    /// <summary>
+    /// Provides methods which are useful for reading and writing socket options.    
+    /// </summary>
+    /// <remarks>
+    /// Reguard notes and and comments as given with a degree of `relativity`.
+    /// E.g. PLEASE RTFM [of your OS, Stack, and Drivers] (In such order; and then browse on the internet and or encyclopedia to scrutinize any such discrepancies).
+    /// ALL of the methods found here are purely for convenience and SHOULD be treated as such.
+    /// Only so much can be done without Platform Invocation due to how Get / Set methods are implemented in certain implementations / renditions of the run time.
+    /// A total solution needs to be made to create such calls for C# automatically in such cases as the above is true.
+    /// </remarks>
     public static class SocketExtensions
     {
+        //Todo, import whats already done and engineer the remaining requirements.
+        
+        //PlatformSocketOptionManager
+
+        //ManagedSocketOptions
+
+        //SocketOptionContext
+
+        //Etc.
+
         //public static bool IsFatal(System.Net.Sockets.SocketError error)
         //{
         //    switch (error)
@@ -254,7 +274,7 @@ namespace Media.Common.Extensions.Socket
                 case System.Net.Sockets.AddressFamily.InterNetworkV6:
                     {
                         //If there is no network available use the Loopback adapter.
-                        if (false == System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable()) return addressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? System.Net.IPAddress.Loopback : System.Net.IPAddress.IPv6Loopback;
+                        if (false.Equals(System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())) return addressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? System.Net.IPAddress.Loopback : System.Net.IPAddress.IPv6Loopback;
 
                         //Iterate for each Network Interface available.
                         foreach (System.Net.NetworkInformation.NetworkInterface foundInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
@@ -263,7 +283,7 @@ namespace Media.Common.Extensions.Socket
                             System.Net.IPAddress result = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetFirstUnicastIPAddress(foundInterface, addressFamily);
 
                             //If the result is not null and the result is not System.Net.IPAddress.None
-                            if (result != null && false == Equals(result, System.Net.IPAddress.None))
+                            if (false.Equals(result == null) && false.Equals(Equals(result, System.Net.IPAddress.None)))
                             {
                                 networkInterface = foundInterface;
 
@@ -612,7 +632,16 @@ namespace Media.Common.Extensions.Socket
             //else SetSocketOption_internal 
         }
 
+        internal static void GetTcpOption(System.Net.Sockets.Socket socket, System.Net.Sockets.SocketOptionName name, byte[] buffer)
+        {
+            /*if (Common.Extensions.OperatingSystemExtensions.IsWindows) */socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, name, buffer);
+            //else SetSocketOption_internal 
+        }
+
+        //Todo, to eliminate local static allocations a ArrayPool is needed or a ThreadSafe buffering implementation
+
         #region Linger
+
         public static void DisableLinger(System.Net.Sockets.Socket socket) { socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.DontLinger, true); }
 
         public static void EnableLinger(System.Net.Sockets.Socket socket) { socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.DontLinger, false); }
@@ -621,6 +650,7 @@ namespace Media.Common.Extensions.Socket
         {
             //could be byte[] or something else socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.Linger);
 
+            //Todo, static local allocation
             byte [] value = socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.Linger, 8);
 
             return new System.Net.Sockets.LingerOption(Common.Binary.ReadU32(value, 0, Media.Common.Binary.IsLittleEndian) > 0, 
@@ -692,8 +722,12 @@ namespace Media.Common.Extensions.Socket
         //#define TCP_NOURG                   7
         const int NotUrgent = 7;
 
+        static System.Net.Sockets.SocketOptionName TcpNotUrgent = (System.Net.Sockets.SocketOptionName)NotUrgent;
+
         //#define TCP_STDURG                  6
         const int StandardUrgency = 6;
+
+        static System.Net.Sockets.SocketOptionName TcpStandardUrgency = (System.Net.Sockets.SocketOptionName)StandardUrgency;
 
         internal static void SetTcpExpedited(System.Net.Sockets.Socket socket, int amount = 1)
         {
@@ -702,12 +736,12 @@ namespace Media.Common.Extensions.Socket
 
         public static void SetTcpNotUrgent(System.Net.Sockets.Socket socket)
         {
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)NotUrgent, 1);
+            SetTcpOption(socket, TcpNotUrgent, 1);
         }
 
         public static void SetTcpStandardUrgent(System.Net.Sockets.Socket socket)
         {
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)StandardUrgency, 1);
+            SetTcpOption(socket, TcpStandardUrgency, 1);
         }
 
         public static void EnableTcpExpedited(System.Net.Sockets.Socket socket)
@@ -715,7 +749,76 @@ namespace Media.Common.Extensions.Socket
             SetTcpExpedited(socket);
         }
 
-        //DisableTcpExpedited... Can technically be done on the socket just be using the opposite option value
+        /// <summary>
+        /// True if TCP_NOURG is set on the socket with value other than 0, otherwise false.
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <returns></returns>
+        public static bool IsTcpNotUrgent(System.Net.Sockets.Socket socket)
+        {
+            int len = Common.Binary.BytesPerInteger;
+
+            //Todo, static local allocation
+            byte[] value = socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, TcpNotUrgent, len);
+
+            //No value for the option or less than expected return false
+            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(value, out len) || len < Common.Binary.BytesPerInteger) return false;
+
+            //Read the 32 bits of the buffer in network byte order, return true if the value != 0
+            return false.Equals(Common.Binary.Read32(value, Common.Binary.BytesPerInteger, Media.Common.Binary.IsLittleEndian).Equals(0));
+        }
+
+        /// <summary>
+        /// True if TCP_STDURG is set on the socket with value other than 0, otherwise false.
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <param name="checkNotUrgent">Indicates if <see cref="IsTcpNotUrgent"/> will be called first.</param>
+        /// <returns></returns>
+        public static bool IsTcpStandardUrgency(System.Net.Sockets.Socket socket, bool checkNotUrgent = true)
+        {
+            //if checkNotUrgent and NotUrgent is set then IsNotUrgent will return false
+            if (checkNotUrgent && false.Equals(IsTcpNotUrgent(socket))) return false;
+
+            int len = Common.Binary.BytesPerInteger;
+
+            //Todo, static local allocation
+            byte[] value = socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, TcpStandardUrgency, len);
+
+            //No value for the option or less than expected return false
+            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(value, out len) || len < Common.Binary.BytesPerInteger) return false;
+
+            //Read the 32 bits of the buffer in network byte order, return true if the value != 0
+            return false.Equals(Common.Binary.Read32(value, Common.Binary.BytesPerInteger, Media.Common.Binary.IsLittleEndian).Equals(0));
+        }
+
+        public static int GetTcpExpedited(System.Net.Sockets.Socket socket)
+        {
+            int len = Common.Binary.BytesPerInteger;
+
+            //Todo, static local allocation
+            byte[] value = socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, System.Net.Sockets.SocketOptionName.Expedited, len);
+
+            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(value, out len) || len < Common.Binary.BytesPerInteger) return 0;
+
+            return Common.Binary.Read32(value, Common.Binary.BytesPerInteger, Media.Common.Binary.IsLittleEndian);
+        }
+
+        /// <summary>
+        /// True if <see cref="System.Net.Sockets.SocketOptionName.Expedited"/> is set on the socket with value other > 0, otherwise false.
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <returns></returns>
+        public static bool IsTcpExpedited(System.Net.Sockets.Socket socket)
+        {
+            int len = Common.Binary.BytesPerInteger;
+
+            //Todo, static local allocation
+            byte[] value = socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, System.Net.Sockets.SocketOptionName.Expedited, len);
+
+            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(value, out len) || len < Common.Binary.BytesPerInteger) return false;
+
+            return Common.Binary.ReadU32(value, Common.Binary.BytesPerInteger, Media.Common.Binary.IsLittleEndian) > 0;
+        }
 
         #endregion
 
@@ -740,6 +843,10 @@ namespace Media.Common.Extensions.Socket
 
         #region OutOfBandInline
 
+        //Protocol-Independent Out-of-Band Data
+        //https://msdn.microsoft.com/en-us/library/windows/desktop/ms740102(v=vs.85).aspx
+        //Typically such data is NOT handled in the same buffers unless told to do so with these options.        
+
         public static void EnableTcpOutOfBandDataInLine(System.Net.Sockets.Socket socket)
         {
             socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.OutOfBandInline, true);
@@ -750,6 +857,20 @@ namespace Media.Common.Extensions.Socket
         public static void DisableTcpOutOfBandDataInLine(System.Net.Sockets.Socket socket)
         {
             socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.OutOfBandInline, false);
+        }
+
+        public static bool GetIsTcpOutOfBandInLine(System.Net.Sockets.Socket socket)
+        {
+            int len = Common.Binary.BytesPerInteger;
+
+            //Todo, static local allocation
+            byte[] value = socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, System.Net.Sockets.SocketOptionName.OutOfBandInline, len);
+
+            //No value for the option or less than expected return false
+            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(value, out len) || len < Common.Binary.BytesPerInteger) return false;
+
+            //Read the 32 bits of the buffer in network byte order, return true if the value != 0
+            return false.Equals(Common.Binary.Read32(value, Common.Binary.BytesPerInteger, Media.Common.Binary.IsLittleEndian).Equals(0));
         }
 
         #endregion
@@ -952,23 +1073,47 @@ namespace Media.Common.Extensions.Socket
 
         //IPV6_DONTFRAG       
         
-        //InterframeGapBits (NetworkInterface)
+        //InterframeGapBits => (NetworkInterface)
 
         //Todo ->
 
+        //ISelectImplementation{
+
+        //@ NetMQ !!!
+
+        // => ISelectItem { DateTime Created; long Started; SelectOption Options; Socket Socket; long Completed; SelectOptions Events; }
+
+        //SelectDelegate(socket, ISelectItem)
+
+        //}
+        
         //SendAll / SendAllTo
 
         //RecieveAll / RecieveAllFrom
 
+        //RecieveUrgentData
+
+        //SendUrgentData
+
+        //int SendAllExpedited => using socket(duplicate) => SetExpedited(socketUsing).SendAll(data);
+
+        //int ReceiveOutOfBand => using socket(duplicate) => socket.Receive(where, OutOfBand);
+
+        //void ReceiveAllOutOfBand (int amount) => using socket(duplicate) => while(amount > 0) amount -=ReceiveOutOfBand(socketDuplicate);
+
         /// <summary>
-        /// Receives the given amount of bytes into the buffer given a offset and an amount.
+        /// Requires a bound and connected <param name="socket">Socket</param>, <see cref="Socket.IsBound"/> and <see cref="Socket.RemoteEndPoint"/>
+        /// Useful when the amount of data to be recieved is known in advance.
+        /// Recieves the given amount of bytes into the buffer given a offset and an amount;
+        /// even if an 0 length reception occurs or an error occurs during the recieve; (other than Timeout)
+        /// but only relatively with respect with amount and only until the amount has been recieved.
         /// </summary>
         /// <param name="buffer">The array to receive into</param>
         /// <param name="offset">The location to receive into</param>
-        /// <param name="amount">The 0 based amount of bytes to receive, 0 will have no result</param>
+        /// <param name="amount">The 0 based amount of bytes to receive, 0 will have no result, other values will be progressively used to determine exactly when an error occurs</param>
         /// <param name="socket">The socket to receive on</param>
         /// <returns>The amount of bytes recieved which will be equal to the amount paramter unless the data was unable to fit in the given buffer</returns>
-        public static int AlignedReceive(byte[] buffer, int offset, int amount, System.Net.Sockets.Socket socket, out System.Net.Sockets.SocketError error)
+        public static int AlignedReceive(byte[] buffer, int offset, int amount, System.Net.Sockets.Socket socket, out System.Net.Sockets.SocketError error) //RecieveAllOrTimeout
         {
             //Store any socket errors here incase non-blocking sockets are being used.
             error = System.Net.Sockets.SocketError.SocketError;
@@ -993,11 +1138,12 @@ namespace Media.Common.Extensions.Socket
                 //Receive it into the buffer at the given offset taking into account what was already received
                 justReceived = socket.Receive(buffer, offset, amount, System.Net.Sockets.SocketFlags.None, out error);
 
+                //Determine how to continue
                 switch (error)
                 {
                     case System.Net.Sockets.SocketError.ConnectionReset:
                     case System.Net.Sockets.SocketError.ConnectionAborted:
-                    case System.Net.Sockets.SocketError.TimedOut:
+                    case System.Net.Sockets.SocketError.TimedOut: // Do not try again during timeouts. (Option?)
                         goto Done;
                     default:
                         {
@@ -1007,9 +1153,10 @@ namespace Media.Common.Extensions.Socket
                                 //Try again maybe
                                 ++attempt;
 
-                                //Only if the attempts in operations were greater then the amount of bytes requried
+                                //Only if the attempts in operations were less than the amount of bytes required to be recieved.
                                 if (attempt > amount) goto Done;
 
+                                //Continue.
                                 continue;
                             }
 
@@ -1021,7 +1168,12 @@ namespace Media.Common.Extensions.Socket
 
                             //Increase total received
                             totalReceived += justReceived;
-                            
+
+                            //attempts is not observed or altered during success.
+
+                            //This is expected behavior as the operation may have succeeded, this is not an attempt.
+
+                            //Continue.
                             continue;
                         }
                 }
