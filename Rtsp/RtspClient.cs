@@ -4339,7 +4339,7 @@ namespace Media.Rtsp
                         //If there is already a RtpClient with at-least 1 TransportContext
                         if (false == Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient))
                         {
-                            RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
+                            RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().LastOrDefault();
 
                             if (lastContext != null && lastContext.IsActive)
                             {
