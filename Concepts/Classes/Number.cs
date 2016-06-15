@@ -1489,14 +1489,14 @@ namespace Media.Concepts.Classes
                     case Common.Binary.BytesPerByte: return (Double)ToByte();
                     case Common.Binary.BytesPerChar: return (Double)ToInt16(index);
                     case Common.Binary.Three: //Reserved for 24Bit
+                    default:
                     case Common.Binary.BytesPerInteger: return (Double)ToInt32(index);
-                    default: break;
                 }
             }
-            else return BitConverter.ToDouble(Memory, index);
-
-            return DoubleZero.ToDouble();
+            else return BitConverter.ToDouble(Memory, index); //Doesn't handle - 0...
         }
+
+        //http://msdn2.microsoft.com/en-us/library/system.decimal.getbits.aspx
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public /* virtual */ Decimal ToDecimal(int index = 0, int count = Common.Binary.BytesPerInteger)
@@ -1878,7 +1878,11 @@ namespace Media.Concepts.Classes
 
         public readonly static Number Zero = new Number(System.Numerics.Complex.Zero);
 
-        public static Number NegitiveZero = Common.Binary.NegativeZeroBits;
+        public static Number NegativeZero = Common.Binary.NegativeZeroBits;  //0x00000000 00000000 00000000 00000080
+
+        public static Number DecimalNegativeZero = -0.0m; //0x00000000 00000000 00000000 80010000
+
+        public static Number DecimalNegativeZeroAlt = new Decimal(0, 0, 0, true, 0); //0x00000000 00000000 00000000 80000000 
 
         public static Number One = new Number(System.Numerics.Complex.One);
 
@@ -1923,7 +1927,10 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number Negate(Number n)
         {
-            return n.IsNegative ? n : (Number)(-n.ToDouble());
+            //if already negative should still negate.
+            return -n.ToDouble();
+
+            //return n.IsNegative ? n : (Number)(-n.ToDouble());
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -2393,7 +2400,12 @@ namespace Media.Concepts.Classes
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return IsAbsoluteZero ? false : this >= NegitiveZero;
+                switch (TypeCode)
+                {
+                    case System.TypeCode.Decimal:
+                            return this >= DecimalNegativeZero || this >= DecimalNegativeZeroAlt;
+                    default: return IsAbsoluteZero ? false : this >= NegativeZero;
+                }
 
                 //-0...
 

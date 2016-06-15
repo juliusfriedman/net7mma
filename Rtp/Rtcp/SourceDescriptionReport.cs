@@ -882,8 +882,9 @@ namespace Media.Rtcp
             public SourceDescriptionChunk(int chunkIdentifier, IEnumerable<SourceDescriptionItem> items, bool shouldDispose = true)
                 : base(shouldDispose)
             {
+                //project all the items and if empty use End
                 m_ChunkData = Enumerable.Concat(Binary.GetBytes(chunkIdentifier, Common.Binary.IsLittleEndian),
-                    items.DefaultIfEmpty<SourceDescriptionItem>(SourceDescriptionItem.End).SelectMany(i => i));
+                    items.DefaultIfEmpty<SourceDescriptionItem>(SourceDescriptionItem.End).SelectMany(i => i)); //Hot allocation
             }
 
             public SourceDescriptionChunk(int chunkIdentifier, SourceDescriptionItem item, bool shouldDispose = true) 

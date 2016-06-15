@@ -864,7 +864,7 @@ namespace Media.Sdp
             public SessionNameLine(SessionDescriptionLine line)
                 : base(line)
             {
-                if (m_Type != NameType) throw new InvalidOperationException("Not a SessionNameLine line");
+                if (false.Equals(m_Type.Equals(NameType))) throw new InvalidOperationException("Not a SessionNameLine line");
             }
 
             //Conflicts with base's concept of string constructorm assumes that the param is a value.
