@@ -1605,7 +1605,7 @@ namespace Media.UnitTests
 
             //Find the first IP based on the interface type, should select from input during test.. e.g. Wifi or Ethernet.
 
-            var serverIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
+            System.Net.IPAddress serverIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
 
             Console.WriteLine("Server Starting on: " + serverIp);
 
@@ -1663,8 +1663,7 @@ namespace Media.UnitTests
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision9", "rtsp://demo:abcd1234@118.70.181.233:2813/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision10", "rtsp://demo:abcd1234@118.70.181.233:7175/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                //All are good except this one which seems to be bandwidth realted.
-
+                //No longer accessible.
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco1", "rtsp://118.70.125.33/user=admin&password=admin12345&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
                 string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
@@ -1761,10 +1760,10 @@ namespace Media.UnitTests
                 server.Start();
 
                 //Wait for the server to start.
-                while (false == server.IsRunning) System.Threading.Thread.Sleep(0);
+                while (false.Equals(server.IsRunning)) System.Threading.Thread.Sleep(0);
 
                 //Start taking pictures of the desktop and making packets in a seperate thread.
-                if (captureThread != null)
+                if (false.Equals(captureThread == null))
                 {
                     //captureThread.Priority = System.Threading.ThreadPriority.BelowNormal;
 
@@ -1831,7 +1830,7 @@ namespace Media.UnitTests
 
                                     Console.WriteLine("Ready: " + stream.Ready);
 
-                                    if (false == stream.Ready) continue;
+                                    if (false.Equals(stream.Ready)) continue;
 
                                     if (stream is Rtsp.Server.MediaTypes.RtspSource)
                                     {
@@ -1839,6 +1838,8 @@ namespace Media.UnitTests
 
                                         foreach (var sTc in source.RtpClient.GetTransportContexts())
                                         {
+                                            if (Media.Common.IDisposedExtensions.IsNullOrDisposed(sTc)) continue;
+
                                             Console.WriteLine("MediaType: " + sTc.MediaDescription.MediaType);
 
                                             Console.WriteLine("SynchronizationSourceIdentifier: " + sTc.SynchronizationSourceIdentifier);
@@ -1861,6 +1862,8 @@ namespace Media.UnitTests
 
                                         foreach (var sTc in source.RtpClient.GetTransportContexts())
                                         {
+
+                                            if (Media.Common.IDisposedExtensions.IsNullOrDisposed(sTc)) continue;
 
                                             Console.WriteLine("MediaType: " + sTc.MediaDescription.MediaType);
 
@@ -1890,10 +1893,10 @@ namespace Media.UnitTests
                         case ConsoleKey.T:
                             {
                                 Console.WriteLine("Performing Load Test");
-                                System.Threading.ThreadPool.QueueUserWorkItem(o =>
+                                System.Threading.ThreadPool.QueueUserWorkItem((_)=>
                                 {
                                     Console.WriteLine("Starting Load Test......***,,");
-                                    SubTestLoad(server);
+                                    SubTestLoad(server, server == null ? null : System.Console.ReadLine());
                                     Console.WriteLine("Load Test Completed!!!!!!!!!!");
                                 });
                                 continue;
@@ -1901,11 +1904,18 @@ namespace Media.UnitTests
                         case ConsoleKey.C:
                             {
                                 //Show how many connections
-                                Console.WriteLine(server.ActiveConnections + " Active Connections");
+                                Console.WriteLine("*********" + server.ActiveConnections + " Active Connections *********");
 
                                 //Enumerate those connections
                                 foreach (var client in server.Clients)
                                 {
+                                    if (Media.Common.IDisposedExtensions.IsNullOrDisposed(client))
+                                    {
+                                        Console.WriteLine("*********" + server.ActiveConnections + " Active Connections *********");
+
+                                        continue;
+                                    }
+
                                     Console.WriteLine("Created: " + client.Created);
 
                                     Console.WriteLine("LastRequest: " + client.LastRequest ?? string.Empty);
@@ -1914,7 +1924,7 @@ namespace Media.UnitTests
 
                                     Console.WriteLine("SessionId: " + client.SessionId ?? string.Empty);
 
-                                    if (client.m_RtpClient != null)
+                                    if (false.Equals(Media.Common.IDisposedExtensions.IsNullOrDisposed(client.m_RtpClient)))
                                     {
                                         Console.WriteLine("Rtp: " + (client.m_RtpClient.IsActive ? "Active" : "Inactive"));
 
@@ -1922,32 +1932,52 @@ namespace Media.UnitTests
 
                                         foreach (var clientTransportContext in client.m_RtpClient.GetTransportContexts())
                                         {
-                                            Console.WriteLine("Local Rtp Port: " + ((System.Net.IPEndPoint)clientTransportContext.LocalRtp).Port);
+                                            if (Media.Common.IDisposedExtensions.IsNullOrDisposed(clientTransportContext))
+                                            {
+                                                Console.WriteLine("*********" + server.ActiveConnections + " Active Connections *********");
 
-                                            Console.WriteLine("Local Rtcp Port: " + ((System.Net.IPEndPoint)clientTransportContext.LocalRtcp).Port);
+                                                continue;
+                                            }
+                                            try
+                                            {
+                                                Console.WriteLine("Local Rtp Port: " + ((System.Net.IPEndPoint)clientTransportContext.LocalRtp).Port);
 
-                                            Console.WriteLine("Remote Rtp Port: " + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtp).Port);
+                                                Console.WriteLine("Local Rtcp Port: " + ((System.Net.IPEndPoint)clientTransportContext.LocalRtcp).Port);
 
-                                            Console.WriteLine("Remote Rtcp Port: " + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtcp).Port);
+                                                Console.WriteLine("Remote Rtp Port: " + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtp).Port);
 
-                                            Console.WriteLine("SynchronizationSourceIdentifier: " + clientTransportContext.SynchronizationSourceIdentifier);
+                                                Console.WriteLine("Remote Rtcp Port: " + ((System.Net.IPEndPoint)clientTransportContext.RemoteRtcp).Port);
 
-                                            Console.WriteLine("RemoteSynchronizationSourceIdentifier: " + clientTransportContext.RemoteSynchronizationSourceIdentifier);
+                                                Console.WriteLine("SynchronizationSourceIdentifier: " + clientTransportContext.SynchronizationSourceIdentifier);
 
-                                            Console.WriteLine("MediaType: " + clientTransportContext.MediaDescription.MediaType);
+                                                Console.WriteLine("RemoteSynchronizationSourceIdentifier: " + clientTransportContext.RemoteSynchronizationSourceIdentifier);
 
-                                            Console.WriteLine("SendSequenceNumber: " + clientTransportContext.SendSequenceNumber);
+                                                Console.WriteLine("MediaType: " + clientTransportContext.MediaDescription.MediaType);
 
-                                            Console.WriteLine("RecieveSequenceNumber: " + clientTransportContext.RecieveSequenceNumber);
+                                                Console.WriteLine("SendSequenceNumber: " + clientTransportContext.SendSequenceNumber);
 
-                                            Console.WriteLine("RtpTimestamp: " + clientTransportContext.RtpTimestamp);
+                                                Console.WriteLine("RecieveSequenceNumber: " + clientTransportContext.RecieveSequenceNumber);
 
-                                            Console.WriteLine("SenderRtpTimestamp: " + clientTransportContext.SenderRtpTimestamp);
+                                                Console.WriteLine("RtpTimestamp: " + clientTransportContext.RtpTimestamp);
+
+                                                Console.WriteLine("SenderRtpTimestamp: " + clientTransportContext.SenderRtpTimestamp);
+                                            }
+                                            catch
+                                            {
+                                                Console.WriteLine("Client Not Completely Allocated");
+                                                Console.WriteLine("*********" + server.ActiveConnections + " Active Connections *********");
+                                            }
                                         }
                                     }
                                 }
+
+                                //Show how many connections
+                                Console.WriteLine("*********" + server.ActiveConnections + " Active Connections *********");
+
                                 continue;
                             }
+                            //Turn Logging on and off
+                            //Other stuff
                         default:
                             {
                                 if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
@@ -1978,28 +2008,53 @@ namespace Media.UnitTests
         /// <summary>
         /// Tests the Rtp and Media.RtspClient in various modes (Against the server)
         /// </summary>
-        static void SubTestLoad(Media.Rtsp.RtspServer server)
+        static void SubTestLoad(Media.Rtsp.RtspServer server, string streamUri = null, int runs = 100, int recieveByteLimit = 65536, int sessionTimeoutSeconds = 45)
         {
             //100 times about a GB in total
 
-            //Get the Degrees Of Parallelism (Shuld be based on ProcessorCount)
+            //Get the Degrees Of Parallelism (Shuld be based on ProcessorCount and Cores)
             int dop = Environment.ProcessorCount;
 
-            if (server != null)
+            bool allowHttp = false, allowUdp = false;
+
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(server)) && server.IsRunning)
             {
                 if (server.HttpEnabled) dop /= 2;
                 if (server.UdpEnabled) dop /= 2;
                 dop /= 2;//Tcp
+
+                if (string.IsNullOrWhiteSpace(streamUri))
+                {
+                    streamUri = server.LocalEndPoint.ToString() + "/live/" + server.MediaStreams.Skip(Utility.Random.Next(0, server.MediaStreams.Count())).First().Name;
+                }
+
+                allowHttp = server.HttpEnabled;
+
+                allowUdp = server.UdpEnabled;
+            }
+            else
+            {
+                Console.WriteLine("No Server or Server not Running, Looking for Stream Uri");
+
+                if (string.IsNullOrWhiteSpace(streamUri))
+                {
+                    Console.WriteLine("No Stream Uri an No Server");
+
+                    return;
+                }
+
+                if (streamUri.StartsWith("rtsp://", StringComparison.InvariantCultureIgnoreCase) || (allowHttp = streamUri.StartsWith("http://", StringComparison.InvariantCultureIgnoreCase))) streamUri = streamUri.Remove(0, 7);
+                else if ((allowUdp = streamUri.StartsWith("rtspu://", StringComparison.InvariantCultureIgnoreCase)) || streamUri.StartsWith("rtspt://", StringComparison.InvariantCultureIgnoreCase)) streamUri = streamUri.Remove(0, 8);
             }
 
             //Test the server
-            ParallelEnumerable.Range(1, 100).AsParallel().WithDegreeOfParallelism(dop).ForAll(i =>
+            ParallelEnumerable.Range(1, runs).AsParallel().WithDegreeOfParallelism(dop).ForAll(i =>
             {
                 //Create a client
-                if (server != null && server.HttpEnabled && i % 2 == 0)
+                if (allowHttp && Media.Common.Binary.IsEven(ref i))
                 {
                     //Use Media.Rtsp / Http
-                    using (Media.Rtsp.RtspClient httpClient = new Media.Rtsp.RtspClient("http://127.0.0.1/live/PicsTcp"))
+                    using (Media.Rtsp.RtspClient httpClient = new Media.Rtsp.RtspClient("http://" + streamUri))
                     {
                         try
                         {
@@ -2007,7 +2062,7 @@ namespace Media.UnitTests
 
                             httpClient.StartPlaying();
 
-                            while (httpClient.Client.TotalRtpBytesReceieved <= 1024) { System.Threading.Thread.Sleep(10); }
+                            while (httpClient.Client.TotalRtpBytesReceieved <= recieveByteLimit && httpClient.Client.Uptime.TotalSeconds < sessionTimeoutSeconds) System.Threading.Thread.Yield();
 
                             Console.WriteLine("Test passed");
 
@@ -2022,10 +2077,10 @@ namespace Media.UnitTests
                         }
                     }
                 }
-                else if (server != null && server.UdpEnabled && i % 3 == 0)
+                else if (allowUdp)
                 {
                     //Use Media.Rtsp / Udp
-                    using (Media.Rtsp.RtspClient udpClient = new Media.Rtsp.RtspClient("rtspu://127.0.0.1/live/PicsTcp"))
+                    using (Media.Rtsp.RtspClient udpClient = new Media.Rtsp.RtspClient("rtspu://" + streamUri))
                     {
                         try
                         {
@@ -2035,7 +2090,7 @@ namespace Media.UnitTests
 
                             udpClient.StartPlaying();
 
-                            while (udpClient.Client.TotalRtpBytesReceieved <= 1024) { System.Threading.Thread.Sleep(10); }
+                            while (udpClient.Client.TotalRtpBytesReceieved <= recieveByteLimit && udpClient.Client.Uptime.TotalSeconds < sessionTimeoutSeconds) System.Threading.Thread.Yield();
 
                             Console.WriteLine("Test passed");
 
@@ -2053,24 +2108,8 @@ namespace Media.UnitTests
                 else
                 {
 
-                    string uri = "rtsp://127.0.0.1/live/Test_2";
-
-                    if (server != null)
-                    {
-                        try
-                        {
-                            uri = "rtsp://127.0.0.1/live/" + server.MediaStreams.Skip(Utility.Random.Next(0, server.MediaStreams.Count())).First().Name;
-                        }
-                        catch(Exception ex)
-                        {
-                            writeError(ex);
-
-                            return;
-                        }
-                    }
-
                     //Use Media.Rtsp / Tcp
-                    using (Media.Rtsp.RtspClient client = new Media.Rtsp.RtspClient(uri, i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
+                    using (Media.Rtsp.RtspClient client = new Media.Rtsp.RtspClient("rtsp://" + streamUri, Media.Common.Binary.IsEven(ref i) ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
                     {
                         try
                         {
@@ -2078,19 +2117,19 @@ namespace Media.UnitTests
 
                             client.StartPlaying();
 
-                            while (client.Client.TotalRtpBytesReceieved <= 4096 && client.Client.Uptime.TotalSeconds < 120)
+                            while (client.Client.TotalRtpBytesReceieved <= recieveByteLimit && client.Client.Uptime.TotalSeconds < sessionTimeoutSeconds)
                             {
                                 //Test that client disconnection under udp is working
                                 if (client.RtpProtocol == System.Net.Sockets.ProtocolType.Udp)
                                 {
                                     //Disconnect the client socket if it was connected to test that that media session persists
                                     if (client.IsConnected) client.DisconnectSocket();
-                                    else if (client.ClientSequenceNumber % 2 == 0) client.SendKeepAliveRequest(null); //Send a keep alive to test connections and session retrival
+                                    else if (Media.Common.Binary.IsEven(client.ClientSequenceNumber)) client.SendKeepAliveRequest(null); //Send a keep alive to test connections and session retrival
                                     else if (client.IsConnected) SendRandomPartial(client); //If connected send a partial request
                                     else client.Connect(); //otherwise connect
                                 }
 
-                                System.Threading.Thread.Sleep(10);
+                                System.Threading.Thread.Yield();
                             }
 
                             Console.BackgroundColor = ConsoleColor.Green;

@@ -257,6 +257,8 @@ namespace Media.Common
         #endregion
 
         //Could be moved to Zeros
+        public const byte ByteZero = 0;
+
         [System.CLSCompliant(false)]
         public const uint UIntZero = 0;
 

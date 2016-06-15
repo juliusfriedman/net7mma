@@ -90,6 +90,7 @@
     <Compile Include="Collections\ThreadCollection.cs" />
     <Compile Include="EndPoints.cs" />
     <Compile Include="Interfaces\IReadOnly.cs" />
+    <Compile Include="Interfaces\IShared.cs" />
     <Compile Include="Interfaces\ITextData.cs" />
     <Compile Include="Interfaces\IUpdateable.cs" />
     <Compile Include="Interfaces\IUsable.cs" />
