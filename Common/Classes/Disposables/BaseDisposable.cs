@@ -77,7 +77,7 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal protected static void SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow(object sender, EventArgs e)
         {
-            if (sender != null && sender is BaseDisposable) SetShouldDispose((sender as BaseDisposable), true, true);
+            if (false.Equals(sender == null) && sender is BaseDisposable) SetShouldDispose((sender as BaseDisposable), true, true);
         }
 
         /// <summary>
@@ -193,8 +193,7 @@ namespace Media.Common
         /// Throws a System.ObjectDisposedException if <see cref="IsDisposed"/> is true and the Finalizer has yet not been called
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal protected void CheckDisposed() { if (false.Equals(IsUndisposed) || IsDisposed) throw new ObjectDisposedException(GetType().Name); }
-        //IsDisposed && false == IsFinalized
+        internal protected void CheckDisposed() { if (false.Equals(IsUndisposed) || IsFinalized || IsDisposed) throw new ObjectDisposedException(GetType().Name); }
 
         //ReleaseResources
         /// <summary>
@@ -205,7 +204,7 @@ namespace Media.Common
         internal protected virtual void Dispose(bool disposing)
         {
             //Do not dispose when ShouldDispose is false.
-            if (false.Equals(IsUndisposed) || false.Equals(disposing) || false.Equals(ShouldDispose)) return;
+            if (false.Equals(disposing) || false.Equals(ShouldDispose)) return;
 
             //Mark the instance disposed if disposing
             //If the resources are to be removed then the finalizer has been called.
@@ -230,15 +229,16 @@ namespace Media.Common
         /// if <see cref="IsDisposed"/> returns, otherwise calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/> and <see cref="GC.SuppressFinalize"/>
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        protected void Destruct()
+        void Destruct()
         {
-            //I think it's better to supress before the Dispose call and not after but if an exception happens in the virtual dispose then we shouldn't finalize.
-            //GC.SuppressFinalize(this);//Do not call the finalizer
-
+            //Call Dispose
             Dispose(ShouldDispose);
 
-            GC.SuppressFinalize(this);//Do not call the finalizer
-            
+            //If not disposed return.
+            if (false.Equals(IsUndisposed)) return;
+
+            //Do not call the finalizer
+            GC.SuppressFinalize(this);
         }
 
         /// <summary>
@@ -249,7 +249,7 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public virtual void Dispose()
         {
-            if (false.Equals(ShouldDispose) | false.Equals(IsDisposed)) return;
+            if (IsFinalized || false.Equals(IsUndisposed) || false.Equals(ShouldDispose) || false.Equals(IsDisposed)) return;
             
             Destruct();
         }
@@ -267,12 +267,12 @@ namespace Media.Common
         }
 
         /// <summary>
-        /// Indicates if the instance is not yet disposed, only checks the virtual constraint if not already diposed.
+        /// Indicates if the instance is not yet disposed, only checks the virtual constraint if <see cref="State"/> indicates the instance is not already diposed or finalized.
         /// </summary>
         bool IDisposed.IsDisposed
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return false.Equals(IsUndisposed) && false.Equals(IsDisposed); }
+            get { return false.Equals(IsUndisposed) && false.Equals(IsFinalized) && false.Equals(IsDisposed); }
         }
 
         //Ugly, double check already not Disposed but only through interface...

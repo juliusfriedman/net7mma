@@ -1915,6 +1915,18 @@ namespace Media.Concepts.Classes
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static Number Abs(Number n)
+        {
+            return n.IsNegative ? (Number)(-n.ToDouble()) : n;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static Number Negate(Number n)
+        {
+            return n.IsNegative ? n : (Number)(-n.ToDouble());
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Type NumberBestRepresentedType(Number n)
         {
             return BestRepresentsType(n.Count);
@@ -1925,7 +1937,7 @@ namespace Media.Concepts.Classes
         {
             switch (sizeInBytes)
             {
-                case 0: return null;
+                case Common.Binary.Zero: return null;
                 case Common.Binary.BytesPerByte: return Types.Byte; //Need to have 1Bit, 2Bit, 3Bit, 4Bit sturctures that can be implicitly casted to Bits
                 case Common.Binary.BytesPerShort: return Types.Short;
                 case Common.Binary.Three: //Reserved for 24Bit Type
@@ -1948,7 +1960,7 @@ namespace Media.Concepts.Classes
         public static bool IsNull(Number a) { return Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(a); } //implicit to byte[]
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool IsNullOrZero(Number a) { return IsNull(a) && a.Memory.All(b => b == 0); }
+        public static bool IsNullOrZero(Number a) { return IsNull(a) || a.Memory.All(b => b.Equals(Common.Binary.ByteZero)); }
 
         //Todo, Distributive , Associative, Commutative, rules
 
@@ -2345,7 +2357,7 @@ namespace Media.Concepts.Classes
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return IsZero || Number.IsNullOrZero(this % 1);
+                return IsAbsoluteZero || Number.IsNullOrZero(this % 1);
             }
         }
 
@@ -2364,7 +2376,7 @@ namespace Media.Concepts.Classes
         /// <summary>
         /// 
         /// </summary>
-        public bool IsZero
+        public bool IsAbsoluteZero
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
@@ -2381,7 +2393,7 @@ namespace Media.Concepts.Classes
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return this <= NegitiveZero;
+                return IsAbsoluteZero ? false : this >= NegitiveZero;
 
                 //-0...
 
@@ -2396,7 +2408,7 @@ namespace Media.Concepts.Classes
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return (Number)(this.IsZero ? Zero : this.IsNegative ? NegitiveOne : One);
+                return (Number)(IsAbsoluteZero ? Zero : this.IsNegative ? NegitiveOne : One);
             }
         }
 

@@ -983,22 +983,47 @@ namespace Media.Rtp
             public bool LeaveOpen { get; set; }
 
             //Any frames for this channel
-            public RtpFrame CurrentFrame { get; internal protected set; }
+            public RtpFrame CurrentFrame
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                internal protected set;
+            }
 
-            public RtpFrame LastFrame { get; internal protected set; }
+            public RtpFrame LastFrame
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                internal protected set;
+            }
 
             /// <summary>
             /// The socket used for Transport of Rtp and Interleaved data
             /// </summary>
-            public Socket RtpSocket { get; internal protected set; }
+            public Socket RtpSocket
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                internal protected set;
+            }
 
             /// <summary>
             /// The socket used for Transport of Rtcp and Interleaved data
             /// </summary>
-            public Socket RtcpSocket { get; internal protected set; }
+            public Socket RtcpSocket
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                internal protected set;
+            }
 
             /// <summary>
-            /// Indicates if the TransportContext has been connected.
+            /// Indicates if the TransportContext has a <see cref="LocalRtp"/> or <see cref="LocalRtcp"/> EndPoint, usually established in Initialize
             /// </summary>
             public bool IsActive
             {
@@ -1007,11 +1032,11 @@ namespace Media.Rtp
                 {
                     if (IsRtpEnabled)
                     {
-                        return RtpSocket != null && false.Equals(LocalRtp == null);
+                        return false.Equals(RtpSocket == null) && false.Equals(LocalRtp == null);
                     }
                     else if (IsRtcpEnabled)
                     {
-                        return RtcpSocket != null && false.Equals(LocalRtcp == null);
+                        return false.Equals(RtcpSocket == null) && false.Equals(LocalRtcp == null);
                     }
 
                     return false;
@@ -1021,7 +1046,14 @@ namespace Media.Rtp
             /// <summary>
             /// The maximum amount of bandwidth Rtcp can utilize (of the overall bandwidth available to the TransportContext) during reports
             /// </summary>
-            public double MaximumRtcpBandwidthPercentage { get; set; }
+            public double MaximumRtcpBandwidthPercentage
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+                
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                set;
+            }
 
             /// <summary>
             /// Indicates if the amount of bandwith currently utilized for Rtcp reporting has exceeded the amount of bandwidth allowed by the <see cref="MaximumRtcpBandwidthPercentage"/> property.
@@ -2617,6 +2649,7 @@ namespace Media.Rtp
             //reset counters?
         }
 
+        //Reserved, possibly would be used for seperate finalization
         protected internal virtual void HandleFrameChange(object /*RtpClient*/ sender, RtpFrame frame = null, TransportContext tc = null)
         {
             //TransportContext context = tc ?? GetContextByPayloadType(frame.PayloadTypeByte);
@@ -2815,7 +2848,6 @@ namespace Media.Rtp
                 //If a CurrentFrame was not allocated
                 if (Common.IDisposedExtensions.IsNullOrDisposed(transportContext.CurrentFrame))
                 {
-                    //Todo, Clone
                     //make a frame with the copy of the packet
                     transportContext.CurrentFrame = new RtpFrame(packet.Clone(true, true, true, true, false, true));
 
@@ -2828,7 +2860,8 @@ namespace Media.Rtp
                     return;
 
                 }//Check to see if the frame belongs to the last frame
-                else if (false.Equals(IDisposedExtensions.IsNullOrDisposed(transportContext.LastFrame)) &&
+                else if (false.Equals(IDisposedExtensions.IsNullOrDisposed(transportContext.LastFrame)) 
+                    &&
                     packetTimestamp.Equals(transportContext.LastFrame.Timestamp))
                 {
                     //Todo, OnMarkerPacket(frame)
@@ -2841,9 +2874,11 @@ namespace Media.Rtp
                         //The LastFrame changed so fire an event
                         OnRtpFrameChanged(transportContext.LastFrame, transportContext, final);
 
-                        //Backup of frames
+                        //Backup of frames in LastFrame.
                         if (final)
                         {
+                            Common.ILoggingExtensions.Log(Logger, InternalId + "HandleFrameChanges => LastFrame Disposing @ " + transportContext.LastFrame.Count);
+
                             transportContext.LastFrame.Dispose();
 
                             transportContext.LastFrame = null;
@@ -2860,7 +2895,8 @@ namespace Media.Rtp
                     return;
 
                 }//Check to see if the frame belongs to a new frame
-                else if (false.Equals(IDisposedExtensions.IsNullOrDisposed(transportContext.CurrentFrame)) && 
+                else if (false.Equals(IDisposedExtensions.IsNullOrDisposed(transportContext.CurrentFrame)) 
+                    && 
                     false.Equals(packetTimestamp.Equals(transportContext.CurrentFrame.Timestamp)))
                 {
                     ////We already set to the value of packet.SequenceNumber in UpdateSequenceNumber.
@@ -2906,7 +2942,6 @@ namespace Media.Rtp
                 {
                     //Todo, OnMarkerPacket(frame)
 
-
                     //If the packet was added to the frame
                     if (transportContext.CurrentFrame.TryAdd(packet.Clone(true, true, true, true, false, true)))
                     {
@@ -2915,14 +2950,15 @@ namespace Media.Rtp
                         //The CurrentFrame changed
                         OnRtpFrameChanged(transportContext.CurrentFrame, transportContext, final);
 
-                        //Backup of frames
+                        //Backup of frames in CurrentFrame
                         if (final)
                         {
-                            transportContext.LastFrame.Dispose();
+                            Common.ILoggingExtensions.Log(Logger, InternalId + "HandleFrameChanges => CurrentFrame Disposing @ " + transportContext.CurrentFrame.Count);
 
-                            transportContext.LastFrame = null;
+                            transportContext.CurrentFrame.Dispose();
+
+                            transportContext.CurrentFrame = null;
                         }
-
                     }
                     else
                     {
@@ -3211,7 +3247,7 @@ namespace Media.Rtp
             }
 
             //On final events set ShouldDispose to true, do not call Dispose
-            if (final && shouldDispose && frame.ShouldDispose.Equals(false) && false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(frame))) SetShouldDispose(frame, true, false);
+            if (final && shouldDispose && frame.ShouldDispose.Equals(false) && Common.IDisposedExtensions.IsNullOrDisposed(frame).Equals(false)) SetShouldDispose(frame, true, false);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -3236,7 +3272,7 @@ namespace Media.Rtp
             });
 
             //On final events set ShouldDispose to true, do not call Dispose
-            if (final && shouldDispose && frame.ShouldDispose.Equals(false) && false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(frame))) SetShouldDispose(frame, true, false);
+            if (final && shouldDispose && frame.ShouldDispose.Equals(false) && Common.IDisposedExtensions.IsNullOrDisposed(frame).Equals(false)) SetShouldDispose(frame, true, false);
         }
 
         //IPacket overload could reduce code but would cost time to check type.
@@ -5871,7 +5907,7 @@ namespace Media.Rtp
                             System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Normal;
 
                             //Critical
-                            //System.Threading.Thread.BeginCriticalRegion();
+                            System.Threading.Thread.BeginCriticalRegion();
 
                             int receivedRtp = 0, receivedRtcp = 0;
 
@@ -5976,6 +6012,8 @@ namespace Media.Rtp
                                         //Just Take no action (leave Priority Normal)
                                         break;
 
+                                        #region Unused, Throttle Priority when there are no outgoing packets.
+
                                         //System.Threading.Thread.CurrentThread.Priority = false == m_EventReady.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick) ? ThreadPriority.Normal : ThreadPriority.BelowNormal;
 
                                         //System.Threading.Thread.CurrentThread.Priority = m_EventReady.IsSet ? ThreadPriority.BelowNormal : ThreadPriority.Normal;
@@ -5983,6 +6021,9 @@ namespace Media.Rtp
                                         //////Attempt to Halt and use the rest of the time slice, if no interrupt was received use BlowNormal
                                         ////if (false == System.Threading.Thread.Yield()) System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Normal;
                                         ////else System.Threading.Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
+
+                                        #endregion
+
                                     }
                                     else
                                     {
@@ -6004,7 +6045,7 @@ namespace Media.Rtp
 
                         if (remove > 0)
                         {
-                            //System.Threading.Thread.BeginCriticalRegion();
+                            System.Threading.Thread.BeginCriticalRegion();
                             //Todo, do a TakeWhile and sort by something which will allow packets which have different parties or channels.
 
                             //Try and send the lot of them
@@ -6016,7 +6057,7 @@ namespace Media.Rtp
                                 m_OutgoingRtcpPackets.RemoveRange(0, remove);
                             }
 
-                            //System.Threading.Thread.EndCriticalRegion();
+                            System.Threading.Thread.EndCriticalRegion();
                         }
 
                         #endregion

@@ -420,7 +420,7 @@ namespace Media.Concepts.Classes
         //[System.Runtime.InteropServices.FieldOffset(20)]
         //int m_Version; // used for various things, maybe m_Reserved is a better name.
 
-        #endregion
+        #endregion       
 
         //SizeOf() => 16 on x64 and 12 on x86, (+4 for m_SourceSize, +4 for m_Version) for a total of 20 - 24 bytes.
     }
@@ -444,6 +444,22 @@ namespace Media.Concepts.Classes
     public class Array<T> : System.Collections.Generic.IList<T> //=> ICollection<T>, IEnumerable<T>, IEnumerable, 
                                                                  //could also be implicitly IList<ArrayElement<T>>
     {
+        #region Statics
+
+        /// <summary>
+        /// Creates an Empty generic array
+        /// </summary>
+        public Array<T> Empty
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                unsafe { return new Array<T>((void*)null, 0, 0); }
+            }
+        }
+
+        #endregion
+
         #region Fields
 
         /// <summary>
@@ -694,6 +710,19 @@ namespace Media.Concepts.Classes
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_Header.m_Length; }
         }
+
+        #region Properties
+
+        public bool IsEmpty
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return m_Header.m_Length.Equals(Common.Binary.Zero);
+            }
+        }
+
+        #endregion
 
         #endregion
 

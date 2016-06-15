@@ -585,7 +585,7 @@ namespace Media.Rtp
             if (includeSourceList && hasSourceList)
             {
                 RFC3550.SourceList sourceList = GetSourceList();
-                if (sourceList != null) binarySequence = sourceList.GetBinaryEnumerable();
+                if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(sourceList))) binarySequence = sourceList.GetBinaryEnumerable();
                 else binarySequence = Media.Common.MemorySegment.EmptyBytes;
             }
 
@@ -599,7 +599,7 @@ namespace Media.Rtp
                 using (RtpExtension extension = GetExtension())
                 {
                     //If an extension could be obtained include it
-                    if (extension != null) binarySequence = binarySequence.Concat(extension);
+                    if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(extension))) binarySequence = binarySequence.Concat(extension);
                 }
             }
 

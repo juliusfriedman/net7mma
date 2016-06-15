@@ -415,7 +415,8 @@ namespace Media.Rtsp.Server.MediaTypes
                    count = packet.Payload.Count - (padding + headerOctets);
 
                 //Must have at least 2 bytes (When nalUnitType is a FragmentUnit.. 3)
-                if (count <= 2) return;
+                //If such cases as AUD or otherwise there is only 1 byte of data and it's usually the stop bit.
+                //if (count <= 2) return;
 
                 //Start after the headerOctets
                 offset += headerOctets;
@@ -606,7 +607,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //Move to data (Just read the FU Header)
                                 ++offset;
 
-                                            //packet.SequenceNumber - packet.Timestamp;
+                                //packet.SequenceNumber - packet.Timestamp;
 
                                 //Store the DecoderingOrderNumber we will derive from the timestamp and sequence number.
                                 //int DecodingOrderNumber = packetKey;
@@ -647,8 +648,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                     Depacketized.Add(packetKey++, new Common.MemorySegment(new byte[] { nalHeader }));
                                 }
 
-                                //Add the depacketized data
-                                Depacketized.Add(packetKey, new Common.MemorySegment(packetData, offset, fragment_size));
+                                //Add the depacketized data but only if there is data in the fragment.
+                                if(fragment_size > 0) Depacketized.Add(packetKey, new Common.MemorySegment(packetData, offset, fragment_size));
 
                                 //Allow If End to Write End Sequence?
                                 //Should only be done if last byte is 0?
@@ -663,8 +664,15 @@ namespace Media.Rtsp.Server.MediaTypes
                             //(Stores the nalUnitType) Write the start code
                             DepacketizeStartCode(ref packetKey, ref nalUnitType, fullStartCodes);
 
-                            //Add the depacketized data
-                            Depacketized.Add(packetKey, new Common.MemorySegment(packetData, offset, count - offset));
+                            //Determine how much payload data to write
+                            count = count - offset;
+
+                            //If there was at least 1 byte then write it out.
+                            if (count > 0)
+                            {
+                                //Add the depacketized data
+                                Depacketized.Add(packetKey, new Common.MemorySegment(packetData, offset, count));
+                            }
 
                             return;
                         }
