@@ -3911,7 +3911,7 @@ namespace Media.Rtp
             //if (IsDisposed) return Enumerable.Empty<TransportContext>();
             try
             {
-                return TransportContexts.DefaultIfEmpty(); //null
+                return TransportContexts;
             }
             catch (InvalidOperationException)
             {
@@ -4506,7 +4506,7 @@ namespace Media.Rtp
         {
             if (IDisposedExtensions.IsNullOrDisposed(mediaDescription)) return null;
 
-            return TransportContexts.FirstOrDefault(c => c.MediaDescription.MediaType == mediaDescription.MediaType && c.MediaDescription.MediaFormat == mediaDescription.MediaFormat);
+            return TransportContexts.FirstOrDefault(c => c.MediaDescription.MediaType == mediaDescription.MediaType && c.MediaDescription.MediaFormat.Equals(mediaDescription.MediaFormat, StringComparison.InvariantCultureIgnoreCase));
         }
 
         /// <summary>
@@ -4568,7 +4568,7 @@ namespace Media.Rtp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public TransportContext GetContextBySocket(Socket socket)
         {
-            return TransportContexts.Count == 0 || socket == null ? null : TransportContexts.Count == 0 ? null : GetContextBySocketHandle(socket.Handle);
+            return socket == null ? null : TransportContexts.Count.Equals(0) ? null : GetContextBySocketHandle(socket.Handle);
         }
 
         /// <summary>

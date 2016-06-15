@@ -511,12 +511,12 @@ namespace Media.Rtsp
                 if (IsDisposed) return true;
 
                 // A null or disposed client or one which is no longer connected cannot share the socket
-                if (Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient) || false == m_RtpClient.IsActive) return false;
+                if (Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient) || false.Equals(m_RtpClient.IsActive)) return false;
 
                 //The socket is shared if there is a context using the same socket
-                var context = m_RtpClient.GetContextBySocket(m_RtspSocket);
+                RtpClient.TransportContext context = m_RtpClient.GetContextBySocket(m_RtspSocket);
 
-                return false == Common.IDisposedExtensions.IsNullOrDisposed(context) && context.IsActive && context.HasAnyRecentActivity;
+                return false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(context)) && context.IsActive && context.HasAnyRecentActivity;
             }
         }
 
@@ -644,7 +644,13 @@ namespace Media.Rtsp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return Common.IDisposedExtensions.IsNullOrDisposed(Client) ? null : (TimeSpan?)Client.TransportContexts.Max(tc => tc.MediaEndTime);
+                if (Common.IDisposedExtensions.IsNullOrDisposed(Client)) return null;
+
+                TimeSpan? endTime = null;
+
+                foreach (RtpClient.TransportContext tc in Client.GetTransportContexts()) if (false.Equals(endTime.HasValue) || tc.m_EndTime > endTime) endTime = tc.m_EndTime;
+
+                return endTime;
             }
         }
 
@@ -672,9 +678,11 @@ namespace Media.Rtsp
                     //Try to determine playing status from the transport
                     try
                     {
+                        System.TimeSpan? endTime = EndTime;
+
                         //If not playing anymore do nothing
-                        if (EndTime != Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan &&
-                            DateTime.UtcNow - m_StartedPlaying.Value > EndTime)
+                        if (endTime.HasValue && false.Equals(endTime.Value.Equals(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan)) &&
+                            DateTime.UtcNow - m_StartedPlaying.Value > endTime.Value)
                         {
                             return false;
                         }
@@ -4358,11 +4366,14 @@ namespace Media.Rtsp
 
                             if (false == Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient))
                             {
-                                RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
+                                RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().LastOrDefault();
 
-                                if (lastContext != null && lastContext.IsActive)
+                                if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(lastContext)) && lastContext.IsActive)
                                 {
                                     lastPortUsed = ((IPEndPoint)lastContext.LocalRtcp).Port + 1;
+
+                                    lastContext = null;
+
                                 }
                                 else
                                 {

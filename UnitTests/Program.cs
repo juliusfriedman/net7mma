@@ -3604,7 +3604,7 @@ a=appversion:1.0");
             Console.BackgroundColor = ConsoleColor.Black;
 
             //If the debugger is attached get a ConsoleKey, the key is Q return.
-            if (waitForGoAhead && System.Diagnostics.Debugger.IsAttached && Console.ReadKey(true).Key == ConsoleKey.Q) return;
+            if (waitForGoAhead && /*System.Diagnostics.Debugger.IsAttached && */ Console.ReadKey(true).Key == ConsoleKey.Q) return;
             else
             {
                 Dictionary<int, Exception> log = null;
