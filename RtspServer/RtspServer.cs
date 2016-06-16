@@ -923,6 +923,8 @@ namespace Media.Rtsp
             //Iterate each connected client
             foreach (ClientSession session in Clients)
             {
+                if (session == null) continue;
+
                 //Check for inactivity at the RtspLevel first and then the RtpLevel.
                 if (session.Created > maintenanceStarted
                     || //Or if the LastRequest was created after maintenanceStarted
@@ -937,7 +939,8 @@ namespace Media.Rtsp
                 }
 
                 //The session is disposed OR
-                if (IDisposedExtensions.IsNullOrDisposed(session) ||
+                if (IDisposedExtensions.IsNullOrDisposed(session) || session.IsDisconnected
+                    &&
                     //If the session has an attached source but no client OR the RtpClient is disposed or not active
                     session.Playing.Count >= 0 && (IDisposedExtensions.IsNullOrDisposed(session.m_RtpClient) || false.Equals(session.m_RtpClient.IsActive))
                     ||//There was no last request
@@ -1251,7 +1254,7 @@ namespace Media.Rtsp
                         if (timeOut <= 0) timeOut = DefaultReceiveTimeout;
 
                         //The timeout is always half of the total.
-                        timeOut /= 2;
+                        timeOut >>= 1;
 
                         //Check for nothing to do.
                         if (iar == null || iar.CompletedSynchronously) continue;
@@ -1260,13 +1263,13 @@ namespace Media.Rtsp
                         using (var handle = iar.AsyncWaitHandle)
                         {
                             //Wait half using the event
-                            while (false == m_StopRequested && false == iar.IsCompleted && false == iar.AsyncWaitHandle.WaitOne(timeOut))
+                            while (false.Equals(m_StopRequested) && false.Equals(iar.IsCompleted) && false.Equals(iar.AsyncWaitHandle.WaitOne(timeOut)))
                             {
                                 //Wait the other half looking for the stop
                                 if (m_StopRequested || iar.IsCompleted || iar.AsyncWaitHandle.WaitOne(timeOut)) continue;
 
                                 //Relinquish time slice
-                                System.Threading.Thread.Sleep(0);
+                                System.Threading.Thread.Yield();
 
                                 //Should ensure that not waiting more then a certain amount of time here
                             }
@@ -1281,7 +1284,7 @@ namespace Media.Rtsp
                         //}
                     }
                     //Relinquish time slice
-                    else System.Threading.Thread.Sleep(0);
+                    else System.Threading.Thread.Yield();
                 }
             }
             catch (ThreadAbortException)
@@ -1508,7 +1511,7 @@ namespace Media.Rtsp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal void ProcessClientBuffer(ClientSession session, int received)
         {
-            if (IDisposedExtensions.IsNullOrDisposed(session) || received <= 0 || session.IsDisconnected) return;
+            if (received <= 0 || IDisposedExtensions.IsNullOrDisposed(session) || session.IsDisconnected) return;
 
             try
             {
@@ -1655,6 +1658,8 @@ namespace Media.Rtsp
 
                         //Mark the client as disconnected.
                         cs.IsDisconnected = true;
+
+                        cs.ReleaseUnusedResources();
 
                         //Should dipose client here to save CPU.
                         
