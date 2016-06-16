@@ -1382,9 +1382,11 @@ namespace Media.Rtp
 
         protected override void Dispose(bool disposing)
         {
-            if (false == disposing || false == ShouldDispose) return;
+            if (false.Equals(disposing)) return;
 
             base.Dispose(ShouldDispose);
+
+            if (false.Equals(IsDisposed)) return;
 
             //Dispose the buffer.
             DisposeBuffer();
