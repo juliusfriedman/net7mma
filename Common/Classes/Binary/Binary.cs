@@ -267,6 +267,8 @@ namespace Media.Common
         [System.CLSCompliant(false)]
         public const ulong ULongZero = 0;
 
+        public const float FloatZero = 0.0F;
+
         #region Maximum Values
 
         /// <summary>

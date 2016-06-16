@@ -209,6 +209,7 @@ namespace Media.Rtcp
 
             #region Constructor
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             SourceDescriptionItem(SourceDescriptionItem existing, bool doNotCopy, bool shouldDispose = true)
                 :base(shouldDispose)
             {
@@ -233,6 +234,7 @@ namespace Media.Rtcp
             /// </summary>
             /// <param name="itemType">The type of item to create</param>
             /// <param name="itemLength">The length in bytes of the item</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceDescriptionItem(SourceDescriptionItemType itemType, int itemLength, bool shouldDispose = true)
                 : base(shouldDispose)
             {
@@ -290,6 +292,7 @@ namespace Media.Rtcp
             /// </summary>
             /// <param name="itemType">The type of SourceDescriptionItem to create</param>
             /// <param name="data">The data which cannot exceed 255 octets</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceDescriptionItem(IEnumerable<byte> data, bool shouldDispose = true)
                 : base(shouldDispose)
             {
@@ -471,6 +474,7 @@ namespace Media.Rtcp
             /// Constructs a new SourceDescriptionItemList from a <see cref="SourceDescriptionChunk" />
             /// </summary>
             /// <param name="parent">The SourceDescriptionChunk</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             internal SourceDescriptionItemList(SourceDescriptionChunk parent, bool shouldDispose = true)
                 : base(shouldDispose)
             {
@@ -485,6 +489,7 @@ namespace Media.Rtcp
             /// Creates a new SourceDescriptionItemList from existing data
             /// </summary>
             /// <param name="chunkData">The data which corresponds to the items in the list</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             internal SourceDescriptionItemList(IEnumerable<byte> chunkData, bool shouldDispose = true)
                 : base(shouldDispose)
             {
@@ -499,6 +504,7 @@ namespace Media.Rtcp
             /// If there is not an EndOfList item present one will be added if required.
             /// </summary>
             /// <param name="items">The items to add to the source list.</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             internal SourceDescriptionItemList(IEnumerable<SourceDescriptionItem> items, bool shouldDispose = true)
                 : base(shouldDispose)
             {
@@ -521,7 +527,7 @@ namespace Media.Rtcp
                     }
 
                     //If the list did not end with an EndOfList item
-                    if (enumerator.Current.ItemType != 0)
+                    if (false.Equals(enumerator.Current.ItemType == SourceDescriptionItem.SourceDescriptionItemType.End))
                     {
                         //Determine the amount of octets in the sequence
                         int count = ChunkData.Count();
@@ -600,11 +606,11 @@ namespace Media.Rtcp
             /// </summary>
             protected override void Dispose(bool disposing)
             {
-                if (false == disposing || false == ShouldDispose) return;
+                if (false.Equals(disposing) || false.Equals(ShouldDispose)) return;
 
                 base.Dispose(ShouldDispose);
 
-                if (CurrentItem != null)
+                if (false.Equals(CurrentItem == null))
                 {
                     CurrentItem.Dispose();
 
@@ -618,7 +624,7 @@ namespace Media.Rtcp
                 //ChunkData still points to m_OwnedOctets but it is readonly
                 IDisposable chunkData = (IDisposable)ChunkData;
 
-                if (chunkData != null)
+                if (false.Equals(chunkData == null))
                 {
                     chunkData.Dispose();
 
@@ -635,7 +641,6 @@ namespace Media.Rtcp
                 //If the enumerator is disposed or AtEndOfList is true
                 if (false == IsDisposed && false == AtEndOfList)
                 {
-
                     //Dipose the current item
                     if (StartedEnumeration && CurrentItem != null)
                     {
@@ -854,6 +859,7 @@ namespace Media.Rtcp
             /// </summary>
             /// <param name="reference">The existing <see cref="SourceDescriptionChunk"/> instance.</param>
             /// <param name="copyData">Indicates ifd the data should be copied to this instance</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceDescriptionChunk(SourceDescriptionChunk reference, bool copyData, bool shouldDispose = true)
                 : base(shouldDispose)
             {
@@ -879,6 +885,7 @@ namespace Media.Rtcp
             /// </summary>
             /// <param name="chunkIdentifier">The chunkIdentifier</param>
             /// <param name="items">The pointer to the items in the chunk</param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceDescriptionChunk(int chunkIdentifier, IEnumerable<SourceDescriptionItem> items, bool shouldDispose = true)
                 : base(shouldDispose)
             {
@@ -893,6 +900,7 @@ namespace Media.Rtcp
             public SourceDescriptionChunk(int chunkIdentifier, bool shouldDispose = true, params SourceDescriptionItem[] items)
                 : this(chunkIdentifier, (IEnumerable<SourceDescriptionItem>)items, shouldDispose) { }
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public SourceDescriptionChunk(IEnumerable<byte> ChunkData, bool shouldDispose = true)
                 : base(shouldDispose)
             {

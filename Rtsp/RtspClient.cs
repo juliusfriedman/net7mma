@@ -632,7 +632,13 @@ namespace Media.Rtsp
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return Common.IDisposedExtensions.IsNullOrDisposed(Client) ? null : (TimeSpan?)Client.TransportContexts.Max(tc => tc.MediaStartTime);
+                if (Common.IDisposedExtensions.IsNullOrDisposed(Client)) return null;
+
+                TimeSpan? startTime = default(TimeSpan?);
+
+                foreach (RtpClient.TransportContext tc in Client.GetTransportContexts()) if (false.Equals(startTime.HasValue) || tc.m_StartTime > startTime) startTime = tc.m_StartTime;
+
+                return startTime;
             }
         }
 
@@ -646,7 +652,7 @@ namespace Media.Rtsp
             {
                 if (Common.IDisposedExtensions.IsNullOrDisposed(Client)) return null;
 
-                TimeSpan? endTime = null;
+                TimeSpan? endTime = default(TimeSpan?);
 
                 foreach (RtpClient.TransportContext tc in Client.GetTransportContexts()) if (false.Equals(endTime.HasValue) || tc.m_EndTime > endTime) endTime = tc.m_EndTime;
 
@@ -687,10 +693,18 @@ namespace Media.Rtsp
                             return false;
                         }
 
-                        //return true;
-
                         //If the media is playing the RtspClient is only playing if the socket is shared or the Transport is connected.
-                        return SharesSocket || m_RtpClient.IsActive;
+                        if (Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) return false;
+
+                        //Just takes more time...
+                        //foreach (RtpClient.TransportContext tc in m_RtpClient.GetTransportContexts())
+                        //{
+                        //    if (tc.HasAnyRecentActivity) return true;
+                        //}
+
+                        //if the client is active the RtspClient is probably playing.
+                        return m_RtpClient.IsActive;
+
                     }
                     catch (Exception ex)
                     {

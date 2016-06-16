@@ -1742,22 +1742,22 @@ namespace Media.Concepts.Classes
 
         #region BitableEnumerator
 
-        public class BitableEnumeraor : System.Collections.Generic.IEnumerator<Bits>, System.Collections.Generic.IEnumerator<byte>, System.Collections.Generic.IEnumerator<bool>, System.Collections.IEnumerable
+        public class BitableEnumerator : System.Collections.Generic.IEnumerator<Bits>, System.Collections.Generic.IEnumerator<byte>, System.Collections.Generic.IEnumerator<bool>, System.Collections.IEnumerable
         {
             Bitable Bitable;
 
-            int BlitableIndex = -1;
+            int Index = -1;
 
             bool m_Diposed;
 
-            public BitableEnumeraor(Bitable bitable)
+            public BitableEnumerator(Bitable bitable)
             {
                 Bitable = bitable;
             }
 
-            public BitableEnumeraor(BitableEnumeraor other)
+            public BitableEnumerator(BitableEnumerator other)
             {
-                BlitableIndex = other.BlitableIndex;
+                Index = other.Index;
                 Bitable = other.Bitable;
             }
 
@@ -1765,7 +1765,7 @@ namespace Media.Concepts.Classes
 
             public Bits Current
             {
-                get { if (BlitableIndex == -1) throw new InvalidOperationException("Enumeration has not started. Call MoveNext"); return new Bits(Bitable.ToByte(BlitableIndex)); }
+                get { if (Index == -1) throw new InvalidOperationException("Enumeration has not started. Call MoveNext"); return new Bits(Bitable.ToByte(Index)); }
             }
 
             object System.Collections.IEnumerator.Current
@@ -1776,30 +1776,30 @@ namespace Media.Concepts.Classes
             public bool MoveNext()
             {
                 if (m_Diposed) return false;
-                return ++BlitableIndex < Bitable.Count;
+                return ++Index < Bitable.Count;
             }
 
             public void Reset()
             {
                 if (m_Diposed) return;
-                BlitableIndex = -1;
+                Index = -1;
             }
 
             public virtual void Dispose() { m_Diposed = true; }
 
             byte System.Collections.Generic.IEnumerator<byte>.Current
             {
-                get { return Bitable.ToByte(BlitableIndex); }
+                get { return Bitable.ToByte(Index); }
             }
 
             bool System.Collections.Generic.IEnumerator<bool>.Current
             {
-                get { return Bitable.ToBool(BlitableIndex); }
+                get { return Bitable.ToBool(Index); }
             }
 
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
             {
-                return new BitableEnumeraor(Bitable);
+                return new BitableEnumerator(Bitable);
             }
         }
 
@@ -1809,27 +1809,27 @@ namespace Media.Concepts.Classes
 
         public System.Collections.IEnumerator GetEnumerator()
         {
-            return new BitableEnumeraor(this);
+            return new BitableEnumerator(this);
         }
 
         System.Collections.Generic.IEnumerator<Bits> System.Collections.Generic.IEnumerable<Bits>.GetEnumerator()
         {
-            return new BitableEnumeraor(this);
+            return new BitableEnumerator(this);
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
-            return new BitableEnumeraor(this);
+            return new BitableEnumerator(this);
         }
 
         System.Collections.Generic.IEnumerator<byte> System.Collections.Generic.IEnumerable<byte>.GetEnumerator()
         {
-            return new BitableEnumeraor(this);
+            return new BitableEnumerator(this);
         }
 
         System.Collections.Generic.IEnumerator<bool> System.Collections.Generic.IEnumerable<bool>.GetEnumerator()
         {
-            return new BitableEnumeraor(this);
+            return new BitableEnumerator(this);
         }
 
         #endregion
@@ -1908,7 +1908,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number Sqrt(Number n, int? realIndex = null, int? imaginaryIndex = null)
         {
-            if (n >= DoubleZero)
+            if (n.IsAbsoluteZero)
             {
                 return new Number(System.Math.Sqrt(n.ToDouble()));
             }
@@ -1984,7 +1984,7 @@ namespace Media.Concepts.Classes
         public static void Addition(ref Number a, ref Number b)
         {
             //Ensure compatible storage
-            if (a.MathProvider != b.MathProvider)
+            if (false.Equals(a.MathProvider.Equals(b.MathProvider)))
                 Prepare(ref a, ref b);
             else a.MathProvider.Addition(ref a, ref b);
         }
@@ -1992,7 +1992,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Subtraction(ref Number a, ref Number b)
         {
-            if (a.MathProvider != b.MathProvider)
+            if (false.Equals(a.MathProvider.Equals(b.MathProvider)))
                 Prepare(ref a, ref b);
             else a.MathProvider.Subtraction(ref a, ref b);
         }
@@ -2000,7 +2000,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Multiplication(ref Number a, ref Number b)
         {
-            if (a.MathProvider != b.MathProvider)
+            if (false.Equals(a.MathProvider.Equals(b.MathProvider)))
                 Prepare(ref a, ref b);
             else a.MathProvider.Multiplication(ref a, ref b);
         }
@@ -2008,7 +2008,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Division(ref Number a, ref Number b)
         {
-            if (a.MathProvider != b.MathProvider)
+            if (false.Equals(a.MathProvider.Equals(b.MathProvider)))
                 Prepare(ref a, ref b);
             else a.MathProvider.Division(ref a, ref b);
         }
@@ -2016,7 +2016,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Modulus(ref Number a, ref Number b)
         {
-            if (a.MathProvider != b.MathProvider)
+            if (false.Equals(a.MathProvider.Equals(b.MathProvider)))
                 Prepare(ref a, ref b);
             else a.MathProvider.Modulus(ref a, ref b);
         }
@@ -2569,6 +2569,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(byte b) { return new Number(b); }
 
+        [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(sbyte b) { return new Number(b); }
 
@@ -2587,7 +2588,7 @@ namespace Media.Concepts.Classes
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static implicit operator Number(System.Numerics.BigInteger c) { return new Number(c); }
 
-        //Needs Complimenter => Add, Subtract, Multiply, Divide
+        //Needs Complimenter/ Binary Adder => Add, Subtract, Multiply, Divide
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Number operator +(Number a, Number b)
