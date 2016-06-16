@@ -568,12 +568,13 @@ namespace Media.Rtsp//.Server
         /// <summary>
         /// Sends the Rtcp Goodbye and detaches all sources
         /// </summary>
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
+            if (false.Equals(disposing)) return;
 
-            if (IsDisposed) return;
+            base.Dispose(ShouldDispose);
 
-            base.Dispose();
+            if (false.Equals(IsDisposed)) return;
 
             RemoveAllAttachmentsAndClearPlaying();
 
@@ -1488,70 +1489,131 @@ namespace Media.Rtsp//.Server
 
         internal bool ReleaseUnusedResources()
         {
-            bool released = true;
+            bool released = false;
+
+            RtpClient.TransportContext sourceContext;
 
             //Todo, Determine to use m_Server.ClientSessionLogger, or m_Server.Logger
 
             //Enumerate each context 'SETUP' in the session
-            if (m_RtpClient != null)
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)))
             {
+                IList<RtpClient.TransportContext> contexts = m_RtpClient.TransportContexts;
+
                 //Iterate each context in the client
-                foreach (var context in m_RtpClient.GetTransportContexts())
+                for (int i = 0; i < contexts.Count; ++i)
                 {
+                    //Scope the context
+                    RtpClient.TransportContext context = contexts[i];
+
+                    if (Common.IDisposedExtensions.IsNullOrDisposed(context)) continue;
+
                     //Could be a property of the transport.. (especially the rtpclient.)
                     //E.g. IsInactive
 
                     //If the context does not have any activity
-                    if (false == context.HasAnyRecentActivity)
+                    if (false.Equals(context.HasAnyRecentActivity))
                     {
                         //Session level logger
                         //Context has no activity
 
                         Common.ILoggingExtensions.Log(m_Server.Logger, "Session Inactive - " + SessionId);
 
-                        //Dispose the context and indicate in release
+                        //Sources still attached cause higher usage.
 
-                        context.Dispose();
-                        
-                        released = true;
-                    }
-                    else //The context has activity, check the source (Will be checked below)
-                    {
                         //See if there is still a source for the context 
-                        RtpClient.TransportContext sourceContext = GetSourceContext(context.MediaDescription);
+                        sourceContext = GetSourceContext(context.MediaDescription);
 
                         //Todo, if source is no active it should probably be removed.
 
                         //If there was a source context AND the source has activity
-                        if (sourceContext != null && sourceContext.IsActive && false == sourceContext.HasAnyRecentActivity)
+                        if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(sourceContext)) && sourceContext.IsActive && false.Equals(sourceContext.HasAnyRecentActivity))
                         {
                             //Get the attached source
-                            Media.Rtsp.Server.SourceMedia sourceMedia = Attached[sourceContext];
+                            Media.Rtsp.Server.SourceMedia sourceMedia;
 
                             //if there is a source still attached
-                            if (sourceMedia != null)
+                            if (Attached.TryGetValue(sourceContext, out sourceMedia))
                             {
-                                //Removed Attachment for sourceContext.Id
-                                Common.ILoggingExtensions.Log(m_Server.Logger, "Session Source Inactive, Removing SourceMedia = " + sourceMedia.Id);
+                                //If the source is not disposed
+                                if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(sourceMedia)))
+                                {
+                                    //Removed Attachment for sourceContext.Id
+                                    Common.ILoggingExtensions.Log(m_Server.Logger, "Session Source Inactive, Removing SourceMedia = " + sourceMedia.Id);
 
-                                //Remove the attachment from the source context to the session context
-                                RemoveSource(sourceMedia);
+                                    //Remove the attachment from the source context to the session context
+                                    RemoveSource(sourceMedia);
 
-                                //Remove the reference to the sourceContext
-                                sourceContext = null;
+                                    //Remove the reference to the sourceContext
+                                    sourceContext = null;
 
-                                //Remove the reference to the sourceMedia
-                                sourceMedia = null;
+                                    //Remove the reference to the sourceMedia
+                                    sourceMedia = null;
 
-                                //Dispose the context and indicate in release
-
-                                context.Dispose();
-
-                                released = true;
+                                    released = true;
+                                }
                             }
                         }
+
+                        //If the context was removed
+                        if (m_RtpClient.TryRemoveContext(context))
+                        {
+                            //Dispose the context and indicate in release
+                            context.Dispose();
+
+                            released = true;
+                        }
                     }
-                }                
+                    else //The context has activity, check the source (Will be checked below)
+                    {
+                        //See if there is still a source for the context 
+                        sourceContext = GetSourceContext(context.MediaDescription);
+
+                        //Todo, if source is no active it should probably be removed.
+
+                        //If there was a source context AND the source has activity
+                        if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(sourceContext)) && sourceContext.IsActive && false.Equals(sourceContext.HasAnyRecentActivity))
+                        {
+                            //Get the attached source
+                            Media.Rtsp.Server.SourceMedia sourceMedia;
+
+                            //if there is a source still attached
+                            if (Attached.TryGetValue(sourceContext, out sourceMedia))
+                            {
+                                //If the source is not disposed
+                                if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(sourceMedia)))
+                                {
+                                    //Removed Attachment for sourceContext.Id
+                                    Common.ILoggingExtensions.Log(m_Server.Logger, "Session Source Inactive, Removing SourceMedia = " + sourceMedia.Id);
+
+                                    //Remove the attachment from the source context to the session context
+                                    RemoveSource(sourceMedia);
+
+                                    //Remove the reference to the sourceContext
+                                    sourceContext = null;
+
+                                    //Remove the reference to the sourceMedia
+                                    sourceMedia = null;
+
+                                    //If the context was removed
+                                    if (m_RtpClient.TryRemoveContext(context))
+                                    {
+                                        //Dispose the context and indicate in release
+                                        context.Dispose();
+
+                                        released = true;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            released = false;
+                        }
+                    }
+                }
+
+                contexts = null;
             }
 
             //Not needed because the source may not be attached just yet
@@ -1594,17 +1656,17 @@ namespace Media.Rtsp//.Server
             //{
             //    //
             //}
-           
+
 
             //Remove rtp theads
-            if (Playing.Count == 0)
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) && m_RtpClient.IsActive)
             {
-                if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)) && m_RtpClient.IsActive)
+                if (Playing.Count.Equals(0))
                 {
-                    m_RtpClient.Dispose();
-
                     released = true;
 
+                    m_RtpClient.Dispose();
+                    
                     m_RtpClient = null;
                 }
             }

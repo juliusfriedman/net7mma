@@ -56,7 +56,7 @@ namespace Media.Common
         internal protected override void Dispose(bool disposing)
         {
             //If already disposed or disposing and should not dispose return.
-            if (IsDisposed || false == disposing || false == ShouldDispose) return;
+            if (false.Equals(disposing)) return;
 
             base.Dispose(disposing);
         }

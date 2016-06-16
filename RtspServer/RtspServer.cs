@@ -917,49 +917,45 @@ namespace Media.Rtsp
 
         internal void DisconnectAndRemoveInactiveSessions()
         {
-            List<ClientSession> inactive = new List<ClientSession>();
-
             //Allow some small varaince
             DateTime maintenanceStarted = DateTime.UtcNow + Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
 
             //Iterate each connected client
             foreach (ClientSession session in Clients)
             {
-                //If the session is not in the dictionary then it cannot be removed.
-                if (IDisposedExtensions.IsNullOrDisposed(session)
-                    ||  //Or if the session was created after maintenanceStarted
-                    session.Created > maintenanceStarted
+                //Check for inactivity at the RtspLevel first and then the RtpLevel.
+                if (session.Created > maintenanceStarted
                     || //Or if the LastRequest was created after maintenanceStarted
-                    session.LastRequest != null && session.LastRequest.Created > maintenanceStarted
+                    false.Equals(session.LastRequest == null) && session.LastRequest.Created > maintenanceStarted
                     || //Or if the LastResponse was created after maintenanceStarted
-                    session.LastResponse != null && session.LastResponse.Created > maintenanceStarted
+                    false.Equals(session.LastResponse == null) && session.LastResponse.Created > maintenanceStarted
                     || //Or if there were no resources released
-                    false == session.ReleaseUnusedResources())
+                    false.Equals(session.IsDisconnected) && false == session.ReleaseUnusedResources())
                 {
                     //Do not attempt to perform any disconnection of the session
                     continue;
                 }
 
-                //Don't disconnect sessions which are playing media if activity can be determined by the transport (rtp or rtcp etc)
-                if (session.Playing.Count > 0) continue;
-
-                //If the session was disposed OR
-                if (session.IsDisposed
+                //The session is disposed OR
+                if (IDisposedExtensions.IsNullOrDisposed(session) ||
+                    //If the session has an attached source but no client OR the RtpClient is disposed or not active
+                    session.Playing.Count >= 0 && (IDisposedExtensions.IsNullOrDisposed(session.m_RtpClient) || false.Equals(session.m_RtpClient.IsActive))
                     ||//There was no last request
                     session.LastRequest == null
                     ||//OR there is a last request AND
-                    (session.LastRequest != null
+                    (false.Equals(session.LastRequest == null)
                     && //The last request was created longer ago than required to keep clients active
                     (maintenanceStarted - session.LastRequest.Created) > RtspClientInactivityTimeout)
                     ||//There was no last response
                     session.LastResponse == null
                     || //OR there is a last response AND
-                    (session.LastResponse != null 
+                    (false.Equals(session.LastResponse == null)
                     && //The last response was transferred longer ago than required to keep clients active
                     session.LastResponse.Transferred.HasValue 
                     && (maintenanceStarted - session.LastResponse.Transferred) > RtspClientInactivityTimeout))
                     
                 {
+                    //Dispose the session
                     TryDisposeAndRemoveSession(session);
                 }
             }
@@ -1616,33 +1612,36 @@ namespace Media.Rtsp
 
         internal void HandleClientSocketException(SocketException se, ClientSession cs)
         {
-            if(se == null || cs == null || cs.IsDisposed) return;
+            if (se == null || Common.IDisposedExtensions.IsNullOrDisposed(cs)) return;
 
             switch (se.SocketErrorCode)
             {
                 case SocketError.TimedOut:
                     {
-
-                        //Clients interleaving shouldn't time out ever
-                        if (cs.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                        //If there is still a socket
+                        if (false.Equals(cs.m_RtspSocket == null))
                         {
-                            Common.ILoggingExtensions.Log(Logger, "Client:" + cs.Id + " Timeout");
-
-                            if (cs.Playing.Count > 0)
+                            //Clients interleaving shouldn't time out ever
+                            if (cs.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                             {
-                                Common.ILoggingExtensions.Log(Logger, "Client:" + cs.Id + " Playing, SharesSocket = " + cs.SharesSocket);
+                                Common.ILoggingExtensions.Log(Logger, "Client:" + cs.Id + " Timeout");
 
-                                return;
+                                if (cs.Playing.Count > 0)
+                                {
+                                    Common.ILoggingExtensions.Log(Logger, "Client:" + cs.Id + " Playing, SharesSocket = " + cs.SharesSocket);
+
+                                    return;
+                                }
                             }
+
+                            //Increase send and receive timeout
+                            cs.m_RtspSocket.SendTimeout = cs.m_RtspSocket.ReceiveTimeout += (int)(RtspClient.DefaultConnectionTime.TotalMilliseconds);
+
+                            Common.ILoggingExtensions.Log(Logger, "Increased Client:" + cs.Id + " Timeouts to: " + cs.m_RtspSocket.SendTimeout);
+
+                            //Try to receive again
+                            cs.StartReceive();
                         }
-
-                        //Increase send and receive timeout
-                        cs.m_RtspSocket.SendTimeout = cs.m_RtspSocket.ReceiveTimeout += (int)(RtspClient.DefaultConnectionTime.TotalMilliseconds);
-
-                        Common.ILoggingExtensions.Log(Logger, "Increased Client:" + cs.Id + " Timeouts to: " + cs.m_RtspSocket.SendTimeout);
-
-                        //Try to receive again
-                        cs.StartReceive();
 
                         return;
                     }

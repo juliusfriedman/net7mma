@@ -243,13 +243,12 @@ namespace Media.Common
 
         /// <summary>
         /// Allows derived implemenations a chance to destory manged or unmanged resources.
-        /// Calls <see cref="GC.SuppressFinalize"/>
-        /// Calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/>.
+        /// Calls <see cref="Destruct"/> if not <see cref="IsFinalized"/>, <see cref="IsUndisposed"/>, <see cref="ShoulDispose"/>, and not <see cref="IsDisposed"/>
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public virtual void Dispose()
         {
-            if (IsFinalized || false.Equals(IsUndisposed) || false.Equals(ShouldDispose) || false.Equals(IsDisposed)) return;
+            if (IsFinalized || false.Equals(IsUndisposed) || false.Equals(ShouldDispose) || IsDisposed) return;
             
             Destruct();
         }
@@ -275,19 +274,17 @@ namespace Media.Common
             get { return false.Equals(IsUndisposed) && false.Equals(IsFinalized) && false.Equals(IsDisposed); }
         }
 
-        //Ugly, double check already not Disposed but only through interface...
-        //Determine if the property names should be named VirtualShouldDispose to distinguish this.
-        /////// <summary>
-        /////// Indicates if the instance should dispose any resourced when <see cref="Dispose"/> is called.
-        /////// </summary>
-        ////bool IDisposed.ShouldDispose
-        ////{
-        ////    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        ////    get
-        ////    {
-        ////        return ShouldDispose && IsUndisposed;
-        ////    }
-        ////}
+        /// <summary>
+        /// Indicates if the instance should dispose any resourced when <see cref="Dispose"/> is called, but only if the instance is not already disposed or finalized.
+        /// </summary>
+        bool IDisposed.ShouldDispose
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return IsUndisposed && false.Equals(IsFinalized) && ShouldDispose && false.Equals(IsDisposed);
+            }
+        }
     }
 
     #endregion

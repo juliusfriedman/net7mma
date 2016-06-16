@@ -1895,11 +1895,40 @@ namespace Media.UnitTests
                                 Console.WriteLine("Performing Load Test");
                                 System.Threading.ThreadPool.QueueUserWorkItem((_)=>
                                 {
-                                    Console.WriteLine("Starting Load Test......***,,");
-                                    SubTestLoad(server, server == null ? null : System.Console.ReadLine());
+
+                                    Media.Rtsp.RtspServer localServer = _ as Media.Rtsp.RtspServer;
+
+                                    bool input = localServer == null ? true : localServer.IsRunning;
+
+                                    string name;
+
+                                    //If the server is running Read a line to get the stream name.
+                                    if (input)
+                                    {
+                                        Console.WriteLine("Input RtspServer stream Name or Id");
+
+                                        name = Console.ReadLine();
+                                    }
+                                    else
+                                    {
+                                        name = null;
+                                    }
+
+                                    Console.WriteLine("Starting Load Test......***.. Of => " + (string.IsNullOrWhiteSpace(name) ? "RtspServer" : name));
+                                    
+                                    SubTestLoad(server, name);
+
                                     Console.WriteLine("Load Test Completed!!!!!!!!!!");
-                                });
+                                }, server);
                                 continue;
+                            }
+                        case ConsoleKey.D:
+                            {
+                                //Show how many connections only
+                                Console.WriteLine("*********" + server.ActiveConnections + " Active Connections *********");
+
+                                break;
+
                             }
                         case ConsoleKey.C:
                             {
@@ -2008,7 +2037,7 @@ namespace Media.UnitTests
         /// <summary>
         /// Tests the Rtp and Media.RtspClient in various modes (Against the server)
         /// </summary>
-        static void SubTestLoad(Media.Rtsp.RtspServer server, string streamUri = null, int runs = 100, int recieveByteLimit = 65536, int sessionTimeoutSeconds = 45)
+        static void SubTestLoad(Media.Rtsp.RtspServer server, string streamUri = null, int runs = 100, int recieveByteLimit = 0, int sessionTimeoutSeconds = 1800)
         {
             //100 times about a GB in total
 
@@ -2027,6 +2056,10 @@ namespace Media.UnitTests
                 {
                     streamUri = server.LocalEndPoint.ToString() + "/live/" + server.MediaStreams.Skip(Utility.Random.Next(0, server.MediaStreams.Count())).First().Name;
                 }
+                else
+                {
+                    streamUri = server.LocalEndPoint.ToString() + "/live/" + streamUri;
+                }
 
                 allowHttp = server.HttpEnabled;
 
@@ -2038,9 +2071,10 @@ namespace Media.UnitTests
 
                 if (string.IsNullOrWhiteSpace(streamUri))
                 {
-                    Console.WriteLine("No Stream Uri an No Server");
 
-                    return;
+                    streamUri = "rtsp://192.168.1.151:555/live/Omega";
+
+                    Console.WriteLine("No Stream Uri and No Server, Using Default: " + streamUri);
                 }
 
                 if (streamUri.StartsWith("rtsp://", StringComparison.InvariantCultureIgnoreCase) || (allowHttp = streamUri.StartsWith("http://", StringComparison.InvariantCultureIgnoreCase))) streamUri = streamUri.Remove(0, 7);
@@ -2062,7 +2096,7 @@ namespace Media.UnitTests
 
                             httpClient.StartPlaying();
 
-                            while (httpClient.Client.TotalRtpBytesReceieved <= recieveByteLimit && httpClient.Client.Uptime.TotalSeconds < sessionTimeoutSeconds) System.Threading.Thread.Yield();
+                            while (recieveByteLimit > 0 ? httpClient.Client.TotalRtpBytesReceieved <= recieveByteLimit : httpClient.Client.Uptime.TotalSeconds < sessionTimeoutSeconds) System.Threading.Thread.Yield();
 
                             Console.WriteLine("Test passed");
 
@@ -2090,7 +2124,7 @@ namespace Media.UnitTests
 
                             udpClient.StartPlaying();
 
-                            while (udpClient.Client.TotalRtpBytesReceieved <= recieveByteLimit && udpClient.Client.Uptime.TotalSeconds < sessionTimeoutSeconds) System.Threading.Thread.Yield();
+                            while (recieveByteLimit > 0 ? udpClient.Client.TotalRtpBytesReceieved <= recieveByteLimit : udpClient.Client.Uptime.TotalSeconds < sessionTimeoutSeconds) System.Threading.Thread.Yield();
 
                             Console.WriteLine("Test passed");
 
@@ -2117,7 +2151,7 @@ namespace Media.UnitTests
 
                             client.StartPlaying();
 
-                            while (client.Client.TotalRtpBytesReceieved <= recieveByteLimit && client.Client.Uptime.TotalSeconds < sessionTimeoutSeconds)
+                            while (recieveByteLimit > 0 ? client.Client.TotalRtpBytesReceieved <= recieveByteLimit : client.Client.Uptime.TotalSeconds < sessionTimeoutSeconds)
                             {
                                 //Test that client disconnection under udp is working
                                 if (client.RtpProtocol == System.Net.Sockets.ProtocolType.Udp)
