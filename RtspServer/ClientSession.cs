@@ -1299,6 +1299,8 @@ namespace Media.Rtsp//.Server
             {
                 //should also check activity on each context to properly determine :)
 
+                Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "0 Byte packet with Active RtpClient, Marking IsDisconnected = true");
+
                 IsDisconnected = true;
 
                 m_RtpClient.Deactivate();
