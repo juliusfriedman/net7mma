@@ -572,6 +572,22 @@ namespace Media.Concepts.Classes
         }
 
         [System.CLSCompliant(false)]
+        public unsafe static bool IsNegativeZero(double* d)
+        {
+            //Check for -0.0
+            return (*((long*)(d))).Equals(Common.Binary.NegativeZeroBits);
+        }
+
+        public unsafe static bool IsNegativeZero(ref double d)
+        {
+            //Make a pointer to the pointer, which when dereferenced can access the result.
+            System.IntPtr value = Unsafe.AddressOf(ref d);
+            
+            //Check for -0.0
+            return (*((long*)((int*)&value))).Equals(Common.Binary.NegativeZeroBits);
+        }
+
+        [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static unsafe long UInt64ToInt64Bits(ulong* x)
         {

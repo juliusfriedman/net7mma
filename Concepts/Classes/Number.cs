@@ -1933,6 +1933,14 @@ namespace Media.Concepts.Classes
             //return n.IsNegative ? n : (Number)(-n.ToDouble());
         }
 
+        //http://www.codeproject.com/Articles/9078/Fraction-class-in-C
+        //http://stackoverflow.com/questions/20699596/reciprocal-a-number-and-then-reciprocal-it-again-to-the-original-number
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static Number Reciprocal(Number n)
+        {
+            return System.Numerics.Complex.Reciprocal(n.ToComplex());
+        }
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static Type NumberBestRepresentedType(Number n)
         {

@@ -1239,7 +1239,7 @@ namespace Media.Rtsp
                 while (IsRunning)
                 {
                     //If we can accept, should not be checked here
-                    if (m_StopRequested == false && m_Clients.Count < m_MaximumConnections)
+                    if (m_StopRequested.Equals(false) && m_Clients.Count < m_MaximumConnections)
                     {
                         //Start acceping with a 0 size buffer
                         IAsyncResult iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
@@ -1257,25 +1257,24 @@ namespace Media.Rtsp
                         timeOut >>= 1;
 
                         //Check for nothing to do.
-                        if (iar == null || iar.CompletedSynchronously) continue;
+                        if (iar == null || iar.CompletedSynchronously) continue;                        
 
                         //use the handle to wait for the result which is obtained by calling EndAccept.
-                        using (var handle = iar.AsyncWaitHandle)
+                        using (WaitHandle handle = iar.AsyncWaitHandle)
                         {
                             //Wait half using the event
                             while (false.Equals(m_StopRequested) && false.Equals(iar.IsCompleted) && false.Equals(iar.AsyncWaitHandle.WaitOne(timeOut)))
                             {
                                 //Wait the other half looking for the stop
                                 if (m_StopRequested || iar.IsCompleted || iar.AsyncWaitHandle.WaitOne(timeOut)) continue;
-
-                                //Relinquish time slice
-                                System.Threading.Thread.Yield();
-
-                                //Should ensure that not waiting more then a certain amount of time here
+                                //But not longer than the timeout
+                                else if ((DateTime.UtcNow - lastAcceptStarted).TotalMilliseconds > DefaultReceiveTimeout << 1)
+                                {
+                                    System.Net.Sockets.Socket stale = m_TcpServerSocket.EndAccept(iar);
+                                    if (false.Equals(stale == null)) stale.Disconnect(false);
+                                }
                             }
                         }
-
-                        //Lots of clients cause load?
 
                         //Dont wait too long
                         //if ((DateTime.UtcNow - lastAcceptStarted).TotalMilliseconds > timeOut)
@@ -1332,85 +1331,82 @@ namespace Media.Rtsp
                 //If there is no socket then an accept has cannot be performed
                 if (server == null) return;
 
-                if (IsRunning)
+                //If this is the inital receive for a Udp or the server given is UDP
+                if (server.ProtocolType == ProtocolType.Udp)
                 {
-                    //If this is the inital receive for a Udp or the server given is UDP
-                    if (server.ProtocolType == ProtocolType.Udp)
-                    {
-                        //Should always be 0 for our server any servers passed in
-                        int acceptBytes = server.EndReceive(ar);
+                    //Should always be 0 for our server any servers passed in
+                    int acceptBytes = server.EndReceive(ar);
 
-                        //Start receiving again if this was our server
-                        if (m_UdpServerSocket.Handle == server.Handle)
-                            m_UdpServerSocket.BeginReceive(Media.Common.MemorySegment.EmptyBytes, 0, 0, SocketFlags.Partial, ProcessAccept, m_UdpServerSocket);
+                    //Start receiving again if this was our server
+                    if (m_UdpServerSocket.Handle == server.Handle)
+                        m_UdpServerSocket.BeginReceive(Media.Common.MemorySegment.EmptyBytes, 0, 0, SocketFlags.Partial, ProcessAccept, m_UdpServerSocket);
 
-                        //The client socket is the server socket under Udp
-                        clientSocket = server;
-                    }
-                    else if (server.ProtocolType == ProtocolType.Tcp) //Tcp
-                    {
-                        //The clientSocket is obtained from the EndAccept call, possibly bytes ready from the accept
-                        //They are not discarded just not receieved until the first receive.
-                        clientSocket = server.EndAccept(ar);
-                    }
-                    else
-                    {
-                        throw new Exception("This server can only accept connections from Tcp or Udp sockets");
-                    }
-
-                    //there must be a client socket.
-                    if (clientSocket == null) throw new InvalidOperationException("clientSocket is null");
-
-                    //If the server is not runing dispose any connected socket
-                    if (m_StopRequested || m_Clients.Count >= m_MaximumConnections)
-                    {
-                        //If there is a logger then indicate what is happening
-                        Common.ILoggingExtensions.Log(Logger, "Accepted Socket @ " + clientSocket.LocalEndPoint + " From: " + clientSocket.RemoteEndPoint + " Disposing. ConnectedClient=" + m_Clients.Count);
-
-                        //Could send a response 429 or 453...
-
-                        //Use a session class to send data to the clientSocket or must send the bytes using the message class over the socket.
-                        //using (ClientSession tempSession = new ClientSession(this, clientSocket))
-                        //{
-                            //use a temporary message
-                            using (var tempMsg = new Rtsp.RtspMessage(RtspMessageType.Response, this.Version)
-                            {
-                                StatusCode = 429, //https://tools.ietf.org/html/rfc6585
-                                ReasonPhrase = "Shutting Down / Too Many Clients", //Check count again to give specific reason
-                                //Body = "We only alllow " + m_MaximumConnections + " to this server..."
-                            })
-                            {
-
-                                //Check count again to give specific time..
-                                //https://www.ietf.org/mail-archive/web/mmusic/current/msg08350.html
-
-                                //Tell the clients when they should attempt to retry again.
-                                tempMsg.AppendOrSetHeader(RtspHeaders.RetryAfter, ((int)(RtspClientInactivityTimeout.TotalSeconds)).ToString());
-
-                                //If the session is too much just send out normally.
-                                clientSocket.Send(tempMsg.ToBytes());
-
-                                try { clientSocket.Dispose(); }
-                                catch { }
-
-                                //Send it, Should have flag not to begin receive again?
-                                //ProcessSendRtspMessage(tempMsg, tempSession, true);
-                            }
-                        //}
-
-                        //The server is no longer running.
-                        return;
-                    }
-
-                    //Make a session
-                    ClientSession session = CreateSession(clientSocket);
-
-                    //Try to add it now
-                    bool added = TryAddSession(session);
-
-                    //If there is a logger log the accept
-                    Common.ILoggingExtensions.Log(Logger, "Accepted Client: " + session.Id + " @ " + session.Created + " Added =" + added);
+                    //The client socket is the server socket under Udp
+                    clientSocket = server;
                 }
+                else if (server.ProtocolType == ProtocolType.Tcp) //Tcp
+                {
+                    //The clientSocket is obtained from the EndAccept call, possibly bytes ready from the accept
+                    //They are not discarded just not receieved until the first receive.
+                    clientSocket = server.EndAccept(ar);
+                }
+                else
+                {
+                    throw new Exception("This server can only accept connections from Tcp or Udp sockets");
+                }
+
+                //there must be a client socket.
+                if (clientSocket == null) throw new InvalidOperationException("clientSocket is null");
+
+                //If the server is not runing dispose any connected socket
+                if (m_StopRequested || m_Clients.Count >= m_MaximumConnections || false.Equals(IsRunning))
+                {
+                    //If there is a logger then indicate what is happening
+                    Common.ILoggingExtensions.Log(Logger, "Accepted Socket @ " + clientSocket.LocalEndPoint + " From: " + clientSocket.RemoteEndPoint + " Disposing. ConnectedClient=" + m_Clients.Count);
+
+                    //Could send a response 429 or 453...
+
+                    //Use a session class to send data to the clientSocket or must send the bytes using the message class over the socket.
+                    //using (ClientSession tempSession = new ClientSession(this, clientSocket))
+                    //{
+                    //use a temporary message
+                    using (var tempMsg = new Rtsp.RtspMessage(RtspMessageType.Response, this.Version)
+                    {
+                        StatusCode = 429, //https://tools.ietf.org/html/rfc6585
+                        ReasonPhrase = "Shutting Down / Too Many Clients", //Check count again to give specific reason
+                        //Body = "We only alllow " + m_MaximumConnections + " to this server..."
+                    })
+                    {
+
+                        //Check count again to give specific time..
+                        //https://www.ietf.org/mail-archive/web/mmusic/current/msg08350.html
+
+                        //Tell the clients when they should attempt to retry again.
+                        tempMsg.AppendOrSetHeader(RtspHeaders.RetryAfter, ((int)(RtspClientInactivityTimeout.TotalSeconds)).ToString());
+
+                        //If the session is too much just send out normally.
+                        clientSocket.Send(tempMsg.ToBytes());
+
+                        try { clientSocket.Dispose(); }
+                        catch { }
+
+                        //Send it, Should have flag not to begin receive again?
+                        //ProcessSendRtspMessage(tempMsg, tempSession, true);
+                    }
+                    //}
+
+                    //The server is no longer running.
+                    return;
+                }
+
+                //Make a session
+                ClientSession session = CreateSession(clientSocket);
+
+                //Try to add it now
+                bool added = TryAddSession(session);
+
+                //If there is a logger log the accept
+                Common.ILoggingExtensions.Log(Logger, "Accepted Client: " + session.Id + " @ " + session.Created + " Added =" + added);
             }
             catch(Exception ex)//Using begin methods you want to hide this exception to ensure that the worker thread does not exit because of an exception at this level
             {
