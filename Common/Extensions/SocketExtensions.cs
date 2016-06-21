@@ -451,6 +451,18 @@ namespace Media.Common.Extensions.Socket
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <param name="interfaceIndex"></param>
+        public static void SetMulticastInterface(this System.Net.Sockets.Socket socket, int interfaceIndex)
+        {
+            socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.IP, 
+                System.Net.Sockets.SocketOptionName.MulticastInterface, 
+                Common.Binary.IsLittleEndian ? Common.Binary.Reverse32(interfaceIndex) : interfaceIndex);
+        }
+
+        /// <summary>
         /// USed for ssm  / ip_mreq_source 
         /// </summary>
         /// <param name="localIp"></param>

@@ -1228,10 +1228,15 @@ namespace Media.Rtsp
         /// <summary>
         /// The loop where Rtsp Requests are recieved
         /// </summary>
-        internal virtual void RecieveLoop()
+        internal void RecieveLoop()
         {
+            IAsyncResult lastAccept = null;
+
             //Indicate Thread Started
             m_Started = DateTime.UtcNow;
+
+            DateTime lastAcceptStarted = m_Started.Value;
+
         Begin:
             try
             {
@@ -1241,11 +1246,15 @@ namespace Media.Rtsp
                     //If we can accept, should not be checked here
                     if (m_StopRequested.Equals(false) && m_Clients.Count < m_MaximumConnections)
                     {
-                        //Start acceping with a 0 size buffer
-                        IAsyncResult iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
+                        //If not already accepting
+                        if (lastAccept == null || lastAccept.IsCompleted)
+                        {
+                            //Start acceping with a 0 size buffer
+                            lastAccept = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
 
-                        //Sample the clock
-                        DateTime lastAcceptStarted = DateTime.UtcNow;
+                            //Sample the clock
+                            lastAcceptStarted = DateTime.UtcNow;
+                        }
 
                         //Get the timeout from the socket
                         int timeOut = m_TcpServerSocket.ReceiveTimeout;
@@ -1257,33 +1266,35 @@ namespace Media.Rtsp
                         timeOut >>= 1;
 
                         //Check for nothing to do.
-                        if (iar == null || iar.CompletedSynchronously) continue;                        
+                        if (lastAccept == null || lastAccept.CompletedSynchronously) continue;
 
                         //use the handle to wait for the result which is obtained by calling EndAccept.
-                        using (WaitHandle handle = iar.AsyncWaitHandle)
+                        using (WaitHandle handle = lastAccept.AsyncWaitHandle)
                         {
                             //Wait half using the event
-                            while (false.Equals(m_StopRequested) && false.Equals(iar.IsCompleted) && false.Equals(iar.AsyncWaitHandle.WaitOne(timeOut)))
+                            while (false.Equals(m_StopRequested) && false.Equals(lastAccept.IsCompleted) && false.Equals(lastAccept.AsyncWaitHandle.WaitOne(timeOut)))
                             {
                                 //Wait the other half looking for the stop
-                                if (m_StopRequested || iar.IsCompleted || iar.AsyncWaitHandle.WaitOne(timeOut)) continue;
+                                if (m_StopRequested || lastAccept.IsCompleted || lastAccept.AsyncWaitHandle.WaitOne(timeOut)) continue;
                                 //But not longer than the timeout
                                 else if ((DateTime.UtcNow - lastAcceptStarted).TotalMilliseconds > DefaultReceiveTimeout << 1)
                                 {
-                                    System.Net.Sockets.Socket stale = m_TcpServerSocket.EndAccept(iar);
-                                    if (false.Equals(stale == null)) stale.Disconnect(false);
+                                    System.Net.Sockets.Socket stale = m_TcpServerSocket.EndAccept(lastAccept);
+
+                                    if (false.Equals(stale == null))
+                                    {
+                                        stale.Close();
+                                    }
+
+                                    break;
                                 }
                             }
                         }
-
-                        //Dont wait too long
-                        //if ((DateTime.UtcNow - lastAcceptStarted).TotalMilliseconds > timeOut)
-                        //{
-                        //    break;
-                        //}
                     }
-                    //Relinquish time slice
-                    else System.Threading.Thread.Yield();
+                    else 
+                    {
+                        System.Threading.Thread.Sleep(DefaultReceiveTimeout);
+                    }
                 }
             }
             catch (ThreadAbortException)
@@ -1304,6 +1315,18 @@ namespace Media.Rtsp
                 if (m_StopRequested) return;
 
                 goto Begin;
+            }
+
+            if (false.Equals(lastAccept == null) && false.Equals(lastAccept.IsCompleted))
+            {
+                System.Net.Sockets.Socket stale = m_TcpServerSocket.EndAccept(lastAccept);
+
+                if (false.Equals(stale == null))
+                {
+                    //stale.Disconnect(false);
+
+                    stale.Close();
+                }
             }
         }
 
