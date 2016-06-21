@@ -290,10 +290,17 @@ namespace Media.Common.Collections.Generic
         }
 
         /// <summary>
-        /// Enqueue an element
+        /// Enqueue an element by repeatedly calling <see cref="TryEnqueue"/> until the operation succeeds.
         /// </summary>
         /// <param name="t"></param>
-        public void Enqueue(T t) { TryEnqueue(ref t); }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public void Enqueue(T t)
+        {
+            bool added = false;
+
+            do added = TryEnqueue(ref t);
+            while (false.Equals(added));
+        }
 
         [System.CLSCompliant(false)]
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]

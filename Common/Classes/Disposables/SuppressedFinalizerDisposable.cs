@@ -14,10 +14,14 @@ namespace Media.Common
     /// </remarks>
     public class SuppressedFinalizerDisposable : BaseDisposable
     {
+
+#if DEBUG
         /// <summary>
         /// Determine if the object was created in the default app domain and which event handler to unhook at dispose
         /// </summary>
         bool DefaultAppDomain;
+
+#endif
 
         /// <summary>
         /// Should never run unless immediately finalized.
@@ -30,7 +34,7 @@ namespace Media.Common
             else AppDomain.CurrentDomain.DomainUnload -= SetShouldDisposeIfSenderIsBaseDisposableAndDisposeNow;
 #endif
 
-            Dispose(ShouldDispose = true);
+            Dispose(ShouldDispose);
 
 #if DEBUG
             System.Diagnostics.Debug.WriteLine(ToString() + "@Finalize Completed");

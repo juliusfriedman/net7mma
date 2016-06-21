@@ -3349,7 +3349,7 @@ namespace Media.Rtp
             }
 
             //On final events set ShouldDispose to true, do not call Dispose
-            if (final && shouldDispose && frame.ShouldDispose.Equals(false) && Common.IDisposedExtensions.IsNullOrDisposed(frame).Equals(false)) SetShouldDispose(frame, true, false);
+            if (final && shouldDispose && Common.IDisposedExtensions.IsNullOrDisposed(frame).Equals(false) && frame.ShouldDispose.Equals(false)) SetShouldDispose(frame, true, false);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -3374,7 +3374,7 @@ namespace Media.Rtp
             });
 
             //On final events set ShouldDispose to true, do not call Dispose
-            if (final && shouldDispose && frame.ShouldDispose.Equals(false) && Common.IDisposedExtensions.IsNullOrDisposed(frame).Equals(false)) SetShouldDispose(frame, true, false);
+            if (final && shouldDispose && Common.IDisposedExtensions.IsNullOrDisposed(frame).Equals(false) && frame.ShouldDispose.Equals(false)) SetShouldDispose(frame, true, false);
         }
 
         //IPacket overload could reduce code but would cost time to check type.
@@ -4367,7 +4367,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="packet"></param>
         /// <returns></returns>
-        internal protected virtual TransportContext GetContextForPacket(RtcpPacket packet)
+        public TransportContext GetContextForPacket(RtcpPacket packet)
         {
             if (IsDisposed || Common.IDisposedExtensions.IsNullOrDisposed(packet)) return null;
             //Determine based on reading the packet this is where a RtcpReport class would be useful to allow reading the Ssrc without knownin the details about the type of report
@@ -4377,7 +4377,7 @@ namespace Media.Rtp
             return null;
         }
 
-        public virtual void EnquePacket(RtcpPacket packet)
+        public void EnquePacket(RtcpPacket packet)
         {
             if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet) || MaximumOutgoingPackets > 0 && m_OutgoingRtpPackets.Count > MaximumOutgoingPackets)
             {
@@ -5982,12 +5982,12 @@ namespace Media.Rtp
                     //While the main thread is active.
                     while (m_ThreadEvents)
                     {
-                        //Wait for the event signal half of the amount of time
-                        if (m_EventReady != null && false == m_EventReady.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick) && m_EventData.IsEmpty)
+                        //If the event is not set
+                        if (false.Equals(m_EventReady.IsSet))
                         {
-                            if (false == m_EventReady.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick))
+                            //Wait for the event signal half of the amount of time
+                            if (false.Equals(m_EventReady.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick)))
                             {
-
                                 //Todo, ThreadInfo.
 
                                 //Check if not already below normal priority
@@ -5995,11 +5995,8 @@ namespace Media.Rtp
                                 {
                                     //Relinquish priority
                                     System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
-                                }
+                                }                               
                             }
-
-                            //Waste time
-                            m_EventReady.Wait();
                         }
                        
                         //Reset the event when all frames are dispatched
@@ -6007,17 +6004,9 @@ namespace Media.Rtp
                         {
                             m_EventReady.Reset();
 
-                            if (false == m_EventReady.Wait(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick))
-                            {
-                                //Check if not already below normal priority
-                                if (System.Threading.Thread.CurrentThread.Priority != ThreadPriority.Lowest)
-                                {
-                                    //Relinquish priority
-                                    System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
-                                }
-                            }
+                            m_EventReady.Wait();
                         }
-                        else if (false == IsActive) break;
+                        else if (false.Equals(IsActive)) break;
 
                         //Set priority
                         System.Threading.Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;

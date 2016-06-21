@@ -142,7 +142,7 @@ namespace Media.Rtp
         /// <summary>
         /// After a single RtpPacket is <see cref="Depacketize">depacketized</see> it will be placed into this list with the appropriate index.
         /// </summary>
-        internal readonly SortedList<int, Common.MemorySegment> Depacketized;
+        internal protected readonly SortedList<int, Common.MemorySegment> Depacketized;
 
         #region Todo
 
@@ -1298,12 +1298,11 @@ namespace Media.Rtp
         /// </summary>
         internal virtual protected void DisposeBuffer()
         {
-            if (m_Buffer != null)
-            {
-                m_Buffer.Dispose();
+            if (Common.IDisposedExtensions.IsNullOrDisposed(m_Buffer)) return;
 
-                m_Buffer = null;
-            }
+            m_Buffer.Dispose();
+
+            m_Buffer = null;
         }
 
         //Todo, would be handled with other collection via remove...

@@ -66,7 +66,7 @@ namespace Media.Rtsp
         {
             if (socket == null) throw new ArgumentNullException("Socket");
 
-            Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket);
+            Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket));
             //socket.ExclusiveAddressUse = false;
             //socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
 
@@ -81,7 +81,7 @@ namespace Media.Rtsp
             Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.ReceiveBufferSize = 0);
 
             //Better performance for 1 core...
-            if (System.Environment.ProcessorCount <= 1) socket.UseOnlyOverlappedIO = true;            
+            if (System.Environment.ProcessorCount <= 1) Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.UseOnlyOverlappedIO = true);
 
             //Dont fragment
             if (socket.AddressFamily == AddressFamily.InterNetwork) Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.DontFragment = true);
@@ -89,35 +89,38 @@ namespace Media.Rtsp
             //Rtsp over Tcp
             if (socket.ProtocolType == ProtocolType.Tcp)
             {
-                //
-                //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpNoSynRetries(socket);
-
-                //
-                //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpTimestamp(socket);
-
-                //
-                //Media.Common.Extensions.Socket.SocketExtensions.SetTcpOffloadPreference(socket);
-
-                //
-                //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpCongestionAlgorithm(socket);
-
                 // Set option that allows socket to close gracefully without lingering.
                 Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(socket));
 
-                //Retransmit for 0 sec
-                if (Common.Extensions.OperatingSystemExtensions.IsWindows) Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket));
+                //Allow more than one byte of urgent data, maybe not supported on the stack.
+                Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableTcpExpedited(socket));
 
-                //https://en.wikipedia.org/wiki/TCP_delayed_acknowledgment
+                //Receive any out of band data in the normal data stream, maybe not supported on the stack
+                Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableTcpOutOfBandDataInLine(socket));
 
                 //If both send and receieve buffer size are 0 then there is no coalescing when nagle's algorithm is disabled
                 Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(socket));
-                //socket.NoDelay = true;
 
-                //Allow more than one byte of urgent data
-                Media.Common.Extensions.Socket.SocketExtensions.EnableTcpExpedited(socket);
+                //Handle options which are known to be different per Operating System
+                if (Common.Extensions.OperatingSystemExtensions.IsWindows)
+                {
+                    //Retransmit for 0 sec.
+                    Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket));
 
-                //Receive any urgent data in the normal data stream
-                Media.Common.Extensions.Socket.SocketExtensions.EnableTcpOutOfBandDataInLine(socket);
+                    //
+                    //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpNoSynRetries(socket);
+
+                    //
+                    //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpTimestamp(socket);
+
+                    //
+                    //Media.Common.Extensions.Socket.SocketExtensions.SetTcpOffloadPreference(socket);
+
+                    //
+                    //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpCongestionAlgorithm(socket);
+
+                }
+
             }
         }
 
@@ -450,10 +453,9 @@ namespace Media.Rtsp
                 {
                     m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket));
 
-                    //Divide by 10 fast
-                    m_SocketPollMicroseconds *= 205;
+                    m_SocketPollMicroseconds /= 10;
 
-                    m_SocketPollMicroseconds >>= 11;
+                    Media.Common.Binary.Min(m_SocketPollMicroseconds, ResponseTimeoutInterval);
 
                     //SO_CONNECT_TIME only exists on Windows...
                     //There are options if the stack supports it elsewhere.
@@ -1300,6 +1302,10 @@ namespace Media.Rtsp
                 catch { continue; }
             }
         }
+
+        //OnDescribe / DescriptionRecieved
+
+        // => OnDescriptionRecieved(SessionDescription description)
 
         #endregion
 
@@ -2728,12 +2734,7 @@ namespace Media.Rtsp
                 }
 
                 //Determine the poll time now.
-                m_SocketPollMicroseconds = (int)Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetInterframeGapMicroseconds(Media.Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(m_RtspSocket));
-
-                //Divide by 10 fast
-                m_SocketPollMicroseconds *= 205;
-
-                m_SocketPollMicroseconds >>= 11;
+                m_SocketPollMicroseconds = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_ConnectionTime);
 
                 //Don't block (possibly another way to work around the issue)
                 //m_RtspSocket.Blocking = false;
