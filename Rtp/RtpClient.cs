@@ -118,6 +118,7 @@ namespace Media.Rtp
 
         //Choose better name,,, 
         //And depending on how memory is aligned 36 may be a palindrome
+        //FrameControl
         internal const byte BigEndianFrameControl = 36;//, // ASCII => $,  Hex => 24  Binary => (00)100100
         //LittleEndianFrameControl = 9;                   //                                        001001(00)
 
@@ -376,7 +377,18 @@ namespace Media.Rtp
                 if (socket.ProtocolType == ProtocolType.Tcp)
                 {
                     //Retransmit for 0 sec
-                    if (Common.Extensions.OperatingSystemExtensions.IsWindows) Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket));
+                    if (Common.Extensions.OperatingSystemExtensions.IsWindows)
+                    {
+                        //Disable Retransmission
+                        Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket));
+
+                        // Enable No Syn Retries
+                        Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableTcpNoSynRetries(socket));
+
+                        // Set OffloadPreferred
+                        Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.SetTcpOffloadPreference(socket));
+
+                    }
 
                     //Don't buffer receiving
                     Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => socket.ReceiveBufferSize = 0);
@@ -420,7 +432,7 @@ namespace Media.Rtp
                     //Attempt to parse the IP, if failed then throw an exception.
                     if (cLine == null
                         ||
-                        false == IPAddress.TryParse(new Sdp.Lines.SessionConnectionLine(cLine).Host, out remoteIp)) throw new InvalidOperationException("Cannot determine remoteIp from ConnectionLine");
+                        false.Equals(IPAddress.TryParse(new Sdp.Lines.SessionConnectionLine(cLine).Host, out remoteIp))) throw new InvalidOperationException("Cannot determine remoteIp from ConnectionLine");
                 }                
 
                 //For AnySourceMulticast the remoteIp would be a multicast address.
@@ -852,19 +864,43 @@ namespace Media.Rtp
             /// <summary>
             /// A value which is used when during <see cref="Initialize"/> to set the <see cref="RecieveBufferSize"/> relative to the size of <see cref="ContextMemory"/>
             /// </summary>
-            public int RecieveBufferSizeMultiplier { get; set; }
+            public int RecieveBufferSizeMultiplier
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                set;
+            }
 
-            public Action<Socket> ConfigureSocket { get; set; }
+            public Action<Socket> ConfigureSocket
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                set;
+            }
 
             /// <summary>
             /// Sets or gets the applications-specific state associated with the TransportContext.
             /// </summary>
-            public Object ApplicationContext { get; set; }
+            public Object ApplicationContext
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                set;
+            }
 
             /// <summary>
             /// Gets or sets the MemorySegment used by this context.
             /// </summary>
-            public MemorySegment ContextMemory { get; set; }
+            public MemorySegment ContextMemory
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                set;
+            }
 
             /// <summary>
             /// The smallest packet which may be sent or recieved on the TransportContext.
@@ -968,19 +1004,24 @@ namespace Media.Rtp
             }
 
             /// <summary>
-            /// Indicates if the RemoteParty is known by a unique id other than 0.
+            /// Indicates if the RemoteParty is known by a unique id other than 0 unless <see cref="MinimumSequentialValidRtpPackets"/> have been recieved
             /// </summary>
-            //Should also check if receiving...
             internal bool InDiscovery
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                get { return RemoteSynchronizationSourceIdentifier == 0; }
+                get { return ValidRtpPacketsReceived < MinimumSequentialValidRtpPackets && RemoteSynchronizationSourceIdentifier.Equals(Common.Binary.Zero); }
             }
 
             /// <summary>
             /// Gets or Sets a value which indicates if the Rtp and Rtcp Sockets should be Disposed when Dispose is called.
             /// </summary>
-            public bool LeaveOpen { get; set; }
+            public bool LeaveOpen
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get;
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                set;
+            }
 
             //Any frames for this channel
             public RtpFrame CurrentFrame
@@ -1140,6 +1181,7 @@ namespace Media.Rtp
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return m_StartTime; }
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 internal protected set { m_StartTime = value; }
             }
 
@@ -1150,6 +1192,7 @@ namespace Media.Rtp
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 get { return m_EndTime; }
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 internal protected set { m_EndTime = value; }
             }
 
@@ -2903,7 +2946,7 @@ namespace Media.Rtp
                 ++transportContext.RtpPacketsReceived;
 
                 //If InDiscovery and IsValid then stop InDiscovery by setting the remote id
-                if (transportContext.InDiscovery && transportContext.IsValid) transportContext.RemoteSynchronizationSourceIdentifier = partyId;
+                if (transportContext.IsValid && false.Equals(partyId.Equals(transportContext.RemoteSynchronizationSourceIdentifier))) transportContext.RemoteSynchronizationSourceIdentifier = partyId;
 
                 //The counters for the bytes will now be be updated (without the 12 octets of the header)
                 //increment the counters (Only use the Payload.Count per the RFC) (new Erratta Submitted)
@@ -4023,7 +4066,8 @@ namespace Media.Rtp
         /// Throws a RtpClientException if the given context conflicts in channel either data or control with that of one which is already owned by the instance.
         /// </summary>
         /// <param name="context">The context to add</param>
-        public virtual void AddContext(TransportContext context, bool checkDataChannel = true, bool checkControlChannel = true, bool checkLocalIdentity = true, bool checkRemoteIdentity = true)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ void AddContext(TransportContext context, bool checkDataChannel = true, bool checkControlChannel = true, bool checkLocalIdentity = true, bool checkRemoteIdentity = true)
         {
             if (checkDataChannel || checkControlChannel || checkLocalIdentity || checkRemoteIdentity) foreach (TransportContext c in TransportContexts)
                 {
@@ -4070,14 +4114,15 @@ namespace Media.Rtp
             if (context.IsActive) SendReports(context);
         }
 
-        public virtual bool TryAddContext(TransportContext context) { try { AddContext(context); } catch { return false; } return true; }
+        public /*virtual*/ bool TryAddContext(TransportContext context) { try { AddContext(context); } catch { return false; } return true; }
 
         /// <summary>
         /// Removes the given <see cref="TransportContext"/>
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
-        public virtual bool TryRemoveContext(TransportContext context)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ bool TryRemoveContext(TransportContext context)
         {
             try
             {
@@ -4093,7 +4138,8 @@ namespace Media.Rtp
         /// Gets any <see cref="TransportContext"/> used by this instance.
         /// </summary>
         /// <returns>The <see cref="TransportContexts"/> used by this instance.</returns>
-        public virtual IEnumerable<TransportContext> GetTransportContexts()
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ IEnumerable<TransportContext> GetTransportContexts()
         {
             //if (IsDisposed) return Enumerable.Empty<TransportContext>();
             try
@@ -4119,7 +4165,8 @@ namespace Media.Rtp
         /// <param name="checkBandwidth">Indicates if the bandwidth of the RtpCliet or Context given should be checked.</param>
         /// <param name="storeReports">Indicates if the reports created should be stored on the corresponding properties of the instace.</param>
         /// <returns>The RtcpReport created.</returns>
-        public virtual IEnumerable<RtcpReport> PrepareReports(TransportContext context, bool checkBandwidth = true, bool storeReports = true)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ IEnumerable<RtcpReport> PrepareReports(TransportContext context, bool checkBandwidth = true, bool storeReports = true)
         {
             //Start with a sequence of empty packets
             IEnumerable<RtcpReport> compound = Enumerable.Empty<RtcpReport>();
@@ -4172,7 +4219,8 @@ namespace Media.Rtp
         /// Sends any reports required for all owned TransportContexts using <see cref="SendReports"/>
         /// </summary>
         /// <returns>A value indicating if reports were immediately sent</returns>        
-        public virtual bool SendReports()
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ bool SendReports()
         {
             if (m_StopRequested) return false;
 
@@ -4192,7 +4240,8 @@ namespace Media.Rtp
         /// <summary>
         /// Sends a Goodbye to for all contained TransportContext, which will also stop the process sending or receiving after the Goodbye is sent
         /// </summary>
-        public virtual void SendGoodbyes()
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ void SendGoodbyes()
         {
             foreach (RtpClient.TransportContext tc in TransportContexts)
                 SendGoodbye(tc, null, tc.SynchronizationSourceIdentifier);
@@ -4206,7 +4255,8 @@ namespace Media.Rtp
         /// <param name="ssrc">The optional identity to use in he report.</param>
         /// <param name="force">Indicates if the call should be forced. <see cref="IsRtcpEnabled"/>, when true the report will also not be stored</param>
         /// <returns></returns>
-        internal protected virtual int SendGoodbye(TransportContext context, byte[] reasonForLeaving = null, int? ssrc = null, bool force = false, RFC3550.SourceList sourceList = null, bool empty = false)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected /*virtual*/ int SendGoodbye(TransportContext context, byte[] reasonForLeaving = null, int? ssrc = null, bool force = false, RFC3550.SourceList sourceList = null, bool empty = false)
         {
             //Check if the Goodbye can be sent.
             if (IsDisposed //If the RtpClient is disposed 
@@ -4239,7 +4289,8 @@ namespace Media.Rtp
         /// <summary>
         /// Sends a <see cref="Rtcp.SendersReport"/> for each TranportChannel if allowed by the <see cref="MaximumRtcpBandwidth"/>
         /// </summary>
-        public virtual void SendSendersReports()
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ void SendSendersReports()
         {
             if (false == IsDisposed && false == m_StopRequested) foreach (TransportContext tc in TransportContexts) SendSendersReport(tc);
         }
@@ -4249,8 +4300,8 @@ namespace Media.Rtp
         /// Return the amount of bytes sent when sending the reports.
         /// </summary>
         /// <param name="context">The context</param>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        internal protected virtual int SendSendersReport(TransportContext context, bool force = false)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining | System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        internal protected /*virtual*/ int SendSendersReport(TransportContext context, bool force = false)
         {
             //Determine if the SendersReport can be sent.
             if (IsDisposed //If the context is disposed
@@ -4276,7 +4327,8 @@ namespace Media.Rtp
         /// <summary>
         /// Send any <see cref="ReceiversReports"/> required by this RtpClient instance.
         /// </summary>
-        public virtual void SendReceiversReports()
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ void SendReceiversReports()
         {
             if (false.Equals(IsDisposed) && false.Equals(m_StopRequested)) foreach (TransportContext tc in TransportContexts) SendReceiversReport(tc);
         }
@@ -4286,7 +4338,8 @@ namespace Media.Rtp
         /// Return the amount of bytes sent when sending the reports.
         /// </summary>
         /// <param name="context">The context</param>
-        internal protected virtual int SendReceiversReport(TransportContext context, bool force = false)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected /*virtual*/ int SendReceiversReport(TransportContext context, bool force = false)
         {
             //Determine if the ReceiversReport can be sent.
             if (IsDisposed //If the context is disposed
@@ -4320,7 +4373,8 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="sourceId"></param>
         /// <returns>The context which was identified or null if no context was found.</returns>
-        internal protected virtual TransportContext GetContextBySourceId(int sourceId)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected /*virtual*/ TransportContext GetContextBySourceId(int sourceId)
         {
             if (IsDisposed) return null;
             try
@@ -4348,7 +4402,8 @@ namespace Media.Rtp
         ////    return null;
         ////}
 
-        internal protected virtual TransportContext GetContextByChannels(params byte[] channels)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected /*virtual*/ TransportContext GetContextByChannels(params byte[] channels)
         {
             if (IsDisposed) return null;
             try
@@ -4367,7 +4422,8 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="packet"></param>
         /// <returns></returns>
-        public TransportContext GetContextForPacket(RtcpPacket packet)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ TransportContext GetContextForPacket(RtcpPacket packet)
         {
             if (IsDisposed || Common.IDisposedExtensions.IsNullOrDisposed(packet)) return null;
             //Determine based on reading the packet this is where a RtcpReport class would be useful to allow reading the Ssrc without knownin the details about the type of report
@@ -4377,7 +4433,8 @@ namespace Media.Rtp
             return null;
         }
 
-        public void EnquePacket(RtcpPacket packet)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ void EnquePacket(RtcpPacket packet)
         {
             if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet) || MaximumOutgoingPackets > 0 && m_OutgoingRtpPackets.Count > MaximumOutgoingPackets)
             {
@@ -4400,7 +4457,8 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="packets"></param>
         /// <returns></returns>
-        public virtual int SendRtcpPackets(IEnumerable<RtcpPacket> packets, TransportContext context, out SocketError error)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ int SendRtcpPackets(IEnumerable<RtcpPacket> packets, TransportContext context, out SocketError error)
         {
             error = SocketError.SocketError;
 
@@ -4576,7 +4634,7 @@ namespace Media.Rtp
             return sent;
         }
 
-        public virtual int SendRtcpPackets(IEnumerable<RtcpPacket> packets)
+        public /*virtual*/ int SendRtcpPackets(IEnumerable<RtcpPacket> packets)
         {
             if (packets == null) return 0;
 
@@ -4587,12 +4645,14 @@ namespace Media.Rtp
             return SendRtcpPackets(packets, context, out error);
         }
 
-        internal virtual bool SendReports(TransportContext context, bool force = false)
+        internal /*virtual*/ bool SendReports(TransportContext context, bool force = false)
         {
             SocketError error;
 
             return SendReports(context, out error, force);
         }
+
+        //Todo, remove virtuals or not.
 
         /// <summary>
         /// Sends any <see cref="RtcpReport"/>'s immediately for the given <see cref="TransportContext"/> if <see cref="AverageRtcpBandwidthExceeded"/> is false.
@@ -4602,7 +4662,7 @@ namespace Media.Rtp
         /// <param name="force"></param>
         /// <returns>A value indicating if reports were sent</returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        internal virtual bool SendReports(TransportContext context, out SocketError error, bool force = false)
+        internal /*virtual*/ bool SendReports(TransportContext context, out SocketError error, bool force = false)
         {
             //Ensure set
             error = SocketError.SocketError;
@@ -4632,7 +4692,8 @@ namespace Media.Rtp
         /// <param name="lastActivity">The time the lastActivity has occured on the context (sending or recieving)</param>
         /// <param name="context">The context to check against</param>
         /// <returns>True if the connection is inactive and a Goodebye was attempted to be sent to the remote party</returns>
-        internal virtual bool SendGoodbyeIfInactive(DateTime lastActivity, TransportContext context)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal /*virtual*/ bool SendGoodbyeIfInactive(DateTime lastActivity, TransportContext context)
         {
             bool inactive = false;
 
@@ -4702,7 +4763,7 @@ namespace Media.Rtp
         /// <param name="packet"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public TransportContext GetContextForPacket(RtpPacket packet)
+        public /*virtual */ TransportContext GetContextForPacket(RtpPacket packet)
         {
             if (IDisposedExtensions.IsNullOrDisposed(packet)) return null; 
 
@@ -4718,7 +4779,7 @@ namespace Media.Rtp
         /// <param name="packet"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public TransportContext GetContextForFrame(RtpFrame frame)
+        public /*virtual */ TransportContext GetContextForFrame(RtpFrame frame)
         {
             if (IDisposedExtensions.IsNullOrDisposed(frame)) return null;
 
@@ -4731,18 +4792,18 @@ namespace Media.Rtp
         /// <param name="payloadType"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public TransportContext GetContextByPayloadType(int payloadType)
+        public /*virtual */ TransportContext GetContextByPayloadType(int payloadType)
         {
-            RtpClient.TransportContext c = null;
+            RtpClient.TransportContext c;// = null;
 
             for (int i = TransportContexts.Count - 1; i >= 0; --i)
             {
                  c = TransportContexts[i];
 
-                 if (false.Equals(IDisposedExtensions.IsNullOrDisposed(c)) && c.MediaDescription.PayloadTypes.Contains(payloadType)) break;
+                 if (false.Equals(IDisposedExtensions.IsNullOrDisposed(c)) && c.MediaDescription.PayloadTypes.Contains(payloadType)) return c;
             }
 
-            return c;
+            return c = null;
         }
 
         /// <summary>
@@ -4751,18 +4812,18 @@ namespace Media.Rtp
         /// <param name="payloadType"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public TransportContext GetContextBySocketHandle(IntPtr socketHandle)
+        public /*virtual */ TransportContext GetContextBySocketHandle(IntPtr socketHandle)
         {
-            RtpClient.TransportContext c = null;
+            RtpClient.TransportContext c;// = null;
 
             for (int i = TransportContexts.Count - 1; i >= 0; --i)
             {
                 c = TransportContexts[i];
 
-                if (false.Equals(IDisposedExtensions.IsNullOrDisposed(c)) && c.IsActive && false.Equals(c.RtpSocket == null) && c.RtpSocket.Handle == socketHandle || false.Equals(c.RtcpSocket == null) && c.RtcpSocket.Handle == socketHandle) break;
+                if (false.Equals(IDisposedExtensions.IsNullOrDisposed(c)) && c.IsActive && false.Equals(c.RtpSocket == null) && c.RtpSocket.Handle == socketHandle || false.Equals(c.RtcpSocket == null) && c.RtcpSocket.Handle == socketHandle) return c;
             }
 
-            return c;
+            return c = null;
         }
 
         /// <summary>
@@ -4771,7 +4832,7 @@ namespace Media.Rtp
         /// <param name="payloadType"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public TransportContext GetContextBySocket(Socket socket)
+        public /*virtual */ TransportContext GetContextBySocket(Socket socket)
         {
             return socket == null ? null : GetContextBySocketHandle(socket.Handle);
         }
@@ -4781,7 +4842,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="packet">The packet to enqueue</param> (used to take the RtpCLient too but we can just check the packet payload type
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public void EnquePacket(RtpPacket packet)
+        public /*virtual */ void EnquePacket(RtpPacket packet)
         {
             if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(packet)) return;
             
@@ -4790,10 +4851,15 @@ namespace Media.Rtp
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public void EnqueFrame(RtpFrame frame)
+        public /*virtual */ void EnqueFrame(RtpFrame frame)
         {
-            if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(frame)) return; 
-            
+            if (IsDisposed || m_StopRequested || IDisposedExtensions.IsNullOrDisposed(frame)) return;
+
+            for (int i = 0, e = frame.Count; i < e; ++i)
+            {
+                EnquePacket(frame[i]);
+            }
+
             foreach (RtpPacket packet in frame) EnquePacket(packet);
         }
 
@@ -4940,6 +5006,8 @@ namespace Media.Rtp
             return sent;
         }
 
+        //virtual?
+
         public int SendRtpPacket(RtpPacket packet, int? ssrc = null)
         {
             SocketError error;
@@ -4961,7 +5029,8 @@ namespace Media.Rtp
         /// <summary>
         /// Creates and starts a worker thread which will send and receive data as required.
         /// </summary>
-        public virtual void Activate()
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public /*virtual*/ void Activate()
         {
             try
             {
@@ -5012,6 +5081,7 @@ namespace Media.Rtp
         /// <summary>
         /// Sends the Rtcp Goodbye and signals a stop in the worker thread.
         /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Deactivate()
         {
             if (IsDisposed || false == IsActive) return;
@@ -5047,6 +5117,7 @@ namespace Media.Rtp
         /// <param name="raisedEvent">Indicates if an event was raised</param>
         /// <param name="buffer">The optional buffer to use.</param>
         /// <returns>The amount of bytes the frame data SHOULD have</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         int ReadApplicationLayerFraming(int received, out byte frameChannel, out RtpClient.TransportContext context, int offset, out bool raisedEvent, byte[] buffer = null)
         {
 
@@ -5136,7 +5207,7 @@ namespace Media.Rtp
         /// <param name="useFrameControl"></param>
         /// <param name="useChannelId"></param>
         /// <returns></returns>
-        internal protected virtual int SendData(byte[] data, byte? channel, Socket socket, System.Net.EndPoint remote, out SocketError error, int pollTime = 0, bool useFrameControl = true, bool useChannelId = true)
+        internal protected /*virtual*/ int SendData(byte[] data, byte? channel, Socket socket, System.Net.EndPoint remote, out SocketError error, int pollTime = 0, bool useFrameControl = true, bool useChannelId = true)
         {
             return SendData(data, 0, data.Length, channel, socket, remote, out error, pollTime, useFrameControl, useChannelId);
         }
@@ -5154,7 +5225,8 @@ namespace Media.Rtp
         /// <param name="useFrameControl"></param>
         /// <param name="useChannelId"></param>
         /// <returns></returns>
-        internal protected virtual int SendData(byte[] data, int offset, int length, byte? channel, Socket socket, System.Net.EndPoint remote, out SocketError error, int pollTime = 0, bool useFrameControl = true, bool useChannelId = true)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected /*virtual*/ int SendData(byte[] data, int offset, int length, byte? channel, Socket socket, System.Net.EndPoint remote, out SocketError error, int pollTime = 0, bool useFrameControl = true, bool useChannelId = true)
         {
             error = SocketError.SocketError;
 
@@ -5292,7 +5364,8 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="socket">The socket to receive data on</param>
         /// <returns>The number of bytes recieved</returns>             
-        internal protected virtual int ReceiveData(Socket socket, ref EndPoint remote, out SocketError error, bool expectRtp = true, bool expectRtcp = true, MemorySegment buffer = null)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected /*virtual*/ int ReceiveData(Socket socket, ref EndPoint remote, out SocketError error, bool expectRtp = true, bool expectRtcp = true, MemorySegment buffer = null)
         {
             //Nothing bad happened yet.
             error = SocketError.SocketError;
@@ -5370,7 +5443,8 @@ namespace Media.Rtp
         /// <param name="count"></param>
         /// <param name="socket"></param>
         /// <returns></returns>
-        internal protected virtual int ProcessFrameData(byte[] buffer, int offset, int count, Socket socket)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal protected /*virtual*/ int ProcessFrameData(byte[] buffer, int offset, int count, Socket socket)
         {
             if (count.Equals(Common.Binary.Zero)) return Common.Binary.Zero;
 
@@ -5725,7 +5799,7 @@ namespace Media.Rtp
                 if (remainingOnSocket > Common.Binary.Zero)
                 {
                     //Align the buffer if anything remains on the socket.
-                    Array.Copy(buffer, offset, buffer, m_Buffer.Offset, remainingInBuffer);
+                    Array.Copy(buffer, Common.Binary.Min(offset, m_Buffer.Count - remainingInBuffer), buffer, m_Buffer.Offset, remainingInBuffer);
 
                     //Set the correct offset either way.
                     offset = m_Buffer.Offset + remainingInBuffer;
@@ -5845,7 +5919,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="memory">The memory to parse</param>
         /// <param name="from">The socket which received the data into memory and may be used for packet completion.</param>
-        internal protected virtual void ParseAndHandleData(Common.MemorySegment memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
+        internal protected /*virtual*/ void ParseAndHandleData(Common.MemorySegment memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
         {
 
             if (IDisposedExtensions.IsNullOrDisposed(memory) || memory.Count == 0) return;

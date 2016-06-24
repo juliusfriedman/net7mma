@@ -112,6 +112,14 @@ namespace Media.Common.Extensions.Delegate
         }
     }
 
+    public static class ActionExtensions
+    {
+        /// <summary>
+        /// A <see cref="System.Action"/> which does nothing
+        /// </summary>
+        public static readonly System.Action NoOp = () => { };
+    }
+
     //http://www.codeproject.com/Articles/1104555/The-Function-Decorator-Pattern-Reanimation-of-Func @ ActionExtensions
     public static class FuncExtensions
     {

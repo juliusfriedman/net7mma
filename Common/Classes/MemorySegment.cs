@@ -246,20 +246,26 @@ namespace Media.Common
             //If there is no other instance return
             if (other == null) return;
 
-            //If the finalizer has ran and the allocation is not forced then do not allow reference again.
-            if (false == force && false == other.IsUndisposed)
+            //If the finalizer has ran
+            if (false.Equals(other.IsUndisposed))
             {
-                m_Array = EmptyBytes;
+                //If this allocation was not contrived
+                if (false.Equals(force))
+                {
+                    m_Array = EmptyBytes;
 
-                m_Length = m_Offset = 0;
+                    m_Length = m_Offset = 0;
 
-                //Dispose immediately
-                Dispose(true);
+                    //Dispose immediately
+                    Dispose(true);
 
-                return;
+                    //Do nothing else
+                    return;
+                }
+                
+                //Reregister for finalize the other instance
+                GC.ReRegisterForFinalize(other);
             }
-
-            //Allow for this instance to resurrect the referenced instance's array.
 
             m_Array = other.Array;
 

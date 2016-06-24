@@ -52,51 +52,90 @@ namespace Media.Concepts.Classes.Threading
     /// <typeparam name="T"></typeparam>
     public class Pool<T>
     {
+        internal const Pool<T> NullPool = null;
+
+        //Todo, could probably use ArraySegment to provide indirection to array...
+        //https://github.com/KrzysztofCwalina/corefxlab/blob/7060d18047c2fd1e319005ff682b481003cc978c/demos/LowAllocationWebServer/Framework/SharedData.cs
+
         #region Nested Types
 
-        internal class Lease : Media.Common.SuppressedFinalizerDisposable
+        internal struct Lease : Media.Common.IDisposed
         {
+            //static System.Type LeaseType = typeof(Lease);
+
+            //4 bytes
             internal int Id;
 
-            //Emurality, Active >= 0
-            internal int Emure;
+            //Could just be id...
+            //4 bytes
+            internal int Emurality; // Active >= 0
 
+            //@ 8
+
+            //References (4 or more bytes)
             internal Pool<T> Lessor;
 
+            //References (4 or more bytes)
             internal T[] Lessee;
 
-            public Lease(Pool<T> lessor, int id, int emure, T[] lessee, bool shouldDispose = true)
-                : base(shouldDispose)
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            public Lease(Pool<T> lessor, int id, int emure, T[] lessee, bool shouldDispose = true)                
             {
                 Lessor = lessor;
 
                 Id = id;
 
-                Emure = emure;
+                Emurality = emure;
 
                 Lessee = lessee;
             }
 
-            protected override void Dispose(bool disposing)
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            public void Dispose()
             {
-                if (false.Equals(disposing) | false.Equals(ShouldDispose)) return;
+                //Check if already disposed.
+                if (Lessor == NullPool || Lessee == NullArray || Emurality < 0) return;
 
-                base.Dispose(disposing);
-
-                Lessor.m_Leases.Remove(this);
-
-                if (Emure > 0)
+                //if the lease was tracked
+                if (Lessor.m_Leases.Remove(this))
                 {
-                    //The lease was already active
-                }
-                else
-                {
-                    //The lease was not active, put it into the lessors pool at the below water offsets
-                    Lessor.m_Pool[Id] = Lessee;
+                    if (Emurality > 0)
+                    {
+                        //The lease was already active
+                    }
+                    else
+                    {
+                        //The lease was not active, put it into the lessors pool at the below water offsets
+                        Lessor.m_Pool[Id] = Lessee;
 
-                    //Check if the above water offset was allocated and is of a smaller size, swap them if so the next time the same thread takes a lease it can have the option to use the larger allocation
-                    //if(Lessor.m_Pool[-Id] == null)
+                        //Check if the above water offset was allocated and is of a smaller size, swap them if so the next time the same thread takes a lease it can have the option to use the larger allocation
+                        //if(Lessor.m_Pool[-Id] == null)
+                    }
+
+                    //Remove the reference
+                    Lessor = NullPool;
+
+                    //Remove the reference
+                    Lessee = NullArray;
+
+                    //Inactive
+                    Emurality = int.MinValue;
+
+                    //Zero the memory
+                    //System.Runtime.InteropServices.Marshal.DestroyStructure(Unsafe.AddressOf(ref this), LeaseType);
                 }
+            }
+
+            bool Common.IDisposed.IsDisposed
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return Lessor == NullPool || Lessee == NullArray || Emurality < 0; }
+            }
+
+            bool Common.IDisposed.ShouldDispose
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return Emurality >= 0; }
             }
         }   
 
@@ -110,12 +149,13 @@ namespace Media.Concepts.Classes.Threading
 
         internal const T[] NullArray = null;
 
-        internal const T[][] NullPool = null;
+        internal const T[][] NullMultiArray = null;
 
         internal static readonly T[] EmptyArray = new T[0] { };
 
         internal static readonly T[][] EmptyPool = new T[0][] { };
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static void AllocatePool(Pool<T> pool, int size)
         {
             if (size < 0) pool.m_Pool = (T[][])System.Array.CreateInstance(ElementType, new int[] { -size, 0 }, new int[] { size, 0 });
@@ -127,6 +167,7 @@ namespace Media.Concepts.Classes.Threading
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static void ResizePool(Pool<T> pool, int size)
         {
             //int previousSize = pool.m_Pool.Length;
@@ -140,6 +181,7 @@ namespace Media.Concepts.Classes.Threading
 
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         static int SortByLength(T[] x, T[] y)
         {
             int a, b;
@@ -181,7 +223,7 @@ namespace Media.Concepts.Classes.Threading
         /// <summary>
         /// The pool
         /// </summary>
-        T[][] m_Pool = NullPool;
+        T[][] m_Pool = NullMultiArray;
 
         //     <= -1,        >= 0
         //T[][]m_BelowWater, m_AboveWater;
@@ -190,7 +232,6 @@ namespace Media.Concepts.Classes.Threading
 
         bool m_DisableNull;
 
-        //Pool, Id, Size, Leaf
         readonly System.Collections.Generic.ICollection<Lease> m_Leases;
 
         #endregion
@@ -257,6 +298,7 @@ namespace Media.Concepts.Classes.Threading
 
         #region Methods
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void AllocateLeaf(int index, int size, out T[] result)
         {
             EnsureCapacity(index);
@@ -264,6 +306,7 @@ namespace Media.Concepts.Classes.Threading
             result = m_Pool[index] = new T[size];
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void ReallocateLeaf(ref T[] leaf, int size)
         {
             System.Array.Resize(ref leaf, size);
@@ -274,6 +317,7 @@ namespace Media.Concepts.Classes.Threading
             return Get ((access ?? System.Threading.Thread.CurrentThread).ManagedThreadId, size);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public T[] Get(int id, int size)
         {
             //Todo, allow for certain `magical` offsets
@@ -298,6 +342,7 @@ namespace Media.Concepts.Classes.Threading
             return leaf;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void EnsureCapacity(int poolSize)
         {
             int existingSize;
@@ -339,6 +384,7 @@ namespace Media.Concepts.Classes.Threading
             AllocatePool(this, m_Pool.Length >> 2);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void Set(T[] data, int index)
         {
             if (m_DisableNull && null == data) return;
@@ -348,6 +394,7 @@ namespace Media.Concepts.Classes.Threading
             m_Pool [index] = data;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public T[] Find(int size)
         {
             if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(m_Pool)) goto Null;
@@ -372,6 +419,7 @@ namespace Media.Concepts.Classes.Threading
             return Find (size) ?? Get (access, size);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public T[] Rent(int size, System.Threading.Thread access)
         {
             int id = (access ?? System.Threading.Thread.CurrentThread).ManagedThreadId;
@@ -389,13 +437,43 @@ namespace Media.Concepts.Classes.Threading
             //    //emure = -1;
             //}
 
+            //Ensure the capacity of pool with respect to the thread
             EnsureCapacity (id);
 
-            Lease lease = new Lease(this, id, /*emure * */size, Get (id, size));
+            Lease lease = new Lease(this, id, /*emure * */size, Get(id, size));
 
+            //Track the reference
             m_Leases.Add(lease);
 
+            //Return the allocated array
             return lease.Lessee;
+
+            //If Lease is a reference type...
+
+            ////Ensure the allocation takes places
+            //using (System.Threading.ThreadLocal<Lease> leaseAllocation = new System.Threading.ThreadLocal<Lease>())
+            //{
+            //    //A reference to a lease reference
+            //    Lease lease;
+
+            //    //Allocate the lease instance while it was not created previously
+            //    do leaseAllocation.Value = lease = new Lease(this, id, /*emure * */size, Get(id, size));
+            //    while (leaseAllocation.IsValueCreated.Equals(false));
+
+            //    //After the instance is allocated the members must also be allocated
+            //    using (System.Threading.ThreadLocal<T[]> arrayAllocation = new System.Threading.ThreadLocal<T[]>())
+            //    {
+            //        //Create a reference to the array while it was not created previously
+            //        do arrayAllocation.Value = lease.Lessee;
+            //        while (arrayAllocation.IsValueCreated.Equals(false));
+
+            //        //Track the reference
+            //        m_Leases.Add(lease);
+
+            //        //Return the allocated array
+            //        return lease.Lessee;
+            //    }
+            //}
         }
 
         #endregion

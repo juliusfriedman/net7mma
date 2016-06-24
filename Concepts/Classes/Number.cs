@@ -2059,6 +2059,7 @@ namespace Media.Concepts.Classes
 
             foreach (char c in encoding.GetChars(buffer, offset, count))
             {
+                //Change the base
                 n *= 16;
 
                 //Check if char has value

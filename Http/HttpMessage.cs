@@ -111,7 +111,7 @@ namespace Media.Http
     /// <summary>
     /// Base class of HttpRequest and HttpResponse
     /// </summary>
-    public class HttpMessage : Common.BaseDisposable, Common.IPacket
+    public class HttpMessage : Common.SuppressedFinalizerDisposable, Common.IPacket
     {
         #region Statics
 
@@ -474,6 +474,10 @@ namespace Media.Http
                     //m_Headers.Count *  means each header has a ':' and spacing sequence, + lineEndsLength for the end headersequence
                     return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_HeaderEncoding.GetByteCount(m_Body)) + (m_Headers.Count > 0 ? m_Headers.Count * (1 + lineEndsLength) + lineEndsLength + m_Headers.Sum(s => string.IsNullOrWhiteSpace(s.Key) ? 0 : m_HeaderEncoding.GetByteCount(s.Key) + m_HeaderEncoding.GetByteCount(s.Value)) : 0);
 
+                    //Todo
+                    //Entity headers aren't included in the length...
+
+                    
                     //return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_HeaderEncoding.GetByteCount(m_Body)) + PrepareHeaders().Count();
                 }
                 catch (InvalidOperationException)
@@ -679,6 +683,8 @@ namespace Media.Http
 
                 if (false == string.IsNullOrWhiteSpace(trailerHeader) && false == ContainsHeader(trailerHeader)) return false;
 
+                //Todo, Must Have Allow header if StatusCode == 405.. technically not valid otherwise but can be complete if not present.
+
                 //If the message can have a body
                 if (CanHaveBody)
                 {
@@ -748,7 +754,6 @@ namespace Media.Http
         public HttpMessage(byte[] data, int offset, int length, Encoding contentEncoding = null, bool shouldDispose = true, string protocol = HttpMessage.MessageIdentifier)
             : base(shouldDispose)
         {
-
             Protocol = protocol ?? string.Empty;
 
             CacheStrings();
@@ -778,7 +783,7 @@ namespace Media.Http
             //int requiredEndLength = 1; //2.0 specifies that CR and LF must be present
 
             //Skip any non character data.
-            while (false == char.IsLetter((char)data[start]))
+            while (false.Equals(char.IsLetter((char)data[start])))
             {
                 if (--count <= 0) return;
                 ++start;
@@ -791,7 +796,7 @@ namespace Media.Http
             m_Buffer.Write(data, start, count);
 
             //Attempt to parse the data given as a StatusLine.
-            if (false == ParseStatusLine()) return;
+            if (false.Equals(ParseStatusLine())) return;
 
             //A valid looking first line has been found...
             //Parse the headers and body if present
@@ -2268,17 +2273,15 @@ namespace Media.Http
         #region Overrides
 
         /// <summary>
-        /// Disposes of all resourced used by the HttpMessage
+        /// Disposes of any private data this instance utilized.
         /// </summary>
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            if (IsDisposed) return;
+            if (IsPersistent || false.Equals(disposing) || false.Equals(ShouldDispose)) return;
 
-            //Call the base implementation
-            base.Dispose();
+            base.Dispose(ShouldDispose);
 
-            //If the message is persistent then leave the buffer in place.
-            if (IsPersistent) return;
+            if (false.Equals(IsDisposed)) return;
 
             //No longer needed.
             DisposeBuffer();

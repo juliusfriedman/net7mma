@@ -446,6 +446,13 @@ namespace Media.UnitTests
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
+                new
+                {
+                    Uri = "rtsp://118.70.125.33:5854/user=admin&password=&channel=1&stream=0.sdp?real_stream",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                
             })
             {
                 Media.Rtsp.RtspClient.ClientProtocolType? proto = TestObject.Proto;
@@ -1663,8 +1670,28 @@ namespace Media.UnitTests
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision9", "rtsp://demo:abcd1234@118.70.181.233:2813/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision10", "rtsp://demo:abcd1234@118.70.181.233:7175/Streaming/Channels/102", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                //No longer accessible.
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco1", "rtsp://118.70.125.33/user=admin&password=admin12345&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                //Benco
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco1", "rtsp://118.70.125.33:19054/user=admin&password=admin12345&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco2", "rtsp://118.70.125.33:19154/user=admin&password=admin12345&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco3", "rtsp://118.70.125.33:5854/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                //Duhua
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua1", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua2", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=2&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua3", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=3&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua4", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=4&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua5", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=5&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua6", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=6&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua7", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=7&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua8", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=9&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua9", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=10&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua10", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=10&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua11", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=11&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua12", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=12&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua13", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=13&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua14", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=13&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua15", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=15&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua16", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=16&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
                 string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
@@ -1781,7 +1808,7 @@ namespace Media.UnitTests
                 Console.WriteLine("Press 'C' to See how many clients are connected.");
                 //if (sampleStream != null) Console.WriteLine("Press 'F' to See statistics for " + sampleStream.Name);
 
-                //SUB TEST LOAD ON SAME PROC has UNKNOWNS
+                System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
 
                 while (true)
                 {
@@ -2010,12 +2037,15 @@ namespace Media.UnitTests
                         default:
                             {
                                 if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
+
                                 continue;
                             }
                     }
                 }
             
             End:
+                System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Normal;
+
                 server.DisableHttpTransport();
 
                 server.DisableUnreliableTransport();
@@ -2028,7 +2058,7 @@ namespace Media.UnitTests
 
                 Console.WriteLine("Stopping Server");
 
-                server.Stop();
+                server.Stop();                
 
                 Console.WriteLine("Server Stopped");
             }
@@ -2046,7 +2076,7 @@ namespace Media.UnitTests
 
             bool allowHttp = false, allowUdp = false;
 
-            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(server)) && server.IsRunning)
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(server)) && server.MediaStreams.Count() > 0)
             {
                 if (server.HttpEnabled) dop /= 2;
                 if (server.UdpEnabled) dop /= 2;
@@ -2054,7 +2084,7 @@ namespace Media.UnitTests
 
                 if (string.IsNullOrWhiteSpace(streamUri))
                 {
-                    streamUri = server.LocalEndPoint.ToString() + "/live/" + server.MediaStreams.Skip(Utility.Random.Next(0, server.MediaStreams.Count())).First().Name;
+                    streamUri = server.m_ServerIP + ":" + server.m_ServerPort + "/live/" + server.MediaStreams.Skip(Utility.Random.Next(0, server.MediaStreams.Count())).First().Name;
                 }
                 else
                 {
@@ -3526,6 +3556,8 @@ a=appversion:1.0");
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SegmentStreamTests), TypeOfVoid);
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ConcurrentLinkedQueueTests), TypeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ConcurrentLinkedStackTests), TypeOfVoid);
         }
 
         static void TestCodec()
