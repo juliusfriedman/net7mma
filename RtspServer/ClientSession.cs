@@ -51,7 +51,7 @@ namespace Media.Rtsp//.Server
     /// <summary>
     /// Represent the resources in use by remote parties connected to a RtspServer.
     /// </summary>
-    internal class ClientSession : Common.BaseDisposable //ISocketReference....
+    internal class ClientSession : Common.SuppressedFinalizerDisposable //ISocketReference....
     {
         //Needs to have it's own concept of range using the Storage...
 
@@ -201,6 +201,7 @@ namespace Media.Rtsp//.Server
 
         #region Constructor
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public ClientSession(RtspServer server, Socket rtspSocket, Common.MemorySegment buffer = null, bool startReceive = true, bool shouldDispose = true)
             :base(shouldDispose)
         {
@@ -249,6 +250,9 @@ namespace Media.Rtsp//.Server
 
             //Create a buffer using the size of the largest message possible without a Content-Length header.
             //This helps to ensure that partial messages are not recieved by the server from a client if possible (should eventually allow much smaller)
+
+            //Todo, pool all memory in a single contiguous allocation using the server.AllocateClientBuffer
+
             if (buffer == null)
                 m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength);
             else
@@ -313,7 +317,7 @@ namespace Media.Rtsp//.Server
                     ////Wait for the last send to complete
                     if (false.Equals(LastSend == null))
                     {
-                        if (false == LastSend.IsCompleted)
+                        if (false.Equals(LastSend.IsCompleted))
                         {
                             WaitHandle wait = LastSend.AsyncWaitHandle;
 
@@ -609,7 +613,9 @@ namespace Media.Rtsp//.Server
                 catch { }
             }
 
-            if (false.Equals(m_Buffer == null))
+
+
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(m_Buffer)))
             {
                 try
                 {
@@ -624,7 +630,7 @@ namespace Media.Rtsp//.Server
             {
                 try
                 {
-                    if (false == LeaveOpen) m_RtspSocket.Dispose();
+                    if (false.Equals(LeaveOpen)) m_RtspSocket.Dispose();
 
                     m_RtspSocket = null;
                 }
@@ -1024,10 +1030,10 @@ namespace Media.Rtsp//.Server
 
             //If that is not present we cannot determine what transport the client wants
             if (string.IsNullOrWhiteSpace(transportHeader) || 
-                false == (transportHeader.Contains("RTP")) ||
-                false == RtspHeaders.TryParseTransportHeader(transportHeader,
+                false.Equals((transportHeader.Contains("RTP"))) ||
+                false.Equals(RtspHeaders.TryParseTransportHeader(transportHeader,
                     out localSsrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
-                    out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast, out destinationIp, out ttl))
+                    out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast, out destinationIp, out ttl)))
             {
                 return CreateRtspResponse(request, RtspStatusCode.BadRequest, null, "Invalid Transport Header");
             }
@@ -1036,10 +1042,14 @@ namespace Media.Rtsp//.Server
 
             //Todo, destination datum support.
 
+            //Todo, option for UniqueIdentity
+
             //Check if the ssrc was 0 which indicates any id
             if (localSsrc == 0)
             {
                 //use a new id if your using IListSockets as the stack can merge the buffers into a single pdu.
+                //Or
+                //If the remote ssrc needs to be changed then use a random one
                 //localSsrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
 
                 //Use the same id to keep the packet headers the same.

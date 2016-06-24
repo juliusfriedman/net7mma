@@ -66,9 +66,11 @@ namespace Media.Rtsp
         {
             if (socket == null) throw new ArgumentNullException("Socket");
 
-            Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket));
-            //socket.ExclusiveAddressUse = false;
-            //socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            //Ensure the address can be re-used
+            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket));
+
+            //Windows >= 10 and Some Unix
+            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableUnicastPortReuse(socket));
 
             //It was reported that Mono on iOS has a bug with SendBufferSize, ReceiveBufferSize and by looking further possibly SetSocketOption in general...
             //Mono goes through too much trouble to verify socket options and should probably just pass them along to the native layer.
@@ -107,20 +109,18 @@ namespace Media.Rtsp
                     //Retransmit for 0 sec.
                     Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket));
 
-                    //
+                    // Enable No Syn Retries
                     //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpNoSynRetries(socket);
 
-                    //
+                    // For network debugging
                     //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpTimestamp(socket);
 
-                    //
+                    // Set Offload preference to Offload Preffered
                     //Media.Common.Extensions.Socket.SocketExtensions.SetTcpOffloadPreference(socket);
 
-                    //
+                    // Enable Congestion Algorithm (when there is not enough bandwidth this sometimes helps)
                     //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpCongestionAlgorithm(socket);
-
                 }
-
             }
         }
 
@@ -456,6 +456,19 @@ namespace Media.Rtsp
                     m_SocketPollMicroseconds /= 10;
 
                     Media.Common.Binary.Min(m_SocketPollMicroseconds, ResponseTimeoutInterval);
+
+                    //If tcp...
+                    if (m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                    {
+                        //Do not re-transmit
+                        Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(m_RtspSocket));
+
+                        // Enable No Syn Retries
+                        Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableTcpNoSynRetries(m_RtspSocket));
+
+                        // Set OffloadPreferred
+                        Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.SetTcpOffloadPreference(m_RtspSocket));
+                    }
 
                     //SO_CONNECT_TIME only exists on Windows...
                     //There are options if the stack supports it elsewhere.
@@ -2735,6 +2748,23 @@ namespace Media.Rtsp
 
                 //Determine the poll time now.
                 m_SocketPollMicroseconds = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_ConnectionTime);
+
+                //If the protocol is TCP
+                if (m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                {
+                    //If the connection time was >= 500 msec enable congestion algorithm
+                    if (ConnectionTime.TotalMilliseconds >= DefaultConnectionTime.TotalMilliseconds)
+                    {
+                        // Enable CongestionAlgorithm
+                        Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableTcpCongestionAlgorithm(m_RtspSocket));
+                    }
+
+                    // Enable No Syn Retries
+                    Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableTcpNoSynRetries(m_RtspSocket));
+
+                    // Set OffloadPreferred
+                    Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.SetTcpOffloadPreference(m_RtspSocket));
+                }
 
                 //Don't block (possibly another way to work around the issue)
                 //m_RtspSocket.Blocking = false;
