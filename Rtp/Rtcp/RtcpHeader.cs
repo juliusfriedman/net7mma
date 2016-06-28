@@ -562,7 +562,9 @@ namespace Media.Rtcp
 
             base.Dispose(ShouldDispose);
 
-            if (false == Common.IDisposedExtensions.IsNullOrDisposed(First16Bits))
+            if (false.Equals(IsDisposed)) return;
+
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(First16Bits)))
             {
                 //Dispose the instance
                 First16Bits.Dispose();
@@ -571,7 +573,7 @@ namespace Media.Rtcp
                 First16Bits = null;
             }
 
-            if (false == Common.IDisposedExtensions.IsNullOrDisposed(SegmentToLast6Bytes))
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(SegmentToLast6Bytes)))
             {
                 //Invalidate the pointer
                 SegmentToLast6Bytes.Dispose();
@@ -583,19 +585,21 @@ namespace Media.Rtcp
             Last6Bytes = null;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode() { return First16Bits ^ SendersSynchronizationSourceIdentifier; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
             if(System.Object.ReferenceEquals(this, obj)) return true;
 
-            if (false == (obj is RtcpHeader)) return false;
+            if (false.Equals((obj is RtcpHeader))) return false;
 
             RtcpHeader other = obj as RtcpHeader;
 
-            return other.First16Bits == First16Bits
+            return other.First16Bits.Equals(First16Bits)
                 &&
-                other.SendersSynchronizationSourceIdentifier == SendersSynchronizationSourceIdentifier;
+                other.SendersSynchronizationSourceIdentifier.Equals(SendersSynchronizationSourceIdentifier);
         }
 
         #endregion

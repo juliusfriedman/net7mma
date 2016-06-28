@@ -88,7 +88,7 @@ namespace Media.Concepts.Classes
 
         readonly internal Clock m_Clock = new Clock();
         
-        readonly internal Media.Common.Collections.Generic.ConcurrentLinkedQueue<long> Producer;
+        readonly internal Media.Common.Collections.Generic.ConcurrentLinkedQueueSlim<long> Producer;
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void Count()
@@ -254,7 +254,7 @@ namespace Media.Concepts.Classes
         {
             m_Frequency = frequency;
 
-            Producer = new Common.Collections.Generic.ConcurrentLinkedQueue<long>();
+            Producer = new Common.Collections.Generic.ConcurrentLinkedQueueSlim<long>();
 
             m_Counter = new System.Threading.Thread(new System.Threading.ThreadStart(Count))
             {

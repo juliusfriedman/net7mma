@@ -1,0 +1,85 @@
+{ //https://github.com/aspnet/Home/wiki/Project.json-file
+ "GKoAjgnDm8J8tgF6sFqlXQ==":"CXe08+DyYOfBTGXBmkGgzcSeP6BUPE2eTOD8oX61bi124jfldzdlCd4wqujFnrx0gI87dqznz+yjahjc2MjRVR7QOBjNfnEZkyh40XMvNDWt8nABFwNoyjdzIYaGa5cRSbf54BEq38b43FFBJ710IQTovwwaaM/ntYrM/ohlAzE=",
+ "name" : "Managed Media Aggregation",
+ "version": "Formats-Beta-1.0.7.*",
+ "description": "Fast, Efficient and Standard Compliant Implementations of various concepts.",
+ "authors": [
+    "JuliusFriedman@gmail.com"
+  ],
+  "copyright": "Julius Friedman, All rights reserved",
+  "releaseNotes": "http://net7mma.codeplex.com/releases/view/612466",
+  "projectUrl": "http://net7mma.codeplex.com/",
+  "licenseUrl": "http://net7mma.codeplex.com/license",    
+  "documentation": "http://net7mma.codeplex.com/documentation",
+  "requireLicenseAcceptance": true,
+  "compilationOptions": 
+  {
+    "warningsAsErrors": true
+  },  
+  "dependencies": 
+  {    
+	//None	
+  },
+  "code": ["**/*.cs", "./Properties/*.cs"],
+   "frameworks": 
+   {
+    "net45": {},
+    "dnx45": {
+    "frameworkAssemblies": {
+	  "System.Core": "4.0.0.0",      
+      "System.Collections": "4.0.0.0",      
+      "System.Collections.Concurrent": "4.0.0.0",
+     }
+	},
+    "dnx451": {
+      "frameworkAssemblies": {   
+		"System.Core": "",
+        "System.Collections": "",
+		"System.Collections.Concurrent": ""
+      }
+    },
+    "dnxcore50": {
+      "dependencies": {
+		"System.Core": "4.0.0.0",      
+        "System.Collections": "4.0.0.0",
+        "System.Collections.Concurrent": "4.0.0.0",        
+        "System.Console": "4.0.0.0",        
+        "System.Diagnostics.Debug": "4.0.10.0",
+        "System.Globalization": "4.0.10.0",
+        "System.Linq": "4.0.0.0",                
+        "System.Runtime": "4.0.20.0",
+        "System.Runtime.Extensions": "4.0.10.0",
+        "System.Threading": "4.0.0.0"        
+      }
+    },
+	"dotnet": {
+    "dependencies": {
+	  "System.Core": "4.0.0.0",      
+      "System.Collections": "4.0.0",
+	  "System.Collections.Concurrent": "4.0.0",
+      "System.Linq": "4.0.0",
+      "System.Runtime": "4.0.0",
+      "System.Reflection": "4.0.0",
+      "System.Runtime.Extensions": "4.0.0",
+      "System.Threading": "4.0.0",
+      "System.Text.RegularExpressions": "4.0.0",
+      "System.Text.Encoding": "4.0.0",
+      "System.Collections.Concurrent": "4.0.0"
+    }
+  }, 
+  "runtimes": 
+  {
+    "win10-arm": {},
+    "win10-arm-aot": {},
+    "win10-x86": {},
+    "win10-x86-aot": {},
+    "win10-x64": {},
+    "win10-x64-aot": {},
+	//xamarin
+	"android" : {},
+	"android-aot" : {},	
+	"ios" : {},
+	"ios-aot" : {}
+  }
+ }//Deprecated
+}//https://wildermuth.com/2016/05/12/The-Future-of-project-json-in-ASP-NET-Core

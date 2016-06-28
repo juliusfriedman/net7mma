@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Media.Codecs.Video
 {
-    interface IVideoCodec : Codec.Interfaces.ICodec
+    public interface IVideoCodec : Codec.Interfaces.ICodec
     {
         //Codec.Size
         //MinimumWidth, MinimumHeight

@@ -10,7 +10,7 @@ namespace Media.Common
     /// Provides an implementation of the <see cref="BaseDisposable"/> with a supressed finalizer.
     /// </summary>
     /// <remarks>
-    /// <see href="http://stackoverflow.com/questions/18020861/how-to-get-notified-before-static-variables-are-finalized/18316325#18316325">StackOverflow</see> some for details
+    /// <see href="http://stackoverflow.com/questions/18020861/how-to-get-notified-before-static-variables-are-finalized/18316325#18316325">StackOverflow</see>, <see href="http://stackoverflow.com/questions/8011001/can-anyone-explain-this-finalisation-behaviour">Also</see> some for details
     /// </remarks>
     public class SuppressedFinalizerDisposable : BaseDisposable
     {
@@ -43,9 +43,9 @@ namespace Media.Common
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public SuppressedFinalizerDisposable(bool shouldDispose)
-            : base(shouldDispose)
+            : base(shouldDispose) //Suppress Finalize may not be called more than once without a matching Reregister
         {
-            //Suppress the finalizer always.
+            //Suppress the finalizer of this instance always.
             GC.SuppressFinalize(this);
 
 #if DEBUG
@@ -64,5 +64,7 @@ namespace Media.Common
 
             base.Dispose(disposing);
         }
+
+        //Resurrect() {  }
     }
 }

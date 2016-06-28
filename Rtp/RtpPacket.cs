@@ -862,21 +862,23 @@ namespace Media.Rtp
 
         /// <summary>
         /// Disposes of any private data this instance utilized.
-        /// </summary>
+        /// </summary>        
         protected override void Dispose(bool disposing)
         {
             if (false.Equals(disposing) || false.Equals(ShouldDispose)) return;
 
             base.Dispose(ShouldDispose);
 
+            if (false.Equals(IsDisposed)) return;
+
             //If there is a referenced RtpHeader
-            if (m_OwnsHeader && false == Common.IDisposedExtensions.IsNullOrDisposed(Header))
+            if (m_OwnsHeader && false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(Header)))
             {
                 //Dispose it
                 Header.Dispose();
             }
 
-            if (false == Common.IDisposedExtensions.IsNullOrDisposed(Payload))
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(Payload)))
             {
                 //Payload goes away when Disposing
                 Payload.Dispose();
@@ -888,19 +890,20 @@ namespace Media.Rtp
             m_OwnedOctets = null;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
             if (System.Object.ReferenceEquals(this, obj)) return true;
 
-            if (false == (obj is RtpPacket)) return false;
+            if (false.Equals((obj is RtpPacket))) return false;
 
             RtpPacket other = obj as RtpPacket;
 
-            return other.Length == Length
+            return other.Length.Equals(Length)
                  &&
-                 other.Payload == Payload //SequenceEqual...
+                 other.Payload.Equals(Payload) //SequenceEqual...
                  &&
-                 other.GetHashCode() == GetHashCode();
+                 other.GetHashCode().Equals(GetHashCode());
         }
 
         //Packet equals...

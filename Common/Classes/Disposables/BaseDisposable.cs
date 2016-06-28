@@ -206,6 +206,9 @@ namespace Media.Common
             //Do not dispose when ShouldDispose is false.
             if (false.Equals(disposing) || false.Equals(ShouldDispose)) return;
 
+            //Don't dispose again.
+            ShouldDispose = false;
+
             //Mark the instance disposed if disposing
             //If the resources are to be removed then the finalizer has been called.
             //Compare and Swap State with Disposed if it was Undisposed.
@@ -218,6 +221,7 @@ namespace Media.Common
                     }
                 case Finalized:
                     {
+                        //Set IsDisposed virtual to true
                         IsDisposed = true;
 
                         return;
@@ -282,7 +286,7 @@ namespace Media.Common
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
-                return IsUndisposed && false.Equals(IsFinalized) && ShouldDispose && false.Equals(IsDisposed);
+                return IsUndisposed && false.Equals(IsFinalized) ? false.Equals(IsDisposed) && ShouldDispose : false;
             }
         }
     }

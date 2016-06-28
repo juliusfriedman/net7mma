@@ -1,0 +1,181 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{DAA1F427-DD2F-4220-8875-8377FB6B4222}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>nCodec</RootNamespace>
+    <AssemblyName>nCodec</AssemblyName>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Codecs\H264\H264Decoder.cs" />
+    <Compile Include="Codecs\H264\POCManager.cs" />
+    <Compile Include="Codecs\MPEG12\MPEGES.cs" />
+    <Compile Include="Codecs\ProRes\Codebook.cs" />
+    <Compile Include="Codecs\ProRes\ProResConst.cs" />
+    <Compile Include="Codecs\RAW\V210Decoder.cs" />
+    <Compile Include="Codecs\RAW\V210Encoder.cs" />
+    <Compile Include="Common\Arrays.cs" />
+    <Compile Include="Codecs\H264\AspectRatio.cs" />
+    <Compile Include="Codecs\H264\BlockInterpolator.cs" />
+    <Compile Include="Codecs\H264\CABAC.cs" />
+    <Compile Include="Codecs\H264\CABACConst.cs" />
+    <Compile Include="Codecs\H264\CAVLC.cs" />
+    <Compile Include="Codecs\H264\ChromaPredictionBuilder.cs" />
+    <Compile Include="Codecs\H264\CoeffTransformer.cs" />
+    <Compile Include="Codecs\H264\DeblockingFilter.cs" />
+    <Compile Include="Codecs\H264\FlatMBlockMapper.cs" />
+    <Compile Include="Codecs\H264\Interpolator.cs" />
+    <Compile Include="Codecs\H264\Intra16x16PredictionBuilder.cs" />
+    <Compile Include="Codecs\H264\Intra4x4PredictionBuilder.cs" />
+    <Compile Include="Codecs\H264\Intra8x8PredictionBuilder.cs" />
+    <Compile Include="Codecs\H264\Mapper.cs" />
+    <Compile Include="Codecs\H264\NALUnitWriter.cs" />
+    <Compile Include="Codecs\H264\PrebuildMBlockMapper.cs" />
+    <Compile Include="Codecs\H264\Prediction.cs" />
+    <Compile Include="Codecs\H264\SeqParameterSetExt.cs" />
+    <Compile Include="Codecs\H264\SliceDecoder.cs" />
+    <Compile Include="Codecs\H264\SliceGroupMapBuilder.cs" />
+    <Compile Include="Codecs\MJPEG\FrameHeader.cs" />
+    <Compile Include="Codecs\MJPEG\JPEGBitStream.cs" />
+    <Compile Include="Codecs\MJPEG\JPEGConst.cs" />
+    <Compile Include="Codecs\MJPEG\JPEGDecoder.cs" />
+    <Compile Include="Codecs\MJPEG\ScanHeader.cs" />
+    <Compile Include="Codecs\MPEG12\CopyrightExtension.cs" />
+    <Compile Include="Codecs\MPEG12\FixHLSTimestamps.cs" />
+    <Compile Include="Codecs\MPEG12\FixTimestamp.cs" />
+    <Compile Include="Codecs\MPEG12\GOPHeader.cs" />
+    <Compile Include="Codecs\MPEG12\HLSFixPMT.cs" />
+    <Compile Include="Codecs\MPEG12\MPEGConst.cs" />
+    <Compile Include="Codecs\MPEG12\MPEGDecoder.cs" />
+    <Compile Include="Codecs\MPEG12\MPEGPred.cs" />
+    <Compile Include="Codecs\MPEG12\MPEGUtil.cs" />
+    <Compile Include="Codecs\MPEG12\PictureDisplayExtension.cs" />
+    <Compile Include="Codecs\MPEG12\PictureHeader.cs" />
+    <Compile Include="Codecs\MPEG12\PictureSpatialScalableExtension.cs" />
+    <Compile Include="Codecs\MPEG12\PictureTemporalScalableExtension.cs" />
+    <Compile Include="Codecs\MPEG12\QuantMatrixExtension.cs" />
+    <Compile Include="Codecs\MPEG12\SegmentReader.cs" />
+    <Compile Include="Codecs\MPEG12\SequenceDisplayExtension.cs" />
+    <Compile Include="Codecs\MPEG12\SequenceExtension.cs" />
+    <Compile Include="Codecs\MPEG12\SequenceHeader.cs" />
+    <Compile Include="Codecs\MPEG12\SequenceScalableExtension.cs" />
+    <Compile Include="Common\DCT\SimpleIDCT10Bit.cs" />
+    <Compile Include="Common\DCT\SparseIDCT.cs" />
+    <Compile Include="Common\DemuxerTrack.cs" />
+    <Compile Include="Common\DemuxerTrackMeta.cs" />
+    <Compile Include="Common\MConst.cs" />
+    <Compile Include="Common\MDecoder.cs" />
+    <Compile Include="Common\MEncoder.cs" />
+    <Compile Include="Common\Packet.cs" />
+    <Compile Include="Common\Rational.cs" />
+    <Compile Include="Common\RationalLarge.cs" />
+    <Compile Include="Containers\AvcCBox.cs" />
+    <Compile Include="Containers\Box.cs" />
+    <Compile Include="Containers\BoxFactory.cs" />
+    <Compile Include="Codecs\H264\CALVCReader.cs" />
+    <Compile Include="Codecs\H264\CAVLCWriter.cs" />
+    <Compile Include="Codecs\H264\Constants.cs" />
+    <Compile Include="Codecs\H264\Frame.cs" />
+    <Compile Include="Containers\FullBox.cs" />
+    <Compile Include="Containers\Header.cs" />
+    <Compile Include="Codecs\H264\HRDParameters.cs" />
+    <Compile Include="Containers\LeafBox.cs" />
+    <Compile Include="Codecs\H264\MBType.cs" />
+    <Compile Include="Containers\MovieHeaderBox.cs" />
+    <Compile Include="Codecs\H264\NALUnit.cs" />
+    <Compile Include="Codecs\H264\NalUnitType.cs" />
+    <Compile Include="Containers\MPS\MPEGDemuxer.cs" />
+    <Compile Include="Containers\MPS\MPSDemuxer.cs" />
+    <Compile Include="Containers\MPS\MPSUtils.cs" />
+    <Compile Include="Containers\NodeBox.cs" />
+    <Compile Include="Codecs\H264\PictureParameterSet.cs" />
+    <Compile Include="Codecs\H264\PredictionWeightTable.cs" />
+    <Compile Include="Codecs\H264\RefPicMarking.cs" />
+    <Compile Include="Codecs\H264\RefPicMarkingIDR.cs" />
+    <Compile Include="Codecs\H264\SampleEntry.cs" />
+    <Compile Include="Codecs\H264\ScalingList.cs" />
+    <Compile Include="Codecs\H264\ScalingMatrix.cs" />
+    <Compile Include="Codecs\H264\SeqParameterSet.cs" />
+    <Compile Include="Codecs\H264\SliceHeader.cs" />
+    <Compile Include="Codecs\H264\SliceHeaderReader.cs" />
+    <Compile Include="Codecs\H264\SliceHeaderWriter.cs" />
+    <Compile Include="Codecs\H264\SliceType.cs" />
+    <Compile Include="Codecs\H264\Utility.cs" />
+    <Compile Include="Codecs\H264\VideoSampleEntry.cs" />
+    <Compile Include="Codecs\H264\VUIParameters.cs" />
+    <Compile Include="Common\ColorSpace.cs" />
+    <Compile Include="Common\BitReader.cs" />
+    <Compile Include="Common\BitWriter.cs" />
+    <Compile Include="Common\Size.cs" />
+    <Compile Include="Common\StreamExtensions.cs" />
+    <Compile Include="Common\VLC.cs" />
+    <Compile Include="Common\VLCBuilder.cs" />
+    <Compile Include="Codecs\H264\MapManager.cs" />
+    <Compile Include="Codecs\H264\MBToSliceGroupMap.cs" />
+    <Compile Include="Common\Picture.cs" />
+    <Compile Include="Codecs\MPEG12\PictureCodingExtension.cs" />
+    <Compile Include="Common\Point.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Common\Rect.cs" />
+    <Compile Include="Common\TapeTimeCode.cs" />
+    <Compile Include="VideoDecoder.cs" />
+    <Compile Include="VideoEncoder.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Codecs\MPEG4\" />
+    <Folder Include="Containers\MP4\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Codecs\Audio\Media.Codecs.Audio.csproj">
+      <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
+      <Name>Media.Codecs.Audio</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Media.Codec.csproj">
+      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
+      <Name>Media.Codec</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Media.Codecs.Video.csproj">
+      <Project>{fa14b24b-144d-43c1-a44e-8b7b5e849c55}</Project>
+      <Name>Media.Codecs.Video</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Common\Media.Common.csproj">
+      <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
+      <Name>Media.Common</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

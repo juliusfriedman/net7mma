@@ -452,6 +452,13 @@ namespace Media.UnitTests
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
+                new
+                {
+                    Uri = "rtsp://118.70.125.33:19154/user=admin&password=admin12345&channel=1&stream=0.sdp?real_stream",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                
                 
             })
             {
@@ -3555,9 +3562,9 @@ a=appversion:1.0");
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SegmentStreamTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ConcurrentLinkedQueueTests), TypeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ConcurrentLinkedQueueSlimTests), TypeOfVoid);
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ConcurrentLinkedStackTests), TypeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ConcurrentLinkedStackSlimTests), TypeOfVoid);
         }
 
         static void TestCodec()
