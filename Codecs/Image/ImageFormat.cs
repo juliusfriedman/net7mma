@@ -256,7 +256,7 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'a', 2),
+                new Codec.MediaComponent(AlphaChannelId, 2),
                 new Codec.MediaComponent(RedChannelId, 10),
                 new Codec.MediaComponent(GreenChannelId, 10),
                 new Codec.MediaComponent(BlueChannelId, 10)
@@ -275,14 +275,14 @@ namespace Media.Codecs.Image
 
         public static ImageFormat WithSubSampling(ImageFormat other, int[] sampling)
         {
-            if (System.Linq.Enumerable.SequenceEqual(other.Widths, sampling) && System.Linq.Enumerable.SequenceEqual(other.Heights, sampling)) return other;
+            //if (System.Linq.Enumerable.SequenceEqual(other.Widths, sampling) && System.Linq.Enumerable.SequenceEqual(other.Heights, sampling)) return other;
 
             return new ImageFormat(other, sampling);
         }
 
         public static ImageFormat WithSubSampling(ImageFormat other, int[] widthSampling, int[] heightSampling)
         {
-            if (System.Linq.Enumerable.SequenceEqual(other.Widths, widthSampling) && System.Linq.Enumerable.SequenceEqual(other.Heights, heightSampling)) return other;
+            //if (System.Linq.Enumerable.SequenceEqual(other.Widths, widthSampling) && System.Linq.Enumerable.SequenceEqual(other.Heights, heightSampling)) return other;
 
             return new ImageFormat(other, widthSampling, heightSampling);
         }

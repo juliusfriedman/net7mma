@@ -558,7 +558,9 @@ namespace Media.Rtp
 
             base.Dispose(ShouldDispose);
 
-            if (false == Common.IDisposedExtensions.IsNullOrDisposed(First16Bits))
+            if (false.Equals(IsDisposed)) return;
+
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(First16Bits)))
             {
                 //Dispose the instance
                 First16Bits.Dispose();
@@ -568,7 +570,7 @@ namespace Media.Rtp
             }
 
 
-            if (false == Common.IDisposedExtensions.IsNullOrDisposed(SegmentToLast10Bytes))
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(SegmentToLast10Bytes)))
             {
                 //Invalidate the pointer
                 SegmentToLast10Bytes.Dispose();
@@ -584,19 +586,21 @@ namespace Media.Rtp
         /// Uses the first 2 bytes and the <see cref="SynchronizationSourceIdentifier"/> to create a HashCode which represents this header.
         /// </summary>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode() { return First16Bits ^ SynchronizationSourceIdentifier; }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
             if (System.Object.ReferenceEquals(this, obj)) return true;
 
-            if (!(obj is RtpHeader)) return false;
+            if (false.Equals((obj is RtpHeader))) return false;
 
             RtpHeader other = obj as RtpHeader;
 
-            return other.First16Bits == First16Bits
+            return other.First16Bits.Equals(First16Bits)
                 &&
-                other.SynchronizationSourceIdentifier == SynchronizationSourceIdentifier;
+                other.SynchronizationSourceIdentifier.Equals(SynchronizationSourceIdentifier);
         }
 
         #endregion
@@ -609,7 +613,7 @@ namespace Media.Rtp
             return boxA == null ? boxB == null : a.Equals(b);
         }
 
-        public static bool operator !=(RtpHeader a, RtpHeader b) { return false == (a == b); }
+        public static bool operator !=(RtpHeader a, RtpHeader b) { return false.Equals((a == b)); }
 
         #endregion
     }

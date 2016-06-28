@@ -683,20 +683,19 @@ namespace Media
         /// Represents all standard bit fields which can be found in the first 16 bits of any Rtp or Rtcp packet.
         /// </summary>    
         /// <remarks>        
-        /// 
         /// Not a struct because: 
         ///     1) bit fields are utilized, structures can only be offset in bytes with a whole integer number. (Double precision would be required in FieldOffset this get to work or a BitFieldOffset which takes double.)
         ///     2) structures must be passed by reference and would force this abstraction to be copied unless every call took reference.
-        ///     3) You cannot manually remove references to a value type or set a structure to null which then causes the GC to maintin the pointer and refrerence count for more time and would lead to more memory leaks.
+        ///     3) You cannot manually remove references to a value type or set a structure to null (easily) which then causes the prolog and epilog to have to run for longer, 
+        ///         The reference type causes the GC to maintin the pointer and refrerence count for more time and can lead to performance issues and more memory leaks if not handled carefully.
         ///     4) You can't inherit a struct and subsequently any derived implementation would need to redudantly store reference to something it can't be rid of manually.
         ///     
         /// public to allow derived implementation, hence not sealed.
         /// 
-        /// This Type only declares 2 fields which are value types and owns no other references.
+        /// This Type only declares 1 field which is a reference type and owns no other references.
         /// </remarks>
         public class CommonHeaderBits : SuppressedFinalizerDisposable, IEnumerable<byte>
         {
-
             #region Notes
 
             /*
@@ -860,7 +859,7 @@ namespace Media
             #region Fields
 
             /// <summary>
-            /// If created from memory existing
+            /// The reference to the memory where the properties are retrieved from, this memory reference cannot easily be changed once created.            
             /// </summary>
             internal readonly Common.MemorySegment m_Memory;
 
@@ -1196,9 +1195,9 @@ namespace Media
             public CommonHeaderBits(Common.MemorySegment memory, bool shouldDispose = true) //, int additionalOffset = 0)
                 : base(shouldDispose)
             {
-                //if (Math.Abs(memory.Count - additionalOffset) < CommonHeaderBits.Size) throw new InvalidOperationException("at least two octets are required in memory");
+                if (Common.IDisposedExtensions.IsNullOrDisposed(memory)) throw new ObjectDisposedException("memory");
 
-                if (memory == null || memory.Count < CommonHeaderBits.Size) throw new InvalidOperationException("at least two octets are required in memory");
+                if (memory.Count < CommonHeaderBits.Size) throw new InvalidOperationException("at least two octets are required in memory");
 
                 m_Memory = new Common.MemorySegment(memory.Array, memory.Offset /*+ additionalOffset*/, CommonHeaderBits.Size);
             }
@@ -1241,6 +1240,7 @@ namespace Media
 
             #region IEnumerator Implementations
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public IEnumerator<byte> GetEnumerator()
             {
                 if (IsDisposed) yield break;
@@ -1266,33 +1266,40 @@ namespace Media
             #endregion
 
             #region Overrides
-
+            
             protected override void Dispose(bool disposing)
             {
-                if (false == disposing || false == ShouldDispose) return;
+                if (false.Equals(disposing) || false.Equals(ShouldDispose)) return;
 
                 base.Dispose(ShouldDispose);
+
+                if (false.Equals(IsDisposed)) return;
 
                 m_Memory.Dispose();
             }
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public override int GetHashCode() { return (short)this; }
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public override bool Equals(object obj)
             {
-                if (false == (obj is CommonHeaderBits)) return false;
+                if (System.Object.ReferenceEquals(this, obj)) return true;
+
+                if (false.Equals((obj is CommonHeaderBits))) return false;
 
                 CommonHeaderBits bits = obj as CommonHeaderBits;
 
-                if (bits.m_Memory != m_Memory) return false;
+                if (false.Equals(bits.m_Memory.Equals(m_Memory))) return false;
 
-                return GetHashCode() == bits.GetHashCode();
+                return GetHashCode().Equals(bits.GetHashCode());
             }
 
             #endregion
 
             #region Methods
 
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public int CopyTo(byte[] dest, int offset)
             {
                 if (IsDisposed) return 0;

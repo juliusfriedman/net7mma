@@ -53,8 +53,10 @@ namespace Media.Common.Collections.Generic
     /// The implementation is fast (does not does not take more than 5 - 10 operations for any call) and can enqueue and dequeue from multiple threads with minimal; only minimal cache and branch misprediction. 
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class ConcurrentLinkedQueue<T> : IEnumerable<T>
+    public class ConcurrentLinkedQueueSlim<T> : IEnumerable<T>
     {
+        //Todo, Consolidate with LinkedList
+
         #region Nested Types
 
         /// <summary>
@@ -130,11 +132,11 @@ namespace Media.Common.Collections.Generic
         //}
 
         /// <summary>
-        /// Given a <see cref="ConcurrentLinkedQueue"/>, sets the <see cref="Next"/> of the <see cref="Last"/> to the <see cref="First"/>
+        /// Given a <see cref="ConcurrentLinkedQueueSlim"/>, sets the <see cref="Next"/> of the <see cref="Last"/> to the <see cref="First"/>
         /// </summary>
         /// <param name="queue"></param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void Circular(ConcurrentLinkedQueue<T> queue)
+        public static void Circular(ConcurrentLinkedQueueSlim<T> queue)
         {
             queue.Last.Next = queue.First;
 
@@ -205,7 +207,7 @@ namespace Media.Common.Collections.Generic
         public long Count
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return System.Threading.Thread.VolatileRead(ref m_Count); }
+            get { return System.Threading.Interlocked.Read(ref m_Count); }
         }
         
         /// <summary>
@@ -214,7 +216,7 @@ namespace Media.Common.Collections.Generic
         public bool IsEmpty
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return Count.Equals(0); }
+            get { return Count.Equals(Common.Binary.LongZero); }
         }
 
         #endregion
@@ -226,7 +228,7 @@ namespace Media.Common.Collections.Generic
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         
-        public ConcurrentLinkedQueue()
+        public ConcurrentLinkedQueueSlim()
         {
 
         }
@@ -248,7 +250,7 @@ namespace Media.Common.Collections.Generic
             Node onStack;
 
             //VolatileRead, Compare
-            if (true.Equals(Count <= 0))
+            if (true.Equals(Count <= Common.Binary.LongZero))
             {
                 //Store
                 t = default(T);
@@ -356,6 +358,7 @@ namespace Media.Common.Collections.Generic
         /// Enumerates the elements.
         /// </summary>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         IEnumerator<T> GetEnumerator()
         {
             Node Current = First ?? Last;
@@ -386,9 +389,9 @@ namespace Media.UnitTests
     /// <summary>
     /// Provides UnitTest to prove that the logic provided by the collection is correct and thread safe.
     /// </summary>
-    internal class ConcurrentLinkedQueueTests
+    internal class ConcurrentLinkedQueueSlimTests
     {
-        readonly Media.Common.Collections.Generic.ConcurrentLinkedQueue<long> LinkedQueue = new Common.Collections.Generic.ConcurrentLinkedQueue<long>();
+        readonly Media.Common.Collections.Generic.ConcurrentLinkedQueueSlim<long> LinkedQueue = new Common.Collections.Generic.ConcurrentLinkedQueueSlim<long>();
 
         long LastInputOutput = 0;
 

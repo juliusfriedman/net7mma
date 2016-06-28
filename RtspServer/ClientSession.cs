@@ -132,26 +132,56 @@ namespace Media.Rtsp//.Server
 
         #region Properties
 
-        internal bool HasRuningServer { get { return false == Common.IDisposedExtensions.IsNullOrDisposed(m_Server) && m_Server.IsRunning; } }
+        internal bool HasRuningServer
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return false == Common.IDisposedExtensions.IsNullOrDisposed(m_Server) && m_Server.IsRunning; }
+        }
 
-        public Guid Id { get; internal set; }
+        public Guid Id
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            internal set;
+        }
 
-        public string SessionId { get; internal set; }
+        public string SessionId
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            internal set;
+        }
 
-        public RtspMessage LastRequest { get; internal set; }
+        public RtspMessage LastRequest
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            internal set;
+        }
 
         public IPEndPoint LocalEndPoint
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return (IPEndPoint)m_RtspSocket.LocalEndPoint;
             }
         }
 
-        public bool IsDisconnected { get { return m_IsDisconnected; } internal set { m_IsDisconnected = value; } }
+        public bool IsDisconnected
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_IsDisconnected; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            internal set { m_IsDisconnected = value; }
+        }
 
         public bool SharesSocket
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 //The socket is shared with the GC
@@ -183,7 +213,9 @@ namespace Media.Rtsp//.Server
 
         public Socket RtspSocket
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_RtspSocket; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             internal set
             {
                 m_RtspSocket = value;
@@ -195,7 +227,13 @@ namespace Media.Rtsp//.Server
         /// <summary>
         /// Gets or sets a value which indicates if the socket will be closed when Dispose is called.
         /// </summary>
-        public bool LeaveOpen { get; set; }
+        public bool LeaveOpen
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         #endregion
 
@@ -252,8 +290,9 @@ namespace Media.Rtsp//.Server
             //This helps to ensure that partial messages are not recieved by the server from a client if possible (should eventually allow much smaller)
 
             //Todo, pool all memory in a single contiguous allocation using the server.AllocateClientBuffer
-
-            if (buffer == null)
+            
+            //If the buffer is null or disposed create a new buffer of 4096 bytes.
+            if (Common.IDisposedExtensions.IsNullOrDisposed(buffer))
                 m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength);
             else
                 m_Buffer = buffer;
@@ -266,6 +305,7 @@ namespace Media.Rtsp//.Server
 
         #region Methods
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void StartReceive()
         {
             //while the socket cannot read in 1msec or less 
@@ -275,7 +315,7 @@ namespace Media.Rtsp//.Server
                 //Might not need this when not using Async.
                 if (false.Equals(LastRecieve == null))
                 {
-                    if (false == LastRecieve.IsCompleted)
+                    if (false.Equals(LastRecieve.IsCompleted))
                     {
                         WaitHandle wait = LastRecieve.AsyncWaitHandle;
 
@@ -299,11 +339,13 @@ namespace Media.Rtsp//.Server
             IsDisconnected = false;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void SendRtspData(byte[] data)
         {
             SendRtspData(data, 0, data.Length, SocketFlags.None, RemoteEndPoint);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void SendRtspData(byte[] data, int offset, int length, SocketFlags flags = SocketFlags.None, EndPoint other = null)
         {
             //Check for no data or 0 length when sharing socket.
@@ -367,6 +409,7 @@ namespace Media.Rtsp//.Server
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal RtpClient.TransportContext GetSourceContext(int ssrc)
         {
             try
@@ -382,6 +425,7 @@ namespace Media.Rtsp//.Server
             return null;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal RtpClient.TransportContext GetSourceContext(RtpPacket packet)
         {
             try
@@ -397,6 +441,7 @@ namespace Media.Rtsp//.Server
             return null;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal RtpClient.TransportContext GetSourceContext(Sdp.MediaDescription md)
         {
             try
@@ -417,6 +462,7 @@ namespace Media.Rtsp//.Server
         /// </summary>
         /// <param name="client">The RtpClient from which the packet arrived</param>
         /// <param name="packet">The packet which arrived</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void OnSourceRtpPacketRecieved(object client, RtpPacket packet = null, RtpClient.TransportContext tc = null)
         {
             //Check if both the packet and our client are null or disposed already.
@@ -430,7 +476,7 @@ namespace Media.Rtsp//.Server
             RtpClient.TransportContext localContext = null, sourceContext = tc ?? GetSourceContext(packet);
 
             //Get the sourceContext incase the same payload type was used more then once otherwise fallback to the context for the Payloadtype
-            if (sourceContext != null)
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(sourceContext)))
             {                
                 localContext = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
             }
@@ -442,13 +488,12 @@ namespace Media.Rtsp//.Server
             if (localContext == null) goto Exit;
             
             //If the packet seqeuence is out of order in reception to the client
-            if(false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
+            if(false.Equals(localContext.UpdateSequenceNumber(packet.SequenceNumber)))
             {
-
                 Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "UpdateSequenceNumber Failed -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
 
                 //And the packet was not already delivered previously.
-                if (localContext.SendSequenceNumber != localContext.RecieveSequenceNumber)
+                if (false.Equals(localContext.SendSequenceNumber.Equals(localContext.RecieveSequenceNumber)))
                 {
                     Common.ILoggingExtensions.Log(m_Server.ClientSessionLogger, "Dropping -> " + localContext.MediaDescription.MediaType + " , PacketSequenceNumber = " + packet.SequenceNumber + ", SendSequenceNumber = " + localContext.SendSequenceNumber + " RecieveSequenceNumber = " + localContext.RecieveSequenceNumber);
 
@@ -492,6 +537,7 @@ namespace Media.Rtsp//.Server
         /// </summary>
         /// <param name="stream">The listener from which the packet arrived</param>
         /// <param name="packet">The packet which arrived</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void OnSourceRtcpPacketRecieved(object stream, RtcpPacket packet, Rtp.RtpClient.TransportContext tc = null)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(packet) 
@@ -507,18 +553,18 @@ namespace Media.Rtsp//.Server
             //If this is a senders report.
             if (packet.PayloadType == Rtcp.SendersReport.PayloadType)
             {
-                RtpClient.TransportContext localContect = m_RtpClient.GetContextForMediaDescription(tc.MediaDescription);
+                RtpClient.TransportContext localContext = m_RtpClient.GetContextForMediaDescription(tc.MediaDescription);
 
-                if (localContect == null) return;
+                if (Common.IDisposedExtensions.IsNullOrDisposed(localContext)) return;
 
-                localContect.SenderTransit = tc.RtpTransit;
-                localContect.SenderJitter = tc.RtpJitter;
+                localContext.SenderTransit = tc.RtpTransit;
+                localContext.SenderJitter = tc.RtpJitter;
 
                 using (Rtcp.SendersReport sr = new SendersReport(packet, false))
                 {
                     //Some senders may disable timestamps by using 0 here
-                    localContect.SenderNtpTimestamp = sr.NtpTimestamp;
-                    localContect.SenderRtpTimestamp = sr.RtpTimestamp;
+                    localContext.SenderNtpTimestamp = sr.NtpTimestamp;
+                    localContext.SenderRtpTimestamp = sr.RtpTimestamp;
 
                     //Could calulcate NtpOffset from difference here if desired. e.g. NtpOffset is given by 
                     //context.NtpTimestamp -  Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(DateTime.UtcNow)
@@ -534,10 +580,10 @@ namespace Media.Rtsp//.Server
 
                             //check size of block before accessing properties.
 
-                            localContect.SendSequenceNumber = block.ExtendedHighestSequenceNumberReceived;
+                            localContext.SendSequenceNumber = block.ExtendedHighestSequenceNumberReceived;
 
                             //should add to jitter with +=
-                            localContect.SenderJitter = (uint)block.InterarrivalJitterEstimate;
+                            localContext.SenderJitter = (uint)block.InterarrivalJitterEstimate;
                         }
                     }
                 }
@@ -550,6 +596,7 @@ namespace Media.Rtsp//.Server
             //m_RtpClient.SendReports();
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void RemoveAllAttachmentsAndClearPlaying()
         {
             try
@@ -574,6 +621,7 @@ namespace Media.Rtsp//.Server
         /// <summary>
         /// Sends the Rtcp Goodbye and detaches all sources
         /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected override void Dispose(bool disposing)
         {
             if (false.Equals(disposing)) return;
@@ -669,6 +717,7 @@ namespace Media.Rtsp//.Server
         /// <param name="describeRequest">The request received from the server</param>
         /// <param name="source">Tje source stream to describe</param>
         /// <returns>A RtspMessage with a Sdp.SessionDescription in the Body and ContentType set to application/sdp</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal RtspMessage ProcessDescribe(RtspMessage describeRequest, Media.Rtsp.Server.IMedia source)
         {
             RtspMessage describeResponse = CreateRtspResponse(describeRequest);
@@ -705,6 +754,7 @@ namespace Media.Rtsp//.Server
             return describeResponse;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal RtspMessage ProcessPlay(RtspMessage playRequest, RtpSource source)
         {
             //Determine if the request can be processed.
@@ -941,6 +991,7 @@ namespace Media.Rtsp//.Server
             return playResponse;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void OnSourceFrameChanged(object sender, RtpFrame frame = null, RtpClient.TransportContext tc = null, bool final = false)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(frame)) return;
@@ -971,6 +1022,7 @@ namespace Media.Rtsp//.Server
         /// Removes all packets from the PacketBuffer related to the given source and enqueues them on the RtpClient of this ClientSession
         /// </summary>
         /// <param name="source">The RtpSource to check for packets in the PacketBuffer</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void ProcessPacketBuffer(RtpSource source)
         {
             //Process packets from the PacketBuffer relevent to the Range Header
@@ -996,6 +1048,7 @@ namespace Media.Rtsp//.Server
         /// <param name="sourceContext"></param>
         /// <returns></returns>
         /// //TODO Should be SourceMedia and SourceContext.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal RtspMessage ProcessSetup(RtspMessage request, RtpSource sourceStream, RtpClient.TransportContext sourceContext)
         {
             //Assign the sessionId now if it has not been assigned before.
@@ -1301,6 +1354,7 @@ namespace Media.Rtsp//.Server
             return response;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void m_RtpClient_InterleavedData(object sender, byte[] data, int offset, int length)
         {
             //Process the data received
@@ -1319,6 +1373,7 @@ namespace Media.Rtsp//.Server
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void m_RtpClient_RecievedRtp(object sender, RtpPacket packet, RtpClient.TransportContext tc = null)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || Common.IDisposedExtensions.IsNullOrDisposed(tc)) return;
@@ -1340,6 +1395,7 @@ namespace Media.Rtsp//.Server
             //m_Server.Logger.LogException(new Exception("Recieved PacketType: " + packet.PayloadType + " - " + implementation != null ? implementation.Name : string.Empty));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void m_RtpClient_RecievedRtcp(object sender, RtcpPacket packet, RtpClient.TransportContext tc = null)
         {
             if (packet == null || packet.IsDisposed) return;
@@ -1359,6 +1415,7 @@ namespace Media.Rtsp//.Server
             //m_Server.Logger.LogException(new Exception("Recieved Rtcp PacketType: " + packet.PayloadType + " - " + implementation != null ? implementation.Name : string.Empty));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void m_RtpClient_SentRtcp(object sender, RtcpPacket packet, RtpClient.TransportContext tc = null)
         {
             if (packet == null || packet.IsDisposed) return;
@@ -1382,6 +1439,7 @@ namespace Media.Rtsp//.Server
             //m_Server.Logger.LogException(new Exception("Sent Rtcp PacketType: " + packet.PayloadType + " - " + implementation != null ? implementation.Name : string.Empty));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         void m_RtpClient_SentRtp(object sender, RtpPacket packet, RtpClient.TransportContext tc = null)
         {
             var context = tc ?? m_RtpClient.GetContextForPacket(packet);
@@ -1390,6 +1448,7 @@ namespace Media.Rtsp//.Server
             else Common.ILoggingExtensions.LogException(m_Server.ClientSessionLogger, new Exception("Sent (" + context.MediaDescription.MediaType + ") Rtp Packet Timestamp = " + packet.Timestamp + " SequenceNumber = " + packet.SequenceNumber + " , SenderSequenceNumber" + context.SendSequenceNumber + " , RecieveSequenceNumber" + context.RecieveSequenceNumber));
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal RtspMessage ProcessPause(RtspMessage request, RtpSource source)
         {
             //If the source is attached
@@ -1416,6 +1475,7 @@ namespace Media.Rtsp//.Server
         /// </summary>
         /// <param name="source">The SourceStream to detach</param>
         /// <param name="session">The session to detach from</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void RemoveSource(Media.Rtsp.Server.IMediaSource source)
         {
             if (source is RtpSource)
@@ -1442,6 +1502,7 @@ namespace Media.Rtsp//.Server
         /// <param name="source"></param>
         /// <param name="md"></param>
         /// <param name="session"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void RemoveMedia(Sdp.MediaDescription md)
         {
             //Determine if we have a source which corresponds to the mediaDescription given
@@ -1465,7 +1526,7 @@ namespace Media.Rtsp//.Server
         parameters are defined by the session description, a SETUP request
         has to be issued before the session can be played again.
          */
-
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal RtspMessage ProcessTeardown(RtspMessage request, RtpSource source)
         {
             //Determine if this is for only a single track or the entire shebang
@@ -1501,6 +1562,7 @@ namespace Media.Rtsp//.Server
             return CreateRtspResponse(request);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal bool ReleaseUnusedResources()
         {
             bool released = false;
@@ -1688,6 +1750,7 @@ namespace Media.Rtsp//.Server
             return released;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal RtspMessage ProcessRecord(RtspMessage request, Media.Rtsp.Server.IMedia source)
         {
             //Can't record when no Archiver is present
@@ -1711,6 +1774,7 @@ namespace Media.Rtsp//.Server
         /// <returns>The RtspResponse created</returns>
         /// 
         //todo, should not allow body or should also allow content-type
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal RtspMessage CreateRtspResponse(RtspMessage request = null, RtspStatusCode statusCode = RtspStatusCode.OK, string reasonPhrase = null, string body = null)
         {
             RtspMessage response = new RtspMessage(RtspMessageType.Response);
@@ -1732,14 +1796,14 @@ namespace Media.Rtsp//.Server
 
                 if (statusCode != RtspStatusCode.BadRequest) response.CSeq = request.CSeq;
             }//Request is null, check the statusCode, if not BadRequest check for a LastRequest and use that CSeq.
-            else if (statusCode != RtspStatusCode.BadRequest && false == Common.IDisposedExtensions.IsNullOrDisposed(LastRequest) && LastRequest.CSeq >= 0) response.CSeq = LastRequest.CSeq;
+            else if (statusCode != RtspStatusCode.BadRequest && false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(LastRequest)) && LastRequest.CSeq >= 0) response.CSeq = LastRequest.CSeq;
             //Otherwise no CSeq is provided in response...
 
             //Include any reason phrase.
-            if (false == string.IsNullOrWhiteSpace(reasonPhrase)) response.ReasonPhrase = reasonPhrase;
+            if (false.Equals(string.IsNullOrWhiteSpace(reasonPhrase))) response.ReasonPhrase = reasonPhrase;
 
             //Include any body if provided and the response is allowed to have a body.
-            if (false == string.IsNullOrWhiteSpace(body) && response.CanHaveBody) response.Body = body;
+            if (false.Equals(string.IsNullOrWhiteSpace(body)) && response.CanHaveBody) response.Body = body;
 
             //return the response.
             return response;
@@ -1751,6 +1815,7 @@ namespace Media.Rtsp//.Server
         /// </summary>
         /// <param name="stream">The source stream to create a SessionDescription for</param>
         /// <returns>The created SessionDescription</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal Sdp.SessionDescription CreateSessionDescription(Media.Rtsp.Server.IMedia stream)
         {
             if (stream == null) throw new ArgumentNullException("stream");
@@ -1906,13 +1971,18 @@ namespace Media.Rtsp//.Server
                 md.MediaPort = 0;
 
                 //Determine if attached and set the MediaPort.
-                if (m_RtpClient != null)
+                if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient)))
                 {
-                    var context = m_RtpClient.GetContextForMediaDescription(md);
+                    RtpClient.TransportContext context = m_RtpClient.GetContextForMediaDescription(md);
 
-                    if (context != null) md.MediaPort = ((IPEndPoint)context.RemoteRtp).Port;
+                    if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(context)))
+                    {
+                        md.MediaPort = ((IPEndPoint)context.RemoteRtp).Port;
 
-                    //Set any other variables which may be been changed in the session
+                        //Set any other variables which may be been changed in the session
+
+                        context = null;
+                    }
                 }
 
                 #region Independent TCP

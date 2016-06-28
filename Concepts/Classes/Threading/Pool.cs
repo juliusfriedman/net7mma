@@ -352,9 +352,9 @@ namespace Media.Concepts.Classes.Threading
             {
                 AllocatePool(this, poolSize);
             }
-            else if (existingSize < poolSize)
+            else if (existingSize <= poolSize)
             {
-                ResizePool(this, poolSize);
+                ResizePool(this, poolSize << 1);
             }
             //else if (m_Pool[poolSize] == null)
             //{

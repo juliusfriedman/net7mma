@@ -264,7 +264,7 @@ namespace Media.Common
                 }
                 
                 //Reregister for finalize the other instance
-                GC.ReRegisterForFinalize(other);
+                if(other.IsFinalized) GC.ReRegisterForFinalize(other);
             }
 
             m_Array = other.Array;
@@ -295,7 +295,7 @@ namespace Media.Common
 
         //IEnumerator<byte> GetReverseEnumerator()
         //{
-        //    for (uint i = m_Length - 1; i <= 0; --i)
+        //    for (uint i = m_Length - 1; i >= 0; --i)
         //    {
         //        yield return m_Array[m_Offset + i]; //this[i]
         //    }
@@ -424,7 +424,7 @@ namespace Media.Common
         {
             if (other == null) return false;
 
-            return other.GetHashCode() == GetHashCode();
+            return other.GetHashCode().Equals(GetHashCode());
         }
 
         #region Operators

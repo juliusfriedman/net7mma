@@ -50,11 +50,13 @@ namespace Media.Common.Collections.Generic
     /// <summary>
     /// Provides an implementation of a LinkedList in which entries are only removed from the Next Node.
     /// The implementation does NOT SpinWait, DOES use atomic operations and double compares to ensure no null references are encountered and that no ABCD should effect the input or output in any meaningful way.
-    /// The implementation is fast (does not does not take more than 5 - 10 operations for any call) and can enqueue and dequeue from multiple threads with minimal; only minimal cache and branch misprediction. 
+    /// The implementation is fast (does not does not take more than 5 - 10 operations for any call) and can push and pop from multiple threads with only minimal cache and branch misprediction. 
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class ConcurrentLinkedStack<T> : IEnumerable<T>
+    public class ConcurrentLinkedStackSlim<T> : IEnumerable<T>
     {
+        //Todo, Consolidate with LinkedList
+
         #region Nested Types
 
         /// <summary>
@@ -92,7 +94,7 @@ namespace Media.Common.Collections.Generic
         //readonly System.Collections.Generic.LinkedList<T> LinkedList = new LinkedList<T>();
 
         //Using TryEnqueue / TryDequeue
-        //readonly System.Collections.Concurrent.ConcurrentQueue<T> ConcurrentQueue = new System.Collections.Concurrent.ConcurrentQueue<T>();
+        //readonly System.Collections.Concurrent.ConcurrentStack<T> ConcurrentQueue = new System.Collections.Concurrent.ConcurrentQueue<T>();
 
         #endregion
 
@@ -119,7 +121,7 @@ namespace Media.Common.Collections.Generic
         public long Count
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return System.Threading.Thread.VolatileRead(ref m_Count); }
+            get { return System.Threading.Interlocked.Read(ref m_Count); }
         }
         
         /// <summary>
@@ -128,7 +130,7 @@ namespace Media.Common.Collections.Generic
         public bool IsEmpty
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return Count.Equals(0); }
+            get { return Count.Equals(Common.Binary.LongZero); }
         }
 
         #endregion
@@ -140,7 +142,7 @@ namespace Media.Common.Collections.Generic
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-        public ConcurrentLinkedStack()
+        public ConcurrentLinkedStackSlim()
         {
 
         }
@@ -162,7 +164,7 @@ namespace Media.Common.Collections.Generic
             Node onStack;
 
             //VolatileRead, Compare
-            if (true.Equals(Count <= 0))
+            if (true.Equals(Count <= Common.Binary.LongZero))
             {
                 //Store
                 t = default(T);
@@ -171,13 +173,13 @@ namespace Media.Common.Collections.Generic
                 return false;
             }
 
-            //Load Last
+            //Load First or Last
             onStack = First ?? Last;
 
             //Load, Value
             t = onStack.Value;
 
-            //Exchange @ Last => onStack.Next
+            //Exchange @ First => onStack.Next
             System.Threading.Interlocked.Exchange<Node>(ref First, onStack.Next);
 
             //Decrement (1) @ Count
@@ -188,7 +190,7 @@ namespace Media.Common.Collections.Generic
         }
 
         /// <summary>
-        /// Try to peek at the <see cref="Last"/> element
+        /// Try to peek at the <see cref="First"/> element
         /// </summary>
         /// <param name="t"></param>
         /// <returns></returns>
@@ -196,9 +198,9 @@ namespace Media.Common.Collections.Generic
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool TryPeek(ref T t)
         {
-            if (Object.ReferenceEquals(Last, Node.Null)) return false;
+            if (Object.ReferenceEquals(First, Node.Null)) return false;
 
-            t = Last.Value;
+            t = First.Value;
 
             return true;
         }
@@ -221,12 +223,12 @@ namespace Media.Common.Collections.Generic
         /// <remarks>Space Complexity S(2), Time Complexity O(3)</remarks>
         public bool TryPush(ref T t)
         {
-            //Compare, Store, Store, Allocate
+            //Compare, (Store, Allocate, Store) or (Store, Store, Allocate)
 
             if (Object.ReferenceEquals(Last, Node.Null)) First = Last = new Node(ref t);
             else First = new Node(ref t)
             {
-                Next = Last
+                Next = First
             };
 
             //Increment (1) @ Count
@@ -236,7 +238,7 @@ namespace Media.Common.Collections.Generic
         }
 
         /// <summary>
-        /// Sets First and Last to null and Calls Clear on the LinkedList.
+        /// Sets First and Last to null and Count = 0.
         /// </summary>
         /// <remarks>Space Complexity S(6), Time Complexity O(6 - Count)</remarks>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -244,13 +246,17 @@ namespace Media.Common.Collections.Generic
         {
             if (false.Equals(all))
             {
-                head = tail = Last;
+                head = First;
+
+                tail = Last;
 
                 Last = Node.Null;
             }
             else
             {
-                head = tail = System.Threading.Interlocked.Exchange(ref Last, Node.Null);
+                head = System.Threading.Interlocked.Exchange(ref First, Node.Null);
+
+                tail = System.Threading.Interlocked.Exchange(ref Last, Node.Null);
             }
 
             System.Threading.Interlocked.Exchange(ref m_Count, 0);
@@ -269,6 +275,7 @@ namespace Media.Common.Collections.Generic
         /// Enumerates the elements.
         /// </summary>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         IEnumerator<T> GetEnumerator()
         {
             Node Current = Last;
@@ -298,9 +305,9 @@ namespace Media.UnitTests
     /// <summary>
     /// Provides UnitTest to prove that the logic provided by the collection is correct and thread safe.
     /// </summary>
-    internal class ConcurrentLinkedStackTests
+    internal class ConcurrentLinkedStackSlimTests
     {
-        readonly Media.Common.Collections.Generic.ConcurrentLinkedStack<long> LinkedStack = new Common.Collections.Generic.ConcurrentLinkedStack<long>();
+        readonly Media.Common.Collections.Generic.ConcurrentLinkedStackSlim<long> LinkedStack = new Common.Collections.Generic.ConcurrentLinkedStackSlim<long>();
 
         long LastInputOutput = 0;
 
@@ -500,9 +507,9 @@ namespace Media.UnitTests
             int enumerateCount = 0;
 
             //In these threads populate
-            System.Threading.Thread[] enqueueThreads = new System.Threading.Thread[ThreadCount];
+            System.Threading.Thread[] pushThreads = new System.Threading.Thread[ThreadCount];
 
-            System.Threading.Thread[] dequeueThreads = new System.Threading.Thread[ThreadCount];
+            System.Threading.Thread[] popThreads = new System.Threading.Thread[ThreadCount];
 
             System.Threading.Thread[] enumerateThreads = new System.Threading.Thread[ThreadCount];
 
@@ -546,7 +553,7 @@ namespace Media.UnitTests
 
             for (int t = ThreadCount - 1; t >= 0; --t)
             {
-                enqueueThreads[t] = new System.Threading.Thread(() =>
+                pushThreads[t] = new System.Threading.Thread(() =>
                 {
                     int threadLocalCountIn = 0;
 
@@ -595,21 +602,21 @@ namespace Media.UnitTests
                     Name = "pushThreads_" + t
                 };
 
-                dequeueThreads[t] = new System.Threading.Thread(() =>
+                popThreads[t] = new System.Threading.Thread(() =>
                 {
                     int threadLocalCountOut = 0;
 
                     while (threadLocalCountOut < MultiThreadAmount)
                     {
-                        long dequeue;
+                        long pop;
 
-                        if (LinkedStack.TryPop(out dequeue))
+                        if (LinkedStack.TryPop(out pop))
                         {
                             ++threadLocalCountOut;
 
                             System.Threading.Interlocked.Increment(ref stackLevelCountOut);
 
-                            System.Console.WriteLine(System.Threading.Thread.CurrentThread.Name + ": " + dequeue);
+                            System.Console.WriteLine(System.Threading.Thread.CurrentThread.Name + ": " + pop);
 
                             //if(dequeue <= dequeueLast) throw new System.Exception("Unexpected value");
 
@@ -635,9 +642,9 @@ namespace Media.UnitTests
                 enumerateThreads[t] = createEnumerateThread();
             }
 
-            System.Linq.ParallelEnumerable.ForAll(enqueueThreads.AsParallel(), t => t.Start());
+            System.Linq.ParallelEnumerable.ForAll(pushThreads.AsParallel(), t => t.Start());
 
-            System.Linq.ParallelEnumerable.ForAll(dequeueThreads.AsParallel(), t => t.Start());
+            System.Linq.ParallelEnumerable.ForAll(popThreads.AsParallel(), t => t.Start());
 
             while (stackLevelCountOut == 0 && statLevelCountIn == 0) sharedResetEvent.WaitOne(0);
 

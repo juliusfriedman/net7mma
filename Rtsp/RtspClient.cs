@@ -66,11 +66,16 @@ namespace Media.Rtsp
         {
             if (socket == null) throw new ArgumentNullException("Socket");
 
-            //Ensure the address can be re-used
-            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket));
+            //Xamarin's .net implementation on Android suffers from nuances that neither core nor mono suffer from.
+            //If this option fails to be set there the socket can't be used easily.
+            if (false.Equals(Media.Common.Extensions.RuntimeExtensions.IsAndroid))
+            {
+                //Ensure the address can be re-used
+                Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket));
 
-            //Windows >= 10 and Some Unix
-            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableUnicastPortReuse(socket));
+                //Windows >= 10 and Some Unix
+                Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableUnicastPortReuse(socket));
+            }
 
             //It was reported that Mono on iOS has a bug with SendBufferSize, ReceiveBufferSize and by looking further possibly SetSocketOption in general...
             //Mono goes through too much trouble to verify socket options and should probably just pass them along to the native layer.
@@ -180,7 +185,7 @@ namespace Media.Rtsp
         Uri m_InitialLocation, m_PreviousLocation, m_CurrentLocation;
 
         /// <summary>
-        /// The buffer this client uses for all requests 4MB * 2
+        /// The buffer this client uses for all requests 4MB * 2 by default.
         /// </summary>
         Common.MemorySegment m_Buffer;
 
@@ -292,27 +297,57 @@ namespace Media.Rtsp
         /// <summary>
         /// Gets or sets a value indicating of the RtspSocket should be left open when Disposing.
         /// </summary>
-        public bool LeaveOpen { get; set; }
+        public bool LeaveOpen
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// The version of Rtsp the client will utilize in messages
         /// </summary>
-        public double ProtocolVersion { get; set; }
+        public double ProtocolVersion
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the <see cref="StartedPlaying"/> property will be set as a result of handling the Play event.
         /// </summary>
-        public bool HandlePlayEvent { get; set; }
+        public bool HandlePlayEvent
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the <see cref="StartedPlaying"/> will not have a value as a result of handling the Stop event.
         /// </summary>
-        public bool HandleStopEvent { get; set; }
+        public bool HandleStopEvent
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Allows the order of media to be determined when <see cref="StartPlaying"/>  is called
         /// </summary>
-        public Action<IEnumerable<MediaDescription>> SetupOrder { get; set; }
+        public Action<IEnumerable<MediaDescription>> SetupOrder
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         //Todo make SocketConfiguration
 
@@ -321,48 +356,102 @@ namespace Media.Rtsp
         /// typically during the call to <see cref="Connect"/>
         /// By default <see cref="ConfigureRtspSocket"/> is utilized.
         /// </summary>
-        public Action<Socket> ConfigureSocket { get; set; }
+        public Action<Socket> ConfigureSocket
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the client will try to automatically reconnect during send or receive operations.
         /// </summary>
-        public bool AutomaticallyReconnect { get; set; }
+        public bool AutomaticallyReconnect
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the client will automatically disconnect the RtspSocket after StartPlaying is called.
         /// </summary>
-        public bool AutomaticallyDisconnectAfterStartPlaying { get; set; }
+        public bool AutomaticallyDisconnectAfterStartPlaying
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the client will send a <see cref="KeepAliveRequest"/> during <see cref="StartPlaying"/> if no data is flowing immediately after the PLAY response is recieved.
         /// </summary>
-        public bool SendKeepAliveImmediatelyAfterStartPlaying { get; set; }
+        public bool SendKeepAliveImmediatelyAfterStartPlaying
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the client will add the Timestamp header to outgoing requests.
         /// </summary>
-        public bool TimestampRequests { get; set; }
+        public bool TimestampRequests
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the client will use the Timestamp header to incoming responses.
         /// </summary>
-        public bool CalculateServerDelay { get; set; }
+        public bool CalculateServerDelay
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the client will send the Blocksize header during the SETUP request.
         /// The value of which will reflect the <see cref="Buffer.Count"/>
         /// </summary>
-        public bool SendBlocksize { get; set; }
+        public bool SendBlocksize
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the Date header should be sent during requests.
         /// </summary>
-        public bool DateRequests { get; set; }
+        public bool DateRequests
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the RtspClient will send the UserAgent header.
         /// </summary>
-        public bool SendUserAgent { get; set; }
+        public bool SendUserAgent
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         //Maybe AllowHostChange
         //public bool IgnoreRedirectOrFound { get; set; }
@@ -370,23 +459,47 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the client will take any `X-` headers and use them in future requests.
         /// </summary>
-        public bool EchoXHeaders { get; set; }
+        public bool EchoXHeaders
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if the client will process messages which are pushed during the session.
         /// </summary>
-        public bool IgnoreServerSentMessages { get; set; }
+        public bool IgnoreServerSentMessages
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Indicates if Keep Alive Requests will be sent
         /// </summary>
-        public bool DisableKeepAliveRequest { get; set; }
+        public bool DisableKeepAliveRequest
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Gets or Sets a value which indicates if the client will attempt an alternate style of connection if one cannot be established successfully.
         /// Usually only useful under UDP when NAT prevents RTP packets from reaching a client, it will then attempt TCP or HTTP transport.
         /// </summary>
-        public bool AllowAlternateTransport { get; set; }
+        public bool AllowAlternateTransport
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         #endregion
 
@@ -431,6 +544,7 @@ namespace Media.Rtsp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_RtspSocket; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
 
@@ -512,6 +626,7 @@ namespace Media.Rtsp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_Buffer; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set { m_Buffer = value; }
         }
 
@@ -520,6 +635,7 @@ namespace Media.Rtsp
         /// </summary>
         public bool SharesSocket
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 //The socket is shared with the GC
@@ -691,6 +807,7 @@ namespace Media.Rtsp
         /// </summary>
         public bool IsPlaying
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 //If started playing
@@ -754,6 +871,7 @@ namespace Media.Rtsp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_RtspSessionTimeout; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
                 m_RtspSessionTimeout = value;
@@ -819,6 +937,7 @@ namespace Media.Rtsp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_CurrentLocation; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
                 try
@@ -945,6 +1064,7 @@ namespace Media.Rtsp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_AuthenticationScheme; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
                 if (value == m_AuthenticationScheme) return;
@@ -1009,7 +1129,8 @@ namespace Media.Rtsp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return m_SessionDescription; }
-            set
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            protected set
             {
                 //if (value == null) throw new ArgumentNullException("The SessionDescription cannot be null.");
                 m_SessionDescription = value;

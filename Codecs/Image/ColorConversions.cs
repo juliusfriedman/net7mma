@@ -178,7 +178,7 @@ namespace Media.Codecs.Image
 
         //Should follow the same api as below...
 
-        const int E = 8, S = 16, H = 100, T = 298, t = 208, N = 409, f = 516;
+        const int E = 8, S = 16, H = 100, T = 298, t = 208, N = 409, f = 516;               
 
         internal static unsafe void YUV2RGBManaged(byte[] YUVData, byte[] RGBData, int width, int height)
         {
@@ -276,7 +276,7 @@ namespace Media.Codecs.Image
                             uint B = (rgbValues[index] & 0xff000000) >> 24;
                             uint G = (rgbValues[index] & 0xff0000) >> 16;
                             uint R = (rgbValues[index] & 0xff00) >> 8;
-                            uint a = (rgbValues[index] & 0xff) >> 0;
+                            //uint a = (rgbValues[index] & 0xff) >> 0;
 
                             //int yuvC = Utility.RgbYuv.GetYuv(Common.Binary.ReverseU32(rgbValues[index]));
 
@@ -288,7 +288,7 @@ namespace Media.Codecs.Image
 
                             // > 0 && IsEven
                             //If Common.Binary.IsPowerOfTwo(j) && Common.Binary.IsPowerOfTwo(index)
-                            if (j % 2 == 0 && index % 2 == 0)
+                            if (Common.Binary.IsEven(ref j) && Common.Binary.IsEven(ref index))
                             {
                                 yuv[uIndex++] = Common.Binary.Clamp((byte)U, (byte)0, byte.MaxValue);//(byte)((yuvC  & 0xff00) >> 8);//
                                 yuv[vIndex++] = Common.Binary.Clamp((byte)V, (byte)0, byte.MaxValue);// (byte)((yuvC & 0xff) >> 0);//
@@ -327,6 +327,7 @@ namespace Media.Codecs.Image
 
                 unchecked
                 {
+
                     for (int j = 0; j < height; j++)
                     {
                         for (int i = 0; i < width; i++)
@@ -343,7 +344,7 @@ namespace Media.Codecs.Image
 
                             yuv[yIndex++] = Common.Binary.Clamp((byte)Y, (byte)0, byte.MaxValue);// (byte)((yuvC & 0xff0000) >> 16); //
 
-                            if (Common.Binary.IsEven(j) && Common.Binary.IsEven(index))
+                            if (Common.Binary.IsEven(ref j) && Common.Binary.IsEven(ref index))
                             {
                                 yuv[uIndex++] = Common.Binary.Clamp((byte)U, (byte)0, byte.MaxValue);//(byte)((yuvC  & 0xff00) >> 8);//
                                 yuv[vIndex++] = Common.Binary.Clamp((byte)V, (byte)0, byte.MaxValue);// (byte)((yuvC & 0xff) >> 0);//

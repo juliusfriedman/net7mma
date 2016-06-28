@@ -73,11 +73,16 @@ namespace Media.Rtsp
         {
             if (socket == null) throw new ArgumentNullException("socket");
 
-            //Ensure the address can be re-used
-            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket));
+            //Xamarin's .net implementation on Android suffers from nuances that neither core nor mono suffer from.
+            //If this option fails to be set there the socket can't be used easily.
+            if (false.Equals(Media.Common.Extensions.RuntimeExtensions.IsAndroid))
+            {
+                //Ensure the address can be re-used
+                Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(socket));
 
-            //Windows >= 10 and Some Unix, ensure the port can be reused
-            Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableUnicastPortReuse(socket));
+                //Windows >= 10 and Some Unix
+                Media.Common.Extensions.Exception.ExceptionExtensions.ResumeOnError(() => Media.Common.Extensions.Socket.SocketExtensions.EnableUnicastPortReuse(socket));
+            }
 
             //Tcp confgiuration
             if (socket.ProtocolType == ProtocolType.Tcp)
