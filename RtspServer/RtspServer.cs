@@ -978,10 +978,10 @@ namespace Media.Rtsp
 
             streamBase = mediaLocation.Segments.Any(s=>s.ToLowerInvariant().Contains("live")) ? "live" : "archive";
 
-            streamName = mediaLocation.Segments.Last().ToLowerInvariant().Replace("/", string.Empty);
+            streamName = mediaLocation.Segments.Last().ToLowerInvariant().Replace("/", string.Empty).Trim();
 
-            if (string.IsNullOrWhiteSpace(streamName)) streamName = mediaLocation.Segments[mediaLocation.Segments.Length - 1].ToLowerInvariant().Replace("/",string.Empty);
-            else if (streamName == "video" || streamName == "audio") streamName = mediaLocation.Segments[mediaLocation.Segments.Length - 2].ToLowerInvariant().Replace("/", string.Empty);
+            if (string.IsNullOrWhiteSpace(streamName)) streamName = mediaLocation.Segments[mediaLocation.Segments.Length - 1].ToLowerInvariant().Replace("/", string.Empty).Trim();
+            else if (streamName == "video" || streamName == "audio") streamName = mediaLocation.Segments[mediaLocation.Segments.Length - 2].ToLowerInvariant().Replace("/", string.Empty).Trim();
 
             //If either the streamBase or the streamName is null or Whitespace then return null (no stream)
             if (string.IsNullOrWhiteSpace(streamBase) || string.IsNullOrWhiteSpace(streamName)) return null;
@@ -989,13 +989,27 @@ namespace Media.Rtsp
             //handle live streams
             if (streamBase == "live")
             {
+                int diff;
+
                 foreach (Media.Rtsp.Server.IMedia stream in MediaStreams)
                 {
+                    diff = string.Compare(stream.Name.ToLowerInvariant(), streamName, StringComparison.OrdinalIgnoreCase);
 
                     //If the name matches the streamName or stream Id then we found it
-                    if (string.Compare(stream.Name.ToLowerInvariant(), streamName, StringComparison.OrdinalIgnoreCase) == 0 || string.Compare(stream.Id.ToString().ToLowerInvariant(), streamName, StringComparison.OrdinalIgnoreCase) == 0)
+                    if (diff == 0)
                     {
                         found = stream;
+
+                        break;
+                    }
+
+                    //Check the Id
+                    diff = string.Compare(stream.Id.ToString().ToLowerInvariant(), streamName, StringComparison.OrdinalIgnoreCase);
+
+                    if (diff == 0)
+                    {
+                        found = stream;
+
                         break;
                     }
 
@@ -1004,11 +1018,16 @@ namespace Media.Rtsp
                     {
                         foreach (string alias in stream.Aliases)
                         {
-                            if (string.Compare(alias.ToLowerInvariant(), streamName, StringComparison.OrdinalIgnoreCase) == 0)
+
+                            diff = string.Compare(alias.ToLowerInvariant(), streamName, StringComparison.OrdinalIgnoreCase);
+
+                            if (diff == 0)
                             {
                                 found = stream;
+
                                 break;
                             }
+
                         }
                     }
 
@@ -1272,7 +1291,7 @@ namespace Media.Rtsp
                 {
                     Common.ILoggingExtensions.LogException(Logger, ex);
 
-                    m_Maintaining = m_Maintainer != null;
+                    m_Maintaining = false.Equals(m_Maintainer == null);
                 }
             }
         }
@@ -1327,6 +1346,7 @@ namespace Media.Rtsp
             {
                 //Dispose the socket
                 m_TcpServerSocket.Dispose();
+
                 m_TcpServerSocket = null;
             }
           
@@ -1349,9 +1369,22 @@ namespace Media.Rtsp
 
                 try
                 {
-                    Common.ILoggingExtensions.Log(Logger, "Starting Stream: " + stream.Name + " Id=" + stream.Id);
+                    new Thread(() =>
+                    {
+                        try
+                        {
+                            Common.ILoggingExtensions.Log(Logger, "Starting Stream: " + stream.Name + " Id=" + stream.Id);
 
-                    new Thread(stream.Start, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
+                            stream.Start();
+                        }
+                        catch (Exception ex)
+                        {
+                            Common.ILoggingExtensions.LogException(Logger,ex);
+
+                            Common.ILoggingExtensions.Log(Logger, "Cannot Start Stream: " + stream.Name + " Id=" + stream.Id);
+                        }
+
+                    }, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
                     {
                         Priority = ThreadPriority.AboveNormal
                     }.Start();
@@ -1376,9 +1409,21 @@ namespace Media.Rtsp
 
                 try
                 {
-                    Common.ILoggingExtensions.Log(Logger, "Stopping Stream: " + stream.Name + " Id=" + stream.Id);
+                    new Thread(() =>
+                    {
+                        try
+                        {
+                            Common.ILoggingExtensions.Log(Logger, "Stopping Stream: " + stream.Name + " Id=" + stream.Id);
 
-                    new Thread(stream.Stop, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
+                            stream.Stop();
+                        }
+                        catch (Exception ex)
+                        {
+                            Common.ILoggingExtensions.LogException(Logger, ex);
+
+                            Common.ILoggingExtensions.Log(Logger, "Cannot Stop Stream: " + stream.Name + " Id=" + stream.Id);
+                        }
+                    }, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
                     {
                         Priority = ThreadPriority.AboveNormal
                     }.Start();
@@ -1560,7 +1605,7 @@ namespace Media.Rtsp
                 {
                     //The clientSocket is obtained from the EndAccept call, possibly bytes ready from the accept
                     //They are not discarded just not receieved until the first receive.
-                    clientSocket = server.EndAccept(ar);
+                    if (server.IsBound && IsRunning) clientSocket = server.EndAccept(ar);
                 }
                 else
                 {
@@ -1702,12 +1747,12 @@ namespace Media.Rtsp
                 using (Common.MemorySegment data = new Common.MemorySegment(session.m_Buffer.Array, session.m_Buffer.Offset, received))
                 {
 
-                    if (data[0].Equals(RtpClient.BigEndianFrameControl))
-                    {
-                        if (Common.IDisposedExtensions.IsNullOrDisposed(session.m_RtpClient)) return;
+                    //if (data[0].Equals(RtpClient.BigEndianFrameControl))
+                    //{
+                    //    if (Common.IDisposedExtensions.IsNullOrDisposed(session.m_RtpClient)) return;
 
-                        received -= session.m_RtpClient.ProcessFrameData(session.m_Buffer.Array, session.m_Buffer.Offset, received, session.m_RtspSocket);
-                    }
+                    //    received -= session.m_RtpClient.ProcessFrameData(session.m_Buffer.Array, session.m_Buffer.Offset, received, session.m_RtspSocket);
+                    //}
 
                     if (received <= 0) return;
 

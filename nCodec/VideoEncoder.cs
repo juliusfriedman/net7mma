@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace nVideo
 {
-    public class VideoEncoder
+    public class VideoEncoder //Todo,
     {
         public Guid Id { get; internal protected set; }
 

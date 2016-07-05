@@ -138,7 +138,11 @@ namespace Media.Rtsp.Server.MediaTypes
         /// <summary>
         /// Indicates if the source RtspClient is Connected and has began to receive data via Rtp
         /// </summary>
-        public override bool Ready { get { return base.Ready && RtspClient != null && RtspClient.IsPlaying; } }
+        public override bool Ready
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return base.Ready && false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(RtspClient)) && RtspClient.IsPlaying; }
+        }
 
         #endregion
 
@@ -323,7 +327,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             base.Dispose();
 
-            if (RtspClient != null)
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(RtspClient)))
             {
                 RtspClient.OnConnect -= RtspClient_OnConnect;
 

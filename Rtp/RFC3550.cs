@@ -547,6 +547,20 @@ namespace Media
             //Defaults
             int MinimumSequentialValidRtpPackets = DefaultMinimumSequentalRtpPackets, int MaxMisorder = DefaultMaxMisorder, int MaxDropout = DefaultMaxDropout)
         {
+            return UpdateSequenceNumber(ref sequenceNumber, ref RtpBaseSeq, ref RtpMaxSeq,
+                ref RtpBadSeq, ref RtpSeqCycles, ref RtpReceivedPrior,
+                ref RtpProbation, ref RtpPacketsRecieved, ref MinimumSequentialValidRtpPackets, ref MaxMisorder, ref MaxDropout);
+        }
+
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool UpdateSequenceNumber(ref ushort sequenceNumber,
+            //From 'source' or TransportContext
+            ref uint RtpBaseSeq, ref ushort RtpMaxSeq, ref uint RtpBadSeq, ref uint RtpSeqCycles, ref uint RtpReceivedPrior, ref uint RtpProbation, ref uint RtpPacketsRecieved,
+            //Defaults
+            ref int MinimumSequentialValidRtpPackets, ref int MaxMisorder, ref int MaxDropout)
+
+        {
             // RFC 3550 A.1.
             ushort udelta = (ushort)(sequenceNumber - RtpMaxSeq);
 
@@ -567,6 +581,7 @@ namespace Media
                     if (RtpProbation == 0)
                     {
                         ResetRtpValidationCounters(ref sequenceNumber, ref RtpBaseSeq, ref RtpMaxSeq, ref RtpBadSeq, ref RtpSeqCycles, ref RtpReceivedPrior, ref RtpPacketsRecieved);
+
                         return true;
                     }
                 }
@@ -1190,7 +1205,7 @@ namespace Media
             /// Makes an exact copy of the header from the given memory.
             /// </summary>
             /// <param name="memory">The memory</param>
-            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called
+            /// <param name="shouldDispose">indicates if memory will disposed when <see cref="Dispose"/> is called</param>
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public CommonHeaderBits(Common.MemorySegment memory, bool shouldDispose = true) //, int additionalOffset = 0)
                 : base(shouldDispose)
@@ -1341,7 +1356,7 @@ namespace Media
         /// for more information see
         /// <see href="http://tools.ietf.org/html/rfc3550">Page 15, paragraph `CSRC list`</see>
         /// </summary>
-        public sealed class SourceList : BaseDisposable, IEnumerator<uint>, IEnumerable<uint>, IReportBlock
+        public sealed class SourceList : SuppressedFinalizerDisposable, IEnumerator<uint>, IEnumerable<uint>, IReportBlock
             /*, IReadOnlyCollection<uint> */ //Only needed if modifications to a SourceList are allowed at run time.
         {
             #region Constants / Statics
@@ -1651,6 +1666,13 @@ namespace Media
             //    //Incremnt read
             //    ++m_Read;
             //}
+
+            public bool Contains(ref int csrc)
+            {
+                uint cast = (uint)csrc;
+
+                return this.Contains(cast);
+            }
 
             /// <summary>
             /// Moves to the next offset and parses the next contributing source.

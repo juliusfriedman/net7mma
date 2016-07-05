@@ -40,19 +40,47 @@ namespace Media.Common.Extensions
 {
     public static class RuntimeExtensions
     {
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool NamespaceExists(string @namespace, System.Collections.Generic.IEnumerable<System.Reflection.Assembly> assemblies = null, System.StringComparison comparisonType = System.StringComparison.InvariantCultureIgnoreCase)
+        {
+            if (string.IsNullOrWhiteSpace(@namespace)) return false;
+
+            foreach (System.Reflection.Assembly assembly in (assemblies ?? System.AppDomain.CurrentDomain.GetAssemblies()))
+            {
+                foreach (System.Type type in assembly.GetTypes())
+                {
+                    if (type.FullName.Equals(@namespace, comparisonType)) return true;
+                }
+            }
+
+            return false;
+        }
+
         internal static readonly System.Type MonoType = System.Type.GetType("Mono.Runtime");
 
-        public static bool IsMono { get { return MonoType != null; } }
+        public static bool IsMono
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return MonoType != null; }
+        }
 
         internal static readonly System.Type MonoMacType = System.Type.GetType("MonoMac");
 
-        public static bool IsMonoMac { get { return MonoMacType != null; } }
+        public static bool IsMonoMac
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return MonoMacType != null; }
+        }
 
         //Maybe a IsMonoOrMonoMac...
 
         internal static readonly System.Type MonoTouchObjCRuntimeType = System.Type.GetType("MonoTouch.ObjCRuntime");
-        
-        public static bool IsiOS { get { return MonoTouchObjCRuntimeType != null; } }
+
+        public static bool IsiOS
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return MonoTouchObjCRuntimeType != null; }
+        }
 
         //To have a Classic property one would need to ensure MonoTouchObjCRuntimeType != null and reflect the Constants.Version field.
         /*
@@ -67,14 +95,25 @@ namespace Media.Common.Extensions
 
         internal static readonly System.Type AndroidOSType = System.Type.GetType("Android.OS");
 
-        public static bool IsAndroid { get { return AndroidOSType != null; } }
+        //Don't matter at this time anyway as this library may be loaded outside of the app domain where Android is loaded...
+        //internal static bool HasAndroidOS = NamespaceExists("Android.OS");
+
+        public static bool IsAndroid
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return AndroidOSType != null /*|| HasAndroidOS*/; }
+        }
 
         internal static readonly System.Type WatchKitType = System.Type.GetType("WatchKit");
 
         /// <summary>
         /// Indicates if the WatchKit namespace is available.
         /// </summary>
-        public static bool IsWatchKit { get { return WatchKitType != null; } }
+        public static bool IsWatchKit
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return WatchKitType != null; }
+        }
 
         //IsRyuJit - http://stackoverflow.com/questions/22422021/how-do-i-verify-that-ryujit-is-jitting-my-app
 

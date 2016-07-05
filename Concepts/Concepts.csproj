@@ -72,11 +72,13 @@
     <Compile Include="Classes\Bus.cs" />
     <Compile Include="Classes\CentralProcessingUnit.cs" />
     <Compile Include="Classes\Clock.cs" />
+    <Compile Include="Classes\C\C.cs" />
     <Compile Include="Classes\GC\Controller.cs" />
     <Compile Include="Classes\Hardware.cs" />
     <Compile Include="Classes\I\I.cs" />
     <Compile Include="Classes\MethodHelper.cs" />
     <Compile Include="Classes\Intrinsics.cs" />
+    <Compile Include="Classes\S\S.cs" />
     <Compile Include="Collections\LinkedCollections.cs" />
     <Compile Include="Classes\CommonIntermediateLanguage.cs" />
     <Compile Include="Classes\Composed.cs" />
@@ -103,7 +105,10 @@
     <Compile Include="Classes\Unsafe.cs" />
     <Compile Include="Classes\Units.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Classes\F\" />
+    <Folder Include="Classes\T\" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
