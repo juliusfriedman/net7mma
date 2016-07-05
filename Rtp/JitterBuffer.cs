@@ -61,11 +61,11 @@
         /// </summary>
         /// <param name="payloadType"></param>
         /// <param name="packet"></param>
-        public void Add(int payloadType, RtpPacket packet)
+        public void Add(int payloadType, RtpPacket packet, bool allowDuplicatePackets = false, bool allowPacketsAfterMarker = false)
         {
             RtpFrame addedTo;
 
-            Add(payloadType, packet, out addedTo);
+            Add(payloadType, allowDuplicatePackets, allowPacketsAfterMarker, packet, out addedTo);
         }
 
         /// <summary>
@@ -75,7 +75,7 @@
         /// <param name="packet">The packet to add</param>
         /// <param name="addedTo">The frame which the packet was added to.</param>
         /// <returns>True if <paramref name="addedTo"/> is complete (it is no longer contained), otherwise false.</returns>
-        public bool Add(int payloadType, RtpPacket packet, out RtpFrame addedTo)
+        public bool Add(int payloadType, bool allowDuplicatePackets, bool allowPacketsAfterMarker, RtpPacket packet, out RtpFrame addedTo)
         {
             addedTo = null;
 
@@ -93,7 +93,7 @@
                     if (frame.Timestamp == packet.Timestamp)
                     {
                         //Try to add the packet and if added return.
-                        if (frame.TryAdd(packet))
+                        if (frame.TryAdd(packet, allowDuplicatePackets, allowPacketsAfterMarker))
                         {
                             addedTo = frame;
 

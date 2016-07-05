@@ -186,12 +186,24 @@ namespace Media.Rtsp.Server
         /// <summary>
         /// Indicates the source is ready to have clients connect
         /// </summary>
-        public virtual bool Ready { get; protected set; }
+        public virtual bool Ready
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            protected set;
+        }
 
         /// <summary>
         /// Indicates if the souce should attempt to decode frames which change.
         /// </summary>
-        public bool DecodeFrames { get; protected set; }
+        public bool DecodeFrames
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            protected set;
+        }
 
         #endregion
 

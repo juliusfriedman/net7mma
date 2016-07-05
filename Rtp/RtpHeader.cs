@@ -401,7 +401,7 @@ namespace Media.Rtp
         /// Creates an exact copy of the RtpHeader from the given memory
         /// </summary>
         /// <param name="memory">The memory</param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(Common.MemorySegment memory, bool shouldDispose = true)
             : base(shouldDispose)
@@ -417,7 +417,7 @@ namespace Media.Rtp
         /// <param name="version"></param>
         /// <param name="padding"></param>
         /// <param name="extension"></param>
-        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called
+        /// <param name="shouldDispose">indicates if <see cref="SegmentToLast6Bytes"/> will disposed when <see cref="Dispose"/> is called</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public RtpHeader(int version, bool padding, bool extension, bool shouldDispose = true)
             : base(shouldDispose)

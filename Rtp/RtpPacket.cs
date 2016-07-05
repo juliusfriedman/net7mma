@@ -108,7 +108,12 @@ namespace Media.Rtp
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
 
-            get { if (IsDisposed || Payload.Count.Equals(0) || false.Equals(Header.Extension)) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; }
+            get
+            {
+                if (IsDisposed || Payload.Count.Equals(0) || false.Equals(Header.Extension)) return 0;
+
+                using (RtpExtension extension = GetExtension()) return false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(extension)) ? extension.Size : 0;
+            }
         }
 
         /// <summary>
@@ -572,10 +577,10 @@ namespace Media.Rtp
         /// <param name="includePadding">Indicates if the Padding should be copied.</param>
         /// <param name="selfReference">Indicates if the new instance should reference the data contained in this instance.</param>
         /// <returns>The RtpPacket cloned as result of calling this function</returns>
-        public RtpPacket Clone(bool includeSourceList, bool includeExtension, bool includePadding, bool includeCoeffecients, bool selfReference, bool shouldDispose = true)
+        public RtpPacket Clone(bool includeSourceList, bool includeExtension, bool includePadding, bool includePayloadData, bool selfReference, bool shouldDispose = true)
         {
             //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-            if (includeSourceList && includeExtension && includePadding && includeCoeffecients) return selfReference ? new RtpPacket(Header, Payload, shouldDispose) { Transferred = Transferred } : new RtpPacket(Prepare().ToArray(), 0, Length, shouldDispose) { Transferred = Transferred };
+            if (includeSourceList && includeExtension && includePadding && includePayloadData) return selfReference ? new RtpPacket(Header, Payload, shouldDispose) { Transferred = Transferred } : new RtpPacket(Prepare().ToArray(), 0, Length, shouldDispose) { Transferred = Transferred };
 
             IEnumerable<byte> binarySequence = Media.Common.MemorySegment.EmptyBytes;
 
@@ -604,7 +609,7 @@ namespace Media.Rtp
             }
 
             //if the video data is required in the clone then include it
-            if (includeCoeffecients) binarySequence = binarySequence.Concat(PayloadData); //Add the binary data to the packet except any padding
+            if (includePayloadData) binarySequence = binarySequence.Concat(PayloadData); //Add the binary data to the packet except any padding
 
             //Determine if padding is present
             bool hasPadding = Header.Padding;

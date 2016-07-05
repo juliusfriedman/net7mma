@@ -759,13 +759,13 @@ namespace Media.Rtsp
                 }
 
                 //If there was a buffer
-                if (buffer != null && false.Equals(buffer.IsDisposed) && buffer.Count > 0)
+                if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(buffer)) && buffer.Count > 0)
                 {
                     //Write the new data
-                    m_Buffer.Write(buffer.Array, buffer.Offset, received += buffer.Count);
+                    if (m_Buffer.CanWrite) m_Buffer.Write(buffer.Array, buffer.Offset, received += buffer.Count);
 
                     //Go to the beginning
-                    m_Buffer.Seek(0, System.IO.SeekOrigin.Begin);
+                    if(m_Buffer.CanSeek) m_Buffer.Seek(0, System.IO.SeekOrigin.Begin);
                 }
             }
 

@@ -185,7 +185,7 @@ namespace Media.Common
         /// </summary>
         /// <typeparam name="T">The type related to the exception.</typeparam>
         /// <param name="exception">The <see cref="System.Exception"/> which occured.</param>
-        public static void Raise<T>(this TaggedException<T> exception) { if (exception != null) throw exception; }
+        public static void Raise<T>(this TaggedException<T> exception) { if (false.Equals(exception == null)) throw exception; }
 
         /// <summary>
         /// Tries to <see cref="Raise"/> the given <see cref="TaggedException"/>
@@ -208,7 +208,7 @@ namespace Media.Common
         public static void RaiseAndAttachIfUnhandled<T>(this TaggedException<T> exception, bool breakForResume = true)
         {
             //If not attaching then fall back to TryRaise which hides the exception and return.
-            if (false == breakForResume)
+            if (false.Equals(breakForResume))
             {
                 exception.TryRaise();
 
@@ -220,7 +220,7 @@ namespace Media.Common
             catch //Handle it
             {
                 //If the debugger is not attached and it cannot be then return
-                if (false == Common.Extensions.Debug.DebugExtensions.Attach()) return;
+                if (false.Equals(Common.Extensions.Debug.DebugExtensions.Attach())) return;
 
                 //Break if still attached
                 Common.Extensions.Debug.DebugExtensions.BreakIfAttached();

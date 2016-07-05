@@ -412,7 +412,7 @@ namespace Media.Common
         {
             if (System.Object.ReferenceEquals(this, obj)) return true;
 
-            if (false == (obj is MemorySegment)) return false;
+            if (false.Equals((obj is MemorySegment))) return false;
 
             MemorySegment other = obj as MemorySegment;
 
@@ -437,7 +437,7 @@ namespace Media.Common
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool operator !=(MemorySegment a, MemorySegment b) { return false == (a == b); }
+        public static bool operator !=(MemorySegment a, MemorySegment b) { return false.Equals(a.Equals(b)); }
 
         //>> , << etc
 

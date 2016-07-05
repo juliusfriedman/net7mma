@@ -252,7 +252,7 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public virtual void Dispose()
         {
-            if (IsFinalized || false.Equals(IsUndisposed) || false.Equals(ShouldDispose) || IsDisposed) return;
+            if (false.Equals(IsUndisposed) || IsFinalized || false.Equals(ShouldDispose) || IsDisposed) return;
             
             Destruct();
         }

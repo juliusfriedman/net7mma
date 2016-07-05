@@ -69,7 +69,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public static byte[] FullStartSequence = new byte[] { 0x00, 0x00, 0x00, 0x01 };
 
-            static readonly Common.MemorySegment FullStartSequenceSegment = new Common.MemorySegment(FullStartSequence, false);
+            static readonly Common.MemorySegment FullStartSequenceSegment = new Common.MemorySegment(FullStartSequence, 0, 4, false);
 
             static readonly Common.MemorySegment ShortStartSequenceSegment = new Common.MemorySegment(FullStartSequence, 1, 3, false);
 
@@ -160,16 +160,19 @@ namespace Media.Rtsp.Server.MediaTypes
                 m_ContainedNalTypes = new List<byte>();
             }
 
-            public RFC6184Frame(Rtp.RtpFrame existing)
-                : base(existing)
+            public RFC6184Frame(Rtp.RtpFrame existing, bool referencePackets = false, bool referenceBuffer = false, bool shouldDispose = true)
+                : base(existing, referencePackets, referenceBuffer, shouldDispose)
             {
                 m_ContainedNalTypes = new List<byte>();
             }
 
-            public RFC6184Frame(RFC6184Frame existing)
-                : base(existing, true, true)
+            public RFC6184Frame(RFC6184Frame existing, bool referencePackets = false, bool referenceBuffer = false, bool shouldDispose = true)
+                : base(existing, referencePackets, referenceBuffer, shouldDispose)
             {
-                m_ContainedNalTypes = existing.m_ContainedNalTypes;
+                if (referenceBuffer)
+                {
+                    m_ContainedNalTypes = existing.m_ContainedNalTypes;
+                }
             }
 
             //AllowMultipleMarkerPackets
@@ -381,6 +384,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// Depacketizes all contained packets and adds start sequences where necessary which can be though of as a H.264 RBSP 
             /// </summary>
             /// <param name="packet"></param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public override void Depacketize(Rtp.RtpPacket packet) { ProcessPacket(packet, false, false); }
 
             //Could be called Depacketize
@@ -394,34 +398,37 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="containsSei"></param>
             /// <param name="containsSlice"></param>
             /// <param name="isIdr"></param>
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             internal protected virtual void ProcessPacket(Rtp.RtpPacket packet, bool ignoreForbiddenZeroBit = true, bool fullStartCodes = false)
             {
                 //If the packet is null or disposed then do not process it.
                 if (Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
-               
-                //Just put the packets into Depacketized at the end for most cases.
-                int packetKey = packet.SequenceNumber;
-
-                //The packets are not stored by SequenceNumber in Depacketized, they are stored in whatever Decoder Order is necessary.
-                if (Depacketized.ContainsKey(packetKey)) return;
 
                 //(May need to handle re-ordering)
                 //In such cases this step needs to place the packets into a seperate collection for sorting on DON / TSOFFSET before writing to the buffer.
 
-                //From the beginning of the data in the actual payload
-                int offset = packet.Payload.Offset,
-                   headerOctets = packet.HeaderOctets,
+                ///From the beginning of the data in the actual payload
+                int headerOctets = packet.HeaderOctets,
+                   offset = packet.Payload.Offset + headerOctets,
                    padding = packet.PaddingOctets,
                    count = packet.Payload.Count - (padding + headerOctets);
 
-                //Must have at least 2 bytes (When nalUnitType is a FragmentUnit.. 3)
-                //If such cases as AUD or otherwise there is only 1 byte of data and it's usually the stop bit.
-                //if (count <= 2) return;
+                //int offset = 0;
 
-                //Start after the headerOctets
-                offset += headerOctets;
+                //Obtain the data of the packet (without source list or padding)
+                //byte[] packetData = packet.PayloadData.ToArray();
 
-                //Obtain the data of the packet with respect to extensions and csrcs present.
+                //Cache the length
+                //int count = packetData.Length;
+
+                ///Must have at least 2 bytes (When nalUnitType is a FragmentUnit.. 3)
+                ///If such cases as AUD or otherwise there is only 1 byte of data and it's usually the stop bit.
+                if (count <= 2) return;
+
+                //Just put the packets into Depacketized at the end for most cases.
+                int packetKey = Depacketized.Count; //packet.SequenceNumber;               
+
+                ///Obtain the data of the packet with respect to extensions and csrcs present.
                 byte[] packetData = packet.Payload.Array;
 
                 if (false.Equals(packet.PayloadType.Equals(PayloadType)))
@@ -451,6 +458,29 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     return; //throw new Exception("forbiddenZeroBit");
                 }
+
+                ////The packets are not stored by SequenceNumber in Depacketized, they are stored in whatever Decoder Order is necessary.
+                //if (Depacketized.ContainsKey(packetKey))
+                //{
+                //    //Todo, this should be ordered correctly using the PaD
+                //    //packetKey = Depacketized.Count + packetKey;
+
+                //    double newKey = (packetKey - 1) + 0.101;
+
+                //    while (Depacketized.ContainsKey(newKey))
+                //    {
+                //        newKey -= 0.001;
+                //    }
+
+                //    System.Console.WriteLine("KeyChnge : " + packetKey + "," + newKey);
+
+                //    //--packetKey;
+
+                //    //packetKey += 0.1;
+
+                //    //packetKey = newKey;
+                //}
+                //else packetKey += Depacketized.Count;
 
                 byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
 
@@ -484,29 +514,39 @@ namespace Media.Rtsp.Server.MediaTypes
 
                             //Todo Determine if need to Order by DON first.
                             //EAT DON for ALL BUT STAP - A
-                            if (nalUnitType != Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationA)
+                            if (nalUnitType != Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationA && count >= 2)
                             {
                                 //Should check for 2 bytes.
 
                                 //Read the DecoderOrderingNumber and add the value from the index.
-                                packetKey = Common.Binary.ReadU16(packetData, ref offset, Common.Binary.IsLittleEndian);
+                                /*packetKey += 0.101 * */
+                                Common.Binary.ReadU16(packetData, ref offset, Common.Binary.IsLittleEndian);
 
                                 //If the number was already observed skip this packet.
                                 //if (Depacketized.ContainsKey(packetKey)) return;
+
+                                count -= 2;
 
                             }
 
                             //Should check for 2 bytes.
 
+                            int tmp_nal_size = 0;
+
                             //Consume the rest of the data from the packet
-                            while (offset < count) // + 2 <=
+                            while (count >= 2)
                             {
                                 //Determine the nal unit size which does not include the nal header
-                                int tmp_nal_size = Common.Binary.Read16(packetData, ref offset, Common.Binary.IsLittleEndian);
+                                tmp_nal_size = Common.Binary.Read16(packetData, ref offset, Common.Binary.IsLittleEndian);
+
+                                count -= 2;
+
+                                //Ensure the entire nal is written...
+                                tmp_nal_size = Common.Binary.Min(tmp_nal_size, count);
 
                                 //Should check for tmp_nal_size > 0
                                 //If the nal had data and that data is in this packet then write it
-                                if (tmp_nal_size >= 0)
+                                if (tmp_nal_size > 0)
                                 {
                                     //For DOND and TSOFFSET
                                     switch (nalUnitType)
@@ -519,10 +559,14 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //DOND 1 byte
 
                                                 //Read DOND and TSOFFSET, combine the values with the existing index
-                                                packetKey = (int)Common.Binary.ReadU24(packetData, ref offset, Common.Binary.IsLittleEndian);
+                                                if (count < 3) return;
+
+                                                Common.Binary.ReadU24(packetData, ref offset, Common.Binary.IsLittleEndian);
 
                                                 //If the number was already observed skip this packet.
                                                 //if (Depacketized.ContainsKey(packetKey)) return;
+
+                                                count -= 3;
 
                                                 goto default;
                                             }
@@ -533,10 +577,15 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //DOND 2 bytes
 
                                                 //Read DOND and TSOFFSET , combine the values with the existing index
-                                                packetKey = (int)Common.Binary.ReadU32(packetData, ref offset, Common.Binary.IsLittleEndian);
+                                                /*packetKey += 0.101 * */
+                                                if (count < 4) return;
+
+                                                Common.Binary.ReadU32(packetData, ref offset, Common.Binary.IsLittleEndian);
 
                                                 //If the number was already observed skip this packet.
                                                 //if (Depacketized.ContainsKey(packetKey)) return;
+
+                                                count -= 4;
 
                                                 goto default;
                                             }
@@ -544,6 +593,9 @@ namespace Media.Rtsp.Server.MediaTypes
                                             {
 
                                                 //Should check for tmp_nal_size > 0
+
+                                                //Ensure the entire nal is written...
+                                                tmp_nal_size = Common.Binary.Min(tmp_nal_size, count);
 
                                                 //Could check for extra bytes or emulation prevention
                                                 //https://github.com/raspberrypi/userland/blob/master/containers/rtp/rtp_h264.c
@@ -555,7 +607,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                                 //Ensure the size is within the count.
                                                 //When tmp_nal_size is 0 packetData which is referenced by this segment which will have a 0 count.
-                                                Depacketized.Add(packetKey++, new Common.MemorySegment(packetData, offset, Common.Binary.Min(tmp_nal_size, count - offset)));
+                                                //If there was at least 1 byte then write it out.
+                                                //Add the depacketized data
+                                                Depacketized.Add(packetKey++, new Common.MemorySegment(packetData, offset, tmp_nal_size));
 
                                                 //Move the offset past the nal
                                                 offset += tmp_nal_size;
@@ -589,11 +643,11 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 bool Start = ((FUHeader & 0x80) >> 7) > 0;
 
-                                    //https://tools.ietf.org/html/rfc6184 page 31...
-                                
-                                   //A fragmented NAL unit MUST NOT be transmitted in one FU; that is, the
-                                   //Start bit and End bit MUST NOT both be set to one in the same FU
-                                   //header.
+                                //https://tools.ietf.org/html/rfc6184 page 31...
+
+                                //A fragmented NAL unit MUST NOT be transmitted in one FU; that is, the
+                                //Start bit and End bit MUST NOT both be set to one in the same FU
+                                //header.
 
                                 //bool End = ((FUHeader & 0x40) >> 6) > 0;
 
@@ -606,6 +660,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 //Move to data (Just read the FU Header)
                                 ++offset;
+                                
+                                //Adjust count
+                                count -= 2;
 
                                 //packet.SequenceNumber - packet.Timestamp;
 
@@ -613,16 +670,20 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //int DecodingOrderNumber = packetKey;
 
                                 //DON Present in FU - B, add the DON to the DecodingOrderNumber
-                                if (nalUnitType == Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB)
+                                if (nalUnitType == Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB && count >= 2)
                                 {
                                     //Needs 2 more bytes...
-                                    Common.Binary.ReadU16(packetData, ref offset, Common.Binary.IsLittleEndian);//offset += 2;
+                                    /*packetKey += 0.101 * */
+                                    Common.Binary.ReadU16(packetData, ref offset, Common.Binary.IsLittleEndian);
+
+                                    //Adjust count
+                                    count -= 2;
                                 }
 
                                 //Should verify count... just consumed 1 - 3 bytes and only required 2.
 
-                                //Determine the fragment size
-                                int fragment_size = count - offset;
+                                //Determine the fragment size by what remains
+                                int fragment_size = count; // = - (offset - packet.Payload.Offset);
 
                                 //Should be optional
                                 //Don't emit empty fragments
@@ -638,22 +699,28 @@ namespace Media.Rtsp.Server.MediaTypes
                                     //Use the first 3 bits of the first byte and last 5 bites of the FU Header
                                     byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
 
+                                    //Reuse the data we don't need which was previously used to indicate the type of fragmentation unit or length
+                                    packetData[offset - 1] = nalHeader;
+
                                     //(Stores the nal) Write the start code
                                     DepacketizeStartCode(ref packetKey, ref nalHeader, fullStartCodes);
 
                                     //Wasteful but there is no other way to provide this byte since it is constructor from two values in the header
                                     //Unless of course a FragmentHeader : MemorySegment was created, which could have a NalType property ...
                                     //Could also just have an overload which writes the NalHeader
-                                        //Would need a CreateNalSegment static method with option for full (4 + 1) or short code ( 3 + 1)/
-                                    Depacketized.Add(packetKey++, new Common.MemorySegment(new byte[] { nalHeader }));
+                                    //Would need a CreateNalSegment static method with option for full (4 + 1) or short code ( 3 + 1)/
+
+                                    //The nalHeader was written @ offset - 1 and is 1 byte
+                                    Depacketized.Add(packetKey++, new Common.MemorySegment(packetData, offset - 1, 1));
                                 }
 
                                 //Add the depacketized data but only if there is data in the fragment.
-                                if(fragment_size > 0) Depacketized.Add(packetKey, new Common.MemorySegment(packetData, offset, fragment_size));
+                                Depacketized.Add(packetKey++, new Common.MemorySegment(packetData, offset, fragment_size));
 
+                                //else Depacketized.Add(packetKey++, Common.MemorySegment.Empty);
                                 //Allow If End to Write End Sequence?
                                 //Should only be done if last byte is 0?
-                                //if (End) Buffer.WriteByte(Media.Codecs.Video.H264.NalUnitType.EndOfSequence);
+                                //if (End) Buffer.WriteByte(Media.Codecs.Video.H264.NalUnitType.EndOfSequence);                                
                             }
 
                             //No more data?
@@ -664,15 +731,8 @@ namespace Media.Rtsp.Server.MediaTypes
                             //(Stores the nalUnitType) Write the start code
                             DepacketizeStartCode(ref packetKey, ref nalUnitType, fullStartCodes);
 
-                            //Determine how much payload data to write
-                            count = count - offset;
-
-                            //If there was at least 1 byte then write it out.
-                            if (count > 0)
-                            {
-                                //Add the depacketized data
-                                Depacketized.Add(packetKey, new Common.MemorySegment(packetData, offset, count));
-                            }
+                            //Add the depacketized data
+                            Depacketized.Add(packetKey++, new Common.MemorySegment(packetData, offset, count));
 
                             return;
                         }

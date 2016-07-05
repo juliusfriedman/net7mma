@@ -106,6 +106,7 @@ namespace Media.Common
         #region Methods
 
         //Write without copy
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void AddMemory(Common.MemorySegment segment)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(segment)) segment = Common.MemorySegment.Empty;
@@ -116,6 +117,7 @@ namespace Media.Common
         }
 
         //Write with copy
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void AddPersistedMemory(Common.MemorySegment segment)
         {
             //Allow dead space...
@@ -145,6 +147,7 @@ namespace Media.Common
         /// <param name="buffer"></param>
         /// <param name="offset"></param>
         /// <param name="count"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void WritePersisted(byte[] buffer, int offset, int count)
         {
             if (IsDisposed || count <= 0) return;
@@ -156,6 +159,7 @@ namespace Media.Common
         public void InsertMemory(int index, Common.MemorySegment toInsert) { InsertMemory(ref index, toInsert); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void InsertMemory(ref int index, Common.MemorySegment toInsert)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(toInsert)) toInsert = Common.MemorySegment.Empty;
@@ -175,9 +179,11 @@ namespace Media.Common
             m_Count += toInsert.m_Length;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void InsertPersistedMemory(int index, Common.MemorySegment toInsert) { InsertPersistedMemory(ref index, toInsert); }
 
         [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void InsertPersistedMemory(ref int index, Common.MemorySegment toInsert)
         {
 
@@ -279,6 +285,8 @@ namespace Media.Common
 
             foreach (Common.MemorySegment ms in Segments)
             {
+                if (ms.Count.Equals(Common.Binary.Zero)) continue;
+
                 min = Binary.Min(count, ms.Count);
 
                 System.Array.Copy(ms.Array, ms.m_Offset, destination, offset, min);
@@ -591,6 +599,7 @@ namespace Media.Common
         /// <param name="offset"></param>
         /// <param name="count"></param>
         /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override int Read(byte[] buffer, int offset, int count)
         {
             //If at the end of data return 0 unless closed...
@@ -641,6 +650,7 @@ namespace Media.Common
         /// <param name="buffer"></param>
         /// <param name="offset"></param>
         /// <param name="count"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override void Write(byte[] buffer, int offset, int count)
         {
             //If there is no way to write or nothing to write then do nothing.
@@ -721,6 +731,7 @@ namespace Media.Common
         /// <param name="offset">The offset to seek to</param>
         /// <param name="origin">The seeking style to use</param>
         /// <returns>The <see cref="Position"/> after seeking.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override long Seek(long offset, System.IO.SeekOrigin origin)
         {
             if (IsDisposed) return -1;
@@ -730,12 +741,12 @@ namespace Media.Common
                 case System.IO.SeekOrigin.Begin:
                     {
                         //Nothing to do?
-                        if (m_Position == offset) return m_Position;
+                        if (m_Position.Equals(offset)) return m_Position;
 
                         //If the offset past or at the end (Could goto End)
                         if (offset >= m_Count)
                         {
-                            offset = 0;
+                            offset = Common.Binary.LongZero;
 
                             goto case System.IO.SeekOrigin.End;
                         }
@@ -745,7 +756,7 @@ namespace Media.Common
 
                             WorkingSegment = Segments[(m_Index = 0)];
 
-                            return m_Cursor = m_Position = 0;
+                            return m_Cursor = m_Position = Common.Binary.LongZero;
                         }
 
 
@@ -753,7 +764,7 @@ namespace Media.Common
                         if (offset < m_Position)
                         {
                             //If at the first byte in a new segment go to the last segment
-                            if (m_Cursor == 0)
+                            if (m_Cursor.Equals(Common.Binary.LongZero))
                             {
                                 WorkingSegment = Segments[--m_Index];
 
@@ -778,7 +789,7 @@ namespace Media.Common
                             //This could be optomized by searching backward but current should handle that, this implies the locations will always be somewhere in the segment or at the beginning of the stream.
 
                             //If the offset is within the current segment then there is no change of index
-                            if ((m_Cursor -= m_Position - offset) >= 0)
+                            if ((m_Cursor -= m_Position - offset) >= Common.Binary.LongZero)
                             {
                                 return m_Position = offset;
                             }
@@ -811,7 +822,7 @@ namespace Media.Common
                             WorkingSegment = Segments[++m_Index];
 
                             //Set the cursor to 0
-                            m_Cursor = 0;
+                            m_Cursor = Common.Binary.LongZero;
                         }
 
                         //Seek forward to find the offset.
@@ -827,20 +838,20 @@ namespace Media.Common
                             {
                                 WorkingSegment = Segments[++m_Index];
 
-                                m_Cursor = 0;
+                                m_Cursor = Common.Binary.LongZero;
                             }
                         }
-                        while (offset > 0);
+                        while (offset > Common.Binary.LongZero);
 
                         return m_Position;
                     }
                 case System.IO.SeekOrigin.Current:
                     {
                         //If there is no change in offset return the position
-                        if (offset == 0) return m_Position;
+                        if (offset.Equals(Common.Binary.LongZero)) return m_Position;
 
                         //When offset < 0
-                        if (offset < 0)
+                        if (offset < Common.Binary.LongZero)
                         {
                             //Make the offset based on the position
                             offset += m_Position;
@@ -954,8 +965,12 @@ namespace Media.Common
             //LeaveOpen...
 
             //If the stream should dispose then call base Close to call Dispose(true) and Supress the finalizer
-            if (ShouldDispose) base.Close();
-            else System.GC.SuppressFinalize(this);
+            if (ShouldDispose)
+            {
+                base.Close();
+
+                System.GC.SuppressFinalize(this);
+            }
         }
 
         #region Task Based
@@ -1021,8 +1036,9 @@ namespace Media.Common
             //Does nothing base.Dispose(disposing);
 
             //If disposing
-            if (IsDisposed = disposing)
+            if (disposing)
             {
+                IsDisposed = true;
                 //Calls Close virtual (Calls Dispose(true) and GC.SuppressFinalize(this))
                 //base.Dispose(); 
 
@@ -1032,7 +1048,7 @@ namespace Media.Common
                 m_Position = m_Cursor = -1;
 
                 //Handled with free...
-                if (WorkingSegment != null)
+                if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(WorkingSegment)))
                 {
                     BaseDisposable.SetShouldDispose(WorkingSegment, true, true);
 
@@ -1043,11 +1059,13 @@ namespace Media.Common
 
         bool IDisposed.IsDisposed
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return IsDisposed; }
         }
 
         bool IDisposed.ShouldDispose
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return ShouldDispose; }
         }
 
@@ -1055,7 +1073,7 @@ namespace Media.Common
 
         void IDisposable.Dispose() { Close(); }
 
-        ~SegmentStream() { Close(); }
+        //~SegmentStream() { Close(); }
 
         #endregion
     }

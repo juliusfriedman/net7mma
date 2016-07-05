@@ -1040,6 +1040,7 @@ namespace Media.Common.Extensions.Socket
         #region CongestionAlgorithm
 
         const int TcpCongestionAlgorithm = 12;
+
         static readonly System.Net.Sockets.SocketOptionName TcpCongestionAlgorithmOption = (System.Net.Sockets.SocketOptionName)TcpCongestionAlgorithm;
 
         public static void SetTcpCongestionAlgorithm(System.Net.Sockets.Socket socket, int value = 1)
@@ -1052,9 +1053,9 @@ namespace Media.Common.Extensions.Socket
             SetTcpCongestionAlgorithm(socket, 0);
         }
 
-        public static void EnableTcpCongestionAlgorithm(System.Net.Sockets.Socket socket)
+        public static void EnableTcpCongestionAlgorithm(System.Net.Sockets.Socket socket, int algorithmType = 1)
         {
-            SetTcpCongestionAlgorithm(socket, 1);
+            SetTcpCongestionAlgorithm(socket, algorithmType);
         }
 
         #endregion
@@ -1078,6 +1079,34 @@ namespace Media.Common.Extensions.Socket
         }
 
         #endregion
+
+        public static int GetMaximumTransmittableUnit(System.Net.Sockets.Socket socket)
+        {
+            System.Net.NetworkInformation.NetworkInterface nif = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetNetworkInterface(socket);
+
+            if (nif == null) return -1;
+
+            switch (socket.AddressFamily)
+            {
+                case System.Net.Sockets.AddressFamily.InterNetwork: return nif.GetIPProperties().GetIPv4Properties().Mtu;
+                case System.Net.Sockets.AddressFamily.InterNetworkV6: return nif.GetIPProperties().GetIPv6Properties().Mtu;
+                default: return -1;
+            }
+        }
+
+        public static bool TryGetMaximumTransmittableUnit(System.Net.Sockets.Socket socket, out int mtu)
+        {
+            try
+            {
+                mtu = GetMaximumTransmittableUnit(socket); 
+                
+                return true;
+            }
+            catch
+            {
+                mtu = -1; return false;
+            }
+        }
 
         //MaxConnectTime
 
@@ -1125,6 +1154,7 @@ namespace Media.Common.Extensions.Socket
         /// <param name="amount">The 0 based amount of bytes to receive, 0 will have no result, other values will be progressively used to determine exactly when an error occurs</param>
         /// <param name="socket">The socket to receive on</param>
         /// <returns>The amount of bytes recieved which will be equal to the amount paramter unless the data was unable to fit in the given buffer</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int AlignedReceive(byte[] buffer, int offset, int amount, System.Net.Sockets.Socket socket, out System.Net.Sockets.SocketError error) //RecieveAllOrTimeout
         {
             //Store any socket errors here incase non-blocking sockets are being used.
@@ -1145,10 +1175,11 @@ namespace Media.Common.Extensions.Socket
             if (amount > max) amount = max;
 
             //While there is something to receive
-            while (amount > 0 && socket.Connected) //poll write 0
+            while (amount > 0) //poll write 0
             {
                 //Receive it into the buffer at the given offset taking into account what was already received
-                justReceived = socket.Receive(buffer, offset, amount, System.Net.Sockets.SocketFlags.None, out error);
+                if (socket.Connected) justReceived = socket.Receive(buffer, offset, amount, System.Net.Sockets.SocketFlags.None, out error);
+                else justReceived = 0;
 
                 //Determine how to continue
                 switch (error)
@@ -1156,6 +1187,7 @@ namespace Media.Common.Extensions.Socket
                     case System.Net.Sockets.SocketError.ConnectionReset:
                     case System.Net.Sockets.SocketError.ConnectionAborted:
                     case System.Net.Sockets.SocketError.TimedOut: // Do not try again during timeouts. (Option?)
+                        error = System.Net.Sockets.SocketError.TryAgain; 
                         goto Done;
                     default:
                         {
@@ -1163,10 +1195,8 @@ namespace Media.Common.Extensions.Socket
                             if (justReceived <= 0)
                             {
                                 //Try again maybe
-                                ++attempt;
-
                                 //Only if the attempts in operations were less than the amount of bytes required to be recieved.
-                                if (attempt > amount) goto Done;
+                                if (++attempt > amount) goto Done;
 
                                 //Continue.
                                 continue;

@@ -218,7 +218,7 @@ namespace Media.Rtsp
 
         public void UpdatePushedMessages(RtspMessage request, RtspMessage response)
         {
-            if (request != null && LastInboundRequest != null)
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(request)) && false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(LastInboundRequest)))
             {
                 LastInboundRequest.IsPersistent = false;
 
@@ -229,16 +229,16 @@ namespace Media.Rtsp
 
             LastInboundRequest.IsPersistent = true;
 
-            if (LastInboundResponse != null)
+            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(LastInboundResponse)))
             {
                 LastInboundResponse.IsPersistent = false;
 
                 LastInboundResponse.Dispose();
             }
 
-            LastInboundResponse = response;
+            response.IsPersistent = true;
 
-            LastInboundResponse.IsPersistent = true;
+            LastInboundResponse = response;
         }
 
         public bool ParseSessionIdAndTimeout(RtspMessage from)

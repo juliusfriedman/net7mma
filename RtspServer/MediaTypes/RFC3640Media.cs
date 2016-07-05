@@ -211,8 +211,10 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Depacketized.Add(packetKey, null);
 
                 //From the beginning of the data in the actual payload
-                int payloadOffset = packet.Payload.Offset, offset = payloadOffset + packet.HeaderOctets,
-                    max = packet.Payload.Count - (offset + packet.PaddingOctets), //until the end of the actual payload
+                int offset = packet.Payload.Offset,
+                    headerOctets = packet.HeaderOctets,
+                    padding = packet.PaddingOctets,
+                    max = packet.Payload.Count - (padding + headerOctets),
                     auIndex = 0, //Indicates the serial number of the associated Access Unit
                     auHeadersAvailable = 0; //The amount of Au Headers in the Au Header section
 
@@ -287,7 +289,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 #endregion
 
                 //Determine the AU Headers Length (in bits)
-                int auHeaderLengthBits = headersPresent ? Common.Binary.ReadU16(packet.Payload.Array, offset, Common.Binary.IsLittleEndian) : 0,
+                int auHeaderLengthBits = headersPresent ? Common.Binary.ReadU16(packet.Payload.Array, ref offset, Common.Binary.IsLittleEndian) : 0,
                     //It will then be converted to bytes.
                     auHeaderLengthBytes = 0,
                     //AU-Size And the length of the underlying Elementary Stream Data for that access unit      
@@ -299,17 +301,11 @@ namespace Media.Rtsp.Server.MediaTypes
                     //The length of the auxiliary data if present
                     auxLengthBytes = 0,
                     //The absolute offset in the bitstream of the packet payload
-                    bitOffset = 0,
+                    bitOffset = Media.Common.Binary.BytesToBits(ref offset),
                     //The amount of bytes required to read the sizeLength bit field
                     sizeLengthBytes = Media.Common.Binary.BitsToBytes(sizeLength),
                     indexLengthBytes = Media.Common.Binary.BitsToBytes(indexLength),
                     indexDeltaLengthBytes = Media.Common.Binary.BitsToBytes(indexDeltaLength);
-
-                //Move the offset for the 2 bytes consumed (the Au Headers Length Section)
-                offset += 2;
-
-                //Move the bitOffset
-                bitOffset += 16;
 
                 //If there are any auHeaders indicated
                 if (auHeaderLengthBits > 0)
@@ -434,7 +430,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         auSize = (int)Media.Common.Binary.ReadBitsMSB(packet.Payload.Array, ref bitOffset, sizeLength);
 
                         //auSize can never be greater than max.
-                        if (auSize + offset >= max) throw new InvalidOperationException("auSize is larger than expected.");
+                        if (auSize >= max) throw new InvalidOperationException("auSize is larger than expected.");
                     }
                     else auSize = constantAuSize;
 
@@ -564,10 +560,10 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     //Might not need to skip padding, this should be determined by auHeaderLengthBits % 8
                     // as per 3) skip padding
-                    int padding = (bitOffset & 7);
-                    if (padding > 0) //Common.Binary.Align (bitOffset), ref, out byteOffset
+                    int localPadding = (bitOffset & 7);
+                    if (localPadding > 0) //Common.Binary.Align (bitOffset), ref, out byteOffset
                     {
-                        bitOffset += padding;
+                        bitOffset += localPadding;
                     }
 
                     #endregion
@@ -580,7 +576,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (--auHeadersAvailable > 0) auHeaderOffset += auHeaderLengthBytes;
 
                         //Determine how much data remains in the payload
-                        int remains = max - offset;
+                        int remains = max - (offset - packet.Payload.Offset);
 
                         //If the size of the accessUnit is greater than what remains
                         if (auSize > remains)
