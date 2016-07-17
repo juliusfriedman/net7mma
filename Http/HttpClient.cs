@@ -14,7 +14,7 @@ namespace Media.Http
     //Expand concepts to RtspClient and RtpClient
 
 
-    public class HttpClient : Common.BaseDisposable, Common.ISocketReference
+    public class HttpClient : Common.SuppressedFinalizerDisposable, Common.ISocketReference
     {
         #region Constants and Statics
 
@@ -98,7 +98,7 @@ namespace Media.Http
 
             HttpClientAction action = OnConnect;
 
-            if (action == null) return;
+            if (object.ReferenceEquals(action, null)) return;
 
             foreach (HttpClientAction handler in action.GetInvocationList())
             {
@@ -116,7 +116,7 @@ namespace Media.Http
 
             RequestHandler action = OnRequest;
 
-            if (action == null) return;
+            if (object.ReferenceEquals(action, null)) return;
 
             foreach (RequestHandler handler in action.GetInvocationList())
             {
@@ -133,7 +133,7 @@ namespace Media.Http
 
             ResponseHandler action = OnResponse;
 
-            if (action == null) return;
+            if (object.ReferenceEquals(action, null)) return;
 
             foreach (ResponseHandler handler in action.GetInvocationList())
             {
@@ -150,7 +150,7 @@ namespace Media.Http
 
             HttpClientAction action = OnDisconnect;
 
-            if (action == null) return;
+            if (object.ReferenceEquals(action, null)) return;
 
             foreach (HttpClientAction handler in action.GetInvocationList())
             {
@@ -535,7 +535,7 @@ namespace Media.Http
             CurrentLocation = location;
 
             //If there is an existing socket
-            if (existing != null)
+            if (object.ReferenceEquals(existing, null).Equals(false))
             {
                 //Use it
                 HttpSocket = existing;
@@ -545,7 +545,7 @@ namespace Media.Http
 
             //Check for a bufferSize of specified - unspecified value
             //Cases of anything less than or equal to 0 mean use the existing ReceiveBufferSize if possible.
-            if (bufferSize <= 0) bufferSize = m_HttpSocket != null ? m_HttpSocket.ReceiveBufferSize : 0;
+            if (bufferSize <= 0) bufferSize = object.ReferenceEquals(m_HttpSocket, null) ? 0 : m_HttpSocket.ReceiveBufferSize;
 
             //Create the segment given the amount of memory required if possible
             if (bufferSize > 0) m_Buffer = new Common.MemorySegment(bufferSize);
@@ -585,11 +585,6 @@ namespace Media.Http
             }
         }
 
-        ~HttpClient()
-        {
-            Dispose();            
-        }
-
         #endregion
 
         #region Methods
@@ -608,16 +603,16 @@ namespace Media.Http
             try
             {
                 //Ensure logic for UDP is correct, may have to store flag.
-                if (false == force && IsConnected) return;
+                if (force.Equals(false) && IsConnected) return;
 
                 //Deactivate any existing previous socket and erase connect times.
-                if (m_HttpSocket != null) DisconnectSocket();
+                if (object.ReferenceEquals(m_HttpSocket, null).Equals(false)) DisconnectSocket();
 
                 //Create the socket
                 m_HttpSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                 
                 //Configure the socket
-                if (ConfigureSocket != null) ConfigureSocket(m_HttpSocket);
+                if (object.ReferenceEquals(ConfigureSocket,null).Equals(false)) ConfigureSocket(m_HttpSocket);
 
                 //We started connecting now.
                 m_BeginConnect = DateTime.UtcNow;
@@ -647,7 +642,7 @@ namespace Media.Http
         {
             try
             {
-                if (m_RemoteHttp == null) throw new InvalidOperationException("A remote end point must be assigned");
+                if (object.ReferenceEquals(m_RemoteHttp, null)) throw new InvalidOperationException("A remote end point must be assigned");
 
                 //Try to connect
                 m_HttpSocket.Connect(m_RemoteHttp);
@@ -1344,63 +1339,46 @@ namespace Media.Http
 
         public HttpMessage SendOptions(Uri location = null)
         {
-            //Create an options request
-            using (var httpOptions = new HttpMessage(HttpMessageType.Request, ProtocolVersion)
-            {
-                HttpMethod = Http.HttpMethod.OPTIONS,
-                Location = location ?? CurrentLocation
-            })
-            {
-                //Send the request and get the response
-                using (var response = SendHttpMessage(httpOptions))
-                {
-                    //If there was a response
-                    if (response != null)
-                    {
-                        //Get the header Allow
-                        string allowed = response.GetHeader(HttpHeaders.Allow);
-
-                        //If the allow header was not null
-                        if (false == string.IsNullOrWhiteSpace(allowed))
-                        {
-                            //add to allowed methods, split on ','
-                        }
-                    }
-
-                    return response;
-                }
-            }
+            return Send(HttpMethod.OPTIONS, location);
         }
 
         public HttpMessage SendHead(Uri location = null)
         {
-            //Create an options request
-            using (var httpHead = new HttpMessage(HttpMessageType.Request, ProtocolVersion)
-            {
-                HttpMethod = Http.HttpMethod.HEAD,
-                Location = location ?? CurrentLocation
-            })
-            {
-                return SendHttpMessage(httpHead);
-            }
+            return Send(HttpMethod.HEAD, location);
         }
 
         public HttpMessage SendDelete(Uri location = null)
         {
+            return Send(HttpMethod.DELETE, location);
+        }
+
+        public HttpMessage SendGet(Uri location = null)
+        {
+            return Send(HttpMethod.GET, location);
+        }
+
+        public HttpMessage SendPost(Uri location = null)
+        {
+            return Send(HttpMethod.POST, location);
+        }
+
+        public HttpMessage Send(HttpMethod method, Uri location = null)
+        {
+            return Send(method.ToString(), location);
+        }
+
+        public HttpMessage Send(string method = null, Uri location = null)
+        {
             //Create an options request
-            using (var httpDelete = new HttpMessage(HttpMessageType.Request, ProtocolVersion)
+            using (var httpMessage = new HttpMessage(HttpMessageType.Request, ProtocolVersion)
             {
-                HttpMethod = Http.HttpMethod.DELETE,
+                MethodString = method,
                 Location = location ?? CurrentLocation
             })
             {
-                return SendHttpMessage(httpDelete);
+                return SendHttpMessage(httpMessage);
             }
         }
-
-        //SendGet
-
-        //SendPost
 
         //
 
@@ -1548,6 +1526,8 @@ namespace Media.Http
         //SendFiles... etc
 
         #endregion
+
+        //Todo, doesn't have to be virtual, use delegation
 
         /// <summary>
         /// Uses the given request to Authenticate the RtspClient when challenged.
@@ -1867,7 +1847,20 @@ namespace Media.Http
             return;
         }
 
-        #endregion
+        protected override void Dispose(bool disposing)
+        {
+            if (false.Equals(disposing) || false.Equals(ShouldDispose)) return;
+
+            base.Dispose(ShouldDispose);
+
+            if (false.Equals(IsDisposed)) return;
+
+            AdditionalHeaders.Clear();
+
+            Disconnect(LeaveOpen.Equals(false));
+        }
+
+        #endregion        
 
         IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
         {

@@ -85,6 +85,8 @@
     <Compile Include="Rtcp\SendersReport.cs" />
     <Compile Include="Rtcp\SourceDescriptionReport.cs" />
     <Compile Include="RtpClient.cs" />
+    <Compile Include="RtpClient.Fields.cs" />
+    <Compile Include="RtpClient.Methods.cs" />
     <Compile Include="RtpExtension.cs" />
     <Compile Include="RtpFrame.cs" />
     <Compile Include="RtpHeader.cs" />
@@ -112,7 +114,9 @@
   <ItemGroup>
     <Content Include="License.txt" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Compile Include="RtpClient.Constants.cs" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

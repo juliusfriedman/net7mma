@@ -289,7 +289,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     m_ContainedNalTypes.Add(nalType);
 
                     //Determine if the marker bit should be set.
-                    bool marker = false; //(nalType == Media.Codecs.Video.H264.NalUnitType.AccessUnitDelimiter);
+                    bool marker = Media.Codecs.Video.H264.NalUnitType.IsAccessUnit(ref nalType);//false; //(nalType == Media.Codecs.Video.H264.NalUnitType.AccessUnitDelimiter);
 
                     //Get the highest sequence number
                     int highestSequenceNumber = HighestSequenceNumber;
@@ -419,11 +419,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 //byte[] packetData = packet.PayloadData.ToArray();
 
                 //Cache the length
-                //int count = packetData.Length;
-
-                ///Must have at least 2 bytes (When nalUnitType is a FragmentUnit.. 3)
-                ///If such cases as AUD or otherwise there is only 1 byte of data and it's usually the stop bit.
-                if (count <= 2) return;
+                //int count = packetData.Length;                
 
                 //Just put the packets into Depacketized at the end for most cases.
                 int packetKey = Depacketized.Count; //packet.SequenceNumber;               
@@ -431,27 +427,42 @@ namespace Media.Rtsp.Server.MediaTypes
                 ///Obtain the data of the packet with respect to extensions and csrcs present.
                 byte[] packetData = packet.Payload.Array;
 
+                if (packet.Extension)
+                {
+                    //This is probably a new sps pps set                    
+
+                    //Determine the amount of extension octets including the flags and length in words...
+                    int extensionOctets = packet.ExtensionOctets;
+
+                    //Position at the start of the extension? (I would think this would be after the flags...)
+                    //It appears that the ExtensionFlags indicates the nal type?
+                    offset -= extensionOctets + Rtp.RtpExtension.MinimumSize;                 
+
+                    //Add the extension data to the count..
+                    count += extensionOctets + Rtp.RtpExtension.MinimumSize;
+                }
+
                 if (false.Equals(packet.PayloadType.Equals(PayloadType)))
                 {
                     if (false.Equals(AllowsMultiplePayloadTypes)) return;
-
-                    //This is probably a new sps pps set
-
-                    //The order should be in seqeuence and there must be data for it to be used.
-
-                    //(Stores the nalType) Write the start code
-                    DepacketizeStartCode(ref packetKey, ref packetData[offset], fullStartCodes);
-
-                    //Add the depacketized data
-                    Depacketized.Add(packetKey++, new Common.MemorySegment(packetData, offset, count));
-
-                    return;
                 }
+
+                ///Must have at least 2 bytes (When nalUnitType is a FragmentUnit.. 3)
+                ///If such cases as AUD or otherwise there is only 1 byte of data and it's usually the stop bit.
+                if (count <= 2) return;
 
                 //Determine if the forbidden bit is set and the type of nal from the first byte
                 byte firstByte = packetData[offset];
 
                 //Should never be set... (unless decoding errors are present)
+                //e,g, a FU was missed.
+                /*
+                 A receiver in an endpoint or in a MANE MAY aggregate the first n-1
+                fragments of a NAL unit to an (incomplete) NAL unit, even if fragment
+                n of that NAL unit is not received.  In this case, the
+                forbidden_zero_bit of the NAL unit MUST be set to one to indicate a
+                syntax violation.
+                */
                 if (false.Equals(ignoreForbiddenZeroBit) && false.Equals(0.Equals(((firstByte & 0x80) >> 7))))
                 {
                     //would need additional state to ensure all packets now have this bit.
@@ -512,6 +523,8 @@ namespace Media.Rtsp.Server.MediaTypes
                             //Move to Nal Data
                             ++offset;
 
+                            --count;
+
                             //Todo Determine if need to Order by DON first.
                             //EAT DON for ALL BUT STAP - A
                             if (nalUnitType != Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationA && count >= 2)
@@ -541,9 +554,6 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 count -= 2;
 
-                                //Ensure the entire nal is written...
-                                tmp_nal_size = Common.Binary.Min(tmp_nal_size, count);
-
                                 //Should check for tmp_nal_size > 0
                                 //If the nal had data and that data is in this packet then write it
                                 if (tmp_nal_size > 0)
@@ -568,6 +578,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                                 count -= 3;
 
+                                                tmp_nal_size -= 3;
+
                                                 goto default;
                                             }
                                         case Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24:// MTAP - 24 (May require re-ordering)
@@ -586,24 +598,22 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //if (Depacketized.ContainsKey(packetKey)) return;
 
                                                 count -= 4;
+                                                
+                                                tmp_nal_size -= 4;
+
 
                                                 goto default;
                                             }
                                         default:
                                             {
-
-                                                //Should check for tmp_nal_size > 0
-
-                                                //Ensure the entire nal is written...
-                                                tmp_nal_size = Common.Binary.Min(tmp_nal_size, count);
+                                                //Ensure the entire nal is written and that it is within the buffer...
+                                                tmp_nal_size = Common.Binary.Min(ref tmp_nal_size, ref count);
 
                                                 //Could check for extra bytes or emulation prevention
                                                 //https://github.com/raspberrypi/userland/blob/master/containers/rtp/rtp_h264.c
 
                                                 //(Stores the nalType) Write the start code
                                                 DepacketizeStartCode(ref packetKey, ref packetData[offset], fullStartCodes);
-
-                                                //Add the depacketized data and increase the index.
 
                                                 //Ensure the size is within the count.
                                                 //When tmp_nal_size is 0 packetData which is referenced by this segment which will have a 0 count.
@@ -613,6 +623,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                                 //Move the offset past the nal
                                                 offset += tmp_nal_size;
+
+                                                count -= tmp_nal_size;
 
                                                 continue;
                                             }
@@ -625,8 +637,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         }
                     case Media.Codecs.Video.H264.NalUnitType.FragmentationUnitA: //FU - A
                     case Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB: //FU - B (May require re-ordering)
-                        {
-
+                        {                            
                             /*
                              Informative note: When an FU-A occurs in interleaved mode, it
                              always follows an FU-B, which sets its DON.
@@ -689,15 +700,15 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //Don't emit empty fragments
                                 //if (fragment_size == 0) return;
 
+                                //Reconstruct the nal header
+                                //Use the first 3 bits of the first byte and last 5 bites of the FU Header
+                                byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
+
                                 //If the start bit was set
                                 if (Start)
                                 {
                                     //ignoreEndBit
                                     //if (End) throw new InvalidOperationException("Start and End Bit Set in same FU");
-
-                                    //Reconstruct the nal header
-                                    //Use the first 3 bits of the first byte and last 5 bites of the FU Header
-                                    byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
 
                                     //Reuse the data we don't need which was previously used to indicate the type of fragmentation unit or length
                                     packetData[offset - 1] = nalHeader;

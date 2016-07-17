@@ -895,6 +895,17 @@ namespace Media.Rtp
             m_OwnedOctets = null;
         }
 
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Equals(RtpPacket other)
+        {
+            return other.Length.Equals(Length)
+                 &&
+                 other.Payload.Equals(Payload) //SequenceEqual...
+                 &&
+                 other.GetHashCode().Equals(GetHashCode());
+        }
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
@@ -902,13 +913,7 @@ namespace Media.Rtp
 
             if (false.Equals((obj is RtpPacket))) return false;
 
-            RtpPacket other = obj as RtpPacket;
-
-            return other.Length.Equals(Length)
-                 &&
-                 other.Payload.Equals(Payload) //SequenceEqual...
-                 &&
-                 other.GetHashCode().Equals(GetHashCode());
+            return Equals(obj as RtpPacket);
         }
 
         //Packet equals...
@@ -959,12 +964,11 @@ namespace Media.Rtp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(RtpPacket a, RtpPacket b)
         {
-            object boxA = a, boxB = b;
-            return boxA == null ? boxB == null : a.Equals(b);
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool operator !=(RtpPacket a, RtpPacket b) { return false == (a == b); }
+        public static bool operator !=(RtpPacket a, RtpPacket b) { return (a == b).Equals(false); }
 
         #endregion
 

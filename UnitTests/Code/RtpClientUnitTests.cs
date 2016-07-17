@@ -98,7 +98,7 @@ namespace Media.UnitTests
                     byte[] buffer = new byte[8192];
 
                     _client = new Media.Rtp.RtpClient(new Media.Common.MemorySegment(buffer, Media.Rtsp.RtspMessage.MaximumLength, buffer.Length - Media.Rtsp.RtspMessage.MaximumLength));
-                    _client.InterleavedData += ProcessInterleaveData;
+                    _client.OutOfBandData += ProcessInterleaveData;
                     _client.RtpPacketReceieved += ProcessRtpPacket;
 
                     Media.Sdp.MediaDescription md = new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 999, "H.264", 0);
@@ -132,7 +132,7 @@ namespace Media.UnitTests
                     {
                         Media.Rtsp.RtspMessage interleaved = new Media.Rtsp.RtspMessage(data, offset, length);
 
-                        if (interleaved.MessageType == Media.Rtsp.RtspMessageType.Invalid && lastInterleaved != null)
+                        if (interleaved.RtspMessageType == Media.Rtsp.RtspMessageType.Invalid && lastInterleaved != null)
                         {
 
                             interleaved.Dispose();
@@ -154,7 +154,7 @@ namespace Media.UnitTests
                         //If the last message was complete then show it in green
                         if (lastInterleaved.IsComplete) Console.ForegroundColor = ConsoleColor.Green;
 
-                        Console.WriteLine("ProcessInterleaveData() RtspMessage.MessageType = " + lastInterleaved.MessageType.ToString());
+                        Console.WriteLine("ProcessInterleaveData() RtspMessage.MessageType = " + lastInterleaved.RtspMessageType.ToString());
                         Console.WriteLine("ProcessInterleaveData() RtspMessage.CSeq = " + lastInterleaved.CSeq);
                         Console.WriteLine("ProcessInterleaveData() RtspMessage = '" + lastInterleaved.ToString() + "'");
 
@@ -447,7 +447,7 @@ namespace Media.UnitTests
                 int rtspOut = 0, rtspIn = 0;
 
                 //Setup an even to see what data was transmited.
-                test.InterleavedData += (sender, data, offset, count) =>
+                test.OutOfBandData += (sender, data, offset, count) =>
                 {
                     Console.ForegroundColor = ConsoleColor.Cyan;
                     Console.WriteLine("\tInterleaved (@" + offset + ", count=" + count + ") =>" + System.Text.Encoding.ASCII.GetString(data, offset, count));
@@ -455,7 +455,7 @@ namespace Media.UnitTests
                 GetMessage:
                     Media.Rtsp.RtspMessage interleaved = new Media.Rtsp.RtspMessage(data, offset, count);
 
-                    if (interleaved.MessageType == Media.Rtsp.RtspMessageType.Invalid && lastInterleaved != null)
+                    if (interleaved.RtspMessageType == Media.Rtsp.RtspMessageType.Invalid && lastInterleaved != null)
                     {
 
                         interleaved.Dispose();

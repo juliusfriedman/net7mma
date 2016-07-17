@@ -50,11 +50,15 @@ namespace Media.Common.Extensions.String
 
         public const string HexadecimalFormat = "X";
 
-
         #region Hex Functions
 
+        //https://github.com/dotnet/corefx/issues/10013
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static byte HexCharToByte(char c) { c = char.ToUpperInvariant(c); return (byte)(c > '9' ? c - 'A' + 10 : c - '0'); }
+        public static byte HexCharToByte(char c, bool upperCase = false)
+        {
+            c = char.ToUpperInvariant(c); return (byte)(upperCase ? char.ToUpperInvariant((char)(c > '9' ? c - 'A' + 10 : c - '0')) : (c > '9' ? c - 'A' + 10 : c - '0'));
+        }
 
         /// <summary>
         /// Converts a String in the form 0011AABB to a Byte[] using the chars in the string as bytes to caulcate the decimal value.
@@ -65,41 +69,104 @@ namespace Media.Common.Extensions.String
         /// </notes>
         /// <param name="str"></param>
         /// <returns></returns>
-        public static byte[] HexStringToBytes(string str, int start = 0, int length = -1)
+        public static byte[] HexStringToBytes(string str, int start = 0, int length = -1, bool onlyLettersOrDigits = true)
         {
-            if (length.Equals(Common.Binary.Zero)) return null;
-            
-            if (length <= -1) length = str.Length;
-
-            if (start > length - start) throw new System.ArgumentOutOfRangeException("start");
-
-            if (length > length - start) throw new System.ArgumentOutOfRangeException("length");
-
-            System.Collections.Generic.List<byte> result = new System.Collections.Generic.List<byte>(length >> 1); // / 2
-            
             //Dont check the results for overflow
             unchecked
             {
+                if (length.Equals(Common.Binary.Zero)) return null;
+
+                if (length <= -1) length = str.Length;
+
+                int check = length - start;
+
+                if (start > check) throw new System.ArgumentOutOfRangeException("start");
+
+                if (length > check) throw new System.ArgumentOutOfRangeException("length");
+
+                System.Collections.Generic.IEnumerable<byte> result = Media.Common.MemorySegment.EmptyBytes;
+
                 //Iterate the pointer using the managed length ....
                 //Todo, optomize with reverse or i - 1
                 for (int i = start, e = length; i < e; i += 2)
                 {
                     //to reduce string manipulations pre call
-                    //while (str[i] == '-') i++;
+                    if (onlyLettersOrDigits && char.IsLetterOrDigit(str[i]).Equals(false))
+                    {
+                        //Back up 1
+                        --i;
+
+                        //Increase by 2
+                        continue;
+                    }
 
                     //Todo, Native and Unsafe
+
                     //Convert 2 Chars to a byte
-                    result.Add((byte)(HexCharToByte(str[i]) << 4 | HexCharToByte(str[i + 1])));
+                    result = System.Linq.Enumerable.Concat(result, Media.Common.Extensions.Linq.LinqExtensions.Yield((byte)(HexCharToByte(str[i]) << 4 | HexCharToByte(str[i + 1]))));
                 }
+
+                //Dont use a List..
+
+                //Return the bytes
+                return System.Linq.Enumerable.ToArray(result);
             }
-
-            //Dont use a List..
-
-            //Return the bytes
-            return result.ToArray();
         }
 
         #endregion
+
+        //http://stackoverflow.com/questions/272633/add-spaces-before-capital-letters
+        //Before I ever saw the above I came up with the below... I did modify one thing after
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static string AddSpacesBeforeCapitols(string value, int offset = 0, int count = -1)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return value;
+
+            System.Text.StringBuilder sb;
+
+            //Take the cast of the byte to char as a constant
+            const char SPACE = (char)Common.ASCII.Space;
+
+            try
+            {
+                count = count < 0 ? value.Length : count;
+                
+                //Start with the value and the same capacity as there may be no capitols..
+                sb = new System.Text.StringBuilder(value, offset, count, count);
+
+                for (int i = offset; i < count; ++i) //Move 1 character each iteration
+                {
+                    //If whitespace count as insert
+                    if (char.IsWhiteSpace(sb[i])) offset = i;
+                    //only for upper characters AND when the previous insert was more than 1 character away
+                    else if (char.IsUpper(sb[i]) && i - offset > 1)
+                    {
+                        //Insert 1 character into the builder @ i, Move 1 character
+                        sb.Insert(offset = i++, SPACE);
+
+                        //Increase the loop bound by 1 character
+                        ++count;
+                    }
+                }
+
+                //The string instance now has spaces after each capitol letter.
+                return sb.ToString();
+            }
+            catch
+            {
+                //Out of memory or otherwise...
+                throw;
+            }
+            finally
+            {
+                sb = null;
+            }
+        }
+
+        //Todo, 
+        //IsPalindrome(bool caseInsenitive, bool onlyLettersOrDigits)
+
+        //IsNonCharacterPalindrome() => only non letters or digits are checked
 
         /// <summary>
         /// See <see cref="Media.Common.Extensions.String.StringExtensions.HexStringToBytes"/>

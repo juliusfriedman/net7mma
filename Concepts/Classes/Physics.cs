@@ -63,6 +63,17 @@ namespace Media.Concepts.Classes
 
         }
 
+        //Maths...
+
+        public class Probability { }
+
+        public sealed class Probabilities
+        {
+            public const Probability Default = null;
+        }
+
+        //Angles?
+
         //To define useful classed with names which can encapsulte the endless list of possibilities for values to ensure intellisense overload does not happen to us.
 
         //Todo, should be Number to avoid readonly ValueType
@@ -70,11 +81,19 @@ namespace Media.Concepts.Classes
         /// <summary>
         /// The speed of light in mps
         /// </summary>
-        public static double c = 299792458D; //Need ToMilesPerSecond on Velocities? 
+        public const double c = 299792458D; //Need ToMilesPerSecond on Velocities? 
         //Maybe a ToUnitPerPeriod(Distance d, TimeSpan t)?
         //Could also do a static Distance.FromMilesPerSeconds as once the instance is in the form of Units it can be changed to other formats using the propeties.
 
-        //Todo should be Current Or Electric Charge
+        //Todo should be Current Or Electric Charge, Columbs
+
+        /*
+         
+         In terms of SI base units, the coulomb is the equivalent of one ampere-second. 
+         Conversely, an electric current of A represents 1 C of unit electric charge carriers flowing past a specific point in 1 s. 
+         The unit electric charge is the amount of charge contained in a single electron.
+         
+         */
 
         //Planck constant in J·m
         public static double hc = 1.98644568 * System.Math.Pow(10, -25);
@@ -82,7 +101,7 @@ namespace Media.Concepts.Classes
 
 
         /// <summary>
-        /// The Plank Length in?? (meters)
+        /// The Planck Length in?? (meters)
         /// </summary>
         public static Distances.Distance ℓP = new Distances.Distance(new System.Numerics.Complex(1.616199 * System.Math.Pow(10, -35), Uncertainties.StandardUncertainty));
 

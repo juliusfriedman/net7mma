@@ -54,15 +54,15 @@ namespace Media.Sockets
 
         public Listener() : this(false) { }
 
-        public bool IsBound { get { return LocalEndPoint != null; } }
+        public bool IsBound { get { return object.ReferenceEquals(LocalEndPoint, null).Equals(false); } }
 
         public virtual void Bind(System.Net.IPEndPoint localEndPoint, System.Net.NetworkInformation.NetworkInterface networkInterface)
         {
             //Check not already attached.
-            if (false == NetworkConnectionFlags.HasFlag(NetworkConnectionState.Bound))
+            if (NetworkConnectionFlags.HasFlag(NetworkConnectionState.Bound).Equals(false))
             {
                 //Check for a null input
-                if (localEndPoint == null) throw new System.ArgumentNullException("localEndPoint");
+                if (object.ReferenceEquals(LocalEndPoint, null)) throw new System.ArgumentNullException("localEndPoint");
 
                 //Ensure the latest details are availble.
                 Refresh();

@@ -55,6 +55,16 @@ namespace Media.Common.Extensions.Array
 
         public static bool IsNullOrEmpty(this System.Array a) { return IsNullOrEmpty(a, out ArrayExtensions.longLength); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool Contains<T>(this System.Array a, T t, out int index) { return (index = System.Array.IndexOf(a, t)) >= 0; }
+
+        public static bool Contains<T>(this System.Array a, T t)
+        {
+            int index;
+
+            return Contains(a, t, out index);
+        }
+
         //4.6 Has System.Array.Empty<T>
 
         //ArrayHelpers

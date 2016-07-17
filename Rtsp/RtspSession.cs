@@ -43,6 +43,23 @@ namespace Media.Rtsp
     /// </summary>
     internal class RtspSession : Common.SuppressedFinalizerDisposable
     {
+
+        #region Fields
+
+        /// <summary>
+        /// Keep track of certain values.
+        /// </summary>
+        int m_SentBytes, m_ReceivedBytes,
+             m_RtspPort,
+             m_CSeq, m_RCSeq, //-1 values, rtsp 2. indicates to start at 0...
+             m_SentMessages, m_ReTransmits,
+             m_ReceivedMessages,
+             m_PushedMessages,
+             m_MaximumTransactionAttempts = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond,//10
+             m_SocketPollMicroseconds;
+
+        #endregion
+
         #region Properties [obtained during OPTIONS]
 
         //Options message...
@@ -100,6 +117,30 @@ namespace Media.Rtsp
         #endregion
 
         #region Properties
+
+        /// <summary>
+        /// The current SequenceNumber of the RtspClient
+        /// </summary>
+        public int ClientSequenceNumber
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_CSeq; }
+        }
+
+        /// <summary>
+        /// The current SequenceNumber of the remote RTSP party
+        /// </summary>
+        public int RemoteSequenceNumber
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_RCSeq; }
+        }
+
+        /// <summary>
+        /// Increments and returns the current <see cref="ClientSequenceNumber"/>
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        internal int NextClientSequenceNumber() { return ++m_CSeq; }
 
         /// <summary>
         /// Determines if a request must be sent periodically to keep the session and any underlying connection alive
@@ -193,27 +234,30 @@ namespace Media.Rtsp
 
         public void UpdateMessages(RtspMessage request, RtspMessage response)
         {
-            if (request != null && LastRequest != null)
+            if (Common.IDisposedExtensions.IsNullOrDisposed(request).Equals(false) && 
+                Common.IDisposedExtensions.IsNullOrDisposed(LastRequest).Equals(false))
             {
                 LastRequest.IsPersistent = false;
 
                 LastRequest.Dispose();
             }
 
-            LastRequest = request;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(LastRequest = request).Equals(false))
+            {
+                LastRequest.IsPersistent = true;
+            }
 
-            LastRequest.IsPersistent = true;
-
-            if (LastResponse != null)
+            if (Common.IDisposedExtensions.IsNullOrDisposed(LastResponse).Equals(false))
             {
                 LastResponse.IsPersistent = false;
 
                 LastResponse.Dispose();
             }
 
-            LastResponse = response;
-
-            LastResponse.IsPersistent = true;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(LastResponse = response).Equals(false))
+            {
+                LastResponse.IsPersistent = true;
+            }
         }
 
         public void UpdatePushedMessages(RtspMessage request, RtspMessage response)
@@ -225,9 +269,11 @@ namespace Media.Rtsp
                 LastInboundRequest.Dispose();
             }
 
-            LastInboundRequest = request;
 
-            LastInboundRequest.IsPersistent = true;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(LastInboundRequest = request).Equals(false))
+            {
+                LastInboundRequest.IsPersistent = true;
+            }
 
             if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(LastInboundResponse)))
             {
@@ -236,9 +282,10 @@ namespace Media.Rtsp
                 LastInboundResponse.Dispose();
             }
 
-            response.IsPersistent = true;
-
-            LastInboundResponse = response;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(LastInboundResponse = response).Equals(false))
+            {
+                LastInboundResponse.IsPersistent = true;
+            }
         }
 
         public bool ParseSessionIdAndTimeout(RtspMessage from)
@@ -390,10 +437,10 @@ namespace Media.Rtsp
             }
 
             //If there is a SessionDescription
-            if (SessionDescription != null)
+            if (Common.IDisposedExtensions.IsNullOrDisposed(SessionDescription).Equals(false))
             {
                 //Call dispose
-                //SessionDescription.Dispose();
+                SessionDescription.Dispose();
 
                 //Remove the reference
                 SessionDescription = null;

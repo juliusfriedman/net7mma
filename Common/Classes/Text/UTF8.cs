@@ -51,7 +51,11 @@ namespace Media.Common
 
         public static readonly byte[] SemiColonBytes = new byte[] { Common.ASCII.SemiColon };
 
+        public static readonly byte[] CommaBytes = new byte[] { Common.ASCII.Comma };
+
         public static readonly char[] SemiColonCharacters = System.Text.Encoding.UTF8.GetChars(SemiColonBytes);
+
+        public static readonly char[] CommaCharacters = System.Text.Encoding.UTF8.GetChars(CommaBytes);
 
         public static readonly byte[] ColonBytes = new byte[] { Common.ASCII.Colon };
 

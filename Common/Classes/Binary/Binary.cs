@@ -141,6 +141,8 @@ namespace Media.Common
 
         public const int Zero = Binary.Nihil;
 
+        public const int NegativeOne = -Binary.Ūnus;
+
         public const int One = Binary.Ūnus;
 
         public const int Two = Binary.Duo;

@@ -33,13 +33,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Media.Common;
-using System.Text;
-
 namespace Media.Rtsp.Server.MediaTypes
 {
     /// <summary>
@@ -47,27 +40,42 @@ namespace Media.Rtsp.Server.MediaTypes
     /// </summary>
     public class RtpSource : SourceMedia, Common.IThreadReference
     {
-        public RtpSource(string name, Uri source, bool perPacket = false) : base(name, source) { PerPacket = perPacket; }
+        #region Properties
 
-        public RtpSource(string name, Uri source, Rtp.RtpClient client, bool perPacket = false)
-            : this(name, source, perPacket)
+        /// <summary>
+        /// Indicates if this <see cref="RtpSource"/> will NOT utilize the Real Time Communication Protocol.
+        /// </summary>
+        public bool RtcpDisabled
         {
-            if (client == null) throw new ArgumentNullException("client");
-            RtpClient = client;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_DisableQOS; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set { m_DisableQOS = value; }
         }
 
-        //These could be turned into properties...
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <remarks>
+        /// This will take effect after the change, existing clients will still have their connection.
+        /// </remarks>
+        public bool ForceTCP
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return m_ForceTCP; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set { m_ForceTCP = value; }
+        }
 
-        public readonly bool PerPacket;
+        public virtual Rtp.RtpClient RtpClient
+        {
+            get;
+            protected set;
+        }
 
-        public readonly bool PassthroughRtcp;
+        #endregion
 
-        public bool RtcpDisabled { get { return m_DisableQOS; } set { m_DisableQOS = value; } }
-
-        public virtual Rtp.RtpClient RtpClient { get; protected set; }
-
-        //This will take effect after the change, existing clients will still have their connection
-        public bool ForceTCP { get { return m_ForceTCP; } set { m_ForceTCP = value; } }
+        #region Informatics
 
         #region Threaded Frame Events
 
@@ -75,6 +83,12 @@ namespace Media.Rtsp.Server.MediaTypes
         //It's also possible to Multicast the source resulting in the network handling the aggregation (See Sink)
 
         #endregion
+
+        #region Unused [Example of how an implementation would begin to propagate the realization that may have to actually do some type of work]        
+
+        //Asked by a user here how they would save a rtsp stream to disk....
+        //RtpTools, MediaFileWriter, FFMPEG, Media Foundation................................................................
+        //http://stackoverflow.com/questions/37285323/how-to-record-a-rtsp-stream-to-disk-using-net7mma
 
         //System.Drawing.Image m_lastDecodedFrame;
         //internal virtual void DecodeFrame(Rtp.RtpClient sender, Rtp.RtpFrame frame)
@@ -113,9 +127,15 @@ namespace Media.Rtsp.Server.MediaTypes
         //    }
         //}
 
+        #endregion
+
+        #endregion
+
+        #region ILoggingReference
+
         public override bool TrySetLogger(Common.ILogging logger)
         {
-            if (false == Ready) return false;
+            if (Ready.Equals(false)) return false;
 
             try
             {
@@ -124,43 +144,84 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 return true;
             }
-            catch { return false; }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                //
+            }
         }
+
+        public override bool TryGetLogger(out Common.ILogging logger)
+        {
+            if (Ready.Equals(false))
+            {
+                return base.TryGetLogger(out logger);
+            }
+
+            try
+            {
+                //Set the logger
+                logger = RtpClient.Logger;
+
+                return true;
+            }
+            catch
+            {
+                logger = null; 
+                
+                return false;
+            }
+            finally
+            {
+                //
+            }
+        }
+
+        #endregion
+
+        #region SourceMedia
 
         public override void Start()
         {
             //When the stream is not fully stopped
             if (State >= StreamState.StopRequested) return;
             
-            if (RtpClient != null) RtpClient.Activate();
+            //If there is a RtpClient call Activate.
+            if (object.ReferenceEquals(RtpClient, null).Equals(false)) RtpClient.Activate();
 
             //Should be done in first packet recieved...
             base.Ready = true;
 
+            //Call start which sets state.
             base.Start();
         }
 
         public override void Stop()
         {
-            //When the stream is not stared
-            if (State < StreamState.Started) return;
-            
-            if (RtpClient != null) RtpClient.Deactivate();
+            if (State <= StreamState.StopRequested) return;
 
+            //When the stream is not stared
+            if (Common.IDisposedExtensions.IsNullOrDisposed(RtpClient).Equals(false)) RtpClient.Deactivate();
+
+            //Indicate no longer ready.
             base.Ready = false;
 
+            //Call stop which sets state
             base.Stop();
         }
 
         public override void Dispose()
         {
-            if (IsDisposed) return;
+            if (IsDisposed || ShouldDispose.Equals(false)) return;
 
             Stop();
 
             base.Dispose();
 
-            if (RtpClient != null)
+            if (Common.IDisposedExtensions.IsNullOrDisposed(RtpClient).Equals(false))
             {
                 RtpClient.Dispose();
 
@@ -168,25 +229,80 @@ namespace Media.Rtsp.Server.MediaTypes
             }
         }
 
-        public RtpSource(string name, Sdp.SessionDescription sessionDescription)
-            : base(name, new Uri(Rtp.RtpClient.RtpProtcolScheme + "://" + ((Sdp.Lines.SessionConnectionLine)sessionDescription.ConnectionLine).Host))
+        #endregion
+
+        #region IThreadReference
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        System.Collections.Generic.IEnumerable<System.Threading.Thread> Common.IThreadReference.GetReferencedThreads()
         {
-            if (sessionDescription == null) throw new ArgumentNullException("sessionDescription");
+            return Common.IDisposedExtensions.IsNullOrDisposed(RtpClient) ? null : Media.Common.Extensions.Linq.LinqExtensions.Yield(RtpClient.m_WorkerThread);
+        }
+
+        System.Action<System.Threading.Thread> Common.IThreadReference.ConfigureThread
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return RtpClient.ConfigureThread; }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set { RtpClient.ConfigureThread = value; }
+        }
+
+        #endregion
+
+        #region Fields
+
+        //These could and probably should be turned into properties...
+
+        public readonly bool PerPacket;
+
+        public readonly bool PassthroughRtcp;
+
+        #endregion
+
+        #region Constructor
+
+        /// <summary>
+        /// Creates an instance which will utilize `per-packet` or `packet for packet` event moddeling.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="source"></param>
+        /// <param name="perPacket"></param>
+        public RtpSource(string name, System.Uri source, bool perPacket = false)
+            : base(name, source)
+        {
+            PerPacket = perPacket;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="source"></param>
+        /// <param name="client"></param>
+        /// <param name="perPacket"></param>
+        public RtpSource(string name, System.Uri source, Rtp.RtpClient client, bool perPacket = false)
+            : this(name, source, perPacket)
+        {
+            if (Common.IDisposedExtensions.IsNullOrDisposed(client)) throw new Media.Common.Extensions.Exception.ExceptionExtensions.ArgumentNullOrDisposedException(client);            
+
+            RtpClient = client;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="sessionDescription"></param>
+        public RtpSource(string name, Sdp.SessionDescription sessionDescription)
+            : base(name, new System.Uri(string.Join(System.Uri.SchemeDelimiter, Rtp.RtpClient.RtpProtcolScheme, ((Sdp.Lines.SessionConnectionLine)sessionDescription.ConnectionLine).Host)))
+        {
+            if (Common.IDisposedExtensions.IsNullOrDisposed(sessionDescription)) throw new Media.Common.Extensions.Exception.ExceptionExtensions.ArgumentNullOrDisposedException("sessionDescription", sessionDescription);
 
             RtpClient = Rtp.RtpClient.FromSessionDescription(SessionDescription = sessionDescription);
 
             RtpClient.FrameChangedEventsEnabled = PerPacket == false;
         }
 
-        IEnumerable<System.Threading.Thread> Common.IThreadReference.GetReferencedThreads()
-        {
-            return RtpClient != null ? Media.Common.Extensions.Linq.LinqExtensions.Yield(RtpClient.m_WorkerThread) : null;
-        }
-
-        Action<System.Threading.Thread> Common.IThreadReference.ConfigureThread
-        {
-            get { return RtpClient.ConfigureThread; }
-            set { RtpClient.ConfigureThread = value; }
-        }
+        #endregion
     }
 }

@@ -52,6 +52,7 @@
     <Compile Include="..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
+    <Compile Include="HeaderFields.cs" />
     <Compile Include="HttpClient.cs" />
     <Compile Include="HttpContent.cs" />
     <Compile Include="HttpCookie.cs" />

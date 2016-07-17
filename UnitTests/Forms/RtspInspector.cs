@@ -208,7 +208,7 @@ namespace Media.UnitTests
 
         public void AddRtcp(Media.Rtcp.RtcpPacket p)
         {
-            if (Client == null) return;
+            if (Media.Common.IDisposedExtensions.IsNullOrDisposed(Client)) return;
             try
             {
                 RTCPPacketBinding.Add(p);
@@ -220,7 +220,7 @@ namespace Media.UnitTests
         }
         public void AddRtp(Media.Rtp.RtpPacket p)
         {
-            if (Client == null) return;
+            if (Media.Common.IDisposedExtensions.IsNullOrDisposed(Client)) return;
             try
             {
                 RTPPacketBinding.Add(p);
@@ -238,7 +238,7 @@ namespace Media.UnitTests
         {
             try
             {
-                if (Client == null || !Client.IsConnected) return;
+                if (Media.Common.IDisposedExtensions.IsNullOrDisposed(Client) || Client.IsConnected.Equals(false)) return;
 
                 var x = DateTime.UtcNow - LastDrawTime;
 
@@ -258,6 +258,7 @@ namespace Media.UnitTests
                 }
 
                 BandwidthBitmap.SetPixel(Math.Max(0, Math.Min(BandwidthBitmap.Width - 1, (int)x.TotalSeconds - 1)), Math.Max(0, Math.Min(BandwidthBitmap.Height - 1, (int)x.TotalSeconds - 1)), C);
+
                 BandwidthBitmap.SetPixel(Math.Max(0, Math.Min(BandwidthBitmap.Width - 1, (int)x.TotalMilliseconds - 1)), Math.Max(0, Math.Min(BandwidthBitmap.Height - 1, (int)x.TotalMilliseconds - 1)), C);
 
                 pictureBox1.Image = BandwidthBitmap;
@@ -265,6 +266,7 @@ namespace Media.UnitTests
                 pictureBox1.Image.RotateFlip(RotateFlipType.RotateNoneFlipX);
 
                 pictureBox1.Refresh();
+
                 label4.Text = LastDrawTime.ToString() + " (Delay =) " + x.TotalMilliseconds.ToString() + " @ " + Client.Client.TotalBytesReceieved / Client.Client.Uptime.TotalSeconds + " /Sec";
 
                 LastDrawTime = DateTime.UtcNow;
@@ -278,7 +280,7 @@ namespace Media.UnitTests
         public void UpdateRtsp(Media.Rtsp.RtspMessage p)
         {
 
-            if (Client == null || Client.IsDisposed) return;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(Client)) return;
 
             textBox2.AppendText("@" + p.Created.ToUniversalTime().ToString() + " - " + p.ToString() + Environment.NewLine);
 

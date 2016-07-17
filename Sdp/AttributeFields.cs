@@ -44,6 +44,13 @@ namespace Media.Sdp
     /// </summary>
     public sealed class AttributeFields
     {
+
+        /*
+         
+         Todo, Allow registration, modification...
+         
+         */
+
         AttributeFields() { }
 
         #region NestedTypes

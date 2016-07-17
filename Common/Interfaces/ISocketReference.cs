@@ -21,8 +21,10 @@ namespace Media.Common
         /// Gets the function which can set any required socket options on the given socket.
         /// </summary>
         /// <param name="socket">The socket to configure</param>
-        Action<System.Net.Sockets.Socket/*, Common.ILogging*/> ConfigureSocket { get; set; } //ApplyConfiguration
+        Action<System.Net.Sockets.Socket/*, Common.ILogging*/> ConfigureSocket { get; set; } //ApplyConfiguration        
     }
+
+    //delegate AggregateException ConfigureSocket(System.Net.Sockets.Socket socket);
 
     /// <summary>
     /// Provides functions which help with configuration of <see cref="System.Net.Sockets"/> of a <see cref="ISocketReference"/>

@@ -164,7 +164,7 @@ namespace Media.Common.Extensions.Socket
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public static int ProbeForOpenPort(System.Net.Sockets.ProtocolType type, int start = 30000, bool even = true, System.Net.IPAddress localIp = null)
         {
-            if (localIp == null) localIp = GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork); // System.Net.IPAddress.Any should give unused ports across all IP's?
+            if (object.ReferenceEquals(localIp, null)) localIp = GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork); // System.Net.IPAddress.Any should give unused ports across all IP's?
 
             System.Net.Sockets.Socket working = null;
 
@@ -283,7 +283,7 @@ namespace Media.Common.Extensions.Socket
                             System.Net.IPAddress result = Common.Extensions.NetworkInterface.NetworkInterfaceExtensions.GetFirstUnicastIPAddress(foundInterface, addressFamily);
 
                             //If the result is not null and the result is not System.Net.IPAddress.None
-                            if (false.Equals(result == null) && false.Equals(Equals(result, System.Net.IPAddress.None)))
+                            if (false.Equals(object.ReferenceEquals(result, null)) && false.Equals(Equals(result, System.Net.IPAddress.None)))
                             {
                                 networkInterface = foundInterface;
 
@@ -586,7 +586,7 @@ namespace Media.Common.Extensions.Socket
             LeaveMulticastGroup(socket, CreateMembershipAddress(((System.Net.IPEndPoint)socket.LocalEndPoint).Address, toJoin, sourceIp));
         }
 
-        static void LeaveMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toDrop)
+        public static void LeaveMulticastGroup(this System.Net.Sockets.Socket socket, System.Net.IPAddress toDrop)
         {
             switch (toDrop.AddressFamily)
             {
@@ -607,7 +607,7 @@ namespace Media.Common.Extensions.Socket
             }
         }
 
-        static void LeaveMulticastGroup(this System.Net.Sockets.Socket socket, int interfaceIndex, System.Net.IPAddress toDrop)
+        public static void LeaveMulticastGroup(this System.Net.Sockets.Socket socket, int interfaceIndex, System.Net.IPAddress toDrop)
         {
             switch (toDrop.AddressFamily)
             {
@@ -637,13 +637,14 @@ namespace Media.Common.Extensions.Socket
         //SetSocketOption_internal should be determined by OperatingSystemExtensions and RuntimeExtensions.
         //Will need to build a Map of names to values for those platforms and translate.        
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal static void SetTcpOption(System.Net.Sockets.Socket socket, System.Net.Sockets.SocketOptionName name, int value)
         {
-
             /*if (Common.Extensions.OperatingSystemExtensions.IsWindows) */socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, name, value);
             //else SetSocketOption_internal 
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal static void GetTcpOption(System.Net.Sockets.Socket socket, System.Net.Sockets.SocketOptionName name, byte[] buffer)
         {
             /*if (Common.Extensions.OperatingSystemExtensions.IsWindows) */socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, name, buffer);
@@ -683,26 +684,41 @@ namespace Media.Common.Extensions.Socket
 
         #region Retransmission
 
+        static System.Net.Sockets.SocketOptionName TcpMaximumRetransmissionOptionName = (System.Net.Sockets.SocketOptionName)(Common.Extensions.OperatingSystemExtensions.IsWindows ? 5 : 18);
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void SetMaximumTcpRetransmissionTime(System.Net.Sockets.Socket socket, int amountInSeconds = 3)
         {
             //On windows this is TCP_MAXRT elsewhere USER_TIMEOUT
 
             //Mono checks the options and will not call setsocketopt if the name is not known to the Mono Runtime.
             //A work around would be to either define the call for get and set socketopt in this library or call the SetSocketOption_internal method for mono.
-
-            System.Net.Sockets.SocketOptionName optionName = (System.Net.Sockets.SocketOptionName)(Common.Extensions.OperatingSystemExtensions.IsWindows ? 5 : 18);
-
-            SetTcpOption(socket, optionName, amountInSeconds);
+            SetTcpOption(socket, TcpMaximumRetransmissionOptionName, amountInSeconds);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void DisableTcpRetransmissions(System.Net.Sockets.Socket socket)
         {
             SetMaximumTcpRetransmissionTime(socket, 0);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void EnableTcpRetransmissions(System.Net.Sockets.Socket socket)
         {
             SetMaximumTcpRetransmissionTime(socket);
+        }
+
+        public static int GetMaximumTcpRetransmissionTime(System.Net.Sockets.Socket socket)
+        {
+            int len = Common.Binary.BytesPerInteger;
+
+            //Todo, static local allocation
+            byte[] value = socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, TcpMaximumRetransmissionOptionName, len);
+
+            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(value, out len) || len < Common.Binary.BytesPerInteger) return -1;
+
+            return Common.Binary.Read32(value, Common.Binary.BytesPerInteger, Media.Common.Binary.IsLittleEndian);
+
         }
 
         #endregion
@@ -711,18 +727,18 @@ namespace Media.Common.Extensions.Socket
 
         //Should verify the value for the option is correct for the OS.
 
+        static System.Net.Sockets.SocketOptionName TcpMaximumSegmentSizeOptionName = (System.Net.Sockets.SocketOptionName)(Common.Extensions.OperatingSystemExtensions.IsWindows ? 4 : 2);
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void GetMaximumSegmentSize(System.Net.Sockets.Socket socket, out int result)
         {
-            System.Net.Sockets.SocketOptionName optionName = (System.Net.Sockets.SocketOptionName)(Common.Extensions.OperatingSystemExtensions.IsWindows ? 4 : 2);
-
-            result = (int)socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, optionName);
+            result = (int)socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, TcpMaximumSegmentSizeOptionName);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void SetMaximumSegmentSize(System.Net.Sockets.Socket socket, int size)
         {
-            System.Net.Sockets.SocketOptionName optionName = (System.Net.Sockets.SocketOptionName)(Common.Extensions.OperatingSystemExtensions.IsWindows ? 4 : 2);
-
-            SetTcpOption(socket, optionName, size);
+            SetTcpOption(socket, TcpMaximumSegmentSizeOptionName, size);
         }
 
         #endregion
@@ -859,6 +875,7 @@ namespace Media.Common.Extensions.Socket
         //https://msdn.microsoft.com/en-us/library/windows/desktop/ms740102(v=vs.85).aspx
         //Typically such data is NOT handled in the same buffers unless told to do so with these options.        
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void EnableTcpOutOfBandDataInLine(System.Net.Sockets.Socket socket)
         {
             socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.OutOfBandInline, true);
@@ -866,11 +883,13 @@ namespace Media.Common.Extensions.Socket
             //SetTcpOption(socket, System.Net.Sockets.SocketOptionName.OutOfBandInline, 1);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void DisableTcpOutOfBandDataInLine(System.Net.Sockets.Socket socket)
         {
             socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.OutOfBandInline, false);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool GetIsTcpOutOfBandInLine(System.Net.Sockets.Socket socket)
         {
             int len = Common.Binary.BytesPerInteger;
@@ -891,7 +910,7 @@ namespace Media.Common.Extensions.Socket
 
         const int KeepAliveSize = 12;
 
-        public static void EnableTcpKeepAlive(System.Net.Sockets.Socket socket, int time, int interval)
+        public static void ChangeTcpKeepAlive(System.Net.Sockets.Socket socket, int time, int interval)
         {
             using (var optionMemory = new Common.MemorySegment(KeepAliveSize))
             {
@@ -912,6 +931,18 @@ namespace Media.Common.Extensions.Socket
                 Common.Binary.Write32(optionMemory.Array, 0, false, 0);
 
                 int result = socket.IOControl(System.Net.Sockets.IOControlCode.KeepAliveValues, optionMemory.Array, optionMemory.Array);
+            }
+        }
+
+        public static void GetTcpKeepAlive(System.Net.Sockets.Socket socket, out int time, out int interval)
+        {
+            using (var optionMemory = new Common.MemorySegment(KeepAliveSize))
+            {
+                socket.IOControl(System.Net.Sockets.IOControlCode.KeepAliveValues, null, optionMemory.Array);
+
+                time = Common.Binary.Read32(optionMemory.Array, Common.Binary.BytesPerInteger, false);
+
+                interval = Common.Binary.Read32(optionMemory.Array, Common.Binary.BytesPerLong, false);
             }
         }
 
@@ -1186,9 +1217,6 @@ namespace Media.Common.Extensions.Socket
                 {
                     case System.Net.Sockets.SocketError.ConnectionReset:
                     case System.Net.Sockets.SocketError.ConnectionAborted:
-                    case System.Net.Sockets.SocketError.TimedOut: // Do not try again during timeouts. (Option?)
-                        error = System.Net.Sockets.SocketError.TryAgain; 
-                        goto Done;
                     default:
                         {
                             //If nothing was received

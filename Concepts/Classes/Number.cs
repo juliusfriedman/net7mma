@@ -586,6 +586,9 @@ namespace Media.Concepts.Classes
         Number Min(ref Number a, ref Number b);
 
         Number Max(ref Number a, ref Number b);
+
+        //IFormattable...
+        //string DefaultFormat { get; }
     }
 
     #endregion
@@ -1369,19 +1372,21 @@ namespace Media.Concepts.Classes
 
         //Todo, non boxing
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Equals(Bitable bitable)
+        {
+            if (bitable.Memory.Equals(Memory)) return true;
+
+            for (int i = 0, e = System.Math.Min(Count, bitable.Count); i < e; ++i)
+                if (false.Equals(Memory[i].Equals(bitable.Memory[i]))) return false;
+
+            return true;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
-            if (obj is Bitable)
-            {
-                Bitable b = obj as Bitable;
-
-                if (b.Memory.Equals(Memory)) return true;
-
-                for (int i = 0, e = System.Math.Min(Count, b.Count); i < e; ++i)
-                    if (false.Equals(Memory[i].Equals(b.Memory[i]))) return false;
-
-                return true;
-            }
+            if (obj is Bitable) return Equals(obj as Bitable);
             else if (obj is Bits) return this.Contains((Bits)obj);//Search for Bits in self...
             else return base.Equals(obj);
         }
@@ -1389,6 +1394,30 @@ namespace Media.Concepts.Classes
         public override int GetHashCode()
         {
             return Memory.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return ToString(0, Count);
+        }
+
+        public string ToString(int offset, int length)
+        {
+            return ToString(null, ref offset, ref length);
+        }
+
+        public string ToString(string format, ref int offset, ref int length)
+        {
+            if (string.IsNullOrWhiteSpace(format)) return BitConverter.ToString(Memory, offset, length);
+
+            return string.Format(format, BitConverter.ToString(Memory, offset, length));
+        }
+
+        public string ToString(string format)
+        {
+            int offset = 0, count = Count;
+
+            return ToString(format, ref offset, ref count);
         }
 
         #endregion
@@ -1616,12 +1645,12 @@ namespace Media.Concepts.Classes
 
         public static bool operator ==(Bitable a, Bitable b)
         {
-            return a.Equals(b);
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
         }
 
         public static bool operator !=(Bitable a, Bitable b)
         {
-            return !(a == b);
+            return (a == b).Equals(false);
         }
 
         public static Bitable operator +(Bitable a, Bitable b)
@@ -1843,7 +1872,7 @@ namespace Media.Concepts.Classes
         }
     }
 
-    #endregion    
+    #endregion        
 
     #region Number
 
@@ -2140,18 +2169,17 @@ namespace Media.Concepts.Classes
             return base.GetHashCode();
         }
 
-        //Todo, non boxing
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Equals(Number number) //ref int precision... / bool exact...
+        {
+            //Bitable
+            return this == number;
+        }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
             return base.Equals(obj);
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public override string ToString()
-        {
-            return BitConverter.ToString(Memory);
         }
 
         #endregion
@@ -2722,4 +2750,93 @@ namespace Media.Concepts.Classes
     }
 
     #endregion
+
+    #region INumber
+
+    public interface INumber
+    {
+        IMathProvider MathProvider { get; }
+
+        Media.Concepts.Classes.I.IPointer Sign { get; }
+
+        Media.Concepts.Classes.I.IPointer Value { get; }
+    }
+
+    #endregion
+
+    #region IQuantity
+
+    public interface IQuantity
+    {
+        INumber Quantity { get; }
+    }
+
+    #endregion
+
+    #region Numerical
+
+    public class Numerical : Number, INumber, IQuantity
+    {
+        readonly string Format;
+
+        Radix Radix;
+
+        public Numerical(Radix radix, Number number = null)
+            : base(number ?? Number.Zero)
+        {
+            Radix = radix;
+        }
+
+        public Numerical(Number number, Radix radix, string format)
+            : this(radix, number)
+        {
+            Format = format;
+        }
+
+        //On top of the old instance such that deriving would be possible.
+        public virtual new IMathProvider MathProvider
+        {
+            get { return base.MathProvider; }
+        }
+
+        /// <summary>
+        /// Allows deriving, not the actual value of the sign but the poniter to it for now.
+        /// </summary>
+        public virtual new I.IPointer Sign
+        {
+            get { throw new NotImplementedException(); } // Pointer => Number.Sign(this);
+        }
+
+        /// <summary>
+        /// The value pointer.
+        /// </summary>
+        public virtual I.IPointer Value
+        {
+            get { throw new NotImplementedException(); } // Pointer => Number + Sign.Length
+        }
+
+        /// <summary>
+        /// `this`
+        /// </summary>
+        public virtual INumber Quantity
+        {
+            get { return this; }
+        }
+
+        public virtual string ToString(IFormatProvider formatProvider)
+        {
+            return string.Format(formatProvider, Format, this);
+        }
+
+        public override string ToString()
+        {
+            return base.ToString(Format);
+        }
+
+    }
+
+    #endregion
+
+    //Todo, Derive further for precision requirements if desired or integrate with Astringent or Declension via Atonement
+
 }

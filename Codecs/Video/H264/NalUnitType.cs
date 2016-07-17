@@ -70,9 +70,15 @@ namespace Media.Codecs.Video.H264
 
         public const byte Reserved = 31;
 
+        //Todo, non ref
+
+        /// <summary>
+        /// Gets a value which indicats if the nalType if reserved.
+        /// </summary>
+        /// <param name="nalType"></param>
+        /// <returns></returns>
         public static bool IsReserved(ref byte nalType)
         {
-
             switch (nalType)
             {
                 case Reserved:
@@ -88,6 +94,27 @@ namespace Media.Codecs.Video.H264
             }
 
             //return nalType == Reserved || nalType >= 16 && nalType <= 18 || nalType >= 22 && nalType <= 23;
+        }
+
+        //Todo, non ref
+
+        /// <summary>
+        /// Gets a value which indicates if the nalType is an Access Unit
+        /// </summary>
+        /// <param name="nalType"></param>
+        /// <returns></returns>
+        public static bool IsAccessUnit(ref byte nalType)
+        {
+            switch (nalType)
+            {
+                case CodedSlice:
+                case DataPartitionA:
+                case DataPartitionB:
+                case DataPartitionC:
+                case InstantaneousDecoderRefresh:
+                    return true;
+                default: return false;
+            }
         }
 
         [CLSCompliant(false)]

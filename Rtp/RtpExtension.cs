@@ -100,6 +100,18 @@ namespace Media.Rtp
 
         //Todo Segment properties.
 
+        //FlagsSegment
+        //LengthInWordsSegment
+
+        //DataSegment (Without flags and lenth)
+
+        //Prepare(bool includeFlags, bool includeLength)
+
+        public IEnumerable<byte> AllData
+        {
+            get { return IsDisposed ? Media.Common.MemorySegment.Empty : m_MemorySegment; }
+        }
+
         /// <summary>
         /// Gets the binary data of the RtpExtension.
         /// Note that the data may not be complete, <see cref="RtpExtension.IsComplete"/>

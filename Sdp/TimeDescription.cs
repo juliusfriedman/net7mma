@@ -247,6 +247,17 @@ namespace Media.Sdp
 
         #endregion
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Equals(TimeDescription other)
+        {
+            return Media.Common.Extensions.EnumerableExtensions.SequenceEquals(this, other);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return base.Equals(obj);
+        }
+
         public string ToString(SessionDescription sdp = null)
         {
             StringBuilder builder = new StringBuilder();
@@ -280,6 +291,13 @@ namespace Media.Sdp
         {
             return ((IEnumerable<SessionDescriptionLine>)this).GetEnumerator();
         }
+
+        public static bool operator ==(TimeDescription a, TimeDescription b)
+        {
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
+        }
+
+        public static bool operator !=(TimeDescription a, TimeDescription b) { return (a == b).Equals(false); }
     }
 
     #endregion

@@ -45,7 +45,7 @@ namespace Media.Common.Collections.Generic
     //For comparison see https://code.google.com/p/devdefined-tools/source/browse/trunk/projects/common/DevDefined.Common/Collections/RingBuffer.cs?r=89
 
     /// <summary>
-    /// Represents a fixted length ring buffer to store a specified maximal count of items within.
+    /// Represents a fixted length ring buffer to store a specified maximal count of items within an underlying <see cref="System.Array"/>
     /// </summary>
     /// <typeparam name="T">The generic type of the items stored within the ring buffer.</typeparam>
     [System.Diagnostics.DebuggerDisplay("Count = {Count}")]

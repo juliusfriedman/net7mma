@@ -37,12 +37,50 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #endregion
 namespace Media.Concepts.Classes.I
 {
+    #region ICore
+
+    /// <summary>
+    /// `incu`
+    /// </summary>
+    internal interface ICore : Media.Common.Interfaces.Interface
+    {
+        //#$
+    }
+
+    #endregion
+
+    #region IPtr, IPointer
+
+    public interface IPtr : Media.Common.Interfaces.Interface
+    {
+        System.IntPtr IntPtr { get; }
+    }
+
+    public interface IPointer : IPtr
+    {
+        /// <summary>
+        /// The version of the ptr
+        /// </summary>
+        byte Version { get; }
+
+        //The size of the ptr, which can be used to determine how `Offset` and `Length` are calulcated when used in conjunction with `Version`      
+        byte Size { get; }
+
+        //The offset of the ptr
+        short Offset { get; }
+
+        //The length of the ptr
+        short Length { get; }
+    }
+
+    #endregion
+
     #region IStructure
 
     /// <summary>
     /// A interface which represents a ValueType
     /// </summary>
-    public interface IStructure
+    public interface IStructure : Media.Common.Interfaces.Interface
     {
         /// <summary>
         /// The underlying <see cref="System.ValueType"/>
@@ -127,7 +165,7 @@ namespace Media.Concepts.Classes.I
     /// <summary>
     /// A interface which consists of only <see cref="System.Object"/>
     /// </summary>
-    public interface IReference
+    public interface IReference : Media.Common.Interfaces.Interface
     {
         /// <summary>
         /// The underlying <see cref="System.Object"/>
@@ -220,7 +258,7 @@ namespace Media.Concepts.Classes.I
     public abstract class ContrivedReference<U, T> : 
         Reference<T>, //base
         IReference<U>, //this
-        Media.Concepts.Experimental.IComposed<T>
+        Media.Common.Interfaces.IComposed<T>
         where U : IReference<U>
         where T : class, IReference<T>
     {
@@ -262,12 +300,12 @@ namespace Media.Concepts.Classes.I
             }
         }
 
-        T Experimental.IComposed<T>.ComposedElement
+        T Media.Common.Interfaces.IComposed<T>.ComposedElement
         {
             get { return ((IStructure<T>)this).Element; }
         }
 
-        object Experimental.IComposed.ComposedObject
+        object Media.Common.Interfaces.IComposed.ComposedObject
         {
             get { return ((IStructure<T>)this).ValueType; }
         }

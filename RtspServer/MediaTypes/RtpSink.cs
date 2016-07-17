@@ -33,75 +33,123 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Media.Rtsp.Server.MediaTypes
 {
-
     /// <summary>
-    /// Provides the basic opertions for any locally created Rtp data, should also allow a real endpoint to send data to besides just emiting events
+    /// Provides the basic opertions for any locally created Rtp data.
     /// </summary>
+    /// <remarks>
+    /// Should also allow for a real endpoint to send data in addition to just emiting events as useful in unicast, multicast et al.
+    /// </remarks>
     public class RtpSink : RtpSource, IMediaSink
     {
-        public RtpSink(string name, Uri source) : base(name, source) { }
+        #region Properties
 
-        public RtpSink(string name, Uri source, Rtp.RtpClient client, bool perPacket = false)
-            : base(name, source, perPacket)
-        {
-            //RtpClient = client;
-        }
-
+        /// <summary>
+        /// Probably useful at a lower level..
+        /// </summary>
         public virtual bool Loop { get; set; }
 
-        protected Queue<Common.IPacket> Packets = new Queue<Common.IPacket>();
+        /// <summary>
+        /// Packets...
+        /// </summary>
+        /// <remarks>In or Out is a semantic not distinguished here</remarks>
+        protected System.Collections.Generic.Queue<Common.IPacket> Packets = new System.Collections.Generic.Queue<Common.IPacket>();
 
         //public double MaxSendRate { get; protected set; }
 
-        //Fix
+        #endregion
 
-        public void SendData(byte[] data)
+        #region Methods
+
+        #region Elaboration
+
+        //SipSorcery had methods like this and in an attempt to allow the unification of the two libraries this method was added.
+        //Unfortunately for one reason or another (probably multiple) the author(s) of that project have all but abandoned this project and revoked their membership.
+        //It is for better considering that even though their implementation was free and somewhat of a starting point that it suffered from multiple weaknesses, the particulars of such will not be elaborated on further [here].
+        //[sic]
+
+        #endregion
+
+        #region Useless
+
+        //-- probably remove because it's not particularly useful unless it is known who is sending data to what, and what type of data?
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public void SendData(byte[] data, int offset = 0, int length = -1)
         {
-            if (RtpClient != null) RtpClient.OnRtpPacketReceieved(new Rtp.RtpPacket(data, 0));
+            if (Common.IDisposedExtensions.IsNullOrDisposed(RtpClient)) return;
+
+            RtpClient.OnRtpPacketReceieved(new Rtp.RtpPacket(data, offset, length >= 0 ? length : data.Length - offset));
         }
 
-        public void EnqueData(byte[] data)
+        //possibly also useful as a signal
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public void EnqueData(byte[] data, int offset = 0, int length = -1)
         {
-            if (RtpClient != null) Packets.Enqueue(new Rtp.RtpPacket(data, 0));
+            if (Common.IDisposedExtensions.IsNullOrDisposed(RtpClient)) return;
+
+            Packets.Enqueue(new Rtp.RtpPacket(data, offset, length >= 0 ? length : data.Length - offset));
         }
 
-        //
+        #endregion
 
+        //Todo, Needs EndPoints to which to send? [as if the handler would not be able to determine this....]
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="packet"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void SendPacket(Common.IPacket packet)
         {
-            if (RtpClient != null && false == Common.IDisposedExtensions.IsNullOrDisposed(packet))
-            {
-                if (packet is Rtp.RtpPacket) RtpClient.OnRtpPacketReceieved(packet as Rtp.RtpPacket);
-                else if (packet is Rtcp.RtcpPacket) RtpClient.OnRtcpPacketReceieved(packet as Rtcp.RtcpPacket);
-            }
+            if (Common.IDisposedExtensions.IsNullOrDisposed(RtpClient) ||
+                Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
+
+            if (packet is Rtp.RtpPacket) RtpClient.OnRtpPacketReceieved(packet as Rtp.RtpPacket);
+            else if (packet is Rtcp.RtcpPacket) RtpClient.OnRtcpPacketReceieved(packet as Rtcp.RtcpPacket);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="packet"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void EnquePacket(Common.IPacket packet)
         {
-            if (RtpClient != null) Packets.Enqueue(packet);
+            if (Common.IDisposedExtensions.IsNullOrDisposed(RtpClient) ||
+                Common.IDisposedExtensions.IsNullOrDisposed(packet)) return; 
+            
+            Packets.Enqueue(packet);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void SendReports()
         {
-            if (RtpClient != null) RtpClient.SendReports();
+            if (Common.IDisposedExtensions.IsNullOrDisposed(RtpClient)) return;
+
+            RtpClient.SendReports();
         }
 
+        //@IThreadReference
+        /// <summary>
+        /// 
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal virtual void SendPackets()
         {
-            while (State == StreamState.Started)
+            while (Common.IDisposedExtensions.IsNullOrDisposed(this).Equals(false) && State == StreamState.Started)
             {
                 try
                 {
-                    if (Packets.Count == 0)
+                    if (Packets.Count.Equals(0))
                     {
                         System.Threading.Thread.Sleep(0);
+
                         continue;
                     }
 
@@ -115,12 +163,38 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     //Check for bandwidth and sleep if necessary
                 }
-                catch (Exception ex)
+                catch (System.Exception ex)
                 {
                     if (ex is System.Threading.ThreadAbortException) return;
                     continue;
                 }
             }
         }
+
+        #endregion
+
+        #region Constructors
+
+        /// <summary>
+        /// Creates an instance
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="source"></param>
+        public RtpSink(string name, System.Uri source) : base(name, source) { }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="source"></param>
+        /// <param name="client"></param>
+        /// <param name="perPacket"></param>
+        public RtpSink(string name, System.Uri source, Rtp.RtpClient client, bool perPacket = false)
+            : base(name, source, perPacket)
+        {
+            //RtpClient = client;
+        }
+
+        #endregion
     }
 }

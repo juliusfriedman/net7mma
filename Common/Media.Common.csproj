@@ -36,7 +36,7 @@
     </DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
@@ -61,13 +61,26 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Classes\Classes.cs" />
+    <Compile Include="Classes\Consoles\PlatformConsole.cs" />
     <Compile Include="Classes\Disposables\SuppressedFinalizerDisposable.cs" />
     <Compile Include="Classes\EventArgsEx.cs" />
     <Compile Include="Classes\Disposables\LifetimeDisposable.cs" />
+    <Compile Include="Classes\Loggers\ExceptionLogger.cs" />
+    <Compile Include="Classes\Loggers\FormattableLogger.cs" />
     <Compile Include="Classes\Loggers\TraceLogger.cs" />
     <Compile Include="Classes\Machine.cs" />
     <Compile Include="Classes\PacketBase.cs" />
     <Compile Include="Classes\SegmentStream.cs" />
+    <Compile Include="Collections\Generic\PrecicseList.cs" />
+    <Compile Include="Extensions\EnumerableExtensions.cs" />
+    <Compile Include="Interfaces\IBuffer.cs" />
+    <Compile Include="Interfaces\IConsole.cs" />
+    <Compile Include="Interfaces\Indexables.cs" />
+    <Compile Include="Interfaces\Inputs.cs" />
+    <Compile Include="Interfaces\IParser.cs" />
+    <Compile Include="Interfaces\ITries.cs" />
+    <Compile Include="Structures\Struct.cs" />
     <Compile Include="Classes\Transport\TransportClient.cs" />
     <Compile Include="Classes\Transport\TransportMessageBase.cs" />
     <Compile Include="Classes\Text\ASCII.cs" />
@@ -105,8 +118,13 @@
     <Compile Include="Extensions\ThreadExtensions.cs" />
     <Compile Include="Extensions\UriExtensions.cs" />
     <Compile Include="Extensions\WaitHandleExtensions.cs" />
+    <Compile Include="Interfaces\IComposeds.cs" />
     <Compile Include="Interfaces\IDisposed.cs" />
     <Compile Include="Extensions\IPEndPointExtensions.cs" />
+    <Compile Include="Interfaces\Interfaces.cs" />
+    <Compile Include="Interfaces\Interface.cs" />
+    <Compile Include="Interfaces\IReadOnlys.cs" />
+    <Compile Include="Interfaces\IShareds.cs" />
     <Compile Include="Interfaces\ITaggedException.cs" />
     <Compile Include="Extensions\LinqExtensions.cs" />
     <Compile Include="Classes\Loggers\BaseLogger.cs" />

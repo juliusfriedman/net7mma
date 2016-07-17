@@ -45,11 +45,10 @@ namespace Media.Rtp
     /// </summary>
     public class Conference
     {
-
         public RtpClient Client { get; protected set; }
 
-        //May a diction would be better
-        internal System.Collections.Generic.HashSet<RtpClient> Clients = new System.Collections.Generic.HashSet<RtpClient>();
+        //May a dictionary would be better
+        //internal System.Collections.Generic.HashSet<RtpClient> Clients = new System.Collections.Generic.HashSet<RtpClient>();
 
         /// <summary>
         /// One id may correspond to multiple context's, determine how context will find rtpClient if needed.
@@ -81,6 +80,12 @@ namespace Media.Rtp
         //Remove event for RtcpPacket reception
 
         //On each packet reception Schedule a packet if the Client has not Sent a RtcpReport in the appropriate amount of time.
+
+        //AutomaticallyCreateContexts 
+
+        //ParticipantEventsEnabled
+
+        //Participants
 
     }
 }

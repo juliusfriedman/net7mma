@@ -407,23 +407,28 @@ namespace Media.Sdp
             return m_Type ^ m_Parts.GetHashCode();
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Equals(SessionDescriptionLine other)
+        {
+            return other.Encoding.Equals(m_Encoding)
+               &&
+               other.m_Type.Equals(m_Type)
+               &&
+               other.m_Seperator.Equals(m_Seperator)
+               &&
+               other.Length.Equals(Length)
+               && //Calling ToString without taking account case
+               ToString().Equals(other.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
         public override bool Equals(object obj)
         {
-            if (System.Object.ReferenceEquals(this, obj)) return true;
+            //System.Object
+            if (object.ReferenceEquals(this, obj)) return true;
 
-            if (false == (obj is SessionDescriptionLine)) return false;
+            if ((obj is SessionDescriptionLine).Equals(false)) return false;
 
-            SessionDescriptionLine other = obj as SessionDescriptionLine;
-
-            return other.Encoding == m_Encoding
-                &&
-                other.m_Type == m_Type
-                &&
-                other.m_Seperator == m_Seperator                                
-                &&
-                other.Length == Length
-                && //Calling ToString without taking account case
-                string.Compare(ToString(), other.ToString(), true) == 0;
+            return Equals(obj as SessionDescriptionLine);
         }
 
         //ToString should be implemented by GetEnumerator and String.Join(string.Empty, GetEnumerator)
@@ -564,11 +569,10 @@ namespace Media.Sdp
 
         public static bool operator ==(SessionDescriptionLine a, SessionDescriptionLine b)
         {
-            object boxA = a, boxB = b;
-            return boxA == null ? boxB == null : a.Equals(b);
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
         }
 
-        public static bool operator !=(SessionDescriptionLine a, SessionDescriptionLine b) { return false == (a == b); }
+        public static bool operator !=(SessionDescriptionLine a, SessionDescriptionLine b) { return (a == b).Equals(false); }
 
         #endregion
 
@@ -579,4 +583,18 @@ namespace Media.Sdp
     }
 
     #endregion
+
+    public static class SessionDescriptionLineExtensions
+    {
+        //Jumpz
+        //ToString =>{
+        //IsBandwidth or AttributeLine{
+        //l.m_Type.Equals(Sdp.Lines.SessionBandwidthLine.BandwidthType).Equals(false) && l.m_Type.Equals(Sdp.Lines.SessionAttributeLine.AttributeType).Equals(false)
+        //}Then By
+        //l.m_Type.Equals(Sdp.Lines.SessionBandwidthLine.BandwidthType)
+        //Then By
+        //l.m_Type.Equals(Sdp.Lines.SessionAttributeLine.AttributeType)
+        //}
+    }
+
 }

@@ -78,6 +78,7 @@ namespace Media
         /// the position within the buffer reletive to the start position in which the first occurance of octets given the octetStart and octetCount was matched.
         /// If more than 1 octet is required for a match and the buffer does not encapsulate the entire match start will still reflect the occurance of the partial match.
         /// </returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int ContainsBytes(byte[] buffer, ref int start, ref int count, byte[] octets, int octetStart, int octetCount)
         {
             //If the buffer or the octets are null no dice
@@ -147,6 +148,15 @@ namespace Media
             return lastPosition;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="needle"></param>
+        /// <param name="startIndex"></param>
+        /// <param name="sourceLength"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int Find(byte[] array, byte[] needle, int startIndex, int sourceLength)
         {
             int needleLen = needle.Length;
@@ -166,7 +176,7 @@ namespace Media
                 index = Array.IndexOf(array, needle[0], startIndex, sourceLength - needleLen + 1);
 #endif
                 // if we did not find even the first element of the needls, then the search is failed
-                if (index == -1)
+                if (index.Equals(-1))
                     return -1;
 
                 int i, p;
@@ -175,17 +185,16 @@ namespace Media
                 {
 #if NATIVE
                     if (System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(array, p))
-                        !=
-                        System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(needle, i))) break;
+                        .Equals(System.Runtime.InteropServices.Marshal.ReadByte(System.Runtime.InteropServices.Marshal.UnsafeAddrOfPinnedArrayElement<byte>(needle, i)).Equals(false))) break;
 #else
-                    if (array[p] != needle[i])
+                    if (array[p].Equals(needle[i]).Equals(false))
                     {
                         break;
                     }
 #endif
                 }
 
-                if (i == needleLen)
+                if (i.Equals(needleLen))
                 {
                     // needle was found
                     return index;
@@ -195,6 +204,7 @@ namespace Media
                 sourceLength -= (index - startIndex + 1);
                 startIndex = index + 1;
             }
+
             return -1;
         }
     }

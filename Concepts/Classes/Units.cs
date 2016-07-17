@@ -180,6 +180,42 @@ namespace Media.Concepts.Classes
         //Implementing operators is not really feasible at this level however it could be done in CoreUnits if that provides any meaning.
         //Could also interoperate on Units whatever that would mean to who uses it.
         //virtuals might actually help here but since there interfaces it makes little sense.
+
+        //https://github.com/dotnet/corefx/issues/6831#issuecomment-230557261
+
+        //To parse you can provide a static which can be exposed from the dervived types if they desire so.
+
+        static bool Parse(UnitBase units, string value, int offset = 0, int count = -1, char[] symbols = null, System.Globalization.NumberStyles ns = System.Globalization.NumberStyles.None, System.Globalization.NumberFormatInfo nfi = null)
+        {
+            if ((object.ReferenceEquals(units, null) || object.ReferenceEquals(units.Symbols, null)) && 
+                object.ReferenceEquals(units.Symbols, null) || string.IsNullOrWhiteSpace(value)) return false;
+
+            if (count < 0) count = value.Length - offset;
+
+            int symbolIndex = value.IndexOfAny(symbols ?? units.Symbols.SelectMany(s => s.ToArray()).ToArray(), offset, count);
+
+            if (symbolIndex < 0 || symbolIndex > count) return false;
+
+            if (object.ReferenceEquals(units, null).Equals(false))
+            {
+                try
+                {
+                    units.Units += Number.Parse(System.Text.Encoding.Default.GetBytes(value.ToCharArray(), symbolIndex, count), symbolIndex, count = value.Length - symbolIndex, System.Text.Encoding.Default, ns, nfi ?? System.Globalization.NumberFormatInfo.CurrentInfo);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                //Must check loaded types and get all Symbols...
+
+                throw new NotImplementedException();
+            }
+
+            return true;
+        }
     }
 
     public static class Distances
@@ -194,7 +230,7 @@ namespace Media.Concepts.Classes
 
             //Should be Number to avoid readonly ValueType
 
-            public static readonly double PlankLengthsPerMeter = 6.1873559 * System.Math.Pow(10, 34);
+            public static readonly double PlanckLengthsPerMeter = 6.1873559 * System.Math.Pow(10, 34);
 
             public static readonly double MilsPerMeter = 2.54 * System.Math.Pow(10, -5);
 
@@ -350,26 +386,26 @@ namespace Media.Concepts.Classes
 
             public static bool operator >(Distance a, IDistance b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant > b.TotalMeters;
                 return a.Units > b.TotalMeters;
             }
 
             public static bool operator <(Distance a, IDistance b)
             {
-                return !(a > b);
+                return (a > b).Equals(false);
             }
 
             public static bool operator ==(Distance a, IDistance b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant == b.TotalMeters;
                 return a.Units == b.TotalMeters;
             }
 
             public static bool operator !=(Distance a, IDistance b)
             {
-                return !(a == b);
+                return (a == b).Equals(false);
             }
 
             public override bool Equals(object obj)
@@ -384,9 +420,7 @@ namespace Media.Concepts.Classes
             }
         }
     }
-
-    //Angles?
-
+    
     public static class Frequencies
     {
         ////    public enum FrequencyKind
@@ -561,7 +595,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator >(Frequency a, Frequency b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant > b.TotalUnits;
                 return a.Units > b.TotalUnits;
             }
@@ -573,7 +607,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator ==(Frequency a, Frequency b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant == b.TotalUnits;
                 return a.Units == b.TotalUnits;
             }
@@ -717,7 +751,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator >(Temperature a, ITemperature b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant > b.TotalUnits;
                 return a.Units > b.TotalUnits;
             }
@@ -729,7 +763,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator ==(Temperature a, ITemperature b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant == b.TotalUnits;
                 return a.Units == b.TotalUnits;
             }
@@ -885,28 +919,28 @@ namespace Media.Concepts.Classes
 
             public static bool operator >(Mass a, IMass b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant > b.TotalUnits;
                 return a.Units > b.TotalUnits;
             }
 
             public static bool operator <(Mass a, IMass b)
             {
-                return !(a > b);
+                return (a > b).Equals(false);
             }
 
             //<=, >=
 
             public static bool operator ==(Mass a, IMass b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant == b.TotalUnits;
                 return a.Units == b.TotalUnits;
             }
 
             public static bool operator !=(Mass a, IMass b)
             {
-                return false.Equals(a == b);
+                return a.Equals(b).Equals(false);
             }
 
             public override bool Equals(object obj)
@@ -1063,7 +1097,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator >(Energy a, IEnergy b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant > b.TotalUnits;
                 return a.Units > b.TotalUnits;
             }
@@ -1075,7 +1109,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator ==(Energy a, IEnergy b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant == b.TotalUnits;
                 return a.Units == b.TotalUnits;
             }
@@ -1206,7 +1240,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator >(Velocity a, IVelocity b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant > b.TotalUnits;
                 return a.Units > b.TotalUnits;
             }
@@ -1218,7 +1252,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator ==(Velocity a, IVelocity b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant == b.TotalUnits;
                 return a.Units == b.TotalUnits;
             }
@@ -1329,7 +1363,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator >(Force a, IForce b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant > b.TotalUnits;
                 return a.Units > b.TotalUnits;
             }
@@ -1341,7 +1375,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator ==(Force a, IForce b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant == b.TotalUnits;
                 return a.Units == b.TotalUnits;
             }
@@ -1482,7 +1516,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator >(Wavelength a, IWavelength b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant > b.TotalUnits;
                 return a.Units > b.TotalUnits;
             }
@@ -1494,7 +1528,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator ==(Wavelength a, IWavelength b)
             {
-                if (a.Constant != b.Constant)
+                if (a.Constant.Equals(b.Constant).Equals(false))
                     return a.Units * b.Constant == b.TotalUnits;
                 return a.Units == b.TotalUnits;
             }

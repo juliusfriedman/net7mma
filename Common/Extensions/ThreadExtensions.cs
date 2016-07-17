@@ -53,7 +53,8 @@ namespace Media.Common.Extensions.Thread
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsRunning(System.Threading.Thread thread)
         {
-            return thread != null && (thread.ThreadState & (System.Threading.ThreadState.Stopped | System.Threading.ThreadState.Unstarted)) == 0;
+            return false.Equals(object.ReferenceEquals(thread, null)) && 
+                (thread.ThreadState & (System.Threading.ThreadState.Stopped | System.Threading.ThreadState.Unstarted)) == System.Threading.ThreadState.Running;
         }
 
         /// <summary>
@@ -95,16 +96,16 @@ namespace Media.Common.Extensions.Thread
         public static void AbortAndFree(ref System.Threading.Thread thread, System.TimeSpan timeout, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped)
         {
             //If the worker IsAlive and has doesn't have the requested state.
-            if (thread != null && false == thread.ThreadState.HasFlag(state)) //IsRunning(thread) &&
+            if (false.Equals(object.ReferenceEquals(thread, null)) &&
+                false.Equals(thread.ThreadState.HasFlag(state)))
             {
                 //Attempt to join if not already, todo check flags are compatible in all implementations.
-                if (false == thread.ThreadState.HasFlag(System.Threading.ThreadState.AbortRequested | System.Threading.ThreadState.Aborted) && false == thread.Join(timeout))
+                if (false.Equals(thread.ThreadState.HasFlag(System.Threading.ThreadState.AbortRequested | System.Threading.ThreadState.Aborted)) && 
+                    IsRunning(thread) &&
+                    false.Equals(thread.Join(timeout)))
                 {
-                    try
-                    {
-                        //Abort
-                        thread.Abort();
-                    }
+                    //Abort
+                    try { thread.Abort(); }
                     catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
                     catch { throw; } //Cancellation not supported
                 }
@@ -119,7 +120,7 @@ namespace Media.Common.Extensions.Thread
             try { AbortAndFree(ref thread, state, timeout); }
             catch { return false; }
 
-            return thread == null;
+            return object.ReferenceEquals(thread, null);
         }
 
         public static bool TryAbortAndFree(ref System.Threading.Thread thread, System.TimeSpan timeout, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped)
@@ -127,8 +128,8 @@ namespace Media.Common.Extensions.Thread
             try { AbortAndFree(ref thread, timeout, state); }
             catch { return false; }
 
-            return thread == null;
-        }        
-
+            return object.ReferenceEquals(thread, null);
+        }   
+     
     }
 }
