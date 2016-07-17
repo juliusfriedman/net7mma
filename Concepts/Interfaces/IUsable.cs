@@ -33,16 +33,22 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-//namespace Media.Concepts.Interfaces
-//{
-//    public interface IUsable : Common.IDisposed, Common.IUpdateable
-//    {
-//        //InUse => !UnderModification
-//    }
+namespace Media.Concepts.Interfaces
+{
+    /// <summary>
+    /// A combination of the <see cref="Common.IDisposed"/> and <see cref=" Common.IUpdateable"/> interfaces.
+    /// </summary>
+    public interface IUsable : Common.IDisposed, Common.IUpdateable
+    {
+        //Extensions > InUse() => Common.IUpdateableExtensions.UnderModification(this).Equals(false)
+    }
 
-//    public static class IUsableExtensions
-//    {
-//        public static bool InUse(this IUsable usable) { return false == Common.IUpdateableExtensions.UnderModification(usable); }
-//    }
+    public static class IUsableExtensions
+    {
+        public static bool InUse(this IUsable usable)
+        {
+            return Common.IUpdateableExtensions.UnderModification(usable).Equals(false);
+        }
+    }
 
-//}
+}

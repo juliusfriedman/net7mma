@@ -43,7 +43,7 @@ namespace Media.Common
     /// </summary>
     /// <note><see href="http://blogs.msdn.com/b/vcblog/archive/2012/10/26/10362875.aspx">Hello ARM</see></note>
     /// <note><see href="https://msdn.microsoft.com/en-us/magazine/jj553518.aspx">.NET Development for ARM Processors</see></note>
-    public static class Machine
+    public static class Machine //IMachineInterface
     {
         #region Nested Types
 
@@ -387,7 +387,7 @@ namespace Media.Common
         /// </summary>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool HasFiniteBitPattern() { return BitPatternSize > 0; }
+        public static bool HasFiniteBitPattern() { return BitPatternSize > 0; }        
 
         /// <summary>
         /// Indicates if the Machine can execute ARM instructions

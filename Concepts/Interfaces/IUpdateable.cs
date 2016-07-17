@@ -40,8 +40,14 @@ namespace Media.Common
     /// </summary>
     public interface IUpdateable : IDisposed //Could seperate IDisposed also and have IUsable.
     {
+        /// <summary>
+        /// 
+        /// </summary>
         System.Threading.ManualResetEventSlim ManualResetEvent { get; } // = new System.Threading.ManualResetEventSlim(true);
 
+        /// <summary>
+        /// 
+        /// </summary>
         System.Threading.CancellationTokenSource UpdateTokenSource { get; } //= new System.Threading.CancellationTokenSource();
         
         //System.Threading.CancellationToken LastToken { get; }
@@ -56,30 +62,47 @@ namespace Media.Common
     /// </summary>
     public static class IUpdateableExtensions
     {
+        /// <summary>
+        /// Indicates if the instance is not null or disposed and that the <see cref="ManualResetEvent.IsSet"/> is not true 
+        /// OR
+        /// That the <see cref="UpdateTokenSource.IsCancellationRequested"/> is true.
+        /// </summary>
+        /// <param name="updateable">The instance</param>
+        /// <returns>True or False</returns>
         public static bool UnderModification(this IUpdateable updateable)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(updateable)) return false;
 
-            return false == updateable.ManualResetEvent.IsSet || updateable.UpdateTokenSource.IsCancellationRequested; //When requested may already be cancelled.
+            return updateable.ManualResetEvent.IsSet.Equals(false) && updateable.UpdateTokenSource.IsCancellationRequested.Equals(false);
         }
 
-        public static System.Threading.CancellationToken BeginUpdate(this IUpdateable updateable)
+        public static bool UnderModification(this IUpdateable updateable, System.Threading.CancellationToken token)
+        {
+            return object.ReferenceEquals(token, null).Equals(false) && 
+                Common.IDisposedExtensions.IsNullOrDisposed(updateable).Equals(false) &&
+                token.Equals(updateable.UpdateTokenSource.Token);
+        }
+
+
+        public static System.Threading.CancellationToken BeginUpdate(this IUpdateable updateable, out bool reset)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(updateable)) throw new System.ArgumentNullException(); //return default(System.Threading.CancellationToken);
 
-            if (System.Threading.WaitHandle.SignalAndWait(updateable.UpdateTokenSource.Token.WaitHandle, updateable.ManualResetEvent.WaitHandle))
+            if (reset = System.Threading.WaitHandle.SignalAndWait(updateable.UpdateTokenSource.Token.WaitHandle, updateable.ManualResetEvent.WaitHandle))
             {
                 updateable.ManualResetEvent.Reset();
+                
+                reset = true;
             }
 
             return updateable.UpdateTokenSource.Token;
         }
 
-        public static System.Threading.CancellationToken BeginUpdateIn(this IUpdateable updateable, System.TimeSpan amount, bool exitContext)
+        public static System.Threading.CancellationToken BeginUpdateIn(this IUpdateable updateable, System.TimeSpan amount, ref bool exitContext, out bool reset)
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(updateable)) throw new System.ArgumentNullException();
 
-            if (System.Threading.WaitHandle.SignalAndWait(updateable.UpdateTokenSource.Token.WaitHandle, updateable.ManualResetEvent.WaitHandle, amount, exitContext))
+            if (reset = System.Threading.WaitHandle.SignalAndWait(updateable.UpdateTokenSource.Token.WaitHandle, updateable.ManualResetEvent.WaitHandle, amount, exitContext))
             {
                 updateable.ManualResetEvent.Reset();
             }
@@ -94,10 +117,10 @@ namespace Media.Common
             if (Common.IDisposedExtensions.IsNullOrDisposed(updateable)) throw new System.ArgumentNullException(); //return default(System.Threading.CancellationToken);
 
             //Ensure a token
-            if (token == null) return;
+            if (object.ReferenceEquals(token, null)) return;
 
             //That came from out cancellation source
-            if (token != updateable.UpdateTokenSource.Token) throw InvalidStateException;
+            if (token.Equals(updateable.UpdateTokenSource.Token).Equals(false)) throw InvalidStateException;
 
             // check for manually removed state or a call without an update..
             //if(m_Update.Wait(1, token)) { would check that the event was manually cleared... }

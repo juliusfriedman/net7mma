@@ -340,6 +340,7 @@ namespace Media.UnitTests
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                     Type = System.Net.AuthenticationSchemes.None
                 },
+                //Sony
                 new
                 {
                     Uri = "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/101",
@@ -492,7 +493,106 @@ namespace Media.UnitTests
                     Creds = new System.Net.NetworkCredential("viewer", "viewer"),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                     Type = System.Net.AuthenticationSchemes.Digest
-                }
+                },
+                new
+                {
+                    Uri = "rtsp://user1:11111111@76.79.115.83:559/cgi-bin/rtspStreamOvf/1",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                new
+                {
+                    Uri = "rtsp://demo:abcd1234@118.70.181.233:2121/Streaming/Channels/102",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                new
+                {
+                    Uri = "rtsp://demo:abcd1234@118.70.181.233:2221/Streaming/Channels/102",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                new
+                {
+                    Uri = "rtsp://demo:abcd1234@118.70.181.233:2033/Streaming/Channels/102",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                new
+                {
+                    Uri = "rtsp://demo:abcd1234@118.70.181.233:6027/Streaming/Channels/102",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                new
+                {
+                    Uri = "rtsp://demo:abcd1234@118.70.181.233:2833/Streaming/Channels/102",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                 new
+                {
+                    Uri = "rtsp://demo:abcd1234@118.70.181.233:2043/Streaming/Channels/102",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                 new
+                {
+                    Uri = "rtsp://demo:abcd1234@118.70.181.233:2415/Streaming/Channels/102",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                 new
+                {
+                    Uri = "rtsp://demo:abcd1234@118.70.181.233:2943/Streaming/Channels/102",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                 new
+                {
+                    Uri = "rtsp://demo:abcd1234@118.70.181.233:2813/Streaming/Channels/102",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                 new
+                {
+                    Uri = "rtsp://demo:abcd1234@118.70.181.233:7175/Streaming/Channels/102",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                 new
+                {
+                    Uri = "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/201",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                 new
+                {
+                    Uri = "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/301",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                new
+                {
+                    Uri = "rtsp://118.70.125.33:19154/user=admin&password=admin12345&channel=1&stream=0.sdp?real_stream",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                    Type = System.Net.AuthenticationSchemes.None
+                },
+                
             })
             {
                 Media.Rtsp.RtspClient.ClientProtocolType? proto = TestObject.Proto;
@@ -616,7 +716,7 @@ namespace Media.UnitTests
                         //Stand alone is also possible a socket just has to be created to facilitate accepts
                         if (tcp)
                         {
-                            //Make a socket for the sender to receive connections on
+                            //Make a socket for the sender to receive connections on.......
                             var sendersSocket = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
 
                             //Bind and listen
@@ -641,7 +741,7 @@ namespace Media.UnitTests
 
                             }), null);
 
-                            //Make a socket for the receiver to connect to the sender on.
+                            //Make a socket for the receiver to connect to the sender on........
                             var rr = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
 
                             //Connect to the sender
@@ -649,7 +749,7 @@ namespace Media.UnitTests
 
                             //acceptedSocket is now rr
 
-                            while (!acceptResult.IsCompleted) { }
+                            while (acceptResult.IsCompleted.Equals(false)) { }
                         }
                         else //For Udp a port should be found unless the MediaDescription indicates a specific port.
                         {
@@ -683,7 +783,19 @@ namespace Media.UnitTests
                         if (tcp) sender.SendReports();
 
                         //Wait for the senders report to be sent AND for the frame to be sent at least one time while the sender is connected
-                        while (sender.IsActive && (sendersContext.Goodbye == null && sendersContext.SendersReport == null || false == sendersContext.SendersReport.Transferred.HasValue && false == testFrame.Transferred)) System.Threading.Thread.Yield();
+                        while (sender.IsActive)
+                        {
+                            //Wait for other threads
+                            System.Threading.Thread.Yield();
+
+                            //Wait the TestFrame to be transferred while there is not a Goodbye waiting to be sent by the sender or the sender has already sent one and here is a SendersReport which was transferrred
+                            if (testFrame.Transferred && object.ReferenceEquals(sendersContext.Goodbye, null) &&
+                                //There is a SendersReport which was transferrred
+                                object.ReferenceEquals(sendersContext.SendersReport, null).Equals(false) &&
+                                sendersContext.SendersReport.Transferred.HasValue.Equals(false)) continue;
+
+                            break;
+                        }
 
                         //Print the report information
                         if (sendersContext.SendersReport != null)
@@ -700,7 +812,19 @@ namespace Media.UnitTests
                         if (tcp) receiver.SendReports();
 
                         //Wait for a receivers report to be sent while the receiver is connected
-                        while (receiver.IsActive && (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue) && receiversContext.Goodbye == null) System.Threading.Thread.Yield();
+                        while (receiver.IsActive)
+                        {
+                            //Wait for other threads
+                            System.Threading.Thread.Yield();
+
+                            //Wait the TestFrame to be transferred while there is not a Goodbye waiting to be sent by the sender or the sender has already sent one and here is a ReceiversReport which was transferrred
+                            if (testFrame.Transferred && object.ReferenceEquals(receiversContext.Goodbye, null) &&
+                                //There is a SendersReport which was transferrred
+                                object.ReferenceEquals(receiversContext.ReceiversReport, null).Equals(false) &&
+                                receiversContext.ReceiversReport.Transferred.HasValue.Equals(false)) continue;
+
+                            break;
+                        }
 
                         //Print the report information
                         if (receiversContext.ReceiversReport != null)
@@ -1016,7 +1140,7 @@ namespace Media.UnitTests
             System.IO.File.Delete(currentPath + @"\ShortDump.rtpdump");
         }
 
-        static void TestRtspClient(string location, System.Net.NetworkCredential cred = null, Media.Rtsp.RtspClient.ClientProtocolType? protocol = null, System.Net.AuthenticationSchemes? authenticationScheme = System.Net.AuthenticationSchemes.Digest)
+        static void TestRtspClient(string location, System.Net.NetworkCredential cred = null, Media.Rtsp.RtspClient.ClientProtocolType? protocol = null, System.Net.AuthenticationSchemes? authenticationScheme = System.Net.AuthenticationSchemes.None)
         {
             //For display
             int emptyFrames = 0, incompleteFrames = 0, rtspInterleaved = 0, totalFrames = 0;
@@ -1066,7 +1190,7 @@ namespace Media.UnitTests
                         //Define a connection eventHandler
                         Media.Rtsp.RtspClient.RtspClientAction connectHandler = connectHandler = (sender, args) =>
                         {
-                            if (client == null || client.IsDisposed) return;
+                            if (Common.IDisposedExtensions.IsNullOrDisposed(client)) return;
 
                             //Increase ReadTimeout here if required
                             //client.SocketReadTimeout 
@@ -1173,7 +1297,7 @@ namespace Media.UnitTests
                         {
                             if (message != null)
                             {
-                                string output = "Client Sent " + message.MessageType + " :" + message.ToString();
+                                string output = "Client Sent " + message.RtspMessageType + " :" + message.ToString();
 
                                 logWriter.Log(output);
 
@@ -1206,7 +1330,7 @@ namespace Media.UnitTests
                             //Track null and unknown responses
                             if (response != null)
                             {
-                                string output = "Client Received " + response.MessageType + " :" + response.ToString();
+                                string output = "Client Received " + response.RtspMessageType + " :" + response.ToString();
 
                                 logWriter.Log(output);
 
@@ -1222,10 +1346,10 @@ namespace Media.UnitTests
 
                                 if (request != null)
                                 {
-                                    if (request.MessageType == Media.Rtsp.RtspMessageType.Request)
-                                        output = "Client Received Server Sent " + request.MessageType + " :" + request.ToString();
+                                    if (request.RtspMessageType == Media.Rtsp.RtspMessageType.Request)
+                                        output = "Client Received Server Sent " + request.RtspMessageType + " :" + request.ToString();
                                     else
-                                        output = "Client Received " + request.MessageType + " :" + request.ToString();
+                                        output = "Client Received " + request.RtspMessageType + " :" + request.ToString();
                                 }
 
                                 logWriter.Log(output);
@@ -1456,7 +1580,7 @@ namespace Media.UnitTests
 
                                             if (interleaveEvents == false)
                                             {
-                                                client.Client.InterleavedData += rtpInterleave;
+                                                client.Client.OutOfBandData += rtpInterleave;
 
                                                 Console.WriteLine("Attached Interleave Event.");
 
@@ -1469,7 +1593,7 @@ namespace Media.UnitTests
                                     case ConsoleKey.U:
                                         {
 
-                                            client.Client.InterleavedData -= rtpInterleave;
+                                            client.Client.OutOfBandData -= rtpInterleave;
 
                                             Console.WriteLine("Detached Interleave Event.");
 
@@ -1656,7 +1780,7 @@ namespace Media.UnitTests
 
             System.Net.IPAddress serverIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
 
-            Console.WriteLine("Server Starting on: " + serverIp);
+            Console.WriteLine("Server Starting on: " + serverIp);            
 
             //Setup a Media.RtspServer on port 554
             using (Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(serverIp, serverPort)
@@ -1690,7 +1814,7 @@ namespace Media.UnitTests
 
                 //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("mp4:BigBuckBunny_115k.mov", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
                 //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("OmegaUdp", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Udp));
 
@@ -1737,13 +1861,27 @@ namespace Media.UnitTests
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua15", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=15&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Duhua16", "rtsp://admin:admin@118.70.125.33:53554/cam/realmonitor?channel=16&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("BrickCom", "rtsp://admin:admin12345@118.70.125.33:15554/channel1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Lilin", "rtsp://admin:pass@118.70.125.33:9654/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Lilin1", "rtsp://admin:pass@118.70.125.33:9654/rtsph264480p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("AxisTest", "rtsp://viewer:viewer@50.28.209.206:5080/axis-media/media.amp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("AxisTest", "rtsp://viewer:viewer@50.28.209.206:5080/axis-media/media.amp", Media.Rtsp.RtspClient.ClientProtocolType.Udp));                
 
+
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("NVT", "rtsp://118.70.125.33:19154/user=admin&password=admin12345&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("NVT2", "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/301", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("NVT3", "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/201", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("NVT4", "rtsp://admin:11111111@118.70.125.33:8801/Streaming/channels/201", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
                 string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
+                Media.Rtsp.Server.MediaTypes.RFC2435Media tcpStream = new Media.Rtsp.Server.MediaTypes.RFC2435Media("PicsTcp", localPath + "\\Media\\JpegTest\\") { Loop = true, ForceTCP = true };
+
                 //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RFC2435Media("PicsTcp", localPath + "\\Media\\JpegTest\\") { Loop = true, ForceTCP = true });
+                server.TryAddMedia(tcpStream);
 
                 Media.Rtsp.Server.MediaTypes.RFC2435Media sampleStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
@@ -1828,7 +1966,7 @@ namespace Media.UnitTests
                             if(exit == 1) return;
                         }
                     }
-                }));
+                }));                
 
                 //Start the server
                 server.Start();
@@ -1837,12 +1975,12 @@ namespace Media.UnitTests
                 while (false.Equals(server.IsRunning)) System.Threading.Thread.Sleep(0);
 
                 //Start taking pictures of the desktop and making packets in a seperate thread.
-                if (false.Equals(captureThread == null))
+                if (false.Equals(object.ReferenceEquals(captureThread, null)))
                 {
                     //captureThread.Priority = System.Threading.ThreadPriority.BelowNormal;
 
                     captureThread.Start();
-                }
+                }                               
 
                 //If you add more streams they will be started once the server is started
 
@@ -1856,6 +1994,8 @@ namespace Media.UnitTests
                 //if (sampleStream != null) Console.WriteLine("Press 'F' to See statistics for " + sampleStream.Name);
 
                 System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
+
+                bool createdAComposite = false;
 
                 while (true)
                 {
@@ -2079,6 +2219,169 @@ namespace Media.UnitTests
 
                                 continue;
                             }
+                        case ConsoleKey.B:
+                            {
+                                if (createdAComposite)
+                                {
+                                    //We already created the composite
+
+                                    Console.WriteLine("*Composition Complete*");
+
+                                    break;
+                                }
+
+                                createdAComposite = true;
+
+                                //Make a new session description
+                                Media.Sdp.SessionDescription compositeDescription = new Sdp.SessionDescription(0, "Bandit", "Composite");
+
+                                //Add some required lines.
+                                compositeDescription.Add(new Sdp.Lines.SessionConnectionLine()
+                                {
+                                    ConnectionNetworkType = Sdp.Lines.SessionConnectionLine.InConnectionToken,
+                                    ConnectionAddressType = Sdp.SessionDescription.WildcardString,
+                                    ConnectionAddress = System.Net.IPAddress.Any.ToString()
+                                });
+
+                                //you need to access the session description from the media you wish to composite.
+
+                                //Add the first
+                                compositeDescription.Add(tcpStream.SessionDescription.MediaDescriptions.FirstOrDefault(), false);
+
+                                //Add the second
+                                compositeDescription.Add(sampleStream.SessionDescription.MediaDescriptions.FirstOrDefault(), false);
+
+                                Media.Rtsp.Server.MediaTypes.RtpSource compositeSource = new Rtsp.Server.MediaTypes.RtpSource("Composite", compositeDescription);
+
+                                var compositeContext = compositeSource.RtpClient.GetTransportContexts().First();
+
+                                //Todo, Context.Synchronize or Context.Clone..
+                                //Make the context a copy of the of the context to which it represents.
+
+                                compositeContext.MinimumSequentialValidRtpPackets = 0;
+
+                                compositeContext.AllowOutOfOrderPackets = true;
+
+                                compositeContext.SynchronizationSourceIdentifier = tcpStream.RtpClient.GetTransportContexts().First().SynchronizationSourceIdentifier;
+
+                                compositeContext.RemoteSynchronizationSourceIdentifier = tcpStream.RtpClient.GetTransportContexts().First().RemoteSynchronizationSourceIdentifier;
+
+                                compositeContext.IsRtcpEnabled = false;
+
+                                compositeContext.SendInterval = compositeContext.ReceiveInterval = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
+
+                                compositeContext = compositeSource.RtpClient.GetTransportContexts().Last();
+
+                                //
+
+                                compositeContext.MinimumSequentialValidRtpPackets = 0;
+
+                                compositeContext.AllowOutOfOrderPackets = true;
+
+                                compositeContext.SynchronizationSourceIdentifier = sampleStream.RtpClient.GetTransportContexts().First().SynchronizationSourceIdentifier;
+
+                                compositeContext.RemoteSynchronizationSourceIdentifier = sampleStream.RtpClient.GetTransportContexts().First().RemoteSynchronizationSourceIdentifier;
+
+                                compositeContext.IsRtcpEnabled = false;
+
+                                compositeContext.SendInterval = compositeContext.ReceiveInterval = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
+
+                                //Determine if packets or events will be handled
+                                if (tcpStream.RtpClient.FrameChangedEventsEnabled)
+                                {
+                                    compositeSource.RtpClient.FrameChangedEventsEnabled = true;
+
+                                    //Todo, Delcare a function so what comes in can be buffered if required.
+                                    tcpStream.RtpClient.RtpFrameChanged += (sender, frame, transportContext, final) =>
+                                    {
+                                        if (final) compositeSource.RtpClient.OnRtpFrameChanged(frame, compositeSource.RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier), final);
+                                    };
+                                }
+                                else
+                                {
+                                    compositeSource.RtpClient.FrameChangedEventsEnabled = false;
+
+                                    //Todo, Delcare a function so what comes in can be buffered if required.
+                                    tcpStream.RtpClient.RtpPacketReceieved += (sender, packet, transportContext) =>
+                                    {
+                                        compositeSource.RtpClient.HandleIncomingRtpPacket(sender, packet, null);
+                                    };
+                                }
+
+                                //The same for the other stream
+                                if (sampleStream.RtpClient.FrameChangedEventsEnabled)
+                                {
+                                    //Todo, Delcare a function so what comes in can be buffered if required.
+                                    sampleStream.RtpClient.RtpFrameChanged += (sender, frame, transportContext, final) =>
+                                    {
+                                        if (final) compositeSource.RtpClient.OnRtpFrameChanged(frame, compositeSource.RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier), final);
+                                    };
+                                }
+                                else
+                                {
+                                    //Todo, Delcare a function so what comes in can be buffered if required.
+                                    sampleStream.RtpClient.RtpPacketReceieved += (sender, packet, transportContext) =>
+                                    {
+                                        compositeSource.RtpClient.HandleIncomingRtpPacket(sender, packet, null);
+                                    };
+                                }
+
+                                //switch sources after x frames in events, retimestamp data or otherwise and send out.
+
+                                //Finish the SDP
+
+                                compositeDescription.Add(new Sdp.Lines.SessionConnectionLine()
+                                {
+                                    ConnectionNetworkType = Sdp.Lines.SessionConnectionLine.InConnectionToken,
+                                    ConnectionAddressType = Sdp.SessionDescription.WildcardString,
+                                    ConnectionAddress = System.Net.IPAddress.Any.ToString()
+                                });
+
+                                //Indicate control to each media description contained can be attained from the main uri
+                                //e.g. you can pause both streams at once.
+                                compositeDescription.Add(new Sdp.SessionDescriptionLine("a=control:*"));
+
+                                //Ensure the session members know they SHOULD only receive
+                                compositeDescription.Add(new Sdp.SessionDescriptionLine("a=sendonly")); // this directive is for their `tools`
+
+                                //that this a broadcast....
+                                compositeDescription.Add(new Sdp.SessionDescriptionLine("a=type:broadcast"));
+
+                                var md = compositeDescription.MediaDescriptions.First();
+
+                                if (false.Equals(object.ReferenceEquals(md.ControlLine, null)))
+                                {
+                                    md.Remove(md.ControlLine);
+                                }
+
+                                //How to control only this track, any valid grammar value should work but some libraries KISS/SUCK so...
+                                md.Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+
+                                //May already have a name line...
+                                //md.Add(new Media.Sdp.Lines.SessionNameLine("Pics Stream"));
+
+                                md = compositeDescription.MediaDescriptions.Last();
+
+                                if (false.Equals(object.ReferenceEquals(md.ControlLine, null)))
+                                {
+                                    md.Remove(md.ControlLine);
+                                }
+
+                                //How to control only that track
+                                md.Add(new Sdp.SessionDescriptionLine("a=control:trackID=2"));
+
+                                //May already have a name line.
+                                //md.Add(new Media.Sdp.Lines.SessionNameLine("Bandit Stream"));
+
+                                //Start the source now...
+                                server.TryAddMedia(compositeSource);
+
+                                System.Console.WriteLine("Started Composite");
+
+                                //Could add third stream here...
+
+                                break;
+                            }
                             //Turn Logging on and off
                             //Other stuff
                         default:
@@ -2219,7 +2522,7 @@ namespace Media.UnitTests
                 else
                 {
 
-                    //Use Media.Rtsp / Tcp
+                    //Use Media.Rtsp / Tcp todo, (rtspt://)
                     using (Media.Rtsp.RtspClient client = new Media.Rtsp.RtspClient("rtsp://" + streamUri, Media.Common.Binary.IsEven(ref i) ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
                     {
                         try
@@ -2297,7 +2600,6 @@ namespace Media.UnitTests
                         //Create a RtpFrame from the managed packet
                         using (Media.Rtp.RtpFrame managedFrame = new Media.Rtp.RtpFrame(aManagedPacket))
                         {
-
                             //E.g. if aManagedPacket.Marker then create the frame and Depacketize, in this example all packets have a marker.
 
                             //The rtp profile contains the logic required to `depacketize` the data.
@@ -3814,7 +4116,7 @@ a=appversion:1.0");
 
         internal static void TryPrintClientPacket(object sender, bool incomingFlag, Media.Common.IPacket packet, Common.IDisposed context = null, bool writePayload = false)
         {
-            if (Common.IDisposedExtensions.IsNullOrDisposed(context)) return;            
+            if (Common.IDisposedExtensions.IsNullOrDisposed(context) && Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;            
 
             //Notes, racing to handle the event, should clone the packet if you really need to handle it at this level.
 
@@ -4003,7 +4305,7 @@ a=appversion:1.0");
 
         internal static void SendKeepAlive(Media.Rtsp.RtspClient client, object state = null)
         {
-            if (client == null || client.IsDisposed) return;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(client)) return;
 
             Console.WriteLine(client.InternalId + " - Sending KeepAlive");
 
@@ -4012,7 +4314,7 @@ a=appversion:1.0");
 
         internal static void SendRandomPartial(Media.Rtsp.RtspClient client, Media.Rtsp.RtspMethod method = Media.Rtsp.RtspMethod.GET_PARAMETER, Uri location = null, string contentType = null, byte[] data = null)
         {
-            if (client == null || client.IsDisposed) return;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(client)) return;
 
             if (false == client.IsConnected)
             {

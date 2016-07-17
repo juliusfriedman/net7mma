@@ -65,22 +65,31 @@ namespace Media.Rtsp.Server.MediaTypes
         /// <summary>
         /// Gets the RtspClient this RtspSourceStream uses to provide media
         /// </summary>
-        public virtual RtspClient RtspClient { get; set; }
+        public virtual RtspClient RtspClient
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
         /// <summary>
         /// Gets the RtpClient used by the RtspClient to provide media
         /// </summary>
         public override Rtp.RtpClient RtpClient
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return  IsDisposed ? null : Common.IDisposedExtensions.IsNullOrDisposed(RtspClient) ? null : RtspClient.Client; }
         }
 
         public override NetworkCredential SourceCredential
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return base.SourceCredential;
             }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
                 if (RtspClient != null) RtspClient.Credential = value;
@@ -90,10 +99,12 @@ namespace Media.Rtsp.Server.MediaTypes
 
         public override AuthenticationSchemes SourceAuthenticationScheme
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return base.SourceAuthenticationScheme;
             }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
                 if (RtspClient != null) RtspClient.AuthenticationScheme = value;
@@ -104,25 +115,31 @@ namespace Media.Rtsp.Server.MediaTypes
         /// <summary>
         /// SessionDescription from the source RtspClient
         /// </summary>
-        public override Sdp.SessionDescription SessionDescription { get { return RtspClient.SessionDescription; } }
+        public override Sdp.SessionDescription SessionDescription
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get { return RtspClient.SessionDescription; }
+        }
 
         /// <summary>
         /// Gets or sets the source Uri used in the RtspClient
         /// </summary>
         public override Uri Source
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get
             {
                 return base.Source;
             }
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             set
             {
                 //Experimental support for Unreliable and Http enabled with this line commented out
-                if (value.Scheme != RtspMessage.ReliableTransportScheme) throw new ArgumentException("value", "Must have the Reliable Transport scheme \"" + RtspMessage.ReliableTransportScheme + "\"");
+                if (false.Equals(value.Scheme == RtspMessage.ReliableTransportScheme)) throw new ArgumentException("value", "Must have the Reliable Transport scheme \"" + RtspMessage.ReliableTransportScheme + "\"");
 
                 base.Source = value;
 
-                if (RtspClient != null)
+                if (Common.IDisposedExtensions.IsNullOrDisposed(RtspClient).Equals(false))
                 {
                     bool wasConnected = RtspClient.IsConnected;
 
@@ -169,7 +186,7 @@ namespace Media.Rtsp.Server.MediaTypes
         public RtspSource(string name, Uri source, bool perPacket, RtspClient client)
             : base(name, source, perPacket)
         {
-            if (client == null) throw new ArgumentNullException("client");
+            if (Common.IDisposedExtensions.IsNullOrDisposed(client)) throw new ArgumentNullException("client");
 
             RtspClient = client;
         }
@@ -201,7 +218,7 @@ namespace Media.Rtsp.Server.MediaTypes
             }
             //else it is already assigned via the child
 
-            if (credential != null)
+            if (object.ReferenceEquals(credential, null).Equals(false))
             {
                 RtspClient.Credential = SourceCredential = credential;
 
@@ -209,7 +226,7 @@ namespace Media.Rtsp.Server.MediaTypes
             }
             
             //If only certain media should be setup 
-            if (specificMedia != null) SpecificMediaTypes = specificMedia;
+            if (object.ReferenceEquals(specificMedia ,null).Equals(false)) SpecificMediaTypes = specificMedia;
 
             //If there was a start time given
             if (startTime.HasValue) MediaStartTime = startTime;
@@ -226,13 +243,18 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             if (IsDisposed || State >= StreamState.StopRequested) return;            
 
+            //May have to re-create client.
+
             try
             {
                 RtspClient.Connect();
             }
-            catch
+            catch(Exception ex)
             {
+                Common.ILoggingExtensions.LogException(RtspClient.Logger, ex);
+
                 RtspClient.StopPlaying();
+
                 RtspClient.Disconnect();
             }
         }
@@ -268,7 +290,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
         void RtspClient_OnConnect(RtspClient sender, object args)
         {
-            if (false == RtspClient.IsConnected || State == StreamState.StartRequested) return;
+            if (RtspClient.IsConnected.Equals(false) || State == StreamState.StartRequested) return;
 
             //Not quite ready yet.
             State = StreamState.StartRequested;
@@ -278,10 +300,12 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Start playing
                 RtspClient.StartPlaying(MediaStartTime, MediaEndTime, SpecificMediaTypes);
             }
-            catch
+            catch(Exception ex)
             {
                 //StoPlaying and Disconnect when an exception occurs.
                 RtspClient.Disconnect(true);
+
+                Common.ILoggingExtensions.LogException(RtspClient.Logger, ex);
 
                 State = StreamState.Started;
             }
@@ -289,7 +313,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
         public override bool TrySetLogger(Common.ILogging logger)
         {
-            if (false == Ready) return false;
+            if (false.Equals(Ready)) return false;
 
             try
             {
@@ -308,10 +332,13 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             if (IsDisposed || State < StreamState.Started) return;
 
-            if (RtspClient != null)
+            if (Common.IDisposedExtensions.IsNullOrDisposed(RtspClient).Equals(false))
             {
                 if (RtspClient.IsPlaying) RtspClient.StopPlaying();
                 else if (RtspClient.IsConnected) RtspClient.Disconnect();
+
+                //Client Dispose
+
             }
 
             base.Stop();
@@ -327,7 +354,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             base.Dispose();
 
-            if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(RtspClient)))
+            if (Common.IDisposedExtensions.IsNullOrDisposed(RtspClient).Equals(false))
             {
                 RtspClient.OnConnect -= RtspClient_OnConnect;
 

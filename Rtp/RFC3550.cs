@@ -1297,17 +1297,19 @@ namespace Media
             public override int GetHashCode() { return (short)this; }
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            public bool Equals(CommonHeaderBits other)
+            {
+                return other.m_Memory.Equals(m_Memory) && GetHashCode().Equals(other.GetHashCode());
+            }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public override bool Equals(object obj)
             {
                 if (System.Object.ReferenceEquals(this, obj)) return true;
 
                 if (false.Equals((obj is CommonHeaderBits))) return false;
 
-                CommonHeaderBits bits = obj as CommonHeaderBits;
-
-                if (false.Equals(bits.m_Memory.Equals(m_Memory))) return false;
-
-                return GetHashCode().Equals(bits.GetHashCode());
+                return Equals(obj as CommonHeaderBits);
             }
 
             #endregion
@@ -1334,12 +1336,11 @@ namespace Media
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             public static bool operator ==(CommonHeaderBits a, CommonHeaderBits b)
             {
-                object boxA = a, boxB = b;
-                return boxA == null ? boxB == null : a.Equals(b);
+                return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
             }
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            public static bool operator !=(CommonHeaderBits a, CommonHeaderBits b) { return false == (a == b); }
+            public static bool operator !=(CommonHeaderBits a, CommonHeaderBits b) { return (a == b).Equals(false); }
 
             #endregion
         }

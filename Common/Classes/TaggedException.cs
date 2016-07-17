@@ -185,7 +185,7 @@ namespace Media.Common
         /// </summary>
         /// <typeparam name="T">The type related to the exception.</typeparam>
         /// <param name="exception">The <see cref="System.Exception"/> which occured.</param>
-        public static void Raise<T>(this TaggedException<T> exception) { if (false.Equals(exception == null)) throw exception; }
+        public static void Raise<T>(this TaggedException<T> exception) { if (object.ReferenceEquals(exception, null).Equals(false)) throw exception; }
 
         /// <summary>
         /// Tries to <see cref="Raise"/> the given <see cref="TaggedException"/>

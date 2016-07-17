@@ -70,18 +70,23 @@
     <Compile Include="Classes\BitEnumerator.cs" />
     <Compile Include="Classes\Bitwise.cs" />
     <Compile Include="Classes\Bus.cs" />
+    <Compile Include="Classes\B\Buffer.cs" />
     <Compile Include="Classes\CentralProcessingUnit.cs" />
     <Compile Include="Classes\Clock.cs" />
     <Compile Include="Classes\C\C.cs" />
+    <Compile Include="Classes\E\Extensions.cs" />
     <Compile Include="Classes\GC\Controller.cs" />
     <Compile Include="Classes\Hardware.cs" />
     <Compile Include="Classes\I\I.cs" />
     <Compile Include="Classes\MethodHelper.cs" />
     <Compile Include="Classes\Intrinsics.cs" />
+    <Compile Include="Classes\Sockets\Sockets.cs" />
     <Compile Include="Classes\S\S.cs" />
+    <Compile Include="Classes\T\T.cs" />
+    <Compile Include="Classes\V\Vitro.cs" />
+    <Compile Include="Classes\W\Writings.cs" />
     <Compile Include="Collections\LinkedCollections.cs" />
     <Compile Include="Classes\CommonIntermediateLanguage.cs" />
-    <Compile Include="Classes\Composed.cs" />
     <Compile Include="Classes\Disposable.cs" />
     <Compile Include="Classes\Experimental.cs" />
     <Compile Include="Classes\Stopwatch.cs" />
@@ -92,8 +97,6 @@
     <Compile Include="Collections\SocketCollection.cs" />
     <Compile Include="Collections\ThreadCollection.cs" />
     <Compile Include="EndPoints.cs" />
-    <Compile Include="Interfaces\IReadOnly.cs" />
-    <Compile Include="Interfaces\IShared.cs" />
     <Compile Include="Interfaces\ITextData.cs" />
     <Compile Include="Interfaces\IUpdateable.cs" />
     <Compile Include="Interfaces\IUsable.cs" />
@@ -107,7 +110,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Classes\F\" />
-    <Folder Include="Classes\T\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Media.Common.csproj">

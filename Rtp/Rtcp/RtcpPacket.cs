@@ -989,19 +989,23 @@ namespace Media.Rtcp
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Equals(RtcpPacket other)
+        {
+            return other.Length.Equals(Length)
+               &&
+               other.Payload.Equals(Payload) //SequenceEqual...
+               &&
+               other.GetHashCode().Equals(GetHashCode());
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
             if (System.Object.ReferenceEquals(this, obj)) return true;
 
-            if (false.Equals((obj is RtcpPacket))) return false;
+            if ((obj is RtcpPacket).Equals(false)) return false;
 
-            RtcpPacket other = obj as RtcpPacket;
-
-            return other.Length.Equals(Length)
-                &&
-                other.Payload.Equals(Payload) //SequenceEqual...
-                && 
-                other.GetHashCode().Equals(GetHashCode());
+            return Equals(obj as RtcpPacket);
         }
 
         //Packet equals...
@@ -1016,12 +1020,11 @@ namespace Media.Rtcp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(RtcpPacket a, RtcpPacket b)
         {
-            object boxA = a, boxB = b;
-            return boxA == null ? boxB == null : a.Equals(b);
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
         }
         
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool operator !=(RtcpPacket a, RtcpPacket b) { return false == (a == b); }
+        public static bool operator !=(RtcpPacket a, RtcpPacket b) { return (a == b).Equals(false); }
 
         #endregion
 

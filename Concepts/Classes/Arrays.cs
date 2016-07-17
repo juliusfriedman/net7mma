@@ -323,13 +323,13 @@ namespace Media.Concepts.Classes
         //------------
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public bool IsNullPointerOrObject() { return m_IntPtr == System.IntPtr.Zero | m_Object == null; }
+        public bool IsNullPointerOrObject() { return IsNullPointer() | IsNullObject(); }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool IsNullPointer() { return m_IntPtr == System.IntPtr.Zero; }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public bool IsNullObject() { return m_Object == null; }
+        public bool IsNullObject() { return object.ReferenceEquals(m_Object, null); }
 
         //Would be used to indicate if the m_IntPtr member has a value which points to what was a managed object at one point.
         //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -360,6 +360,8 @@ namespace Media.Concepts.Classes
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public System.Array Array() { return m_Array; }
+
+        //Equals PseudoArrayHeader, type, etc
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj) { return (m_Object ?? m_IntPtr).Equals(obj); }
@@ -1317,6 +1319,48 @@ namespace Media.Concepts.Classes
     }
 
     #endregion
+
+    //@ms
+
+    public class Span : Media.Common.Interfaces.InterClass
+    {
+        /* `expansionem` */
+
+        protected Common.Classes.Class Class;
+
+        Common.Classes.Class Common.Interfaces.InterClass.Class
+        {
+            get { return Class; }
+        }
+    }
+
+    public class Spanned<T> : Array<T>
+    {
+        public Spanned(T t) : base(t) { }
+    }
+
+    public class Span<T> : Spanned<T> 
+        where T : Span
+    {
+        public Span(T t) : base(t) { }
+    }
+
+    //Readonly?
+
+    public class EnumerableSpan<T> : Spanned<T>, Media.Common.Interfaces.IReadOnly
+       where T : System.Collections.Generic.IEnumerable<T>
+    {
+        public EnumerableSpan(T t) : base(t) { }
+
+        bool Common.Interfaces.IReadOnly.IsReadOnly
+        {
+            get { return true; }
+        }
+    }
+
+    //Writeonly...
+
+    //MutableSpan
 
     #region ManagedBufferPool
 

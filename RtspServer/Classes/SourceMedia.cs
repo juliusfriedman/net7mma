@@ -267,6 +267,13 @@ namespace Media.Rtsp.Server
             return false;
         }
 
+        public virtual bool TryGetLogger(out Media.Common.ILogging logger)
+        {
+            logger = null;
+
+            return false;
+        }
+
         //Sets the State = StreamState.Started
         public virtual void Start()
         {
@@ -290,7 +297,7 @@ namespace Media.Rtsp.Server
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void AddAlias(string name)
         {
-            if (m_Aliases.Any(a=> string.Compare(a, name, true) == 0)) return;
+            if (m_Aliases.Any(a=> a.Equals(name, StringComparison.OrdinalIgnoreCase))) return;
 
             m_Aliases.Add(name);
         }

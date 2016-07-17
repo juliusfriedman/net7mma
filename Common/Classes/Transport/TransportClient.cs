@@ -25,7 +25,7 @@ namespace Media.Common
     //}
 
     /// Will eventually provide the base classes for any type of client
-    public class TransportClient : Common.CommonDisposable, Common.ISocketReference, Common.IThreadReference
+    public class TransportClient : Common.SuppressedFinalizerDisposable, Common.ISocketReference, Common.IThreadReference
     {
         #region ISocketReference
 
@@ -115,17 +115,42 @@ namespace Media.Common
 
         #endregion
 
+        #region Events
+
+        public delegate void TransportClientAction(TransportClient sender, object args);
+
+        //Todo, ITransportMessage
+        public delegate void RequestHandler(TransportClient sender, TransportMessageBase request);
+
+        //Todo, ITransportMessage
+        public delegate void ResponseHandler(TransportClient sender, TransportMessageBase request, TransportMessageBase response);
+
+        //Todo, should be generic and allow variance for implementations which handle multiple types of protocols.
+        public event TransportClientAction OnConnect;
+
+        public event TransportClientAction OnDisconnect;
+
+        #endregion
+
         #region Constructor / Destructor
 
-        public TransportClient(System.Net.NetworkInformation.NetworkInterface networkInterface)
+        public TransportClient(System.Net.NetworkInformation.NetworkInterface networkInterface, bool shouldDispose = true)
+            : base(shouldDispose)
         {
-            if (networkInterface == null) throw new System.ArgumentNullException();
+            if (object.ReferenceEquals(networkInterface, null)) throw new System.ArgumentNullException();
 
             NetworkInterface = networkInterface;
         }
 
-        ~TransportClient() { Dispose(); }
-
         #endregion
+
+        protected internal override void Dispose(bool disposing)
+        {
+            if (false.Equals(disposing) || false.Equals(ShouldDispose)) return;
+
+            base.Dispose(ShouldDispose);
+
+            if (false.Equals(IsDisposed)) return;
+        }
     }
 }

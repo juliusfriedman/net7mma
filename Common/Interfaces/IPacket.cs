@@ -80,7 +80,10 @@ namespace Media.Common
         /// </summary>
         long Length { get; }
 
-        //RawLength
+        
+        //https://net7mma.codeplex.com/workitem/17336
+        //Todo, select name and implement logically.
+        //{ TotalLength, ExpectedLength, RawLength }
 
         /// <summary>
         /// Completes the IPacket if IsComplete and Disposed is false.
@@ -122,11 +125,11 @@ namespace Media.Common
 
         #endregion
 
-        //May want to include source address / port and destination address / port
+        //IPacketInformation?
 
-        //System.Net.EndPoint To { get; }
+        //ISharedList<System.Net.EndPoint> Sources { get; }
 
-        //System.Net.EndPoint From { get; }
+        //ISharedList<System.Net.EndPoint> Destinations { get; }
     }
 
 

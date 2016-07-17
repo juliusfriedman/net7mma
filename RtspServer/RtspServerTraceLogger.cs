@@ -49,13 +49,13 @@ namespace Media.Rtsp.Server
 
         internal override void LogRequest(RtspMessage request, ClientSession session)
         {
-            try { Logger.Log(string.Format(Format, request.MessageType, request.RtspMethod, request.Location, session.Id, null)); }
+            try { Logger.Log(string.Format(Format, request.RtspMessageType, request.RtspMethod, request.Location, session.Id, null)); }
             catch { throw; }
         }
 
         internal override void LogResponse(RtspMessage response, ClientSession session)
         {
-            try { Logger.Log(string.Format(Format, response.MessageType, response.CSeq, response.RtspStatusCode, session.Id, null)); }
+            try { Logger.Log(string.Format(Format, response.RtspMessageType, response.CSeq, response.RtspStatusCode, session.Id, null)); }
             catch { throw; }
         }
 

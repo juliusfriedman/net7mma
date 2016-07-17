@@ -1029,6 +1029,8 @@ namespace Media.Common
 
         #region Destructor / IDisposed
 
+        //LeaveOpen//
+
         internal protected bool ShouldDispose = true, IsDisposed;
 
         protected override void Dispose(bool disposing)

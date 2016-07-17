@@ -41,16 +41,450 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 //netMF older versions will need Emit class.
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
+using Media;
+
+/*
+Copyright (c) 2013 juliusfriedman@gmail.com
+  
+ SR. Software Engineer ASTI Transportation Inc.
+
+Permission is hereby granted, free of charge, 
+ * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, 
+ * including without limitation the rights to :
+ * use, 
+ * copy, 
+ * modify, 
+ * merge, 
+ * publish, 
+ * distribute, 
+ * sublicense, 
+ * and/or sell copies of the Software, 
+ * and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ * 
+ * 
+ * JuliusFriedman@gmail.com should be contacted for further details.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ * 
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+ * TORT OR OTHERWISE, 
+ * ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ * v//
+ */
+
+//namespace Media.Common
+//{
+//    #region CommonIntermediateLanguage
+
+//    /// <summary>
+//    /// An IL Parser which supports a few new text based commands.
+//    /// This class can be subclassed to allow for creations of new languages based on the CLR without the use of the DLR.
+//    /// It converts given code directly to <see cref="System.Reflection.Opcodes"/>.
+//    /// Parsers could be written such as CLanguage, JavaLanaguage or PHPLanguage which could then convert to and from the required formats.
+//    /// </summary>
+//    public sealed class CommonIntermediateLanguage //: ILanguage
+//    {
+//        //#region Statics
+
+//        //public static bool HasElements(Array array) { return !Null(array) && array.Length > 0; }
+
+//        //public static bool Null(Object o) { return o == null; }
+
+//        //static string[] LineSplits = new string[] { Environment.NewLine };
+
+//        //static string[] TokenSplits = new string[] { " " };
+
+//        //static char[] UnsignedNotation = new char[] { 'U', 'u' };
+
+//        //static char[] BytesNotation = new char[] { 'Y', 'y' };
+
+//        //static char[] ShortsNotation = new char[] { 'S', 's' };
+
+//        //static char[] LongNotation = new char[] { 'L', 'l' };
+
+//        //static char[] FloatNotation = new char[] { 'F', 'f' };
+
+//        //static char[] DecimalNotation = new char[] { 'M', 'm' };
+
+//        //static char[] DoubleNotation = new char[] { 'D', 'd' };
+
+//        //const char Qualifier = ':';
+
+//        //const char MemberQualifier = '.';
+
+//        //static char[][] NotedTypes = new char[][]
+//        //{
+//        //    UnsignedNotation,
+//        //    BytesNotation,
+//        //    ShortsNotation,
+//        //    LongNotation,
+//        //    //ULongs Given by Unsinged
+//        //    FloatNotation,
+//        //    DecimalNotation,
+//        //    DoubleNotation
+//        //};
+
+//        //static Type GetType(string noted, out bool unsigned, out MemberInfo[] members, out System.Runtime.InteropServices.CallingConvention callingConvention)
+//        //{
+//        //    callingConvention = System.Runtime.InteropServices.CallingConvention.Cdecl;
+//        //    //Read if requried
+//        //    members = null;
+//        //    unsigned = false;
+//        //    if (string.IsNullOrWhiteSpace(noted)) return null;
+//        //    else
+//        //    {
+//        //        int notationIndex = noted.IndexOfAny(UnsignedNotation);
+//        //        //If the notationIndex of UnsignedNotation is at the very end this is a uint
+//        //        if (notationIndex == noted.Length)
+//        //        {
+//        //            unsigned = true;
+//        //            return CLR.Types.UInt; //Byte compatibility will be performed inline or with the use of Y
+//        //        }
+//        //        else if (notationIndex > 0) //If this is the last part this is a unsigned type              
+//        //        {
+//        //            unsigned = true;
+//        //            char nextToLast = noted[noted.Length - 1];
+//        //            if (notationIndex != -1 && LongNotation.Contains(nextToLast)) return CLR.Types.ULong;
+//        //            else if (notationIndex != -1 && ShortsNotation.Contains(nextToLast)) return CLR.Types.UShort; //Added
+//        //            else if (notationIndex != -1 && BytesNotation.Contains(nextToLast)) return CLR.Types.Byte; //Added
+//        //            else Utility.BreakIfAttached();//
+//        //        }
+//        //        else if (noted.IndexOfAny(LongNotation) != -1) return CLR.Types.Long;
+//        //        else if (noted.IndexOfAny(DecimalNotation) != -1) return CLR.Types.Decimal;
+//        //        else if (noted.IndexOfAny(DoubleNotation) != -1) return CLR.Types.Double;
+//        //        else if (noted.IndexOfAny(ShortsNotation) != -1) return CLR.Types.Short; //Added US
+//        //        else if (noted.IndexOfAny(BytesNotation) != -1) return CLR.Types.SByte;  //Added UY           
+//        //        else if (char.IsNumber(noted[0])) return CLR.Types.Int; //Must be a int because U or u was not used?
+//        //        else //Check for qualified MemberInfo 
+//        //        {
+//        //            notationIndex = noted.IndexOf(Qualifier);
+//        //            //If there is a qualfied member from a Type
+//        //            if (notationIndex > 0 && noted.IndexOf(Qualifier, notationIndex) == notationIndex + 1)
+//        //            {
+//        //                //Determine the type
+//        //                Type result = Type.GetType(noted.Substring(0, notationIndex + 1).Trim());
+//        //                if (result != null)
+//        //                {
+//        //                    members = result.GetMember(noted.Substring(notationIndex + 2).Trim());//Skip .
+//        //                    return typeof(MemberInfo);
+//        //                }
+//        //            }
+//        //            else return Type.GetType(noted);// Must be a type load it on up...?        
+//        //            //A more mature implementation might throw an exception which would then be resolved via loading...
+//        //        }
+//        //    }
+//        //    //Can't determine what type noted is.
+//        //    Utility.BreakIfAttached();
+//        //    return null;
+//        //}
+
+//        ////Should be in an order with another array or maybe a dictionary where the char gets you the Type... e.g. Double or single.. etc.
+//        //static char[] PreciseNotation = new char[] { '.', ',' };
+
+//        //const string HexadecimalNotation = @"0x";
+
+//        //static bool HasHexadecimalNotation(string check)
+//        //{
+//        //    if (string.IsNullOrWhiteSpace(check)) return false;
+//        //    else return check.StartsWith(HexadecimalNotation);
+//        //}
+
+//        //static bool HasPreciseNotation(string check, char[] additional = null)
+//        //{
+//        //    return check.IndexOfAny((HasElements(additional) ?
+//        //            PreciseNotation.Concat(additional) :
+//        //                PreciseNotation).ToArray()) != -1;
+//        //}
+
+//        //static Dictionary<string, OpCode> Lookup = new Dictionary<string, OpCode>();
+
+//        //static CommonIntermediateLanguage()
+//        //{
+//        //    //Load all known and Allowed OpCodes by the CLR
+//        //    foreach (OpCode o in typeof(OpCodes).GetFields().Select(p => (OpCode)p.GetValue(null)))
+//        //        Lookup.Add(o.Name, o);
+//        //}
+
+//        //#endregion
+
+//        //#region Methods
+
+//        ///// <summary>
+//        ///// Creates a method with the given name on the first module found in the given assembly
+//        ///// </summary>
+//        ///// <param name="methodName">The name of the method you are creating</param>
+//        ///// <param name="IL">The Intermedie Code associated with said method</param>
+//        ///// <param name="prototype">A Delegate which looks like and returns the same value as the function you are passing</param>
+//        ///// <param name="assemlby"></param>
+//        ///// <returns>The function pointer created to the compiled IL</returns>
+//        //public static Delegate CreateMethod(string methodName, string IL, Delegate prototype, Assembly assemlby = null)
+//        //{
+//        //    MethodInfo mi = prototype.GetMethodInfo();
+
+//        //    ParameterInfo[] methodParams = mi.GetParameters().ToArray();
+
+//        //    return CreateMethod(methodName, IL, prototype.Method.ReturnParameter.ParameterType, methodParams.Select(p => p.ParameterType).ToArray(), prototype.GetType(), assemlby);
+//        //}
+
+//        ///// <summary>
+//        ///// Creates a method with the given name on the first module found in the given assembly
+//        ///// </summary>
+//        ///// <param name="methodName">The name of the method you are creating</param>
+//        ///// <param name="IL">The Intermedie Code associated with said method</param>
+//        ///// <param name="returnType">The type to return from the method you are creating</param>
+//        ///// <param name="parameterTypes">The type of the parameters the method you are creating will accept</param>
+//        ///// <param name="delegateType">The Type representing the Delegate you are Emulating</param>
+//        ///// <param name="assembly"></param>
+//        ///// <returns></returns>
+//        //public static Delegate CreateMethod(string methodName, string IL, Type returnType, Type[] parameterTypes, Type delegateType, Assembly assembly = null)
+//        //{
+
+//        //    ///Use the current assembly
+//        //    if (assembly == null) assembly = Assembly.GetExecutingAssembly();
+
+//        //    //The methods real name
+//        //    string dynamicName = methodName + returnType.ToString();
+
+//        //    //A Module
+//        //    Module module = assembly.Modules.First();
+
+//        //    //Make a new method
+//        //    DynamicMethod result = new DynamicMethod(dynamicName, returnType, parameterTypes, module);
+
+//        //    //Get the generator for the method
+//        //    System.Reflection.Emit.ILGenerator generator = result.GetILGenerator();
+
+//        //    //store labels created.
+//        //    Dictionary<string, Label> labels = new Dictionary<string, Label>();
+
+//        //    string[] lines = IL.Split(LineSplits, StringSplitOptions.RemoveEmptyEntries);
+
+//        //    //Default calling convention type in case of a call
+//        //    System.Runtime.InteropServices.CallingConvention callingConvention = System.Runtime.InteropServices.CallingConvention.Cdecl;
+
+//        //    //The values used when parsing the IL
+//        //    string anyValue = null;
+//        //    Type valueType = null;
+//        //    MemberInfo[] members = null;
+//        //    bool unsigned = false;
+
+//        //    //Enumerate each IL Directive and parse it into an OpCode and Directive combination if requried
+//        //    for (int i = 0, e = lines.Length; i < e; ++i)
+//        //    {
+//        //        string line = lines[i];
+//        //        string comment = string.Empty, code;
+//        //        int commentsIndex = line.IndexOf("//");//Comments
+//        //        if (commentsIndex != -1)
+//        //        {
+//        //            code = line.Substring(0, commentsIndex).Trim();
+//        //            comment = line.Substring(code.Length, line.Length - code.Length);
+//        //        }
+//        //        else code = line.Trim();
+
+//        //        //Whitespare only
+//        //        if (string.IsNullOrEmpty(code)) continue;
+
+//        //        int qualifierIndex = code.IndexOf(Qualifier);
+
+//        //        //Label...
+//        //        if (qualifierIndex > 0)
+//        //        {
+//        //            //Label support
+//        //            labels.Add(code.Substring(0, qualifierIndex), generator.DefineLabel());
+//        //            continue;
+//        //        }
+//        //        else if (qualifierIndex == 0) Utility.BreakIfAttached();
+
+//        //        //Split into tokens
+//        //        string[] tokens = code.Split(TokenSplits, StringSplitOptions.RemoveEmptyEntries);
+
+//        //        //Cache max length
+//        //        int tokensLength = tokens.Length;
+
+//        //        //Get the instruction from the table
+//        //        OpCode opCode = Lookup[tokens[0]];
+
+//        //        //No OpCode found
+//        //        if (opCode == null)
+//        //        {
+//        //            Utility.BreakIfAttached();
+//        //            continue;
+//        //        }
+
+//        //        //Simple enough
+//        //        if (tokens.Length == 1)
+//        //        {
+//        //            generator.Emit(opCode);
+//        //            continue;
+//        //        }
+
+//        //        //Get the first token
+//        //        anyValue = tokens[1];
+
+//        //        //If this is an instance call
+//        //        if (anyValue.ToLowerInvariant().Trim() == "instance")
+//        //        {
+//        //            //Invalid call?
+//        //            if (3 < tokensLength)
+//        //            {
+//        //                Utility.BreakIfAttached();
+//        //                continue;
+//        //            }
+//        //            else anyValue = tokens[2];
+//        //        }
+
+//        //        //Get the type from the function along with any required MemberInfos
+//        //        valueType = GetType(anyValue, out unsigned, out members, out callingConvention);
+
+//        //        //Determine if instructions follow
+//        //        if (opCode != null && !string.IsNullOrEmpty(anyValue))
+//        //        {
+//        //            if (opCode.Name == "goto") //Check for a label first
+//        //            {
+//        //                //Try to see if the directive matches a label
+//        //                Label found;
+
+//        //                if (labels.TryGetValue(anyValue, out found))
+//        //                    generator.Emit(opCode, found);
+//        //                else if (string.IsNullOrEmpty(anyValue))
+//        //                    generator.Emit(opCode);
+//        //                continue;
+//        //            }
+//        //            else if (opCode.Name == "newobj")
+//        //            {
+//        //                //Allocation
+//        //                generator.Emit(opCode, members.OfType<ConstructorInfo>().FirstOrDefault());
+//        //                continue;
+//        //            }
+//        //            else if (opCode.Name.StartsWith("call") /* || opCode.Name.StartsWith("calli") || opCode.Name.StartsWith("callvirt") */)
+//        //            {
+
+//        //                //i, virt - constrainted flag?
+//        //                MethodInfo methodInfo = members.OfType<MethodInfo>().ToArray().FirstOrDefault();
+
+//        //                //Part the paramters to the method info
+//        //                ParameterInfo[] parameters = methodInfo.GetParameters();
+
+//        //                //Emit call with parameters
+//        //                if (methodInfo == null)
+//        //                {
+//        //                    //No Method Info
+//        //                    Utility.BreakIfAttached();
+//        //                    continue;
+//        //                }
+//        //                else //There is Method Info
+//        //                {
+//        //                    //If there are parameters
+//        //                    if (HasElements(parameters))
+//        //                    {
+//        //                        if (opCode.Name == "calli") generator.EmitCalli(opCode, callingConvention, returnType, parameters.Select(p => p.ParameterType).ToArray());
+//        //                        else generator.EmitCall(opCode, methodInfo, parameters.Select(p => p.ParameterType).ToArray());
+//        //                    }
+//        //                    else //Emit call without parameters
+//        //                    {
+//        //                        if (opCode.Name == "calli") generator.EmitCalli(opCode, callingConvention, returnType, null);
+//        //                        else generator.EmitCall(opCode, methodInfo, null);
+//        //                    }
+//        //                    //Done
+//        //                    continue;
+//        //                }
+//        //            }
+//        //            else if (unsigned)
+//        //            {
+//        //                if (valueType == CLR.Types.Byte)
+//        //                    generator.Emit(opCode, byte.Parse(anyValue));
+//        //                else if (valueType == typeof(ushort))
+//        //                    generator.Emit(opCode, ushort.Parse(anyValue));
+//        //                else if (valueType == typeof(uint))
+//        //                    generator.Emit(opCode, uint.Parse(anyValue));
+//        //                else if (valueType == typeof(long))
+//        //                    generator.Emit(opCode, ulong.Parse(anyValue));
+//        //                //Done
+//        //                continue;
+//        //            }
+//        //            else if (valueType == typeof(sbyte))
+//        //                generator.Emit(opCode, sbyte.Parse(anyValue));
+//        //            else if (valueType == CLR.Types.Short)
+//        //                generator.Emit(opCode, short.Parse(anyValue));
+//        //            else if (valueType == typeof(double))
+//        //                generator.Emit(opCode, double.Parse(anyValue));
+//        //            else if (valueType == CLR.Types.Float)
+//        //                generator.Emit(opCode, double.Parse(anyValue));
+//        //            else if (valueType == typeof(long)) //Use long
+//        //                generator.Emit(opCode, long.Parse(anyValue));
+//        //            else if (valueType == CLR.Types.Int && anyValue.Length > 3)//use int
+//        //                generator.Emit(opCode, int.Parse(anyValue));
+//        //            else if (valueType == CLR.Types.Int) //Check for byte compatibility
+//        //            {
+//        //                //Check for byte
+//        //                byte v = default(byte);
+//        //                int x = default(int);
+//        //                //Check for hex notation
+//        //                if (HasHexadecimalNotation(anyValue))
+//        //                {
+//        //                    if (anyValue.Length <= 5 && byte.TryParse(anyValue, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out v))
+//        //                        generator.Emit(opCode, v);
+//        //                    else if (int.TryParse(anyValue, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out x))
+//        //                        generator.Emit(opCode, x);
+//        //                }
+//        //                else if (int.TryParse(anyValue, out x)) //Parsed in
+//        //                    generator.Emit(opCode, x);
+//        //                else Utility.BreakIfAttached();//Can't parse input
+//        //                continue;
+//        //            }
+//        //            else //Not a signed type so it must be an object or something else
+//        //            {
+//        //                //Didn't Emit Anything?
+//        //                Utility.BreakIfAttached();
+//        //            }
+
+//        //            //Describes a prefix instruction that modifies the behavior of the following instruction.
+//        //            if (opCode.OpCodeType == OpCodeType.Prefix)
+//        //            {
+//        //                //generator.Emit(
+//        //            }
+
+//        //            //Done
+//        //            continue;
+//        //        }
+//        //    }
+
+//        //    //Emit Return
+//        //    //generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+//        //    //Return the delegate
+//        //    return result.CreateDelegate(delegateType);
+//        //}
+
+//        //#endregion
+//    }
+
+//    #endregion
+//}
+
+
 namespace Media.Concepts.Classes
 {
 
     //See also http://www.codeproject.com/Articles/9927/Fast-Dynamic-Property-Access-with-C
 
-    internal delegate T GenericFunc<T>(ref T t); //IntPtr where
+    internal delegate T ReferenceFunc<T>(ref T t); //IntPtr where
 
-    internal delegate void GenericAction<T>(ref T t); //IntPtr where
+    internal delegate void ReferenceAction<T>(ref T t); //IntPtr where
 
-    internal delegate T GenericActionObject<T>(object o); //As
+    internal delegate T BoxingReference<T>(ref object o); //As
 
     internal delegate int SizeOfDelegate<T>();
 
@@ -61,13 +495,13 @@ namespace Media.Concepts.Classes
         //Try to provide versions of everything @
         //https://github.com/dotnet/corefx/blob/ca5d1174dbaa12b8b6e55dc494fcd4609ed553cc/src/System.Runtime.CompilerServices.Unsafe/src/System.Runtime.CompilerServices.Unsafe.il
 
-        internal static readonly GenericFunc<T> UnalignedRead;
+        internal static readonly ReferenceFunc<T> UnalignedRead;
 
-        internal static readonly GenericFunc<T> Read;
+        internal static readonly ReferenceFunc<T> Read;
 
-        internal static readonly GenericAction<T> Write;
+        internal static readonly ReferenceAction<T> Write;
 
-        internal static readonly GenericActionObject<T> _As;
+        internal static readonly BoxingReference<T> _As;
 
         internal static readonly SizeOfDelegate<T> SizeOf;
 
@@ -122,7 +556,7 @@ namespace Media.Concepts.Classes
 
             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
 
-            UnalignedRead = (GenericFunc<T>)unalignedReadMethod.CreateDelegate(typeof(GenericFunc<T>));
+            UnalignedRead = (ReferenceFunc<T>)unalignedReadMethod.CreateDelegate(typeof(ReferenceFunc<T>));
 
             #endregion
 
@@ -145,7 +579,7 @@ namespace Media.Concepts.Classes
 
             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
 
-            _As = (GenericActionObject<T>)asMethod.CreateDelegate(typeof(GenericActionObject<T>));
+            _As = (BoxingReference<T>)asMethod.CreateDelegate(typeof(BoxingReference<T>));
 
             #endregion
 
@@ -163,7 +597,7 @@ namespace Media.Concepts.Classes
 
             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
 
-            Read = (GenericFunc<T>)readMethod.CreateDelegate(typeof(GenericFunc<T>));
+            Read = (ReferenceFunc<T>)readMethod.CreateDelegate(typeof(ReferenceFunc<T>));
 
             #endregion
 
@@ -185,7 +619,7 @@ namespace Media.Concepts.Classes
 
             generator.Emit(System.Reflection.Emit.OpCodes.Ret);
 
-            Write = (GenericAction<T>)writeMethod.CreateDelegate(typeof(GenericAction<T>));
+            Write = (ReferenceAction<T>)writeMethod.CreateDelegate(typeof(ReferenceAction<T>));
 
             #endregion
         }

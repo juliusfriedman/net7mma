@@ -33,28 +33,16 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-namespace Media.Concepts.Interfaces
+
+namespace Media.Common.Interfaces
 {
-    //Relative as IsReadOnly can potentially change from time to time?
-
     /// <summary>
-    /// Represents an interface which can indicate if the instance is shared by other instances.
-    /// </summary>
-    public interface IShared
-    {
-        /// <summary>
-        /// Indicates if the instance is shared by other instanced.
-        /// </summary>
-        bool IsShared { get; }
-    }
-
-    /// <summary>
-    /// Represents a generic <see cref="IShared"/> instance which is <see cref="Media.Concepts.Experimental.IComposed"/> of that the same type.
+    /// Represents a generic <see cref="IShared"/> instance which is <see cref="IComposed"/> of that the same type.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public interface IShared<T> : IShared, Media.Concepts.Experimental.IComposed<T>
+    public interface IShared<T> : IShared, IComposed<T>
     {
-        
+
     }
 
     /// <summary>
@@ -69,44 +57,6 @@ namespace Media.Concepts.Interfaces
     /// Represents a <see cref="IShared"/> <see cref="System.Collections.Generic.IList{T}"/>
     /// </summary>
     public interface ISharedList<T> : IShared, System.Collections.Generic.IList<T>
-    {
-
-    }
-
-    /// <summary>
-    /// An <see cref="ISharedList{T}"/> <see cref="System.Collections.Generic.List{T}"/>
-    /// </summary>
-    /// <typeparam name="T">The type of element</typeparam>
-    public class SharedList<T> : System.Collections.Generic.List<T>, ISharedList<T>
-    {
-        /// <summary>
-        /// A value which is used to indicate if the instance is shared.
-        /// </summary>
-        bool m_IsShared;
-
-        /// <summary>
-        /// Indicates if the list is shared.
-        /// </summary>
-        public bool IsShared
-        {
-            get { return m_IsShared; }
-
-            protected set { m_IsShared = value; }
-        }
-    }
-
-    /// <summary>
-    /// Represents a <see cref="IShared"/> <see cref="System.Collections.ICollection"/>
-    /// </summary>
-    public interface ISharedCollection : IShared, System.Collections.ICollection
-    {
-
-    }
-
-    /// <summary>
-    /// Represents a <see cref="IShared"/> <see cref="System.Collections.ICollection{T}"/>
-    /// </summary>
-    public interface ISharedCollection<T> : ISharedCollection, System.Collections.Generic.ICollection<T>
     {
 
     }

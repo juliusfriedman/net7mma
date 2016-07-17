@@ -1,4 +1,5 @@
-﻿/*
+﻿#region Copyright
+/*
 This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
  Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
@@ -33,34 +34,54 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-namespace Media.Concepts.Interfaces
+#endregion
+
+namespace Media.Common.Classes
 {
-    //Relative as IsReadOnly can potentially change from time to time?
-
     /// <summary>
-    /// Represents an interface which can indicate if the instance has any ability to be modified
+    /// A <see cref="class"/>
     /// </summary>
-    public interface IReadOnly
+    public class Class //internal @Experimental.I.ICore
     {
-        /// <summary>
-        /// Indicates if the instance currently has any ability to be modified.
-        /// </summary>
-        bool IsReadOnly { get; }
+        //WIP
+        //ToString =>  //ToClassString
+        //GetHashCode => GetClassHashCode()
+        //Equals => IsClassEqual()
     }
 
-    //Absolute as this would indicate that if IsReadOnly or another propety was implemented that it may not be able to be changed
-    //Generic version?
+    /// <summary>
+    /// An <see cref="Interface"/> which defines <see cref="abstract"/>
+    /// </summary>
+    public interface IAbstract : Common.Interfaces.Interface { }
 
     /// <summary>
-    /// Represents an interface which can indicate if the instance has the ability to change value
+    /// A <see cref="abstract"/> <see cref="Class"/>
     /// </summary>
-    public interface IMutable
+    public abstract class Abstraction : Class, IAbstract { }
+
+    /// <summary>
+    /// A derived <see cref="Class"/> with a generic type.
+    /// </summary>
+    /// <typeparam name="T">The element type</typeparam>
+    public class Class<T> : Class
     {
-        /// <summary>
-        /// Gets a value which indicates if the instance can change value.
-        /// </summary>
-        bool Mutable { get; }
+        //^%
     }
 
-    //IMutable => true (IReadOnly implies that IsReadOnly can change)
+    /// <summary>
+    /// A <see cref="Class"/> which is also an <see cref="Interfaces.Interface "/>
+    /// </summary>
+    public class ClassInterface : Class, Interfaces.Interface
+    {
+        //*/
+    }
+
+    /// <summary>
+    /// A derived <see cref="ClassInterface"/>
+    /// </summary>
+    /// <typeparam name="T">The element type</typeparam>
+    public class ClassInterface<T> : ClassInterface
+    {
+        ///*
+    }
 }

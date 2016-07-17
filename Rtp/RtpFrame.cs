@@ -119,7 +119,7 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if Add operations will ensure that all packets added have the same <see cref="RtpPacket.PayloadType"/>
         /// </summary>
-        internal protected bool AllowsMultiplePayloadTypes
+        public bool AllowsMultiplePayloadTypes
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get;
@@ -351,7 +351,7 @@ namespace Media.Rtp
         public Common.SegmentStream Buffer
         {
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            get { return HasBuffer ? m_Buffer : m_Buffer = new Common.SegmentStream(new System.Collections.Generic.List<Common.MemorySegment>(Depacketized.Values.ToArray())); }
+            get { return HasBuffer ? m_Buffer : m_Buffer = new Common.SegmentStream(Depacketized.Values); }
         }
 
         /// <summary>
@@ -742,7 +742,10 @@ namespace Media.Rtp
         /// <param name="packet">The RtpPacket to Add</param>
         /// <param name="allowPacketsAfterMarker">Indicates if the packet shouldbe allowed even if the packet's sequence number is greater than or equal to <see cref="HighestSequenceNumber"/> and <see cref="IsComplete"/> is true.</param>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public void Add(RtpPacket packet, bool allowDuplicates = false, bool allowPacketsAfterMarker = true)
+        public void Add(RtpPacket packet, 
+            //Todo, should be Flags which indicate what is allowed to be added
+            bool allowDuplicates = false, 
+            bool allowPacketsAfterMarker = true)
         {
             //If the packet is disposed of this frame is then do not add.
             if (Common.IDisposedExtensions.IsNullOrDisposed(packet) || IsDisposed) return;
@@ -804,44 +807,47 @@ namespace Media.Rtp
                     }
                 }
 
-                throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
+                throw new ArgumentException("packet.SynchronizationSourceIdentifier(" + ssrc + ") must match frame SynchronizationSourceIdentifier(" + m_Ssrc + ")", "packet");
             }
         Timestamp:
 
-            if (false.Equals(ts.Equals(m_Timestamp))) throw new ArgumentException("packet.Timestamp must match frame Timestamp", "packet");
+            //Allow multiple timestamps...
+            if (false.Equals(ts.Equals(m_Timestamp))) throw new InvalidOperationException("packet.Timestamp must match frame Timestamp");
 
             if (count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
 
             //Determine where to insert and what seq will be inserted
             int insert = 0, tempSeq = 0;
 
-            //Ensure not a duplicate (Must also check PayloadType if multiple types are allowed)
-            if ((m_LowestSequenceNumber.Equals(seq) || m_HighestSequenceNumber.Equals(seq))) if (false.Equals(allowDuplicates)) throw new InvalidOperationException("Cannot have duplicate packets in the same frame.");
-                else
-                {
-                    insert = IndexOf(ref seq);
+            if (pt.Equals(PayloadType))
+            {
+                //Ensure not a duplicate (Must also check PayloadType if multiple types are allowed)
+                if ((m_LowestSequenceNumber.Equals(seq) || m_HighestSequenceNumber.Equals(seq))) if (false.Equals(allowDuplicates)) throw new InvalidOperationException("Cannot have duplicate packets in the same frame.");
+                    else
+                    {
+                        insert = IndexOf(ref seq);
 
-                    //Should check for PayloadType to be the same...
-                    //Should check for the length to be different
-                    //Should check marker again...
+                        //Should check for PayloadType to be the same...
+                        //Should check for the length to be different
+                        //Should check marker again...
 
-                    Packets.Insert(insert, packet);
-                    
-                    //FreeDepacketizedMemory(ref seq, ref allowDuplicates);
+                        Packets.Insert(insert, packet);
 
-                    return;
-                }
+                        //FreeDepacketizedMemory(ref seq, ref allowDuplicates);
+
+                        return;
+                    }
+            }
 
             //Could possibly check for < m_LowestSequenceNumber or > m_HighestSequenceNumber here.
 
             //Determine if the packet has a marker
             bool packetMarker = packet.Marker;
 
-            //If not a duplicate and the marker is already contained
-            if (HasMarker)
+            //If not a duplicate and the marker is already contained and the options do not permit adding, throw an exception
+            if ((packetMarker || HasMarker) && false.Equals(allowPacketsAfterMarker))
             {
-                //Check if the packet is allowed
-                if (false.Equals(allowPacketsAfterMarker)) throw new InvalidOperationException("Cannot add packets after the marker packet.");
+                throw new InvalidOperationException("Cannot add packets after the marker packet.");
             }
 
             //If AllowMultiplePayloadTypes is true then the packets should maintain their order by PayloadType and then SequenceNumber.
@@ -1270,7 +1276,7 @@ namespace Media.Rtp
             //When depacketizing the list KeyItem would implicitly be in the same order as the packets.
 
             //Iterate all packets contained and depacketize
-            for (int i = 0 /*false.Equals(Packets == null) && i < Packets.Count*/ ; i < Count; ++i) Depacketize(Packets[i]);
+            for (int i = 0 /*false.Equals(Packets == null) && i < Packets.Count*/ ; false.Equals(IsDisposed) && i < Count; ++i) Depacketize(Packets[i]);
 
             //PrepareBuffer must be called to access the buffer.
         }
@@ -2104,7 +2110,7 @@ namespace Media.UnitTests
                     frame.Add(new Media.Rtp.RtpPacket(2, false, false, Media.Common.MemorySegment.EmptyBytes)
                     {
                         SequenceNumber = 1
-                    }, false); //allowPacketsAfterMarker false
+                    }, false, false);
 
                     throw new Exception("Should not be allowed to add packet");
                 }
@@ -2472,17 +2478,22 @@ namespace Media.UnitTests
                         {
                             expected = 0;
 
-                            System.IO.Stream buffer = reorder.Buffer;
-
-                            //Check for the expected length
-                            if (buffer.Length != frameCount) throw new Exception("More data in buffer than expected");
-
-                            //Read the buffer
-                            while (buffer.Position < frameCount)
+                            using (System.IO.Stream buffer = reorder.Buffer)
                             {
-                                //If the byte is out of order then throw an exception
-                                if (buffer.ReadByte() != expected++) throw new Exception("Data at wrong position");
+                                //Check for the expected length
+                                if (buffer.Length != frameCount) throw new Exception("More data in buffer than expected");
+
+                                //Read the buffer
+                                while (buffer.Position < frameCount)
+                                {
+                                    //If the byte is out of order then throw an exception
+                                    if (buffer.ReadByte() != expected++) throw new Exception("Data at wrong position");
+                                }
                             }
+
+                            //If was not using, then at least release the reference
+                            //buffer = null;
+
                         }
                         else throw new Exception("HasDepacketized");
 

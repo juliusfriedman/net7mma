@@ -115,7 +115,7 @@ namespace Media.Common
             get { return m_Length; }
             
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            protected set { m_Length = value; }
+            internal protected set { m_Length = value; }
         }
 
         /// <summary>
@@ -128,7 +128,7 @@ namespace Media.Common
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             //could just have a Resize method
-            protected set { m_Offset = value; }
+            internal protected set { m_Offset = value; }
         }
 
         /// <summary>
@@ -140,7 +140,7 @@ namespace Media.Common
             get { return m_Offset; }
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            protected set { m_Offset = value; }
+            internal protected set { m_Offset = value; }
         }
 
         /// <summary>
@@ -152,7 +152,7 @@ namespace Media.Common
             get { return m_Array; }
 
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-            protected set { m_Array = value; } 
+            internal protected set { m_Array = value; } 
         }
 
         #endregion
@@ -244,7 +244,7 @@ namespace Media.Common
             : base(shouldDispose)
         {
             //If there is no other instance return
-            if (other == null) return;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(other)) return;
 
             //If the finalizer has ran
             if (false.Equals(other.IsUndisposed))
@@ -414,16 +414,12 @@ namespace Media.Common
 
             if (false.Equals((obj is MemorySegment))) return false;
 
-            MemorySegment other = obj as MemorySegment;
-
-            return Equals(other);
+            return Equals(obj as MemorySegment);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool Equals(MemorySegment other)
         {
-            if (other == null) return false;
-
             return other.GetHashCode().Equals(GetHashCode());
         }
 
@@ -432,12 +428,11 @@ namespace Media.Common
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(MemorySegment a, MemorySegment b)
         {
-            object boxA = a, boxB = b;
-            return boxA == null ? boxB == null : a.Equals(b);
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static bool operator !=(MemorySegment a, MemorySegment b) { return false.Equals(a.Equals(b)); }
+        public static bool operator !=(MemorySegment a, MemorySegment b) { return a.Equals(b).Equals(false); }
 
         //>> , << etc
 
@@ -461,6 +456,7 @@ namespace Media.Common
     //}
 #endif
 
+    /////!
     //Should propably be the base class of MemorySegment because it's a lower order concept
     /// <summary>
     /// Extends MemorySegment with the ability to store certain bit offsets
@@ -528,7 +524,7 @@ namespace Media.Common
         {
             if (Common.IDisposedExtensions.IsNullOrDisposed(segment)) return null;
 
-            if (segment.Count == 0) return MemorySegment.EmptyBytes;
+            if (segment.m_Length.Equals(Common.Binary.LongZero)) return MemorySegment.EmptyBytes;
 
             byte[] copy = new byte[segment.LongLength];
 
@@ -599,7 +595,7 @@ namespace Media.Common
                 if (found >= 0)
                 {
                     //If not already set then set it
-                    if(first == null) first = segment;
+                    if(object.ReferenceEquals(first, null)) first = segment;
 
                     //Subtract from needed and if 0 remains break
                     if ((needed -= found) == 0) break;

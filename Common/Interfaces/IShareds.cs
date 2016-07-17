@@ -1,5 +1,4 @@
-﻿#region Copyright
-/*
+﻿/*
 This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
  Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
@@ -34,58 +33,34 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-#endregion
 
-namespace Media.Concepts.Experimental
+namespace Media.Common.Interfaces
 {
-    public interface IComposed//Object
-    {
-        object ComposedObject { get; }
-    }
-
-    //Not really needed
-    //public class Composed : IComposed<object>
-    //{
-    //    public object ComposedObject { get; protected set; }
-
-    //    object IComposed<object>.Composed
-    //    {
-    //        get { return ComposedObject; }
-    //    }
-    //}
+    //Relative as IsReadOnly can potentially change from time to time?
 
     /// <summary>
-    /// Provides access to a type with no virtual call overhead.
+    /// Represents an interface which can indicate if the instance is shared with other instances.
     /// </summary>
-    /// <typeparam name="T"></typeparam>
-    public interface IComposed/*Element*/<T> : IComposed
+    public interface IShared
     {
-        T ComposedElement { get; }
+        /// <summary>
+        /// Indicates if the instance is shared by other instances.
+        /// </summary>
+        bool IsShared { get; }
     }
 
-    /// <summary>
-    /// Provides a definite reference to a <typeparamref name="T"/>.
-    /// Provides a middle man class where a sealed type must be inherited.
-    /// Provides explicit declaration of a method which corresponds to the <see cref="IComposed"/> interface.
-    /// </summary>
-    /// <typeparam name="T">The type</typeparam>
-    public class ComposedOf/*Element*/<T> : IComposed<T>
+    public static class ISharedExtensions
     {
-        T m_Composed;
-
-        public T ComposedElement
+        /// <summary>
+        /// Indicates if the instance is NOT shared with other instances.
+        /// </summary>
+        /// <param name="shared"></param>
+        /// <returns></returns>
+        public static bool IsOwned(this IShared shared)
         {
-            get { return m_Composed; }
-        }
-
-        public ComposedOf(T t)
-        {
-            m_Composed = t;
-        }
-
-        object IComposed.ComposedObject
-        {
-            get { return m_Composed; }
+            return object.ReferenceEquals(shared, null).Equals(false) && shared.IsShared.Equals(false);
         }
     }
+
+    
 }

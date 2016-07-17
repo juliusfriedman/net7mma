@@ -270,7 +270,36 @@ namespace Media.Sdp
 
         #region Overloads
 
-        //Dispose
+        public static bool operator ==(MediaDescription a, MediaDescription b)
+        {
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
+        }
+
+        public static bool operator !=(MediaDescription a, MediaDescription b) { return (a == b).Equals(false); }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Equals(MediaDescription other)
+        {
+            return Media.Common.Extensions.EnumerableExtensions.SequenceEquals(this, other);
+
+            //using (var one = other.GetEnumerator())
+            //{
+            //    using (var two = GetEnumerator())
+            //    {
+            //        while (one.MoveNext() && two.MoveNext())
+            //        {
+            //            if (one.Current.Equals(two.Current).Equals(false)) return false;
+            //        }
+
+            //        return true;
+            //    }
+            //}
+        }
+
+        public override bool Equals(object obj)
+        {
+            return base.Equals(obj);
+        }
 
         public override string ToString()
         {
@@ -440,22 +469,22 @@ namespace Media.Sdp
         /// <returns></returns>
         public static Uri GetAbsoluteControlUri(this MediaDescription mediaDescription, Uri source, SessionDescription sessionDescription = null)
         {
-            if (source == null) throw new ArgumentNullException("source");
+            if (object.ReferenceEquals(source, null)) throw new ArgumentNullException("source");
 
-            if (mediaDescription == null) return source;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(mediaDescription)) return source;
 
-            if (false == source.IsAbsoluteUri) throw new InvalidOperationException("source.IsAbsoluteUri must be true.");
+            if (source.IsAbsoluteUri.Equals(false)) throw new InvalidOperationException("source.IsAbsoluteUri must be true.");
 
             SessionDescriptionLine controlLine = mediaDescription.ControlLine;
 
             //If there is a control line in the SDP it contains the URI used to setup and control the media
-            if (controlLine != null)
+            if (object.ReferenceEquals(controlLine, null).Equals(false))
             {  
                 //Todo, make typed line for controlLine
                 string controlPart = controlLine.Parts.Last(); //controlLine.Parts.Where(p => p.StartsWith(AttributeFields.Control)).FirstOrDefault();
 
                 //If there is a controlPart in the controlLine
-                if (false == string.IsNullOrWhiteSpace(controlPart))
+                if (string.IsNullOrWhiteSpace(controlPart).Equals(false))
                 {
                     //Prepare the part
                     controlPart = controlPart.Split(Media.Sdp.SessionDescription.ColonSplit, 2, StringSplitOptions.RemoveEmptyEntries).Last();
@@ -501,7 +530,7 @@ namespace Media.Sdp
             Uri sessionControlUri;
 
             //If there was a session description given and it supports aggregate media control then return that uri
-            if (sessionDescription != null && sessionDescription.SupportsAggregateMediaControl(out sessionControlUri, source)) return sessionControlUri;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(sessionDescription).Equals(false) && sessionDescription.SupportsAggregateMediaControl(out sessionControlUri, source)) return sessionControlUri;
 
             //There is no control line, just return the source.
             return source;
@@ -509,7 +538,7 @@ namespace Media.Sdp
 
         public static TimeDescription GetTimeDescription(this MediaDescription mediaDescription, SessionDescription sessionDescription)
         {
-            if (mediaDescription == null || sessionDescription == null) return null;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(mediaDescription) || Common.IDisposedExtensions.IsNullOrDisposed(sessionDescription)) return null;
 
             //Get index of mediaDescription
 
@@ -524,7 +553,7 @@ namespace Media.Sdp
         //Should have a date when or should return the date playable, which would then be used by another method to compare against a time.
         public static bool IsPlayable(this MediaDescription mediaDescription, SessionDescription sessionDescription) //, DateTime? check = null) ,TimeSpan within = TimeSpan.Zero
         {
-            if (mediaDescription == null || sessionDescription == null) return false;
+            if (Common.IDisposedExtensions.IsNullOrDisposed(mediaDescription) || Common.IDisposedExtensions.IsNullOrDisposed(sessionDescription)) return false;
 
             //Get index of mediaDesription
             
@@ -532,7 +561,8 @@ namespace Media.Sdp
 
             TimeDescription td = GetTimeDescription(mediaDescription, sessionDescription);
 
-            if (td == null) return true;
+            //Assume true
+            if (Common.IDisposedExtensions.IsNullOrDisposed(td)) return true;
 
             //Unbound start and end ?
             if (td.IsPermanent) return true;
@@ -541,12 +571,12 @@ namespace Media.Sdp
             try
             {
                 //Ensure not a bounded end and that the end time is less than now
-                if (td.StopTime != 0
+                if (false.Equals(td.StopTime.Equals(0))
                     &&
                     td.NtpStopDateTime >= DateTime.UtcNow) return false;
 
                 //Ensure start time is not bounded and that the start time is greater than now
-                if (td.StartTime != 0
+                if (false.Equals(td.StartTime.Equals(0))
                     &&
                     td.NtpStartDateTime > DateTime.UtcNow) return false;
 
@@ -557,7 +587,7 @@ namespace Media.Sdp
             catch
             {
                 //Out of range values for conversion, assume true if end is unbounded
-                if (td.StopTime != 0) return false;
+                if (false.Equals(td.StopTime.Equals(0))) return false;
             }
             finally
             {

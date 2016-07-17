@@ -2396,7 +2396,10 @@ namespace Media.Rtsp.Server.MediaTypes
             });
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
-            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, RFC2435Media.RFC2435Frame.RtpJpegPayloadType));
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 
+                0,  //Any port...
+                Rtp.RtpClient.RtpAvpProfileIdentifier, 
+                RFC2435Media.RFC2435Frame.RtpJpegPayloadType));
 
             //Indicate control to each media description contained
             SessionDescription.Add(new Sdp.SessionDescriptionLine("a=control:*"));

@@ -589,17 +589,22 @@ namespace Media.Rtcp
         public override int GetHashCode() { return First16Bits ^ SendersSynchronizationSourceIdentifier; }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Equals(RtcpHeader other)
+        {
+            return other.First16Bits.Equals(First16Bits)
+               &&
+               other.SendersSynchronizationSourceIdentifier.Equals(SendersSynchronizationSourceIdentifier);
+        }
+
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
             if(System.Object.ReferenceEquals(this, obj)) return true;
 
             if (false.Equals((obj is RtcpHeader))) return false;
 
-            RtcpHeader other = obj as RtcpHeader;
-
-            return other.First16Bits.Equals(First16Bits)
-                &&
-                other.SendersSynchronizationSourceIdentifier.Equals(SendersSynchronizationSourceIdentifier);
+            return Equals(obj as RtcpHeader);
         }
 
         #endregion
@@ -608,11 +613,10 @@ namespace Media.Rtcp
 
         public static bool operator ==(RtcpHeader a, RtcpHeader b)
         {
-            object boxA = a, boxB = b;
-            return boxA == null ? boxB == null : a.Equals(b);
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
         }
 
-        public static bool operator !=(RtcpHeader a, RtcpHeader b) { return false == (a == b); }
+        public static bool operator !=(RtcpHeader a, RtcpHeader b) { return (a == b).Equals(false); }
 
         #endregion
 

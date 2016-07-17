@@ -122,6 +122,24 @@ namespace Media.Common.Extensions.TimeSpan
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static System.TimeSpan FromNanoseconds(double nanoSeconds) { return System.TimeSpan.FromTicks((long)(nanoSeconds / NanosecondsPerTick)); }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [System.CLSCompliant(false)]
+        public static System.TimeSpan Min(ref System.TimeSpan a, ref System.TimeSpan b)
+        {
+            return a > b ? b : a;
+        }
+        
+        public static System.TimeSpan Min(System.TimeSpan a, System.TimeSpan b) { return Min(ref a, ref b); }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [System.CLSCompliant(false)]
+        public static System.TimeSpan Max(ref System.TimeSpan a, ref System.TimeSpan b)
+        {
+            return a > b ? a : b;
+        }
+
+        public static System.TimeSpan Max(System.TimeSpan a, System.TimeSpan b) { return Max(ref a, ref b); }
+
         ////
         //// Structure used in select() call, taken from the BSD file sys/time.h.
         ////

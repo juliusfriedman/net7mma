@@ -259,6 +259,14 @@ namespace Media.Common
 
         #endregion
 
+        #region Overrides
+
+        //GetHashCode
+
+        //Equals
+
+        #endregion
+
         /// <summary>
         /// Allows derived implemenations a chance to destory manged or unmanged resources.
         /// Calls <see cref="Dispose"/> with the value of <see cref="ShouldDispose"/>

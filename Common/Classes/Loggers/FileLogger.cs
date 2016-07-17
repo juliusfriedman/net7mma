@@ -57,6 +57,13 @@ namespace Media.Common.Loggers
         /// <returns></returns>
         internal byte[] GetBytes(string message, out int len)
         {
+            if (IsDisposed)
+            {
+                len = -1;
+
+                return null;
+            }
+
             if (string.IsNullOrWhiteSpace(message))
             {
                 len = 0;
@@ -77,6 +84,8 @@ namespace Media.Common.Loggers
         /// <param name="message"></param>
         internal void CoreWrite(string message)
         {
+            if (IsDisposed) return;
+
             try
             {
                 using (var stream = m_FileInfo.Open(System.IO.FileMode.Append, System.IO.FileAccess.Write))
@@ -108,9 +117,11 @@ namespace Media.Common.Loggers
 
         protected internal override void Dispose(bool disposing)
         {
-            if (false == disposing || false == ShouldDispose) return;
+            if (disposing.Equals(false)) return;
 
             base.Dispose(ShouldDispose);
+
+            if (IsDisposed.Equals(false)) return;
 
             m_FileInfo = null;
 

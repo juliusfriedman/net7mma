@@ -590,17 +590,21 @@ namespace Media.Rtp
         public override int GetHashCode() { return First16Bits ^ SynchronizationSourceIdentifier; }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool Equals(RtpHeader other)
+        {
+            return other.First16Bits.Equals(First16Bits)
+                &&
+                other.SynchronizationSourceIdentifier.Equals(SynchronizationSourceIdentifier);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
             if (System.Object.ReferenceEquals(this, obj)) return true;
 
             if (false.Equals((obj is RtpHeader))) return false;
 
-            RtpHeader other = obj as RtpHeader;
-
-            return other.First16Bits.Equals(First16Bits)
-                &&
-                other.SynchronizationSourceIdentifier.Equals(SynchronizationSourceIdentifier);
+            return Equals(obj as RtpHeader);
         }
 
         #endregion
@@ -609,11 +613,10 @@ namespace Media.Rtp
 
         public static bool operator ==(RtpHeader a, RtpHeader b)
         {
-            object boxA = a, boxB = b;
-            return boxA == null ? boxB == null : a.Equals(b);
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
         }
 
-        public static bool operator !=(RtpHeader a, RtpHeader b) { return false.Equals((a == b)); }
+        public static bool operator !=(RtpHeader a, RtpHeader b) { return (a == b).Equals(false); }
 
         #endregion
     }
