@@ -17,7 +17,7 @@ namespace Media.Concepts.Classes
     {
         long FrequencyHz, Maximum, End;
 
-        readonly Queue<byte[]> Input = new Queue<byte[]>(), Output = new Queue<byte[]>();
+        readonly Media.Common.Collections.Generic.ConcurrentLinkedQueueSlim<byte[]> Input = new Media.Common.Collections.Generic.ConcurrentLinkedQueueSlim<byte[]>(), Output = new Media.Common.Collections.Generic.ConcurrentLinkedQueueSlim<byte[]>();
 
         readonly double m_Bias;
 

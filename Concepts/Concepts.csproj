@@ -70,11 +70,15 @@
     <Compile Include="Classes\BitEnumerator.cs" />
     <Compile Include="Classes\Bitwise.cs" />
     <Compile Include="Classes\Bus.cs" />
+    <Compile Include="Classes\B\B.cs" />
     <Compile Include="Classes\B\Buffer.cs" />
     <Compile Include="Classes\CentralProcessingUnit.cs" />
     <Compile Include="Classes\Clock.cs" />
     <Compile Include="Classes\C\C.cs" />
+    <Compile Include="Classes\C\Connection.cs" />
+    <Compile Include="Classes\E\Enigma.cs" />
     <Compile Include="Classes\E\Extensions.cs" />
+    <Compile Include="Classes\E\Interface.cs" />
     <Compile Include="Classes\GC\Controller.cs" />
     <Compile Include="Classes\Hardware.cs" />
     <Compile Include="Classes\I\I.cs" />
@@ -82,8 +86,9 @@
     <Compile Include="Classes\Intrinsics.cs" />
     <Compile Include="Classes\Sockets\Sockets.cs" />
     <Compile Include="Classes\S\S.cs" />
+    <Compile Include="Classes\S\Symbols.cs" />
     <Compile Include="Classes\T\T.cs" />
-    <Compile Include="Classes\V\Vitro.cs" />
+    <Compile Include="Classes\V\v.cs" />
     <Compile Include="Classes\W\Writings.cs" />
     <Compile Include="Collections\LinkedCollections.cs" />
     <Compile Include="Classes\CommonIntermediateLanguage.cs" />
@@ -97,6 +102,7 @@
     <Compile Include="Collections\SocketCollection.cs" />
     <Compile Include="Collections\ThreadCollection.cs" />
     <Compile Include="EndPoints.cs" />
+    <Compile Include="Interfaces\Interfaces.cs" />
     <Compile Include="Interfaces\ITextData.cs" />
     <Compile Include="Interfaces\IUpdateable.cs" />
     <Compile Include="Interfaces\IUsable.cs" />
@@ -109,7 +115,14 @@
     <Compile Include="Classes\Units.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Classes\D\" />
     <Folder Include="Classes\F\" />
+    <Folder Include="Classes\G\" />
+    <Folder Include="Classes\H\" />
+    <Folder Include="Classes\R\" />
+    <Folder Include="Classes\X\" />
+    <Folder Include="Classes\Y\" />
+    <Folder Include="Classes\Z\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Media.Common.csproj">

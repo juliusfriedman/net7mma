@@ -390,8 +390,14 @@ namespace Media.Rtp
                     if (object.ReferenceEquals(configure, null).Equals(false)) tc.ConfigureSocket = configure;
 
                     //Check for udp if no existing socket was given
-                    if (hasSocket.Equals(false) && string.Compare(mediaDescription.MediaProtocol, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, true) == 0)
+                    if (hasSocket.Equals(false) && string.Compare(mediaDescription.MediaProtocol, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, true).Equals(0))
                     {
+                        //Registers must be stored, it might make more sense to leave the defaults as is and change the parameters of this function to then
+                        //- allow for sockets to be given to the Initialize e.g. a Initializer delegate.
+                        //Todo, Allow for Register and Creation from the MediaDescription...
+
+                        //TODO, allow for localPort to be specified.
+
                         //Find a local port
                         int localPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp);
 
@@ -410,6 +416,8 @@ namespace Media.Rtp
                     }
                     else //Create the sockets and connect (TCP)
                     {
+                        //Todo, verify c= line on sdp or m= and ensure framing type.
+
                         tc.Initialize(localIp, remoteIp, rtpPort ?? mediaDescription.MediaPort);
                     }
 
@@ -429,7 +437,7 @@ namespace Media.Rtp
 
                             Common.Extensions.Socket.SocketExtensions.SetMulticastTimeToLive(tc.RtpSocket, ttl);
 
-                            if (rtcpEnabled && tc.RtcpSocket.Handle != tc.RtpSocket.Handle)
+                            if (rtcpEnabled && false.Equals(tc.RtcpSocket.Handle == tc.RtpSocket.Handle))
                             {
                                 Common.Extensions.Socket.SocketExtensions.JoinMulticastGroup(tc.RtcpSocket, remoteIp);
 
@@ -643,9 +651,9 @@ namespace Media.Rtp
             internal protected int m_FailedRtpTransmissions, m_FailedRtcpTransmissions, m_FailedRtpReceptions, m_FailedRtcpReceptions;
 
             /// <summary>
-            /// Used to ensure packets are allowed.
+            /// Used to ensure data is quantified as packets which are allowed.
             /// </summary>
-            ushort m_MimumPacketSize = 8, m_MaximumPacketSize = ushort.MaxValue;
+            ushort m_MimumPacketSize = RtpHeader.Length - RtcpHeader.Length, m_MaximumPacketSize = ushort.MaxValue;
 
             /// <summary>
             /// To allow multiple receivers as set by <see cref="MaximumRemoteIdentities"/>
@@ -1234,21 +1242,21 @@ namespace Media.Rtp
             }
 
             /// <summary>
-            /// Indicates if the Rtcp is enabled and the LocalRtp is equal to the LocalRtcp
+            /// Indicates if the Rtcp is enabled and the <see cref="LocalRtp"/> is equal to the <see cref="LocalRtcp"/>
             /// </summary>
             public bool LocalMultiplexing
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                get { return IsDisposed || IsRtcpEnabled == false || LocalRtp == null ? false : LocalRtp.Equals(LocalRtcp); }
+                get { return IsDisposed || IsRtcpEnabled.Equals(false) || object.ReferenceEquals(LocalRtp, null) ? false : LocalRtp.Equals(LocalRtcp); }
             }
 
             /// <summary>
-            /// Indicates if the Rtcp is enabled and the RemoteRtp is equal to the RemoteRtcp
+            /// Indicates if the Rtcp is enabled and the <see cref="RemoteRtp"/> is equal to the <see cref="RemoteRtcp"/>
             /// </summary>
             public bool RemoteMultiplexing
             {
                 [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                get { return IsDisposed || IsRtcpEnabled == false || RemoteRtp == null ? false : RemoteRtp.Equals(RemoteRtcp); }
+                get { return IsDisposed || IsRtcpEnabled.Equals(false) || object.ReferenceEquals(RemoteRtp, null) ? false : RemoteRtp.Equals(RemoteRtcp); }
             }
             
             /// <summary>
@@ -1875,6 +1883,8 @@ namespace Media.Rtp
 
                     //Determine if holepunch is required
 
+                    //Todo, have option NOT to use 0
+
                     //Todo, send reports, don't use proprietary messages
                     if (punchHole)
                     {
@@ -2223,7 +2233,7 @@ namespace Media.Rtp
                 {
                     yield return RtpSocket;
 
-                    if (RtpSocket.ProtocolType == ProtocolType.Tcp || IsDuplexing) yield break;
+                    if (IsDuplexing || RtpSocket.ProtocolType == ProtocolType.Tcp) yield break;
                 }
 
                 //Todo, these may be the same sockets...
@@ -2358,11 +2368,14 @@ namespace Media.Rtp
             //Raise an event for the rtcp packet received.
             OnRtcpPacketReceieved(packet, transportContext);
 
-            //Compressed or no ssrc
-            if (packet.IsCompressed || packetLength < Common.Binary.BytesPerLong || false.Equals(HandleIncomingRtcpPackets))
+            //Compressed or no ssrc Return
+            if (HandleIncomingRtcpPackets.Equals(false)) return;
+            else if (packet.IsCompressed || packetLength < Common.Binary.BytesPerLong)
             {
-                //Return
+                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtcpPacket Compression or Length @ Version, Found =>" + packetVersion + ", Pt =>" + packet.PayloadType + " , Bc => " + packet.BlockCount);
+
                 return;
+
             }//else if there is a context and the version doesn't match.
             else if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(transportContext)) && false.Equals(transportContext.Version.Equals(packetVersion)))
             {
@@ -2806,6 +2819,14 @@ namespace Media.Rtp
                             " len= " + packetLength);
 
                     //Todo, Event for discontuity... (see above notes on could)
+
+                    //If TCP then one would enable congection control or swap the method etc,
+                    //Modify Re-Transmission time.
+
+                    //Caulcate loss.
+                    
+                    //If Udp would change ttl and possibly DNS resolver,
+                    //Send reports with loss or culumate for next report based on bandwidth and application requirements
                 }
                 else ++transportContext.ValidRtpPacketsReceived; //Increase the amount of valid rtp packets recieved when ValidatePacketAndUpdateSequenceNumber is true
 
@@ -2873,6 +2894,27 @@ namespace Media.Rtp
                 //}
 
                 #endregion
+
+                if (transportContext.InDiscovery)
+                {
+                    //Todo, should also check for CName with matching ssrc
+
+                    if (Common.IDisposedExtensions.IsNullOrDisposed(transportContext.ReceiversReport).Equals(false) &&
+                        transportContext.ReceiversReport.SynchronizationSourceIdentifier.Equals(partyId))
+                    {
+                        transportContext.RemoteSynchronizationSourceIdentifier = partyId;
+                    }
+                    else if (Common.IDisposedExtensions.IsNullOrDisposed(transportContext.SendersReport).Equals(false) &&
+                        transportContext.SendersReport.SynchronizationSourceIdentifier.Equals(partyId))
+                    {
+                        transportContext.RemoteSynchronizationSourceIdentifier = partyId;
+                    }
+                }
+                else if (transportContext.IsValid &&
+                    transportContext.RemoteSynchronizationSourceIdentifier.Equals(partyId).Equals(false))
+                {
+                    transportContext.RemoteSynchronizationSourceIdentifier = partyId;
+                }
 
                 //Increment RtpPacketsReceived for the context relating to the packet.
                 ++transportContext.RtpPacketsReceived;               

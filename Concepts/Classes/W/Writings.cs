@@ -81,6 +81,9 @@ namespace Media.Concepts.Classes.W
         /// In literature, an epigraph is a phrase, quotation, or poem that is set at the beginning of a document or component.
         /// The epigraph may serve as a preface, as a summary, as a counter-example, or to link the work to a wider literary canon, either to invite comparison or to enlist a conventional context.
         /// </summary>
+        /// <remarks>
+        /// From Wikipedia.
+        /// </remarks>
         public class Epigraph : Prolegomena
         {
 

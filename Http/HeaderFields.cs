@@ -69,10 +69,12 @@ namespace Media.Http
 
         public sealed class Connection
         {
-            internal const string close = "close";
+            //`Close` is more recognized than close, how fucking ironic.
+            internal const string close = "Close";
 
+            //Same here
             //its possible to use the unicode character modifiers to make the variable name (e.g when generating or otherwise) pseudo hypenated but typing them would be a pain...
-            internal const string keepΞalive = "keep-alive";
+            internal const string keepΞalive = "Keep-alive";
 
             public const string Close = close;
 
@@ -104,6 +106,8 @@ namespace Media.Http
             //DigestGrammar
             public sealed class Attributes
             {
+                internal const string algorithm = "algorithm";
+
                 internal const string nonce = "nonce";
 
                 internal const string cnonce = "cnonce";
@@ -122,6 +126,14 @@ namespace Media.Http
 
                 internal const string stale = "stale";
 
+                internal const string auth = "auth";
+
+                internal const string authint = "authint";
+
+                internal const string username = "username";
+
+                public const string Algorithm = algorithm;
+
                 public const string Nonce = nonce;
 
                 public const string Cnonce = cnonce;
@@ -139,6 +151,8 @@ namespace Media.Http
                 public const string QualityOfProtection = qop;
 
                 public const string Stale = stale;
+
+                public const string UserName = username;
 
             }
 

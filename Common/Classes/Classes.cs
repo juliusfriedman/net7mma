@@ -39,9 +39,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 namespace Media.Common.Classes
 {
     /// <summary>
+    /// An <see cref="interface"/> intended to support the super position of a future defined <see cref="class">Class</see>
+    /// </summary>
+    public interface IClass { }
+
+    /// <summary>
     /// A <see cref="class"/>
     /// </summary>
-    public class Class //internal @Experimental.I.ICore
+    public class Class : IClass //internal @Experimental.I.ICore
     {
         //WIP
         //ToString =>  //ToClassString
@@ -66,6 +71,17 @@ namespace Media.Common.Classes
     public class Class<T> : Class
     {
         //^%
+    }
+
+    /// <summary>
+    /// An <see cref="Abstraction"/> which is also an <see cref="Media.Common.Interfaces.InterClass"/>
+    /// </summary>
+    public class Enum : Abstraction, Media.Common.Interfaces.InterClass
+    {
+        Class Interfaces.InterClass.Class
+        {
+            get { return this; }
+        }
     }
 
     /// <summary>

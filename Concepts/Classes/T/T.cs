@@ -295,13 +295,18 @@ namespace Media.Concepts.Classes.T
         /// <summary>
         /// Only accesible from this type or reflection.
         /// </summary>
-        readonly System.Collections.Generic.Dictionary<System.Type, System.Tuple<System.Reflection.ConstructorInfo[], System.Reflection.ParameterInfo[][]>> m_SupportedTypes = new System.Collections.Generic.Dictionary<System.Type, System.Tuple<System.Reflection.ConstructorInfo[], System.Reflection.ParameterInfo[][]>>();
+        readonly System.Collections.Generic.Dictionary<System.Type, System.Tuple<System.Reflection.ConstructorInfo[], System.Reflection.ParameterInfo[][]>> m_SupportedTypes = 
+            new System.Collections.Generic.Dictionary<System.Type, System.Tuple<System.Reflection.ConstructorInfo[], System.Reflection.ParameterInfo[][]>>();
 
         /// <summary>
         /// The <see cref="System.Types"/> which are supported.
         /// </summary>
         public System.Collections.Generic.IEnumerable<System.Type> SupportedTypes { get { return m_SupportedTypes.Keys; } }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="shouldDispose"></param>
         public TypeManager(bool shouldDispose = true) : base(shouldDispose) { }
 
         void Probe(System.Type type, System.Reflection.BindingFlags bindingFlags = System.Reflection.BindingFlags.Public)

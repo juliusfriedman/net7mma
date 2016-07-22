@@ -59,7 +59,7 @@ namespace Media.UnitTests
         /// The UnitTests which will be run to test the implemenation logic
         /// </summary>
         static Action[] LogicTests = new Action[] { 
-            TestBeginInvoke,
+            TestInvocations,
             //Experimental Classes (Should not be used in real code)
             TestStopWatch,
             TestClock,
@@ -226,50 +226,232 @@ namespace Media.UnitTests
 
         #region http://stackoverflow.com/questions/37077434/async-version-of-generic-extensions?noredirect=1#comment61700684_37077434
 
-        static void _TestLogicForBeginInvoke(int i)
+        static void _TestLogicForBeginInvoke(byte[] i)
         {
+            int local;
+
+            System.Console.WriteLine("Delegate0=>" + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(i, out local) ? "0" : local.ToString()));
+
+            System.Threading.Thread.Sleep(1);
+
+            System.Console.WriteLine("Tested0");
+
+            System.Threading.Thread.Sleep(3);
+
+            System.Console.WriteLine("Delegate0=>" + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(i, out local) ? "0" : local.ToString()));
+
+            System.Threading.Thread.Sleep(1);
+
+            System.Console.WriteLine("Delegate0=>" + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(i, out local) ? "0" : local.ToString()));
+
+            System.Threading.Thread.Sleep(5);
+
+            System.Console.WriteLine("Delegate0=>" + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(i, out local) ? "0" : local.ToString()));
+
             System.Threading.Thread.Sleep(10);
 
-            System.Console.WriteLine("Tested");
+            System.Console.WriteLine("Delegate0=>" + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(i, out local) ? "0" : local.ToString()));
+        }
+
+        static void _TestLogicForBeginInvoke(ref byte[] i)
+        {
+            _TestOtherLogicForBeginInvoke(i);
+
+            System.Console.WriteLine("Tested1");
+
+            System.Threading.Thread.Sleep(3);
+            
+            int local;
+
+            System.Console.WriteLine("Delegate1=>" + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(i, out local) ? "0" : local.ToString()));
+
+            System.Threading.Thread.Sleep(1);
+
+            System.Console.WriteLine("Delegate1=>" + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(i, out local) ? "0" : local.ToString()));
+
+            System.Threading.Thread.Sleep(5);
+
+            System.Console.WriteLine("Delegate1=>" + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(i, out local) ? "0" : local.ToString()));
+
+            System.Threading.Thread.Sleep(10);
+
+            System.Console.WriteLine("Delegate1=>" + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(i, out local) ? "0" : local.ToString()));
+        }
+
+        static void _TestOtherLogicForBeginInvoke(byte[] i)
+        {
+            int local;
+
+            System.Console.WriteLine("Delegate2=>" + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(i, out local) ? "0" : local.ToString()));
+
+            System.Threading.Thread.Sleep(1);
+
+            System.Console.WriteLine("Tested2");
         }
 
         static void _Callback(IAsyncResult iar)
         {
-            System.Threading.Thread.Sleep(10); 
-            
-            System.Console.WriteLine("Callback " + iar.CompletedSynchronously);
+            System.Console.WriteLine("Callback.CompletedSynchronously " + iar.CompletedSynchronously);
 
-            System.Console.WriteLine("Callback " + iar.AsyncState);
+            System.Console.WriteLine("Callback.IsCompleted " + iar.IsCompleted);
+
+            int local;
+
+            System.Console.WriteLine("Callback.local " + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(iar.AsyncState as System.Array, out local) ? "0" : local.ToString()));
+
+            System.Threading.Thread.Sleep(10);
+
+            System.Console.WriteLine("Callback IsCompleted " + iar.CompletedSynchronously);
+
+            System.Console.WriteLine("Callback.local " + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(iar.AsyncState as System.Array, out local) ? "0" : local.ToString()));
         }
 
-        static void TestBeginInvoke()
-        {            
+        /// <summary>
+        ///     on `State` [dhpfr]
+        /// 
+        /// Observe the results of the use of BeingInvoke, in this case using arrays.
+        /// [it seems(through repeated testing)] The behavior observed varies based on the use of the local but the orders of the invocations do not.
+        /// None of these invocations result in a `block`.
+        /// Thus it can probably be concluded from the results that the version can give precedent to the call based on the fact that
+        /// 'Delegate2' / _TestOtherLogicForBeginInvoke ALWAYS is the first to output outside of this call and this is due to the version of the `Array` the call received.
+        /// Thus it can also be concluded that `_version` member of the array is very important and should be exposed if not to observe this behavior then to allow for calls to
+        /// be able to reject data based on that property if desired.
+        /// This is especially important after a pause or otherwise where the state of the receieved may change and would possibly indicate to callers that they don't have to do the work they were originally called to do..
+        /// *
+        /// The other way to handle this apparently is to use a <see cref="System.Threading.CancellationToken"/> or otherwise which can signal the work is abandoned in that version;
+        /// and optionally observe newer versions of the data available by using a <see cref="Class"/> which contains token and it's source and thus
+        /// can obtain a new token from the source if allowed and continue to do more work.
+        /// This is because the call and it's stack were already prepared and is possibly more efficient then using the cleanup and restore just to do the same logic which would be able 
+        /// to be performed by retaining the state.
+        /// </summary>
+        static void TestInvocations()
+        {
+            TestInvocations(false);
+
+            TestInvocations(true);
+
+            //TestInvocations(false);
+
+            //TestInvocations(true);
+        }
+
+        /// <summary>
+        /// Arrays can only communicate data to or from the caller within the version of the array given to a call without the `ref` annotation.
+        /// </summary>
+        /// <param name="useLocal"></param>
+        static void TestInvocations(bool useLocal = false)
+        {
             //Callback is written after Tested and NotDone.
-            System.Action<int> call = new System.Action<int>(_TestLogicForBeginInvoke);
+            System.Action<byte[]> call = new System.Action<byte[]>(_TestLogicForBeginInvoke);
 
             //This variable can be used in either the invocation or the callback but you must access it by reference.
-            int times = 0;
-            
+            byte[] data = new byte[0];
+
+            int times = 0, register = -1;
+
             //Write output
-            System.Console.WriteLine("Output");
+            System.Console.WriteLine(".Output.useLocal=" + useLocal);
 
             //Start the call, show what call was made to the callback.
-            IAsyncResult callInvocation = call.BeginInvoke(0, _Callback, call);
+            IAsyncResult callInvocation = call.BeginInvoke(data, _Callback, data);
 
-            //Wait for the call to be completed a few times
-            while (false == callInvocation.IsCompleted && ++times < 10)
+            System.Console.WriteLine(".IsCompleted " + callInvocation.IsCompleted);
+
+            System.Console.WriteLine(".Resize0");
+
+            System.Array.Resize(ref data, 1);
+
+            byte[] local = null;
+
+            using (callInvocation.AsyncWaitHandle)
             {
-                System.Console.WriteLine("NotDone");
+                System.Threading.Thread.Yield();
+
+                //Wait for the call to be completed a few times
+                while (callInvocation.IsCompleted.Equals(false))
+                {
+
+                    System.Threading.Thread.Yield();
+
+                    System.Console.WriteLine(".Resize1");
+                    
+                    //When the local is used the call semantic is totally different as the version is maintained through the local.
+                    if (useLocal)
+                    {
+                        if (times <= 1)
+                        {
+                            System.Array.Resize(ref data, 1);
+
+                            local = data;
+
+                            data = null;
+
+                            System.Array.Resize(ref local, 2);
+                        }
+                        else
+                        {
+                            data = local;
+
+                            local = null;
+
+                            System.Array.Resize(ref data, 1);
+                        }
+                    }
+                    else System.Array.Resize(ref data, 1);
+
+                    System.Console.WriteLine("._TestOtherLogicForBeginInvoke");
+
+                    _TestOtherLogicForBeginInvoke(data);
+
+                    System.Console.WriteLine("._TestLogicForBeginInvoke");
+
+                    _TestLogicForBeginInvoke(ref data);
+
+                    System.Console.WriteLine(".NotDone1=>" + times + ", " + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(data, out register) ? "0" : register.ToString()));
+
+                    System.Console.WriteLine(".Resize2");
+
+                    /*if (times <= 1) System.Array.Resize(ref data, 1);
+                    else*/
+                    System.Array.Resize(ref data, ++times);
+                }
             }
 
             //Probably still not completed.
-            System.Console.WriteLine("IsCompleted " + callInvocation.IsCompleted);
+            System.Console.WriteLine(".IsCompleted " + callInvocation.IsCompleted);
 
             //Can only be called once, should be called to free the thread assigned to calling the logic assoicated with BeginInvoke and the callback.
             call.EndInvoke(callInvocation);
-        }//_Callback 
 
-        //Never called EndInvoke...
+            System.Console.WriteLine(".EndInvoke " + callInvocation.IsCompleted + "," + times);            
+
+            List<IAsyncResult> calls = new List<IAsyncResult>();
+
+            //Call again up to 5 times
+            while (++times < 5)
+            {
+                if (times <= 1) System.Array.Resize(ref data, 1);
+                else System.Array.Resize(ref data, ++register);
+
+                callInvocation = call.BeginInvoke(data, _Callback, data);
+
+                calls.Add(callInvocation);
+
+                _TestOtherLogicForBeginInvoke(data);
+
+                _TestLogicForBeginInvoke(ref data);
+
+                System.Console.WriteLine(".NotDone2=>" + times + ", " + (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(data, out register) ? "0" : register.ToString()));                
+            }
+
+            foreach (IAsyncResult storedCallInvocation in calls)
+            {
+                System.Console.WriteLine(".EndInvoke " + storedCallInvocation.IsCompleted);
+
+                call.EndInvoke(storedCallInvocation);
+            }
+
+        }//_Callback 
 
         #endregion
 
@@ -4150,7 +4332,7 @@ a=appversion:1.0");
                         if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet)) return;
 
                         Console.WriteLine("****Unknown RtpPacket context: " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty : "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
-                        if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
+                        if (Common.IDisposedExtensions.IsNullOrDisposed(client).Equals(false)) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
                             {
                                 Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
                                 Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
@@ -4160,7 +4342,7 @@ a=appversion:1.0");
                     }
                     else
                     {
-                        Media.Sdp.MediaType mediaType = matched != null ? matched.MediaDescription.MediaType : Sdp.MediaType.unknown;
+                        Media.Sdp.MediaType mediaType = Common.IDisposedExtensions.IsNullOrDisposed(matched).Equals(false) ? matched.MediaDescription.MediaType : Sdp.MediaType.unknown;
 
                         Console.WriteLine(string.Format(TestingFormat, "Matches Context (" + mediaType + ") (By PayloadType):", "*******\n\t***********Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier));
 
@@ -4171,7 +4353,7 @@ a=appversion:1.0");
                             + "\n Version = " + rtpPacket.Version + "\tSynchronizationSourceIdentifier = " + rtpPacket.SynchronizationSourceIdentifier);
                     }
 
-                    if (false == Media.Common.IDisposedExtensions.IsNullOrDisposed(packet) && rtpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtpPacket.Payload.Array, rtpPacket.Payload.Offset, rtpPacket.Payload.Count)));
+                    if (Media.Common.IDisposedExtensions.IsNullOrDisposed(packet).Equals(false) && rtpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtpPacket.Payload.Array, rtpPacket.Payload.Offset, rtpPacket.Payload.Count)));
                 }
             }
             else
@@ -4190,24 +4372,24 @@ a=appversion:1.0");
 
                     Media.Rtp.RtpClient.TransportContext matched = null;
 
-                    if (client != null) matched = client.GetContextForPacket(rtcpPacket);
+                    if (Common.IDisposedExtensions.IsNullOrDisposed(client).Equals(false)) matched = client.GetContextForPacket(rtcpPacket);
 
                     Type implemented = Media.Rtcp.RtcpPacket.GetImplementationForPayloadType(rtcpPacket.PayloadType);
 
                     if (Media.Common.IDisposedExtensions.IsNullOrDisposed(rtcpPacket)) return;
 
-                    Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (complete ? "Complete" : "Incomplete"), (implemented != null ? implemented.Name : packet.ToString())) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
+                    Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (complete ? "Complete" : "Incomplete"), (object.ReferenceEquals(implemented, null) ? packet.ToString() : implemented.Name)) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
 
                     if (rtcpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtcpPacket.Payload.Array, rtcpPacket.Payload.Offset, rtcpPacket.Payload.Count)));
 
-                    if (matched != null) Console.WriteLine(string.Format(TestingFormat, "Context:", "*******\n\t*********** Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier + " - Channel = " + matched.ControlChannel));
+                    if (Common.IDisposedExtensions.IsNullOrDisposed(matched).Equals(false)) Console.WriteLine(string.Format(TestingFormat, "Context:", "*******\n\t*********** Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier + " - Channel = " + matched.ControlChannel));
                     else
                     {
                         if (Media.Common.IDisposedExtensions.IsNullOrDisposed(rtcpPacket)) return;
 
                         Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet context -> " + rtcpPacket.PayloadType + "@" + rtcpPacket.Version + " \nAvailables Contexts:", "*******\n\t***********"));
 
-                        if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
+                        if (Common.IDisposedExtensions.IsNullOrDisposed(client).Equals(false)) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
                             {
                                 Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
                                 Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
@@ -4216,7 +4398,7 @@ a=appversion:1.0");
                             }
                     }
 
-                    if (implemented != null)
+                    if (object.ReferenceEquals(implemented, null).Equals(false))
                     {
                         //Could dump the packet contents here.
                         Console.WriteLine(Media.RtpTools.RtpSend.ToTextualConvention(Media.RtpTools.FileFormat.Ascii, rtcpPacket));

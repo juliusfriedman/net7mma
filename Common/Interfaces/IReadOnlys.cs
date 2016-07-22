@@ -72,39 +72,5 @@ namespace Media.Common.Interfaces
         bool Mutable { get; }
     }
 
-    //These concepts are very closely related, to be able to [execute]=> read and write or modify implies Get and Set access when [execute] is not required.
-    
-    /// <summary>
-    /// Represents an interface which can obtain an instance.
-    /// </summary>
-    public interface ITryGet
-    {
-        bool TryGet(out object t);
-    }
-
-    /// <summary>
-    /// Represents an interface which can obtain an instance.
-    /// </summary>
-    /// <typeparam name="T">The instance which can be obtained</typeparam>
-    public interface ITryGet<T> : ITryGet
-    {
-        bool TryGet(out T t);
-    }
-
-    /// <summary>
-    /// Represents an interface which can set an instance.
-    /// </summary>
-    public interface ITrySet
-    {
-        bool TrySet(object t);
-    }
-
-    /// <summary>
-    /// Represents an interface which can set an instance.
-    /// </summary>
-    /// <typeparam name="T">The instance which can be set</typeparam>
-    public interface ITrySet<T> : ITrySet
-    {
-        bool TrySet(ref T t);
-    }
+    //See ITries.cs which contains closely related paradigms.
 }

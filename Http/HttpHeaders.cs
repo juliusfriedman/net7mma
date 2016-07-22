@@ -73,6 +73,8 @@ namespace Media.Http
 
         internal protected HttpHeaders() { }
 
+        //Could move to HeaderFields to avoid the duplicate name ...
+
         //https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
 
         //                             was \u+3309, Combining Right Half Ring Below, works around CacheControl already being defined..
@@ -164,7 +166,11 @@ namespace Media.Http
                     {
                         //http://en.wikipedia.org/wiki/Basic_access_authentication
                         //Don't use the domain.
-                        result = "Basic " + Convert.ToBase64String(encoding.GetBytes(credential.UserName + ':' + credential.Password));
+
+                        //Don't use `basic` because apparently case is REALLY important at this point...
+                        //result = string.Concat(Http.HeaderFields.Authorization.Basic, new string((char)Common.ASCII.Space, 1), Convert.ToBase64String(encoding.GetBytes(credential.UserName + ':' + credential.Password)));
+
+                        result = string.Concat("Basic", new string((char)Common.ASCII.Space, 1), Convert.ToBase64String(encoding.GetBytes(credential.UserName + ':' + credential.Password)));
 
                         break;
                     }
@@ -209,7 +215,7 @@ namespace Media.Http
                         //If there is a Quality of Protection
                         if (qopPart != null)
                         {
-                            if (qopPart == "auth")
+                            if (qopPart .Equals(Http.HeaderFields.Authorization.Attributes.qop, StringComparison.OrdinalIgnoreCase))
                             {
                                 HA2 = Cryptography.MD5.GetHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", methodString, uriPart)));
                                 //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
@@ -217,13 +223,13 @@ namespace Media.Http
                                 result = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username=\"{0}\", realm=\"{1}\", nonce=\"{2}\", uri=\"{3}\", qop=\"{4}\" nc=\"{5} cnonce=\"{6}\"", usernamePart, realmPart, nOncePart, uriPart, qopPart, ncPart, cnOncePart);
                                 if (false == string.IsNullOrWhiteSpace(opaquePart)) result += "opaque=\"" + opaquePart + '"';
                             }
-                            else if (qopPart == "auth-int")
+                            else if (qopPart.Equals(Http.HeaderFields.Authorization.Attributes.authint, StringComparison.OrdinalIgnoreCase))
                             {
                                 HA2 = Cryptography.MD5.GetHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", methodString, uriPart, Cryptography.MD5.GetHash(encoding.GetBytes(bodyPart)))));
                                 //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
                                 ResponseHash = Cryptography.MD5.GetHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", BitConverter.ToString(HA1).Replace("-", string.Empty).ToLowerInvariant(), nOncePart, BitConverter.ToString(HA2).Replace("-", string.Empty).ToLowerInvariant(), ncPart, cnOncePart, qopPart)));
                                 result = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username=\"{0}\", realm=\"{1}\", nonce=\"{2}\", uri=\"{3}\", qop=\"{4}\" nc=\"{5} cnonce=\"{6}\"", usernamePart, realmPart, nOncePart, uriPart, qopPart, ncPart, cnOncePart);
-                                if (false == string.IsNullOrWhiteSpace(opaquePart)) result += "opaque=\"" + opaquePart + '"';
+                                if (string.IsNullOrWhiteSpace(opaquePart).Equals(false)) result += "opaque=\"" + opaquePart + '"';
                             }
                             else
                             {
@@ -269,6 +275,8 @@ namespace Media.Http
         //string[] ParseHeaderValues(string delemit, string source) => source.Split(delemit);
 
         //string[] ParseHeaderValues(int count) => source.Split(delemit, count);
+
+        //bound length = -1 default...
 
         public static string[] SplitSpace(string input) { return input.Split((char)Common.ASCII.Space); }
 

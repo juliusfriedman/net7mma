@@ -1498,7 +1498,8 @@ namespace Media
                 //Make a new reference to the payload at the correct offset and size
                 m_Binary = m_SourceCount == 1 ? goodbyeReport.Header.GetSendersSynchronizationSourceIdentifierSegment() : new Common.MemorySegment(goodbyeReport.Payload.Array, 
                     goodbyeReport.Payload.Offset,
-                    goodbyeReport.ReportBlockOctets - goodbyeReport.ReasonForLeavingLength);
+                    //Take whatever is higher, 0 or the amount given by ReportBlockOctets - the extension and the padding.
+                    Common.Binary.Max(0, goodbyeReport.ReportBlockOctets - (goodbyeReport.ReasonForLeavingLength + goodbyeReport.PaddingOctets)));
 
                 //Can't Reset because the binary data is possibly in two different places..
 

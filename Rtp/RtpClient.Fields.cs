@@ -69,7 +69,7 @@ namespace Media.Rtp
         //Benchmark with Queue and ConcurrentQueue and a custom impl.
         //IPacket could also work in an implementaiton which sends evertyhing in the outgoing list at one time.
         internal readonly System.Collections.Generic.List<RtpPacket> m_OutgoingRtpPackets = new System.Collections.Generic.List<RtpPacket>();
-        internal readonly System.Collections.Generic.List<Media.Rtcp.RtcpPacket> m_OutgoingRtcpPackets = new System.Collections.Generic.List<Media.Rtcp.RtcpPacket>();
+        internal readonly System.Collections.Generic.List<Rtcp.RtcpPacket> m_OutgoingRtcpPackets = new System.Collections.Generic.List<Rtcp.RtcpPacket>();
 
         /// <summary>
         /// Any TransportContext's which are added go here for removal. This list can never be null.

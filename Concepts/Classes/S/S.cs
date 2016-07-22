@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 
 namespace Media.Concepts.Classes.S
 {
+    #region S
+
     /// <summary>
     ///  | = Real
     ///  - = Real
@@ -72,6 +74,11 @@ namespace Media.Concepts.Classes.S
     /// Let One = Whole - Imaginary = (1) = Real.
     /// 
     /// </summary>
+    /// <remarks>
+    /// All things are nothing which are a part of something else until which point they are `Freed` or `Created` from the fabric of the underlying to evolve as a freely radical.
+    /// This is the precipius, the moment of creation which which is a forward and prologue of the space and time before it as well as that which will precipitate such proleptically precipitous.
+    /// as in “while yon slow oxen turn the furrowed plain”
+    /// </remarks>
     public class S /*.  uch, pace, ell   .*/ : Media.Concepts.Classes.I.ICore
     {
         public S(Number x, Number y, Number z, 
@@ -136,4 +143,6 @@ namespace Media.Concepts.Classes.S
         }
 
     }
+
+    #endregion
 }

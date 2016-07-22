@@ -163,6 +163,8 @@ namespace Media.Common.Extensions.String
             }
         }
 
+        //Capitolize(string what)
+
         //Todo, 
         //IsPalindrome(bool caseInsenitive, bool onlyLettersOrDigits)
 

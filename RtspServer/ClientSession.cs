@@ -53,9 +53,46 @@ namespace Media.Rtsp//.Server
     /// </summary>
     internal class ClientSession : Common.SuppressedFinalizerDisposable, Media.Common.ILoggingReference  //ISocketReference....
     {
+        #region Statics, Biasi {Not basis}
+
+        //higher cpu than IsGoodUnlessNullOrDisposed
+        static int IsBadPacketThreshold(RtpPacket a, RtpClient.TransportContext b, int threshold = 0)
+        {
+            if (Common.IDisposedExtensions.IsNullOrDisposed(a) || Common.IDisposedExtensions.IsNullOrDisposed(b)) return Common.Binary.NegativeOne;
+
+            int packetSequenceNumber = a.SequenceNumber;
+
+            return packetSequenceNumber - b.SendSequenceNumber - threshold;
+        }
+
+        ///---
+
+        static int IsBadPacket(Media.Common.IPacket a, RtpClient.TransportContext b)
+        {
+            if (Common.IDisposedExtensions.IsNullOrDisposed(a) || Common.IDisposedExtensions.IsNullOrDisposed(b)) return Common.Binary.NegativeOne;
+
+            if (a is RtpPacket) return IsBadPacketThreshold(a as RtpPacket, b);
+
+            return IsGoodUnlessNullOrDisposed(a, b);
+        }
+
+        ///---
+
+        static int IsGoodUnlessNullOrDisposed(Media.Common.IPacket a, RtpClient.TransportContext b)
+        {
+            return Common.IDisposedExtensions.IsNullOrDisposed(a) || Common.IDisposedExtensions.IsNullOrDisposed(b) ? Common.Binary.NegativeOne : Common.Binary.One;
+        }
+
+        ///---
+        ///
+
+        #endregion
+
         //Needs to have it's own concept of range using the Storage...
 
         //Store authentication related values here also.
+
+        //This logic will still be needed even when there are RtspClient's or TransportClient's in use or otherwise, just a [slight] variation of it.
 
         #region Fields
 
@@ -91,6 +128,11 @@ namespace Media.Rtsp//.Server
         /// Should be a Guid and be the Id of the Media.
         /// </summary>
         internal Common.Collections.Generic.ConcurrentThesaurus<int, RtpPacket> PacketBuffer = new Common.Collections.Generic.ConcurrentThesaurus<int, RtpPacket>();
+
+        /// <summary>
+        /// Used to assign the function which decides if packets `re good or bad.
+        /// </summary>
+        internal Func<RtpPacket, RtpClient.TransportContext, int /*double*/> BadPacketDecision = IsBadPacket;
 
         /// <summary>
         /// The server which created this ClientSession
@@ -336,10 +378,12 @@ namespace Media.Rtsp//.Server
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public void SendRtspData(byte[] data, int offset, int length, SocketFlags flags = SocketFlags.None, EndPoint other = null)
         {
+            //Check response being sent twice sometimes..
+
             int check;
             //Check for no data or 0 length when sharing socket.
             if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(data, out check) ||
-                check - offset < length ||
+                length - offset > check ||
                 (length.Equals(Common.Binary.Zero) && SharesSocket)) return;
 
             try
@@ -493,7 +537,9 @@ namespace Media.Rtsp//.Server
             int packetSequenceNumber = packet.SequenceNumber;
 
             //If this packet was already sent then attempt nothing.
-            if (packetSequenceNumber - localContext.SendSequenceNumber <= 0) return;
+            //if (packetSequenceNumber - localContext.SendSequenceNumber </*=*/ 0) goto Exit;
+
+            if (BadPacketDecision(packet, localContext) < 0) goto Exit;
 
             //If the packet seqeuence is out of order in reception to the client
             if (m_RtpClient.IsActive && false.Equals(localContext.UpdateSequenceNumber(ref packetSequenceNumber)) && false.Equals(localContext.AllowOutOfOrderPackets))
@@ -598,12 +644,13 @@ namespace Media.Rtsp//.Server
                     {
                         Rtcp.IReportBlock reportBlock = sr.FirstOrDefault(rb => rb.BlockIdentifier == tc.RemoteSynchronizationSourceIdentifier);
 
-                        if (reportBlock != null)
+                        if (object.ReferenceEquals(reportBlock, null).Equals(false))
                         {
                             ReportBlock block = (ReportBlock)reportBlock;
 
                             //check size of block before accessing properties.
 
+                            //Fast forward...
                             localContext.SendSequenceNumber = block.ExtendedHighestSequenceNumberReceived;
 
                             //should add to jitter with +=
@@ -1231,11 +1278,28 @@ namespace Media.Rtsp//.Server
 
                 //Use the same id to keep the packet headers the same.
                 localSsrc = sourceContext.RemoteSynchronizationSourceIdentifier;
+
+                //If localSsrc is still 0 then the identity needs to be unique on the channel.
             }
 
             //Could also randomize the setupContext sequenceNumber here.
             //We need to make an TransportContext in response to a setup
-            RtpClient.TransportContext setupContext = null;            
+            RtpClient.TransportContext setupContext = null;
+
+            //Check for an existing ssrc
+            //The ssrc is in use already...
+            if (Common.IDisposedExtensions.IsNullOrDisposed(m_RtpClient).Equals(false) &&                
+                Common.IDisposedExtensions.IsNullOrDisposed(setupContext = m_RtpClient.GetContextBySourceId(localSsrc)).Equals(false) &&
+                setupContext.InDiscovery.Equals(false))
+            {
+                //SocketEndPoint... for Protocol
+
+                return CreateRtspResponse(request, RtspStatusCode.BadRequest, null, "Ssrc already in use. @ " + setupContext.RemoteSynchronizationSourceIdentifier + "/" + setupContext.SynchronizationSourceIdentifier
+                    + "," + 
+                    (setupContext.IsRtcpEnabled ? ((IPEndPoint)(setupContext.LocalRtp)).ToString() + ((IPEndPoint)(setupContext.RemoteRtp)).ToString() : string.Empty)
+                    + "-" +
+                    (setupContext.IsRtcpEnabled ? ((IPEndPoint)(setupContext.LocalRtcp)).ToString() + ((IPEndPoint)(setupContext.RemoteRtcp)).ToString() : string.Empty));
+            }
 
              //Check for already setup stream and determine if the stream needs to be setup again or just updated
             if (Attached.ContainsKey(sourceContext))
@@ -1702,29 +1766,47 @@ namespace Media.Rtsp//.Server
             //Determine if we have the track
             string track = request.Location.Segments.Last().Replace("/", string.Empty);
 
-            Sdp.MediaType mediaType;
+            int symbolIndex = 0;
 
-            //For a single track
-            if (Enum.TryParse <Sdp.MediaType>(track, true, out mediaType))
+            //Todo, may contain any complaint string...
+
+            //Check for `=`
+
+            if ((symbolIndex = track.IndexOf((char)Common.ASCII.EqualsSign)) >= 0)
             {
-                //bool GetContextBySdpControlLine... out mediaDescription
-                RtpClient.TransportContext sourceContext = source.RtpClient.GetTransportContexts().FirstOrDefault(sc => sc.MediaDescription.MediaType == mediaType);
+                track = track.Substring(symbolIndex);
 
-                //Cannot teardown media because we can't find the track they are asking to tear down
-                if (sourceContext == null)
+                //The track variable now contains a number or string...
+
+                //GetSourceContext()
+
+            }
+            else
+            {
+                 Sdp.MediaType mediaType;
+
+                //For a single track
+                if (Enum.TryParse <Sdp.MediaType>(track, true, out mediaType))
                 {
-                    return CreateRtspResponse(request, RtspStatusCode.NotFound);
+                    //bool GetContextBySdpControlLine... out mediaDescription
+                    RtpClient.TransportContext sourceContext = source.RtpClient.GetTransportContexts().FirstOrDefault(sc => sc.MediaDescription.MediaType == mediaType);
+
+                    //Cannot teardown media because we can't find the track they are asking to tear down
+                    if (Common.IDisposedExtensions.IsNullOrDisposed(sourceContext))
+                    {
+                        return CreateRtspResponse(request, RtspStatusCode.NotFound);
+                    }
+                    else
+                    {
+                        RemoveMedia(sourceContext.MediaDescription);
+                    }
                 }
-                else
+                else //Tear down all streams
                 {
-                    RemoveMedia(sourceContext.MediaDescription);
+                    RemoveSource(source);
                 }
             }
-            else //Tear down all streams
-            {
-                RemoveSource(source);
-            }
-                           
+
             //Return the response
             return CreateRtspResponse(request);
         }

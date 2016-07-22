@@ -217,8 +217,6 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             if (IsDisposed || ShouldDispose.Equals(false)) return;
 
-            Stop();
-
             base.Dispose();
 
             if (Common.IDisposedExtensions.IsNullOrDisposed(RtpClient).Equals(false))
