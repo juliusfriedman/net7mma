@@ -160,12 +160,23 @@ namespace Media.Concepts.Classes.I
 
     #endregion
 
+    #region IPropertyValue
+
+    //https://msdn.microsoft.com/en-us/library/windows/apps/windows.foundation.ipropertyvalue.aspx#methods
+
+    public interface IPropertyValue : Common.Interfaces.Interface { }
+
+    #endregion
+
     #region IReference
+
+    //There is quite a similar concept here...
+    //https://msdn.microsoft.com/en-us/library/windows/apps/br225864.aspx
 
     /// <summary>
     /// A interface which consists of only <see cref="System.Object"/>
     /// </summary>
-    public interface IReference : Media.Common.Interfaces.Interface
+    public interface IReference : IPropertyValue
     {
         /// <summary>
         /// The underlying <see cref="System.Object"/>

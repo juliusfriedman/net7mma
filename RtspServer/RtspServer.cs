@@ -1085,6 +1085,8 @@ namespace Media.Rtsp
 
             Sdp.MediaType mediaType;
 
+            //todo, give out track name for further retrival e.g. when playing or setting up it would be easier to reuse this value than to parse again.
+
             int trackId, symbolIndex;
 
             if (string.IsNullOrWhiteSpace(streamName)) streamName = mediaLocation.Segments[mediaLocation.Segments.Length - 1].ToLowerInvariant().Replace("/", string.Empty).Trim();
@@ -1510,13 +1512,15 @@ namespace Media.Rtsp
                             Common.ILoggingExtensions.LogException(Logger,ex);
 
                             Common.ILoggingExtensions.Log(Logger, "Cannot Start Stream: " + stream.Name + " Id=" + stream.Id);
+
+                            if (ex is ThreadAbortException) System.Threading.Thread.ResetAbort();
                         }
 
                     }, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
                     {
                         Priority = ThreadPriority.AboveNormal
                     }.Start();
-                }
+                }                
                 catch(Exception ex)
                 {
                     Common.ILoggingExtensions.LogException(Logger, ex);
@@ -1550,6 +1554,8 @@ namespace Media.Rtsp
                             Common.ILoggingExtensions.LogException(Logger, ex);
 
                             Common.ILoggingExtensions.Log(Logger, "Cannot Stop Stream: " + stream.Name + " Id=" + stream.Id);
+
+                            if (ex is ThreadAbortException) System.Threading.Thread.ResetAbort();
                         }
                     }, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
                     {
@@ -2235,7 +2241,21 @@ namespace Media.Rtsp
                         }
                     }
                 }
-                
+                else
+                {
+                    //There is no sessionId header (yet)...
+
+                    if (session.m_RtspSocket.Available > 0)
+                    {
+                        session.LastRequest = request;
+
+                        session.StartReceive();
+
+                        return;
+                    }
+
+                }
+
                 //Check for out of order or duplicate requests.
                 if (Common.IDisposedExtensions.IsNullOrDisposed(session.LastRequest).Equals(false))
                 {
@@ -3506,6 +3526,7 @@ namespace Media.Rtsp
             foreach (var stream in m_MediaStreams.ToList())
             {
                 stream.Value.Dispose();
+
                 m_MediaStreams.Remove(stream.Key);
             }
 

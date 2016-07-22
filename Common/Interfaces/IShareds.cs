@@ -62,5 +62,28 @@ namespace Media.Common.Interfaces
         }
     }
 
-    
+    /// <summary>
+    /// Represents a generic <see cref="IShared"/> instance which is <see cref="IComposed"/> of that the same type.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public interface IShared<T> : IShared, IComposed<T>
+    {
+
+    }
+
+    /// <summary>
+    /// Represents a <see cref="IShared"/> <see cref="System.Collections.IList"/>
+    /// </summary>
+    public interface ISharedList : IShared, System.Collections.IList
+    {
+
+    }
+
+    /// <summary>
+    /// Represents a <see cref="IShared"/> <see cref="System.Collections.Generic.IList{T}"/>
+    /// </summary>
+    public interface ISharedList<T> : IShared, System.Collections.Generic.IList<T>
+    {
+
+    }
 }

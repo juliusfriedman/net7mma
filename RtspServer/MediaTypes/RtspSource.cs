@@ -222,7 +222,7 @@ namespace Media.Rtsp.Server.MediaTypes
             {
                 RtspClient.Credential = SourceCredential = credential;
 
-                if (authType != AuthenticationSchemes.None) RtspClient.AuthenticationScheme = SourceAuthenticationScheme = authType;
+                if (false.Equals(authType == AuthenticationSchemes.None)) RtspClient.AuthenticationScheme = SourceAuthenticationScheme = authType;
             }
             
             //If only certain media should be setup 
@@ -349,8 +349,6 @@ namespace Media.Rtsp.Server.MediaTypes
         public override void Dispose()
         {
             if (IsDisposed) return;
-
-            Stop();
 
             base.Dispose();
 

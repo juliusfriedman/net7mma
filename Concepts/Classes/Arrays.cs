@@ -1326,22 +1326,34 @@ namespace Media.Concepts.Classes
     {
         /* `expansionem` */
 
+        /// <summary>
+        /// For expansion
+        /// </summary>
         protected Common.Classes.Class Class;
 
+        /// <summary>
+        /// Provides a reference to the <see cref="Class"/> which this instance represents.
+        /// </summary>
         Common.Classes.Class Common.Interfaces.InterClass.Class
         {
             get { return Class; }
         }
     }
 
+    public class SpannedObject : Span { }
+
+    public class SpannedArray : SpannedObject { }
+
     public class Spanned<T> : Array<T>
     {
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Spanned(T t) : base(t) { }
-    }
+    }    
 
     public class Span<T> : Spanned<T> 
         where T : Span
     {
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public Span(T t) : base(t) { }
     }
 
@@ -1350,10 +1362,12 @@ namespace Media.Concepts.Classes
     public class EnumerableSpan<T> : Spanned<T>, Media.Common.Interfaces.IReadOnly
        where T : System.Collections.Generic.IEnumerable<T>
     {
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public EnumerableSpan(T t) : base(t) { }
 
         bool Common.Interfaces.IReadOnly.IsReadOnly
         {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             get { return true; }
         }
     }

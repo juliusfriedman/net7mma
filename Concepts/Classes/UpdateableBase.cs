@@ -35,7 +35,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 namespace Media.Concepts.Classes
 {
-    public class UpdateableBase : Common.BaseDisposable, Common.IUpdateable
+    /// <summary>
+    /// 
+    /// </summary>
+    public class UpdateableBase : Common.BaseDisposable, Common.IUpdateable//, Concepts.Interfaces.IUsable
     {
         #region Statics
 

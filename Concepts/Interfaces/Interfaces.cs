@@ -36,11 +36,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-namespace Media.Concepts.Classes.C
+namespace Media.Concepts.Interfaces
 {
-    /////////
+    interface IDiambiguation : Common.Interfaces.Interface { }
 
-    public interface Cardinal : Media.Common.Interfaces.Interface { }
-
-    /////////
+    class Ambiguity : IDiambiguation { }
 }

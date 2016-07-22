@@ -37,14 +37,38 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 namespace Media.Common.Collections.Generic
 {
     /// <summary>
-    /// 
+    /// implicitly sorted for now.
     /// </summary>
-    class PrecicseList : Media.Common.Interfaces.ISharedList
+    internal class PrecicseList : Media.Common.Interfaces.ISharedList
     {
+        #region Fields
+
+        bool m_IsShared;
+
         //Used to floor, ciel, etc for the index on int versions
         //int Precision;
 
         System.Collections.Generic.SortedList<double, object> List = new System.Collections.Generic.SortedList<double, object>();
+
+        #endregion
+
+        #region Properties
+
+        //public object this[double index]
+        //{
+        //    get
+        //    {
+        //        return List[index];
+        //    }
+        //    set
+        //    {
+        //        List[index] = value;
+        //    }
+        //}
+
+        #endregion
+
+        #region IList
 
         int System.Collections.IList.Add(object value)
         {
@@ -132,16 +156,22 @@ namespace Media.Common.Collections.Generic
             return List.GetEnumerator();
         }
 
+        #endregion
+
+        #region IShared
+
         bool Interfaces.IShared.IsShared
         {
-            get { return false; }
+            get { return m_IsShared; }
         }
+
+        #endregion
     }
 
     /// <summary>
     /// 
     /// </summary>
-    class PrecisionIndexableList : PrecicseList, Media.Common.Interfaces.IndexableList
+    internal class PrecisionIndexableList : PrecicseList, Media.Common.Interfaces.IndexableList
     {
         long UpperBound, LowerBound;
 
@@ -157,4 +187,9 @@ namespace Media.Common.Collections.Generic
     }
 
     //`genus`
+
+    internal class SortedPreciseList : PrecicseList
+    {
+
+    }
 }

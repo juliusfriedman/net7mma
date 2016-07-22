@@ -36,9 +36,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
+
+//http://www.codeproject.com/Articles/578116/Complete-Managed-Media-Aggregation-Part-III-Quantu
+
 ///All types besides UnitBase could eventually be struct
 namespace Media.Concepts.Classes
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public interface IUnit
     {
         IEnumerable<string> Symbols { get; } //Used with formatting
@@ -64,6 +70,8 @@ namespace Media.Concepts.Classes
     /// </remarks>
     public abstract class UnitBase : IUnit, IFormattable
     {
+        #region Statics
+
         /// <summary>
         /// The <see cref="System.Globalization.RegionInfo"/> as retrieved from <see cref="System.Globalization.RegionInfo.CurrentRegion"/>
         /// </summary>
@@ -76,6 +84,8 @@ namespace Media.Concepts.Classes
         {
             get { return CurrentRegion.IsMetric; }
         }
+
+        #endregion
 
         //Weird, but would allow the ability to add units of differing types without having to access the Units.. would also be doable via Extenions
         //public static class UnitBaseExtensions
@@ -106,27 +116,46 @@ namespace Media.Concepts.Classes
         //    //}
         //}
 
+        #region Fields
+
+        /// <summary>
+        /// The symbols utilized by this instance
+        /// </summary>
         abstract protected List<string> m_Symbols { get; }
+
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// The symbols of this instance.
+        /// </summary>
+        public IEnumerable<string> Symbols
+        {
+            get { return m_Symbols.AsReadOnly(); }
+        }
 
         /// <summary>
         /// Defines the number used to scale other distances to this number.
         /// </summary>
-        public Number Constant { get; internal protected set; }
-
-        public IEnumerable<string> Symbols { get { return m_Symbols.AsReadOnly(); } }
-
-        public Number Units { get; protected set; }
-
-        IEnumerable<string> IUnit.Symbols
+        public Number Constant
         {
-            get { return Symbols; }
+            get;
+            internal protected set;
         }
 
-        Number IUnit.Constant
+        /// <summary>
+        /// The <see cref="Number"/> associated.
+        /// </summary>
+        public Number Units
         {
-            get { return Constant; }
+            get;
+            protected set;
         }
 
+        /// <summary>
+        /// The product of <see cref="Units"/> and <see cref="Constant"/>.
+        /// </summary>
         public Number TotalUnits
         {
             get
@@ -136,6 +165,30 @@ namespace Media.Concepts.Classes
                 return new Number(Units.ToDouble() * Constant.ToDouble());
             }
         }
+
+        #endregion
+
+        #region IUnit
+
+        /// <summary>
+        /// 
+        /// </summary>
+        IEnumerable<string> IUnit.Symbols
+        {
+            get { return Symbols; }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        Number IUnit.Constant
+        {
+            get { return Constant; }
+        }
+
+        #endregion
+
+        #region Constructor
 
         /// <summary>
         /// Constructs a new UnitBase with the given constant
@@ -161,10 +214,11 @@ namespace Media.Concepts.Classes
                 Units = other.Units;
         }
 
+        #endregion
 
         public virtual string ToString(string join = " ")
         {
-            return Units.ToString() + join + m_Symbols.FirstOrDefault() ?? string.Empty;
+            return string.Concat(Units.ToString(), join, m_Symbols.FirstOrDefault());
         }
 
         public override string ToString()
@@ -218,6 +272,103 @@ namespace Media.Concepts.Classes
         }
     }
 
+    /// <summary>
+    /// A layer of <see cref="IUnit"/>; the unit of indirection as well as an <see cref="Media.Common.Interfaces.Interface"/>
+    /// </summary>
+    public interface IndirectionUnit : IUnit, Media.Common.Interfaces.Interface { }
+
+    /// <summary>
+    /// A unit which represents [within a small margin of error] itself. <see cref="IndirectionUnit"/>
+    /// </summary>
+    public class IdealUnit : UnitBase, IndirectionUnit
+    {
+        /// <summary>
+        /// 
+        /// </summary>
+        public const double Zero = Common.Binary.DoubleZero, 
+            One = 1.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001;
+
+        /// <summary>
+        /// The smallest and largest positive values.
+        /// </summary>
+        public static readonly IdealUnit MinValue = new IdealUnit(-0.0), MaxValue = new IdealUnit(double.MaxValue);
+
+        //@Sprintf
+        static readonly List<string> IndirectUnitSymbols = new List<string>()
+            {
+                "{{0}}"
+            };
+
+        /// <summary>
+        /// The Error
+        /// </summary>
+        Number Error;
+
+            /// <summary>
+            /// Create the;
+            /// </summary>
+            public IdealUnit()
+                : base(One)
+            {
+                Constant = MinValue.Constant;
+
+                Units = MinValue.Units;
+
+                Error = Zero;
+            }
+
+            /// <summary>
+            /// Create a;
+            /// </summary>
+            /// <param name="units"></param>
+            public IdealUnit(Number units)
+                : base(Zero)
+            {
+                Units = units;
+
+                Error = Zero;
+            }
+
+            /// <summary>
+            /// Create from;
+            /// </summary>
+            /// <param name="other"></param>
+            public IdealUnit(IdealUnit other) : base(One, other) { }
+
+            /// <summary>
+            /// <see cref="UnitBase"/>
+            /// </summary>
+            /// <param name="value"></param>
+            /// <param name="other"></param>
+            public IdealUnit(Number value, IdealUnit other)
+                : base(One, other)
+            {
+                Units = value;
+
+                Error = One;
+            }
+
+            /// <summary>
+            /// The symbol
+            /// </summary>
+            protected override List<string> m_Symbols
+            {
+                get
+                {
+                    return IndirectUnitSymbols;
+                }
+            }
+
+        //Use IdealUnit for conversions to other units and allow the error to be specified.
+    }
+
+    //ScalarUnit => IdeaUnit
+
+    //VectoralUnit => IdeaUnit
+
+    /// <summary>
+    /// 
+    /// </summary>
     public static class Distances
     {
         public interface IDistance : IUnit
@@ -268,7 +419,7 @@ namespace Media.Concepts.Classes
             public const double KilometersPerMeter = 0.001;
 
             /// <summary>
-            /// The minimum distance in Meters = The Plank Length
+            /// The minimum distance in Meters = The Planck Length
             /// </summary>
             public static readonly Distance MinValue = Physics.ℓP;
 
@@ -421,6 +572,9 @@ namespace Media.Concepts.Classes
         }
     }
     
+    /// <summary>
+    /// 
+    /// </summary>
     public static class Frequencies
     {
         ////    public enum FrequencyKind
@@ -640,6 +794,9 @@ namespace Media.Concepts.Classes
         ////    }
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public static class Temperatures
     {
 
@@ -792,6 +949,9 @@ namespace Media.Concepts.Classes
 
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public static class Masses
     {
         public interface IMass : IUnit
@@ -956,6 +1116,9 @@ namespace Media.Concepts.Classes
         }
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public static class Energies
     {
 
@@ -971,10 +1134,22 @@ namespace Media.Concepts.Classes
 
             public static implicit operator Energy(double t) { return new Energy(t); }
 
-            public static readonly Energy MinValue = 0D;
+            /// <summary>
+            /// `(-0)`
+            /// </summary>
+            /// <remarks>
+            /// Where as 0 would imply infinite `time` but not `frequency` and make such diambiguation quite difficult. (∞)
+            /// </remarks>
+            public static readonly Energy MinValue = -0D;
 
+            /// <summary>
+            /// `1`
+            /// </summary>
             public static readonly Energy One = Joule;
 
+            /// <summary>
+            /// `0`
+            /// </summary>
             public static readonly Energy Zero = 0D;
 
             //Should be Number to avoid readonly ValueType
@@ -1104,7 +1279,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator <(Energy a, IEnergy b)
             {
-                return !(a > b);
+                return (a > b).Equals(false);
             }
 
             public static bool operator ==(Energy a, IEnergy b)
@@ -1116,8 +1291,38 @@ namespace Media.Concepts.Classes
 
             public static bool operator !=(Energy a, IEnergy b)
             {
-                return !(a == b);
+                return (a == b).Equals(false);
             }
+
+            //public static Energy operator ~(Energy a)
+            //{
+            //    throw new NotImplementedException();
+            //}
+
+            //public static Energy operator !(Energy a)
+            //{
+            //    throw new NotImplementedException();
+            //}
+
+            //public static Energy operator &(Energy a, Energy b)
+            //{
+            //    throw new NotImplementedException();
+            //}
+
+            //public static Energy operator |(Energy a, Energy b)
+            //{
+            //    throw new NotImplementedException();
+            //}
+
+            //public static Energy operator <<(Energy a, int f)
+            //{
+            //    throw new NotImplementedException();
+            //}
+
+            //public static Energy operator >>(Energy a, int f)
+            //{
+            //    throw new NotImplementedException();
+            //}
 
             public override bool Equals(object obj)
             {
@@ -1134,6 +1339,9 @@ namespace Media.Concepts.Classes
 
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public static class Velocities
     {
         public interface IVelocity : IUnit
@@ -1275,6 +1483,9 @@ namespace Media.Concepts.Classes
         }
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public static class Forces
     {
         public interface IForce : IUnit
@@ -1370,7 +1581,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator <(Force a, IForce b)
             {
-                return !(a > b);
+                return (a > b).Equals(false);
             }
 
             public static bool operator ==(Force a, IForce b)
@@ -1382,7 +1593,7 @@ namespace Media.Concepts.Classes
 
             public static bool operator !=(Force a, IForce b)
             {
-                return !(a == b);
+                return (a == b).Equals(false);
             }
 
             public override bool Equals(object obj)
@@ -1398,6 +1609,9 @@ namespace Media.Concepts.Classes
         }
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public static class Wavelengths
     {
         public interface IWavelength : IUnit

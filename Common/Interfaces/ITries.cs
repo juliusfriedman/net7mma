@@ -36,28 +36,73 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Common.Interfaces
 {
-    /// <summary>
-    /// Represents a generic <see cref="IShared"/> instance which is <see cref="IComposed"/> of that the same type.
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    public interface IShared<T> : IShared, IComposed<T>
-    {
+    //These concepts are very closely related, to be able to [execute]=> read and write or modify implies Get and Set access when [execute] is not required.
 
+    /// <summary>
+    /// Represents an interface which can obtain an instance.
+    /// </summary>
+    public interface ITryGet
+    {
+        bool TryGet(out object t);
     }
 
     /// <summary>
-    /// Represents a <see cref="IShared"/> <see cref="System.Collections.IList"/>
+    /// Represents an interface which can obtain an instance.
     /// </summary>
-    public interface ISharedList : IShared, System.Collections.IList
+    /// <typeparam name="T">The instance which can be obtained</typeparam>
+    public interface ITryGet<T> : ITryGet
     {
-
+        bool TryGet(out T t);
     }
 
     /// <summary>
-    /// Represents a <see cref="IShared"/> <see cref="System.Collections.Generic.IList{T}"/>
+    /// Represents an interface which can set an instance.
     /// </summary>
-    public interface ISharedList<T> : IShared, System.Collections.Generic.IList<T>
+    public interface ITrySet
     {
+        bool TrySet(object t);
+    }
 
+    /// <summary>
+    /// Represents an interface which can set an instance.
+    /// </summary>
+    /// <typeparam name="T">The instance which can be set</typeparam>
+    public interface ITrySet<T> : ITrySet
+    {
+        bool TrySet(ref T t);
+    }
+
+    /// <summary>
+    /// Represents an interface which can add an instance.
+    /// </summary>
+    public interface ITryAdd
+    {
+        bool TrySet(object t);
+    }
+
+    /// <summary>
+    /// Represents an interface which can add an instance.
+    /// </summary>
+    /// <typeparam name="T">The instance which can be set</typeparam>
+    public interface ITryAdd<T> : ITrySet
+    {
+        bool TryAdd(ref T t);
+    }
+
+    /// <summary>
+    /// Represents an interface which can remove an instance.
+    /// </summary>
+    public interface ITryRemove
+    {
+        bool TrySet(object t);
+    }
+
+    /// <summary>
+    /// Represents an interface which can remove an instance.
+    /// </summary>
+    /// <typeparam name="T">The instance which can be set</typeparam>
+    public interface ITryRemove<T> : ITrySet
+    {
+        bool TryAdd(ref T t);
     }
 }

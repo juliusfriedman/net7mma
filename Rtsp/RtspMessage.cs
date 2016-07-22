@@ -666,7 +666,7 @@ namespace Media.Rtsp
 
             //Empty body or no ContentLength
             //If the message cannot have a body it is parsed.
-            if (m_ContentLength == 0 || false == CanHaveBody) return true;
+            if (m_ContentLength.Equals(0) || false.Equals(CanHaveBody)) return true;
 
             //Get the decoder to use for the body
             Encoding decoder = ParseContentEncoding(false, FallbackToDefaultEncoding);
@@ -678,7 +678,7 @@ namespace Media.Rtsp
             //Calculate how much data remains based on the ContentLength
             remaining = m_ContentLength - existingBodySize;
 
-            if (remaining.Equals(0)) return true;
+            if (remaining <= 0) return true;
 
             //If there was no buffer or an unreadable buffer then no parsing can occur
             if (object.ReferenceEquals(m_Buffer, null) || m_Buffer.CanRead.Equals(false)) return false;
@@ -689,7 +689,7 @@ namespace Media.Rtsp
             int position = (int)m_Buffer.Position,
                    available = max - position;
 
-            if (available.Equals(0)) return false;
+            if (available <= 0) return false;
 
             //Get the array of the memory stream
             byte[] buffer = m_Buffer.GetBuffer();
@@ -706,9 +706,9 @@ namespace Media.Rtsp
             if (available > 0)
             {
                 if (existingBodySize.Equals(0))
-                    m_Body = decoder.GetString(buffer, position, Media.Common.Binary.Min(available, remaining));
+                    m_Body = decoder.GetString(buffer, position, Media.Common.Binary.Min(ref available, ref remaining));
                 else                     //Append to the existing body
-                    m_Body += decoder.GetString(buffer, position, Media.Common.Binary.Min(available, remaining));
+                    m_Body += decoder.GetString(buffer, position, Media.Common.Binary.Min(ref available, ref remaining));
 
                 //No longer needed, and would interfere with CompleteFrom logic.
                 DisposeBuffer();

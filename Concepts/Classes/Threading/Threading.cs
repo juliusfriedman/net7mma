@@ -119,7 +119,7 @@ namespace Media.Concepts.Classes.Threading
 
         #endregion
 
-        //Todo, move to extensions.
+        //Todo, move to extensions.        
 
         #region Methods
 
@@ -340,9 +340,14 @@ namespace Media.Concepts.Classes.Threading
     /// </summary>
     /// <remarks>
     /// [and execution time. (eventually)]
+    /// The name is not quite correct as that `name` has already been utilized <see href="http://stackoverflow.com/questions/38379278/how-can-i-improve-this-wrapper-for-thread/38444258#38444258"/>
     /// </remarks>
     public class Fiber : Media.Common.SuppressedFinalizerDisposable, Media.Common.IUpdateable, Media.Common.IThreadReference
-    {
+    {        
+        public const Fiber Nil = null;
+
+        public const System.Threading.Thread NilThread = null;
+
         System.Threading.Thread UnderlyingThread;
 
         System.Threading.CompressedStack UnderlyingCompressedStack;
@@ -384,6 +389,9 @@ namespace Media.Concepts.Classes.Threading
         readonly System.Threading.ManualResetEventSlim ManualResetEvent;
 
         readonly System.Threading.CancellationTokenSource UpdateTokenSource;
+
+        //Todo EnterCriticalRegion, ExitCritialRegion, IsInCriticalRegion
+        //long Level;
 
         //-- The fibers or actions
 
@@ -566,7 +574,7 @@ namespace Media.Concepts.Classes.Threading
 
         static void ConfigureFiber(Fiber fiber)
         {
-            if (object.ReferenceEquals(fiber, null) || fiber.IsStarted || Common.IDisposedExtensions.IsNullOrDisposed(fiber)) return;
+            if (object.ReferenceEquals(fiber, Nil) || fiber.IsStarted || Common.IDisposedExtensions.IsNullOrDisposed(fiber)) return;
 
             fiber.UnderlyingThread.TrySetApartmentState(System.Threading.ApartmentState.MTA);
 
@@ -585,7 +593,7 @@ namespace Media.Concepts.Classes.Threading
 
             UnderlyingThreadsPriorityInformation = new ThreadPriorityInformation();
 
-            if (object.ReferenceEquals(ConfigureThread, null).Equals(false))
+            if (object.ReferenceEquals(ConfigureThread, Nil).Equals(false))
             {
                 ConfigureThread(UnderlyingThread);
             }

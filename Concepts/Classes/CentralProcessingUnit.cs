@@ -37,7 +37,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 namespace Media.Concepts.Classes
 {
 
-    public static class CentralProcessingUnit //IProcessor
+    public sealed class CentralProcessingUnit //IProcessor
     {
         #region References
 
@@ -137,5 +137,14 @@ namespace Media.Concepts.Classes
 
         //...
 
+        //Enable, Disable
+
+        //Intrinsic, Interrupt, Component, Bios, Coprocessor (FPU), Ram, etc
+
+        //HasByteOrder, HasPeripherials, AmHardware
+        ////bool Common.Interfaces.Has.Has
+        ////{
+        ////    get { return true; }
+        ////}
     }
 }

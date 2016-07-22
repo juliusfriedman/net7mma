@@ -89,6 +89,12 @@ namespace Media.Sdp
         internal static System.Text.Encoding DefaultEncoding = System.Text.Encoding.UTF8;
 
         /// <summary>
+        /// The minimum amount of individual lines which are required to be in a valid session description
+        /// </summary>
+        /// <remarks>v,o/c,m</remarks>
+        public const int MinimumLines = 3;
+
+        /// <summary>
         /// Tries to parse a range from the value.
         /// </summary>
         /// <param name="value">Value to parse</param>
@@ -771,20 +777,32 @@ namespace Media.Sdp
         /// </summary>
         /// <param name="sdpContents">The Session Description Protocol usually recieved in the Describe request of a RtspClient</param>
         public SessionDescription(string sdpContents, bool shouldDispose = true)
+            :this((sdpContents ?? string.Empty).Split(SessionDescription.CRLFSplit, StringSplitOptions.RemoveEmptyEntries), 0, -1, shouldDispose)
+        {
+            //if (string.IsNullOrWhiteSpace(sdpContents)) return;
+
+            //string[] lines = sdpContents.Split(SessionDescription.CRLFSplit, StringSplitOptions.RemoveEmptyEntries);
+        }        
+
+        public SessionDescription(string[] lines, int offset = 0, int length = -1, bool shouldDispose = true)
             :base(shouldDispose)
         {
-            if (string.IsNullOrWhiteSpace(sdpContents)) return;
+            int register;
 
-            string[] lines = sdpContents.Split(SessionDescription.CRLFSplit, StringSplitOptions.RemoveEmptyEntries);
+            if (Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(lines, out register) ||
+                register < MinimumLines || 
+                register < length - offset) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(lines, string.Format("Invalid Session Description, At least {0} lines should be found.", MinimumLines));
 
-            if (lines.Length < 3) Media.Common.TaggedExceptionExtensions.RaiseTaggedException(lines, "Invalid Session Description, At least 3 lines should be found.");
+            //To change the sign
+            //-= register;
 
-            //The order should be maintained as it was given in the contents.
+            //-X (+) -X = (+) X*2
+            register = -register;
 
-            //Parse remaining optional entries
-            for (int lineIndex = 0, endIndex = lines.Length; lineIndex < endIndex; /*Advancement of the loop controlled by the corrsponding Lines via ref*/)
+            //Parse remaining optional entries starting at the given offset until the last entry.
+            for (int endIndex = length + -register; offset <= endIndex; /*Advancement of the loop controlled by the corrsponding Lines via ref*/)
             {
-                string line = lines[lineIndex].Trim();
+                string line = lines[offset].Trim();
 
                 //Todo, use a Dictionary and allow registration.
 
@@ -793,51 +811,51 @@ namespace Media.Sdp
                 {
                     case Media.Sdp.Lines.SessionVersionLine.VersionType:
                         {
-                            m_SessionVersionLine = new Media.Sdp.Lines.SessionVersionLine(lines, ref lineIndex);
+                            m_SessionVersionLine = new Media.Sdp.Lines.SessionVersionLine(lines, ref offset);
                             continue;
                         }
                     case Media.Sdp.Lines.SessionOriginLine.OriginType:
                         {
-                            m_OriginatorLine = new Media.Sdp.Lines.SessionOriginLine(lines, ref lineIndex);
+                            m_OriginatorLine = new Media.Sdp.Lines.SessionOriginLine(lines, ref offset);
                             continue;
                         }
                     case Media.Sdp.Lines.SessionNameLine.NameType:
                         {
-                            m_NameLine = new Media.Sdp.Lines.SessionNameLine(lines, ref lineIndex);
+                            m_NameLine = new Media.Sdp.Lines.SessionNameLine(lines, ref offset);
                             continue;
                         }
                     case Media.Sdp.Lines.SessionTimeDescriptionLine.TimeType:
                         {
-                            m_TimeDescriptions.Add(new TimeDescription(lines, ref lineIndex));
+                            m_TimeDescriptions.Add(new TimeDescription(lines, ref offset));
                             continue;
                         }
                     case Media.Sdp.Lines.SessionMediaDescriptionLine.MediaDescriptionType:
                         {
-                            m_MediaDescriptions.Add(new MediaDescription(lines, ref lineIndex));
+                            m_MediaDescriptions.Add(new MediaDescription(lines, ref offset));
                             continue;
                         }
                     //case Media.Sdp.Lines.SessionAttributeLine.AttributeType:
                     //    {
-                                //Should check or charset or sdpland attribute and switch currentEncoding.
-                    //        m_Lines.Add(new Media.Sdp.Lines.SessionAttributeLine(lines, ref lineIndex));
+                    //Should check or charset or sdpland attribute and switch currentEncoding.
+                    //        m_Lines.Add(new Media.Sdp.Lines.SessionAttributeLine(lines, ref offset));
                     //        continue;
                     //    }
                     //case Media.Sdp.Lines.SessionBandwidthLine.BandwidthType:
                     //    {
-                    //        m_Lines.Add(new Media.Sdp.Lines.SessionBandwidthLine(lines, ref lineIndex));
+                    //        m_Lines.Add(new Media.Sdp.Lines.SessionBandwidthLine(lines, ref offset));
                     //        continue;
                     //    }
                     default:
                         {
                             SessionDescriptionLine parsed;
 
-                            if(SessionDescriptionLine.TryParse(lines, ref lineIndex, out parsed)) m_Lines.Add(parsed);
-                            else lineIndex++;//No advance was made on lineIndex by SessionDescriptionLine if parsed was null
+                            if (SessionDescriptionLine.TryParse(lines, ref offset, out parsed)) m_Lines.Add(parsed);
+                            else offset++;//No advance was made on lineIndex by SessionDescriptionLine if parsed was null
 
                             continue;
                         }
                 }
-            }            
+            }        
         }
 
         /// <summary>

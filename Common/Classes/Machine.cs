@@ -39,6 +39,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 namespace Media.Common
 {
     /// <summary>
+    /// The <see cref="Interface"/> associated with the <see cref="Machine"/>; or IMI. [as in ABI or API]
+    /// </summary>
+    public interface MachineInterface : Interfaces.Interface { }
+
+    /// <summary>
     /// Provides functionality which can be though of based on machine concepts of the current architecture.
     /// </summary>
     /// <note><see href="http://blogs.msdn.com/b/vcblog/archive/2012/10/26/10362875.aspx">Hello ARM</see></note>

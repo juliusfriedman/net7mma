@@ -39,7 +39,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 namespace Media.Concepts.Classes.GC
 {
     /// <summary>
-    /// Uses threads  
+    /// Uses threads to provided by elsewhere to enforce that the `GC` not stop the world [as frequently].
     /// </summary>
     public static class Controller
     {
@@ -64,7 +64,7 @@ namespace Media.Concepts.Classes.GC
         /// <param name="result">If null nothing occurs</param>
         static void Controlation(System.IAsyncResult result)
         {
-            if (result == null) return;
+            if (object.ReferenceEquals(result, null)) return;
 
             System.Threading.Monitor.Enter(result);
 
@@ -130,7 +130,7 @@ namespace Media.Concepts.Classes.GC
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static void Start()
         {
-            if (ControlationThread == null)
+            if (object.ReferenceEquals(ControlationThread, null))
             {
                 ControlationThread = new System.Threading.Thread(ControlationLogic);
 

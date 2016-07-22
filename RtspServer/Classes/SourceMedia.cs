@@ -319,10 +319,10 @@ namespace Media.Rtsp.Server
         public override void Dispose()
         {
             if (IsDisposed) return;
-            
-            Stop();
 
             base.Dispose();
+
+            Stop();
         }
     }
 }

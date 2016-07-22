@@ -35,7 +35,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 namespace Media.Common.Interfaces
 {
-    ///Mangle the name once.
+    ///Mangle the name once, 12 bytes wide
     ///flags, offset, count    
     using Dimension = System.Tuple<int, ulong, ulong>;    
 
@@ -55,7 +55,7 @@ namespace Media.Common.Interfaces
     /// </summary>
     /// <param name="dimensionIndex"></param>
     /// <remarks>
-    /// The information about the dimension is determined by futher delegation
+    /// The information about the dimension is determined by futher delegation, usally via a <see cref="DimensionInformationDelegation"/>
     /// </remarks>
     delegate void DimensionIndexDelegation(ref ulong dimensionIndex);
 

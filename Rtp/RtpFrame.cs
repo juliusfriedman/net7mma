@@ -789,7 +789,7 @@ namespace Media.Rtp
             //If the identity is not the same
             if (false.Equals(ssrc.Equals(m_Ssrc)))
             {
-                if (m_Ssrc.Equals(0))
+                if (m_Ssrc.Equals(Common.Binary.NegativeOne))
                 {
                     m_Ssrc = ssrc;
 

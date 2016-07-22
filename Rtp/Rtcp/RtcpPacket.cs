@@ -885,14 +885,18 @@ namespace Media.Rtcp
         /// <summary>
         /// Finds all types in all loaded assemblies which are a subclass of RtcpPacket and adds those types to either the InstanceMap or the AbstractionBag
         /// </summary>
-        internal protected static void MapDerivedImplementations(AppDomain domain = null)
-        {            
+        internal protected static void MapDerivedImplementations(AppDomain domain = null, bool breakOnError = false)
+        {
+            System.Type[] Types;
 
             //Get all loaded assemblies in the current application domain
             foreach (System.Reflection.Assembly assembly in (domain ?? AppDomain.CurrentDomain).GetAssemblies())
             {
+                try { Types = assembly.GetTypes(); }
+                catch { if(breakOnError) Common.Extensions.Debug.DebugExtensions.BreakIfAttached(); continue; }
+
                 //Iterate each derived type which is a SubClassOf RtcpPacket.
-                foreach (System.Type derivedType in assembly.GetTypes().Where(t => t.IsSubclassOf(RtcpPacketType)))
+                foreach (System.Type derivedType in Types.Where(t => t.IsSubclassOf(RtcpPacketType)))
                 {
                     //If the derivedType is an abstraction then add to the AbstractionBag and continue
                     if(derivedType.IsAbstract)
@@ -930,10 +934,12 @@ namespace Media.Rtcp
                         }
                     }
 
-                    Continue:
+                Continue:                    
                     continue;
                 }
             }
+
+            Types = null;
         }
 
         /// <summary>
@@ -946,8 +952,8 @@ namespace Media.Rtcp
         {
             Exception any;
             return payloadType > default(byte) &&
-            implementation != null &&
-            false == implementation.IsAbstract &&
+            object.ReferenceEquals(implementation, null).Equals(false) &&
+            implementation.IsAbstract.Equals(false) &&
             implementation.IsSubclassOf(RtcpPacketType)
                 ? Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryAdd(ImplementationMap, payloadType, implementation, out any) : false;
         }
