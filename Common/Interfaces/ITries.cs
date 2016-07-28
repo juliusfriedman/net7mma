@@ -83,8 +83,8 @@ namespace Media.Common.Interfaces
     /// <summary>
     /// Represents an interface which can add an instance.
     /// </summary>
-    /// <typeparam name="T">The instance which can be set</typeparam>
-    public interface ITryAdd<T> : ITrySet
+    /// <typeparam name="T">The instance which can be added</typeparam>
+    public interface ITryAdd<T> : ITryAdd
     {
         bool TryAdd(ref T t);
     }
@@ -94,15 +94,15 @@ namespace Media.Common.Interfaces
     /// </summary>
     public interface ITryRemove
     {
-        bool TrySet(object t);
+        bool TryRemove(object t);
     }
 
     /// <summary>
     /// Represents an interface which can remove an instance.
     /// </summary>
-    /// <typeparam name="T">The instance which can be set</typeparam>
-    public interface ITryRemove<T> : ITrySet
+    /// <typeparam name="T">The instance which can be removed</typeparam>
+    public interface ITryRemove<T> : ITryRemove
     {
-        bool TryAdd(ref T t);
+        bool TryRemove(ref T t);
     }
 }

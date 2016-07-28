@@ -143,6 +143,8 @@ namespace Media.UnitTests
 
             if (Console.ReadKey(true).Key == ConsoleKey.Q) return;
 
+            RunTest(HttpClientTests);
+
             RunTest(RtspClientTests);
 
             RunTest(RtspInspector);
@@ -774,7 +776,6 @@ namespace Media.UnitTests
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                     Type = System.Net.AuthenticationSchemes.None
                 },
-                
             })
             {
                 Media.Rtsp.RtspClient.ClientProtocolType? proto = TestObject.Proto;
@@ -801,6 +802,97 @@ namespace Media.UnitTests
                     default:
                     case ConsoleKey.Q: continue;
                     case ConsoleKey.W: goto TestStart;
+                }
+            }
+        }
+
+        //Hosts and Protocols
+        //e.g. socketproto@scheme`://`host`:`port`/`path - Method, HasResponse, MaxAttempts, UserAgent etc.
+
+        public static void HttpClientTests()
+        {
+
+            Action<Http.HttpClient> configureHttpClient = (httpClient) =>
+            {
+
+            };
+
+            Action<Http.HttpMessage> configureHttpMessage = (httpMessage) =>
+            {
+
+            };
+
+            using (Media.Common.Loggers.ConsoleLogger cl = new Common.Loggers.ConsoleLogger())
+            {
+                cl.Log("@input a uri[Enter]:");
+
+                string input = System.Console.ReadLine();
+
+                if (string.IsNullOrWhiteSpace(input))
+                {
+                    cl.LogException(new System.ArgumentNullException("input"));
+
+                    return;
+                }
+
+                System.Uri uri;
+
+                if (System.Uri.TryCreate(input, UriKind.RelativeOrAbsolute, out uri).Equals(false))
+                {
+                    cl.LogException(new System.InvalidOperationException("uri"));
+
+                    return;
+                }
+
+                using (Media.Http.HttpClient httpClient = new Http.HttpClient(uri))
+                {
+                    cl.Log("httpClient@" + httpClient.InternalId);
+
+                    using (Http.HttpMessage httpMessage = new Http.HttpMessage(Http.HttpMessageType.Request))
+                    {
+                        cl.Log("@input httpClient.MethodString[Enter]:");
+
+                        httpMessage.MethodString = System.Console.ReadLine();
+
+                        try
+                        {
+                            System.Net.Sockets.SocketError error;
+
+                            bool useClientProtocolVersion = false, hasResponse = true;
+
+                            int maxAttempts = 0;
+
+                            ///
+                            configureHttpClient(httpClient);
+
+                            ///
+                            configureHttpMessage(httpMessage);
+
+                            //
+                            //httpClient.ProtocolVersion = 1.1;
+
+                            //
+                            //if (useClientProtocolVersion.Equals(false))
+                            //{
+                            //    httpMessage.Version = 1.2;
+                            //}
+
+                            using (Http.HttpMessage httpResponse = httpClient.SendHttpMessage(httpMessage, out error, useClientProtocolVersion, hasResponse, maxAttempts))
+                            {
+                                cl.Log("Received" + httpResponse.ToString());
+                            }
+                        }
+                        catch (Exception @_)
+                        {
+                            cl.LogException(@_);
+                        }
+                        finally
+                        {
+                            cl.Log("BreakIfAttached");
+
+                            Media.Common.Extensions.Debug.DebugExtensions.BreakIfAttached();
+                        }
+                    }
                 }
             }
         }
@@ -2049,14 +2141,16 @@ namespace Media.UnitTests
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Lilin1", "rtsp://admin:pass@118.70.125.33:9654/rtsph264480p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("AxisTest", "rtsp://viewer:viewer@50.28.209.206:5080/axis-media/media.amp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("AxisTest", "rtsp://viewer:viewer@50.28.209.206:5080/axis-media/media.amp", Media.Rtsp.RtspClient.ClientProtocolType.Udp));                
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("AxisTest", "rtsp://viewer:viewer@50.28.209.206:5080/axis-media/media.amp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("AxisTestUdp", "rtsp://viewer:viewer@50.28.209.206:5080/axis-media/media.amp", Media.Rtsp.RtspClient.ClientProtocolType.Udp));                
 
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("NVT", "rtsp://118.70.125.33:19154/user=admin&password=admin12345&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("NVT2", "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/301", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("NVT3", "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/201", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("NVT4", "rtsp://admin:11111111@118.70.125.33:8801/Streaming/channels/201", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                //Apollo - 
 
                 string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
@@ -2409,6 +2503,8 @@ namespace Media.UnitTests
 
                                     Console.WriteLine("*Composition Complete*");
 
+                                    //should allow stop and restart...
+
                                     break;
                                 }
 
@@ -2468,6 +2564,8 @@ namespace Media.UnitTests
 
                                 compositeContext.SendInterval = compositeContext.ReceiveInterval = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
 
+                                int sharedClock = -1; ;
+
                                 //Determine if packets or events will be handled
                                 if (tcpStream.RtpClient.FrameChangedEventsEnabled)
                                 {
@@ -2476,7 +2574,20 @@ namespace Media.UnitTests
                                     //Todo, Delcare a function so what comes in can be buffered if required.
                                     tcpStream.RtpClient.RtpFrameChanged += (sender, frame, transportContext, final) =>
                                     {
-                                        if (final) compositeSource.RtpClient.OnRtpFrameChanged(frame, compositeSource.RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier), final);
+                                        if (final)
+                                        {
+
+                                            if (sharedClock.Equals(-1))
+                                            {
+                                                sharedClock = frame.Timestamp;
+                                            }
+                                            else
+                                            {
+                                                sharedClock += frame.Timestamp - sharedClock;
+                                            }
+
+                                            compositeSource.RtpClient.OnRtpFrameChanged(frame, compositeSource.RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier), final);
+                                        }
                                     };
                                 }
                                 else
@@ -2486,6 +2597,23 @@ namespace Media.UnitTests
                                     //Todo, Delcare a function so what comes in can be buffered if required.
                                     tcpStream.RtpClient.RtpPacketReceieved += (sender, packet, transportContext) =>
                                     {
+
+                                        if (packet.Marker)
+                                        {
+                                            if (sharedClock.Equals(-1))
+                                            {
+                                                sharedClock = packet.Timestamp;
+                                            }
+                                            else
+                                            {
+                                                sharedClock += packet.Timestamp - sharedClock;
+                                            }
+                                        }
+                                        else if (sharedClock.Equals(-1))
+                                        {
+                                            sharedClock = packet.Timestamp;
+                                        }
+
                                         compositeSource.RtpClient.HandleIncomingRtpPacket(sender, packet, null);
                                     };
                                 }

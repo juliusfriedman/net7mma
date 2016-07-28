@@ -75,6 +75,19 @@ namespace Media.Common.Interfaces
     /// </summary>
     public interface ICoherent : Interface { }
 
+    /// <summary>
+    /// of or relating to the viscera.
+    /// `relating to deep inward feelings rather than to the intellect.`
+    /// </summary>
+    public interface IVisceral : ICoherent
+    {
+        /// <summary>
+        /// A quality of being related to the physical as opposed to the virtual or imaginary world or reality.
+        /// 2(gaming) An impact a player has on the world in a game.
+        /// </summary>
+        decimal Viscerality { get; }
+    }
+
     #region Symbol
 
     #region Reference / Precedent / etc
@@ -512,6 +525,7 @@ namespace Media.Common.Interfaces
     /// called the carrier signal, 
     /// with a modulating signal that typically contains information to be transmitted.
     /// </summary>
+    /// <remarks>Usually accompanied with a FFT : a suitaible inversion [of the analog] is also possible.</remarks>
     public partial class Modulation : IModulation { }
 
     #region Internals

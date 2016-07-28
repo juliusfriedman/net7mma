@@ -264,7 +264,7 @@ namespace Media.Sdp
             {
                 rrDirective = rsDirective = asDirective = -1;
 
-                if (mediaDescription == null) return false;
+                if (Common.IDisposedExtensions.IsNullOrDisposed(mediaDescription)) return false;
 
                 int parsed = -1;
 

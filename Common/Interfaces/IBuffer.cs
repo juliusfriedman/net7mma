@@ -48,7 +48,7 @@ namespace Media.Common.Interfaces
     /// <remarks>
     /// The index of the dimension is already known.
     /// </remarks>
-    delegate void DimensionInformationDelegation(ref Dimension dimensionInformation);
+    internal delegate void DimensionInformationDelegation(ref Dimension dimensionInformation);
     
     /// <summary>
     /// Conveys the unsigned index of the dimension being communicated.
@@ -57,12 +57,12 @@ namespace Media.Common.Interfaces
     /// <remarks>
     /// The information about the dimension is determined by futher delegation, usally via a <see cref="DimensionInformationDelegation"/>
     /// </remarks>
-    delegate void DimensionIndexDelegation(ref ulong dimensionIndex);
+    internal delegate void DimensionIndexDelegation(ref ulong dimensionIndex);
 
     /// <summary>
     /// Represents an <see cref="IMutable"/>, <see cref="IShared"/> instance with access to input and output.
     /// </summary>
-    interface IBuffer : IMutable, IShared
+    internal interface IBuffer : IMutable, IShared
     {
         /// <summary>
         /// Where data is read
@@ -111,7 +111,7 @@ namespace Media.Common.Interfaces
 
     //Extensions => IsReadable, IsWriteable, etc.
 
-    interface ICodecBuffer : IBuffer
+    internal interface ICodecBuffer : IBuffer
     {
         //---------------------------
 

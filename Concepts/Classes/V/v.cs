@@ -57,6 +57,11 @@ namespace Media.Concepts.Classes.v
     //Gaze, Observe
 
     /// <summary>
+    /// 
+    /// </summary>
+    public interface IDelegation : Media.Common.Interfaces.Interface { }
+
+    /// <summary>
     /// `prototypum`
     /// </summary>
     internal class Prototype : Common.Classes.Class, Illuminareris, Media.Common.Interfaces.InterClass

@@ -2547,6 +2547,8 @@ namespace Media.Http
             //Fast path doesn't show true equality.
             //other.Created != Created
 
+            if (object.ReferenceEquals(other, null)) return false;
+
             return other.MessageType == MessageType
                 &&
                 other.Version.Equals(Version)
@@ -2577,7 +2579,7 @@ namespace Media.Http
 
         public static bool operator ==(HttpMessage a, HttpMessage b)
         {
-            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);
+            return object.ReferenceEquals(a, null) ? object.ReferenceEquals(b, null) : a.Equals(b);
         }
 
         public static bool operator !=(HttpMessage a, HttpMessage b) { return (a == b).Equals(false); }

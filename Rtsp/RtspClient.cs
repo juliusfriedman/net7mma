@@ -1475,7 +1475,9 @@ namespace Media.Rtsp
             if (IsDisposed) return;
 
             //Is was already playing then set the value
-            if (HandleStopEvent && mediaDescription == null && m_StartedPlaying.HasValue || m_Playing.Count == 0) m_StartedPlaying = null;
+            if (HandleStopEvent && 
+                Common.IDisposedExtensions.IsNullOrDisposed(mediaDescription) && 
+                m_StartedPlaying.HasValue || m_Playing.Count == 0) m_StartedPlaying = null;
 
             RtspClientAction action = OnStop;
 
@@ -2864,7 +2866,6 @@ namespace Media.Rtsp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public void StopPlaying(bool disconnectSocket = true)
         {
-            if (IsDisposed || IsPlaying.Equals(false)) return;
             try { Disconnect(disconnectSocket); }
             catch (Exception ex) { Media.Common.ILoggingExtensions.Log(Logger, ex.Message); }
         }
@@ -6140,14 +6141,14 @@ namespace Media.Rtsp
             }
 
             //Keep track of whats playing
-            if (mediaDescription == null) m_Playing.Clear();
+            if (Common.IDisposedExtensions.IsNullOrDisposed(mediaDescription)) m_Playing.Clear();
             else m_Playing.Remove(mediaDescription);
 
             //Fire the event now
             OnPausing(mediaDescription);
 
             //Send the pause request, determining if the request is for all media or just one.
-            return SendPause(out sequenceNumber, mediaDescription != null ? mediaDescription.GetAbsoluteControlUri(CurrentLocation, SessionDescription) : CurrentLocation, force);
+            return SendPause(out sequenceNumber, Common.IDisposedExtensions.IsNullOrDisposed(mediaDescription) ? CurrentLocation : mediaDescription.GetAbsoluteControlUri(CurrentLocation, SessionDescription), force);
         }
 
         public RtspMessage SendPause(out int sequenceNumber, Uri location = null, bool force = false)
