@@ -294,7 +294,7 @@ namespace Media.Common.Structures
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(Struct @this, IStruct that)
         {
-            return (@this == that).Equals(false);
+            return (object.ReferenceEquals(@this, null) ? object.ReferenceEquals(@that, null) : object.ReferenceEquals(@this, that)).Equals(false);
         }
 
         #endregion

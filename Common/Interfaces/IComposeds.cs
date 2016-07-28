@@ -44,6 +44,18 @@ namespace Media.Common.Interfaces
     public interface ISimilar : Common.Interfaces.Interface { }
     
     /// <summary>
+    /// The <see cref="internal"/> <see cref="interface"/> which extends <see cref="ISimilar"/>
+    /// </summary>
+    /// <remarks> @ k |K| :=
+    /// Not `Limerick`
+    /// `clay` - `limi`
+    /// `education or` - `ilimi k`
+    /// `limit"k"` => `mali bonu`
+    /// - https://en.wikipedia.org/wiki/K
+    /// </remarks>
+    internal interface ILimic : ISimilar { }
+
+    /// <summary>
     /// An <see cref="Interface"/> which is used to convey similaryity to another <see cref="Interface"/>
     /// </summary>
     public interface ISimilarInterface : ISimilar { }

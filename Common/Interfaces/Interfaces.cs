@@ -39,6 +39,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 namespace Media.Common.Interfaces
 {
     /// <summary>
+    /// The <see cref="interface"/> which defines a pattern.
+    /// </summary>
+    internal interface IPattern : Interfaces.Interface { }
+
+    /// <summary>
     /// The <see cref="interface"/> which defines the local <see href="https://en.wikipedia.org/wiki/Causality">causality</see> [sic].
     /// </summary>
     public interface ISpecific : Interface { }
@@ -66,7 +71,7 @@ namespace Media.Common.Interfaces
     {
         public static InterClass FromObject(object o) { throw new System.NotImplementedException(); }
 
-        public static object ToOject(InterClass ic) { throw new System.NotImplementedException(); }
+        public static object ToObject(InterClass ic) { throw new System.NotImplementedException(); }
 
     }
 
@@ -82,7 +87,7 @@ namespace Media.Common.Interfaces
     {
         public static InterStruct FromObject(object o) { throw new System.NotImplementedException(); }
 
-        public static object ToOject(InterStruct ic) { throw new System.NotImplementedException(); }
+        public static object ToObject(InterStruct ic) { throw new System.NotImplementedException(); }
 
     }
 }

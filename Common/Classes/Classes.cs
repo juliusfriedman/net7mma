@@ -78,6 +78,8 @@ namespace Media.Common.Classes
     /// </summary>
     public class Enum : Abstraction, Media.Common.Interfaces.InterClass
     {
+        //System.Enum SystemEnum;
+
         Class Interfaces.InterClass.Class
         {
             get { return this; }
@@ -85,18 +87,18 @@ namespace Media.Common.Classes
     }
 
     /// <summary>
-    /// A <see cref="Class"/> which is also an <see cref="Interfaces.Interface "/>
+    /// A <see cref="Abstraction"/> which is also an <see cref="Interfaces.Interface "/>
     /// </summary>
-    public class ClassInterface : Class, Interfaces.Interface
+    public abstract class ClassInterface : Abstraction, Interfaces.Interface
     {
         //*/
     }
 
     /// <summary>
-    /// A derived <see cref="ClassInterface"/>
+    /// A derived <see cref="ClassInterface"/> which is <see cref="abstract"/>
     /// </summary>
     /// <typeparam name="T">The element type</typeparam>
-    public class ClassInterface<T> : ClassInterface
+    public abstract class ClassInterface<T> : ClassInterface
     {
         ///*
     }

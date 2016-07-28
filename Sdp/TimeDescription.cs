@@ -298,6 +298,13 @@ namespace Media.Sdp
         }
 
         public static bool operator !=(TimeDescription a, TimeDescription b) { return (a == b).Equals(false); }
+
+        public static bool operator ==(TimeDescription a, SessionDescriptionLine b)
+        {
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Contains(b);
+        }
+
+        public static bool operator !=(TimeDescription a, SessionDescriptionLine b) { return (a == b).Equals(false); }
     }
 
     #endregion

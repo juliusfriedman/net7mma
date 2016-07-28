@@ -270,6 +270,13 @@ namespace Media.Sdp
 
         #region Overloads
 
+
+        public static bool operator ==(MediaDescription a, SessionDescriptionLine b)
+        {
+            return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Contains(b);
+        }
+
+        public static bool operator !=(MediaDescription a, SessionDescriptionLine b) { return (a == b).Equals(false); }
         public static bool operator ==(MediaDescription a, MediaDescription b)
         {
             return object.ReferenceEquals(b, null) ? object.ReferenceEquals(a, null) : a.Equals(b);

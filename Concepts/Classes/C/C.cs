@@ -42,5 +42,7 @@ namespace Media.Concepts.Classes.C
 
     public interface Cardinal : Media.Common.Interfaces.Interface { }
 
+    public interface Communiqué : Media.Common.Interfaces.Interface { }
+
     /////////
 }

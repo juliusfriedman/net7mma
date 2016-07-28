@@ -275,7 +275,13 @@ namespace Media.Concepts.Classes
     /// <summary>
     /// A layer of <see cref="IUnit"/>; the unit of indirection as well as an <see cref="Media.Common.Interfaces.Interface"/>
     /// </summary>
-    public interface IndirectionUnit : IUnit, Media.Common.Interfaces.Interface { }
+    public interface IndirectionUnit : IUnit, Media.Common.Interfaces.Interface
+    {
+        /// <summary>
+        /// The Error
+        /// </summary>
+        Number Error { get; }
+    }
 
     /// <summary>
     /// A unit which represents [within a small margin of error] itself. <see cref="IndirectionUnit"/>
@@ -360,11 +366,36 @@ namespace Media.Concepts.Classes
             }
 
         //Use IdealUnit for conversions to other units and allow the error to be specified.
+
+            Number IndirectionUnit.Error
+            {
+                get { return this.Error; }
+            }
+
+            IEnumerable<string> IUnit.Symbols
+            {
+                get { return IndirectUnitSymbols; }
+            }
+
+            Number IUnit.Constant
+            {
+                get { return this.Constant; }
+            }
+
+            Number IUnit.TotalUnits
+            {
+                get { return this.TotalUnits; }
+            }
     }
 
     //ScalarUnit => IdeaUnit
 
     //VectoralUnit => IdeaUnit
+
+    class VisceralUnit : IdealUnit
+    {
+
+    }
 
     /// <summary>
     /// 

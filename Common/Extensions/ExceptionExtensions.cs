@@ -86,13 +86,22 @@ namespace Media.Common.Extensions.Exception
         {
             public readonly IDisposed Disposed;
 
+            /// <summary>
+            /// Gets a value which indicates if <see cref="Disposed"/> is NOT <see cref="null"/>
+            /// </summary>
+            public bool HasDisposed
+            {
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                get { return object.ReferenceEquals(null, Disposed).Equals(false); }
+            }
+
 #if DEBUG
             System.Diagnostics.StackFrame StackFrame;
             
             public ArgumentNullOrDisposedException(string paramName, IDisposed what, int stackFrameDepth, bool fNeedFileInfo)
             {
                 //Warning, memory consumption...
-                System.Diagnostics.StackFrame = new System.Diagnostics.StackFrame(stackFrameDepth, fNeedFileInfo);
+                StackFrame = new System.Diagnostics.StackFrame(stackFrameDepth, fNeedFileInfo);
             }
 #endif
             public ArgumentNullOrDisposedException(IDisposed what) : this(string.Empty, what) { }

@@ -53,25 +53,65 @@ namespace Media.Rtsp//.Server
     /// </summary>
     internal class ClientSession : Common.SuppressedFinalizerDisposable, Media.Common.ILoggingReference  //ISocketReference....
     {
-        #region Statics, Biasi {Not basis}
+        #region Statics, Biasi {Not basis} , or `True Time`; `Fabrica` but not `Fabricated`; `begotten` not `made`
 
         //higher cpu than IsGoodUnlessNullOrDisposed
-        static int IsBadPacketThreshold(RtpPacket a, RtpClient.TransportContext b, int threshold = 0)
+        static int TryAssessIsBadPacketThreshold(RtpPacket a, RtpClient.TransportContext b, int threshold = Common.Binary.Zero)
         {
-            if (Common.IDisposedExtensions.IsNullOrDisposed(a) || Common.IDisposedExtensions.IsNullOrDisposed(b)) return Common.Binary.NegativeOne;
+            try
+            {
+                return (int)Deicide(a, b, threshold, Common.Binary.One);
+            }
+            catch
+            {
+                return Common.Binary.NegativeOne;
+            }
+        }
 
-            int packetSequenceNumber = a.SequenceNumber;
+        static double Deicide(RtpPacket a, RtpClient.TransportContext b, int t = 0, int s = 0)
+        {
+            if (a.Transferred.HasValue)
+            {
+                TimeSpan da = b.LastRtpPacketSent;
 
-            return packetSequenceNumber - b.SendSequenceNumber - threshold;
+                //After
+
+                if (da.Equals(Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan)) return Common.Binary.Zero;
+                else if(a.Transferred.Value.Ticks <= da.Ticks) return Common.Binary.NegativeOne;
+
+                //-- fast path the transfer check, if less than between b.LastRtpPacketSent
+
+                TimeSpan dy = (DateTime.UtcNow - a.Transferred.Value).Duration();
+
+                if (dy <= b.LastRtpPacketSent) return Common.Binary.One;
+
+                //--
+
+                TimeSpan dt = b.LastRtpPacketSent > Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan ? b.LastRtpPacketSent.Subtract(dy).Duration() : b.LastRtpPacketSent;
+
+                //Has the time since the last transfer occured elapsed in a quantity which is greater than or equal to the sendr interval?
+                return dt >= b.m_SendInterval ?
+                    //does that time in 100z of a nanos minus that of the senders jitter differ from the rtp (receive) jitter in such a way that it is greater or equal?
+                    dt.Ticks - b.SenderJitter >= b.RtpJitter ?
+                      Common.Binary.NegativeOne : Common.Binary.Zero
+                    //if not return {0}, <0>, -|0|
+                      : -Common.Binary.Zero;
+            }
+            else
+            {
+                int packetSequenceNumber = a.SequenceNumber;
+
+                return packetSequenceNumber - b.SendSequenceNumber + (- t + s);
+            }
         }
 
         ///---
 
         static int IsBadPacket(Media.Common.IPacket a, RtpClient.TransportContext b)
         {
-            if (Common.IDisposedExtensions.IsNullOrDisposed(a) || Common.IDisposedExtensions.IsNullOrDisposed(b)) return Common.Binary.NegativeOne;
+            if (IsGoodUnlessNullOrDisposed(a, b) <= 0) return Common.Binary.NegativeOne;
 
-            if (a is RtpPacket) return IsBadPacketThreshold(a as RtpPacket, b);
+            if (a is RtpPacket) return TryAssessIsBadPacketThreshold(a as RtpPacket, b);
 
             return IsGoodUnlessNullOrDisposed(a, b);
         }
@@ -542,7 +582,9 @@ namespace Media.Rtsp//.Server
             if (BadPacketDecision(packet, localContext) < 0) goto Exit;
 
             //If the packet seqeuence is out of order in reception to the client
-            if (m_RtpClient.IsActive && false.Equals(localContext.UpdateSequenceNumber(ref packetSequenceNumber)) && false.Equals(localContext.AllowOutOfOrderPackets))
+            if (m_RtpClient.IsActive && 
+                false.Equals(localContext.UpdateSequenceNumber(ref packetSequenceNumber)) && 
+                false.Equals(localContext.AllowOutOfOrderPackets))
             {
                 //Check how many packets were receieved out of order.
                 if (++localContext.m_FailedRtpReceptions > localContext.MinimumSequentialValidRtpPackets)
@@ -1839,7 +1881,7 @@ namespace Media.Rtsp//.Server
                     //E.g. IsInactive
 
                     //If the context does not have any activity
-                    if (false.Equals(context.HasAnyRecentActivity))
+                    if (false.Equals(context.HasAnyRecentActivity) && m_RtpClient.Uptime >= context.m_ReceiveInterval.Add(context.m_SendInterval))
                     {
                         //Session level logger
                         //Context has no activity
@@ -2136,8 +2178,8 @@ namespace Media.Rtsp//.Server
             while (sdp.Remove(controlLine = sdp.ControlLine)) ;
 
             //Cannot set, becaue will be under modification
-            //sdp.ControlLine = new Sdp.SessionDescriptionLine("a=control:*");
-            sdp.Add(new Sdp.SessionDescriptionLine("a=control:*"));
+            sdp.ControlLine = new Sdp.SessionDescriptionLine("a=control:*");
+            //sdp.Add(new Sdp.SessionDescriptionLine("a=control:*"));
 
             //Todo, check if HasMultipleAddrsses in the connectionLine should be changed...
 
@@ -2234,7 +2276,7 @@ namespace Media.Rtsp//.Server
                 //    md.Add(new Sdp.SessionDescriptionLine("b=RS:140"));
                 //    md.Add(new Sdp.SessionDescriptionLine("b=RR:140"));
 
-                //    md.Add(new Sdp.SessionDescriptionLine("b=AS:0")); //Determine if AS needs to be forwarded
+                //    md.Add(new Sdp.SessionDescriptionLine("b=AS:0")); //Determine if AS etc needs to be forwarded or handled
                 //}
 
                 //Should actually reflect outgoing port for this session
@@ -2246,11 +2288,15 @@ namespace Media.Rtsp//.Server
                 {
                     RtpClient.TransportContext context = m_RtpClient.GetContextForMediaDescription(md);
 
+                    //If there exists a context which is null or not disposed then provide the port from that context
                     if (false.Equals(Common.IDisposedExtensions.IsNullOrDisposed(context)))
                     {
+                        //The port field of the media description is set to the remote rtp port.
                         md.MediaPort = ((IPEndPoint)context.RemoteRtp).Port;
 
                         //Set any other variables which may be been changed in the session
+
+                        //OnDescriptionCreation
 
                         context = null;
                     }
