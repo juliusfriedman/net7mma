@@ -325,7 +325,7 @@ namespace Media.UnitTests
             MyTestClass testClass = new MyTestClass();
 
             //Todo ... show how to allow to TypedReference use inside the body
-            System.TypedReference member = __makeref(testClass.Test);
+            //System.TypedReference member = __makeref(testClass.Test);
 
             System.Type type = typeof(System.Reflection.PropertyInfo);
 
